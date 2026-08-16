@@ -547,9 +547,17 @@ const STYLES = `
   }
   .list-row:hover{ background:var(--surface-2); }
   .list-row:last-child{ border-bottom:none; }
-  .list-row .primary{ font-weight:600; font-size:var(--fs-md); }
-  .list-row .secondary{ font-size:var(--fs-sm); color:var(--text-muted); margin-top:2px; }
-  .row-actions{ display:flex; gap:6px; }
+  /* Blocul de continut trebuie sa ocupe latimea ramasa, altfel se
+     strange la latimea textului si space-between il aseaza diferit pe
+     fiecare rand — ceea ce face lista sa para centrata si dezordonata.
+     min-width:0 permite trunchierea in loc de intindere. */
+  .list-row > *:first-child{ flex:1 1 auto; min-width:0; text-align:left; }
+  .list-row .primary{ font-weight:600; font-size:var(--fs-md); text-align:left; }
+  .list-row .secondary{
+    font-size:var(--fs-sm); color:var(--text-muted); margin-top:2px; text-align:left;
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  }
+  .row-actions{ display:flex; gap:6px; flex:0 0 auto; }
 
   /* ---------- Room / task cards ---------- */
   .room-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(190px,1fr)); gap:12px; }
