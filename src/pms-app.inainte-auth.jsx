@@ -1931,7 +1931,7 @@ function PMSApp() {
     return (
       <div className="pms">
         <style>{STYLES}</style>
-        <Login onLogin={setCurrentUser} />
+        <Login users={core.users} onLogin={setCurrentUser} />
       </div>
     );
   }
@@ -1944,7 +1944,7 @@ function PMSApp() {
         user={currentUser}
         view={view}
         setView={setView}
-        onLogout={async () => { await supabase.auth.signOut(); setCurrentUser(null); }}
+        onLogout={() => setCurrentUser(null)}
         core={core}
         updateCore={updateCore}
         reservations={reservations}
@@ -1964,33 +1964,17 @@ function PMSApp() {
 /* ---------------------------------------------------------------
    LOGIN
 ----------------------------------------------------------------*/
-function Login({ onLogin }) {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+function Login({ users, onLogin }) {
+  const [selectedId, setSelectedId] = useState("");
+  const [pin, setPin] = useState("");
   const [error, setError] = useState("");
-  const [busy, setBusy] = useState(false);
 
-  const submit = async () => {
-    setBusy(true); setError("");
-    try {
-      const { data, error: authErr } = await supabase.auth.signInWithPassword({
-        email: email.trim(), password,
-      });
-      if (authErr) throw authErr;
-      const { data: st, error: stErr } = await supabase
-        .from("staff").select("name, role").eq("user_id", data.user.id).maybeSingle();
-      if (stErr) throw stErr;
-      if (!st) {
-        await supabase.auth.signOut();
-        throw new Error("Contul nu are drepturi in aplicatie.");
-      }
-      onLogin({ id: data.user.id, name: st.name, role: st.role });
-    } catch (e) {
-      setError(e?.message || "Autentificare esuata.");
-      setPassword("");
-    } finally {
-      setBusy(false);
-    }
+  const selected = users.find((u) => u.id === selectedId) || null;
+
+  const submit = () => {
+    if (!selected) return;
+    if (pin === selected.pin) { onLogin(selected); }
+    else { setError("PIN incorect. Încearcă din nou."); setPin(""); }
   };
 
   return (
@@ -2000,30 +1984,48 @@ function Login({ onLogin }) {
           <div className="mark"><DoorOpen size={18} /></div>
           <div>
             <h1>La Livada PMS</h1>
-            <p>Autentifica-te pentru a continua</p>
+            <p>Selectează contul pentru a continua</p>
           </div>
         </div>
-        <label className="field">
-          <span className="fl">Email</span>
-          <input type="email" value={email} autoComplete="username"
-            onChange={(e) => { setEmail(e.target.value); setError(""); }} />
+
+        <label className="field login-user-field">
+          <span className="fl">Cont</span>
+          <select
+            value={selectedId}
+            onChange={(e) => { setSelectedId(e.target.value); setPin(""); setError(""); }}
+          >
+            <option value="" disabled>Alege un cont</option>
+            {users.map((u) => (
+              <option key={u.id} value={u.id}>{u.name} — {ROLE_LABEL[u.role]}</option>
+            ))}
+          </select>
         </label>
-        <label className="field">
-          <span className="fl">Parola</span>
-          <input type="password" value={password} autoComplete="current-password"
-            onChange={(e) => { setPassword(e.target.value); setError(""); }}
-            onKeyDown={(e) => e.key === "Enter" && submit()} />
-        </label>
-        <button className="btn btn-primary" onClick={submit}
-          disabled={busy || !email.trim() || !password}>
-          <ShieldCheck size={15} /> {busy ? "Se verifica..." : "Intra in cont"}
-        </button>
-        {error && <div className="error-text" role="alert">{error}</div>}
+
+        {selected && (
+          <div className="pin-box">
+            <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-muted)", display: "block", marginBottom: 8 }}>
+              PIN pentru {selected.name}
+            </label>
+            <input
+              type="password"
+              inputMode="numeric"
+              maxLength={4}
+              value={pin}
+              autoFocus
+              onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))}
+              onKeyDown={(e) => e.key === "Enter" && submit()}
+              placeholder="••••"
+            />
+            <button className="btn btn-primary" onClick={submit} disabled={pin.length < 4}>
+              <ShieldCheck size={15} /> Intră în cont
+            </button>
+            {error && <div className="error-text" role="alert">{error}</div>}
+          </div>
+        )}
       </div>
     </div>
   );
 }
-
 
 /* ---------------------------------------------------------------
    APP SHELL — nav + routed content
