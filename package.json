@@ -2,7 +2,9 @@
   "name": "la-livada-pms",
   "private": true,
   "version": "0.0.0",
-  "engines": { "node": "24.x" },
+  "engines": {
+    "node": "24.x"
+  },
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -11,6 +13,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.112.3",
     "lucide-react": "^1.31.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8"
