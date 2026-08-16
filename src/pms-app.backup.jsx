@@ -1,4 +1,3 @@
-import { supabase } from "./supabase.js";
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import {
   CalendarDays, Users, DoorOpen, Zap, UserCog, LogOut,
@@ -1547,10 +1546,11 @@ const audit = {
 
 async function loadShared(key, fallback) {
   try {
-    const { data, error } = await supabase
-      .from("app_state").select("value").eq("key", key).maybeSingle();
-    if (error) throw error;
-    const parsed = data ? data.value : null;
+    if (!window.localStorage) return fallback;
+    const raw = window.localStorage.getItem(key);
+    if (typeof raw !== "string") return fallback;
+    const parsed = JSON.parse(raw);
+    // A truncated or hand-edited value can parse into the wrong shape.
     if (parsed == null) return fallback;
     if (Array.isArray(fallback) && !Array.isArray(parsed)) return fallback;
     if (fallback && typeof fallback === "object" && !Array.isArray(fallback)
@@ -1561,12 +1561,19 @@ async function loadShared(key, fallback) {
     return fallback;
   }
 }
+
 async function saveShared(key, value) {
+  let payload;
   try {
-    const { error } = await supabase
-      .from("app_state")
-      .upsert({ key, value, updated_at: new Date().toISOString() }, { onConflict: "key" });
-    if (error) throw error;
+    payload = JSON.stringify(value);
+  } catch (e) {
+    console.error("Storage serialize failed", key, e);
+    return false;
+  }
+  if (payload == null) return false;
+  try {
+    if (!window.localStorage) return false;
+    window.localStorage.setItem(key, payload);
     return true;
   } catch (e) {
     console.error("Storage save failed", key, e);
