@@ -1517,119 +1517,6 @@ function toLocalInputValue(iso) {
 /* ---------------------------------------------------------------
    STORAGE LAYER
 ----------------------------------------------------------------*/
-/* ---------------------------------------------------------------
-   STRAT DE DATE — tabele reale in Supabase
-   Citirile aduc fiecare tabel separat; scrierile compara lista veche
-   cu cea noua si trimit DOAR randurile schimbate, ca doua persoane
-   care lucreaza simultan sa nu se suprascrie reciproc.
-----------------------------------------------------------------*/
-const camelRes = (r) => ({
-  id: r.id, roomId: r.room_id, guestId: r.guest_id, groupId: r.group_id,
-  checkin: r.checkin, checkout: r.checkout, status: r.status,
-  adults: r.adults, children: r.children, priceOverride: r.price_override,
-  source: r.source, tags: r.tags || [], notes: r.notes || "",
-  occupantLastName: r.occupant_last_name || "", occupantFirstName: r.occupant_first_name || "",
-  occupantPhone: r.occupant_phone || "", occupantName:
-    [r.occupant_last_name, r.occupant_first_name].filter(Boolean).join(" "),
-  messages: r.messages || [], seeded: r.seeded,
-});
-const snakeRes = (r) => ({
-  id: r.id, room_id: r.roomId, guest_id: r.guestId || null, group_id: r.groupId || null,
-  checkin: new Date(r.checkin).toISOString(), checkout: new Date(r.checkout).toISOString(),
-  status: r.status, adults: r.adults ?? 2, children: r.children ?? 0,
-  price_override: r.priceOverride ?? null, source: r.source || "direct",
-  tags: r.tags || [], notes: r.notes || null,
-  occupant_last_name: r.occupantLastName || null,
-  occupant_first_name: r.occupantFirstName || null,
-  occupant_phone: r.occupantPhone || null,
-  messages: r.messages || [], seeded: !!r.seeded,
-});
-const camelGuest = (g) => ({
-  id: g.id, lastName: g.last_name, firstName: g.first_name, name:
-    [g.last_name, g.first_name].filter(Boolean).join(" "),
-  phone: g.phone, email: g.email || "", address: g.address || "",
-  city: g.city, county: g.county, country: g.country, notes: g.notes || "", seeded: g.seeded,
-});
-const snakeGuest = (g) => ({
-  id: g.id, last_name: g.lastName || "-", first_name: g.firstName || "-",
-  phone: g.phone || "-", email: g.email || null, address: g.address || null,
-  city: g.city || "-", county: g.county || "-", country: g.country || "România",
-  notes: g.notes || null, seeded: !!g.seeded,
-});
-const camelRoom = (r) => ({
-  id: r.id, name: r.name, type: r.type, capacity: r.capacity,
-  shellyId: r.shelly_id || "", sensiboId: r.sensibo_id || "",
-  icalToken: r.ical_token, sortOrder: r.sort_order,
-});
-const snakeRoom = (r, idx) => ({
-  id: r.id, name: r.name, type: r.type, capacity: r.capacity ?? 2,
-  shelly_id: r.shellyId || null, sensibo_id: r.sensiboId || null,
-  sort_order: r.sortOrder ?? idx,
-});
-const camelGroup = (g) => ({
-  id: g.id, name: g.name, mainGuestId: g.main_guest_id,
-  notes: g.notes || "", createdAt: g.created_at, seeded: g.seeded,
-});
-const snakeGroup = (g) => ({
-  id: g.id, name: g.name, main_guest_id: g.mainGuestId || null,
-  notes: g.notes || null, seeded: !!g.seeded,
-});
-
-/* Trimite doar diferentele: randuri noi/modificate prin upsert,
-   randuri disparute prin delete. */
-async function syncTable(table, before, after, toRow) {
-  const prevById = new Map((before || []).map((x) => [x.id, x]));
-  const nextById = new Map((after || []).map((x) => [x.id, x]));
-  const schimbate = (after || [])
-    .map((x, idx) => [x, idx])
-    .filter(([x]) => {
-      const old = prevById.get(x.id);
-      return !old || JSON.stringify(x) !== JSON.stringify(old);
-    })
-    .map(([x, idx]) => toRow(x, idx));
-  const sterse = (before || []).filter((x) => !nextById.has(x.id)).map((x) => x.id);
-
-  if (sterse.length) {
-    const { error } = await supabase.from(table).delete().in("id", sterse);
-    if (error) throw error;
-  }
-  if (schimbate.length) {
-    const { error } = await supabase.from(table).upsert(schimbate, { onConflict: "id" });
-    if (error) throw error;
-  }
-}
-
-async function loadAll() {
-  const [rooms, guests, groups, res, rates, seasons] = await Promise.all([
-    supabase.from("rooms").select("*").order("sort_order"),
-    supabase.from("guests").select("*"),
-    supabase.from("res_groups").select("*"),
-    supabase.from("reservations").select("*"),
-    supabase.from("rates").select("*"),
-    supabase.from("seasons").select("*"),
-  ]);
-  for (const r of [rooms, guests, groups, res, rates, seasons]) if (r.error) throw r.error;
-
-  const base = {};
-  rates.data.forEach((r) => { base[r.room_type] = Number(r.base_price); });
-  const sez = {};
-  seasons.data.forEach((s) => {
-    sez[s.id] = sez[s.id] || { id: s.id, name: s.name, start: s.start_md, end: s.end_md };
-    sez[s.id][s.room_type] = Number(s.price);
-  });
-
-  return {
-    rooms: rooms.data.map(camelRoom),
-    guests: guests.data.map(camelGuest),
-    groups: groups.data.map(camelGroup),
-    reservations: res.data.filter((r) => r.source !== "blocaj").map(camelRes),
-    blocks: res.data.filter((r) => r.source === "blocaj").map((b) => ({
-      id: b.id, roomId: b.room_id, start: b.checkin, end: b.checkout, reason: b.notes || "",
-    })),
-    rates: { base, seasons: Object.values(sez) },
-  };
-}
-
 const K = {
   core: "pms:core:v3",
   res: "pms:reservations:v3",
@@ -1934,33 +1821,45 @@ function PMSApp() {
     let alive = true;
     (async () => {
       try {
-        if (!currentUser) { if (alive) setLoading(false); return; }
-        const db = await loadAll();
-        // Setarile care nu au tabel propriu (useri, ore check-in etc.)
-        // raman in app_state; restul vine acum din tabele reale.
-        const settings = (await loadShared(K.core, null)) || {};
-        const c = repairCore({
-          ...settings,
-          rooms: db.rooms,
-          guests: db.guests,
-          rates: db.rates,
-        });
-        const r = db.reservations;
-        const gr = db.groups.filter((g) => r.some((x) => x.groupId === g.id));
-        const bl = db.blocks;
+        let c = await loadShared(K.core, null);
+        const repaired = repairCore(c);
+        if (!c || JSON.stringify(repaired) !== JSON.stringify(c)) {
+          if (c) console.warn("PMS: date de configurare reparate la încărcare");
+          await saveShared(K.core, repaired);
+        }
+        c = repaired;
 
+        let r = await loadShared(K.res, null);
+        if (!r) { r = seedReservations(c); await saveShared(K.res, r); }
+        else {
+          const fixed = repairReservations(r, c);
+          if (fixed.length !== r.length) { await saveShared(K.res, fixed); }
+          r = fixed;
+        }
         let h = await loadShared(K.hk, null);
         if (!h || typeof h !== "object" || Array.isArray(h)) {
           h = {};
           c.rooms.forEach((rm) => { h[rm.id] = { status: "clean", updatedAt: new Date().toISOString() }; });
           await saveShared(K.hk, h);
         }
+        let gr = await loadShared(K.groups, null);
+        if (!Array.isArray(gr)) gr = seedGroups();
+        // Groups whose reservations are all gone would show as empty rows.
+        // Record the drop so it isn't a silent, unexplained disappearance.
+        const orphans = gr.filter((g) => g && g.id && !r.some((x) => x.groupId === g.id));
+        gr = gr.filter((g) => g && g.id && r.some((x) => x.groupId === g.id));
+        let bl = repairBlocks(await loadShared(K.blocks, []), c);
         let lg = await loadShared(K.log, []);
         if (!Array.isArray(lg)) lg = [];
         if (!alive) return;
         audit.entries = lg; audit.setEntries = setLogEntries;
         setCore(c); setReservations(r); setHousekeeping(h);
         setGroups(gr); setBlocks(bl); setLogEntries(lg);
+        if (orphans.length) {
+          await saveShared(K.groups, gr);
+          await audit.push("Grupuri fără rezervări eliminate",
+            orphans.map((g) => g.name || g.id).join(", "));
+        }
       } catch (err) {
         console.error("PMS init failed", err);
         if (alive) setInitError(err?.message || "Eroare necunoscută la pornire.");
@@ -1969,73 +1868,13 @@ function PMSApp() {
       }
     })();
     return () => { alive = false; };
-  }, [reloadKey, currentUser]);
+  }, [reloadKey]);
 
-  /* Fiecare functie trimite doar randurile schimbate. Starea locala
-     se actualizeaza imediat, iar daca scrierea esueaza (de ex. camera
-     tocmai a fost ocupata de altcineva) eroarea ajunge la utilizator
-     si datele se reincarca din baza. */
-  const coreRef = useRef(core);
-  useEffect(() => { coreRef.current = core; }, [core]);
-  const resRef = useRef(reservations);
-  useEffect(() => { resRef.current = reservations; }, [reservations]);
-  const grRef = useRef(groups);
-  useEffect(() => { grRef.current = groups; }, [groups]);
-  const blRef = useRef(blocks);
-  useEffect(() => { blRef.current = blocks; }, [blocks]);
-
-  const raporteazaEroare = useCallback((e) => {
-    const m = e?.message || "";
-    toaster.show(
-      m.includes("fara_suprapunere") || m.includes("exclusion")
-        ? "Camera este deja ocupata in acea perioada."
-        : "Salvarea a esuat: " + m,
-      { tone: "danger" }
-    );
-    setReloadKey((k) => k + 1);
-  }, []);
-
-  const updateCore = useCallback(async (next) => {
-    const before = coreRef.current;
-    setCore(next);
-    try {
-      await syncTable("rooms", before.rooms, next.rooms, snakeRoom);
-      await syncTable("guests", before.guests, next.guests, snakeGuest);
-      const { rooms, guests, rates, ...settings } = next;
-      await saveShared(K.core, settings);
-    } catch (e) { raporteazaEroare(e); }
-  }, [raporteazaEroare]);
-
-  const updateReservations = useCallback(async (next) => {
-    const before = resRef.current;
-    setReservations(next);
-    try { await syncTable("reservations", before, next, snakeRes); }
-    catch (e) { raporteazaEroare(e); }
-  }, [raporteazaEroare]);
-
-  const updateGroups = useCallback(async (next) => {
-    const before = grRef.current;
-    setGroups(next);
-    try { await syncTable("res_groups", before, next, snakeGroup); }
-    catch (e) { raporteazaEroare(e); }
-  }, [raporteazaEroare]);
-
-  const updateBlocks = useCallback(async (next) => {
-    const before = blRef.current;
-    setBlocks(next);
-    try {
-      await syncTable("reservations", before, next, (b) => ({
-        id: b.id, room_id: b.roomId,
-        checkin: new Date(b.start).toISOString(),
-        checkout: new Date(b.end).toISOString(),
-        status: "confirmed", source: "blocaj", notes: b.reason || null,
-      }));
-    } catch (e) { raporteazaEroare(e); }
-  }, [raporteazaEroare]);
-
-  const updateHousekeeping = useCallback(async (next) => {
-    setHousekeeping(next); await saveShared(K.hk, next);
-  }, []);
+  const updateCore = useCallback(async (next) => { setCore(next); await saveShared(K.core, next); }, []);
+  const updateReservations = useCallback(async (next) => { setReservations(next); await saveShared(K.res, next); }, []);
+  const updateHousekeeping = useCallback(async (next) => { setHousekeeping(next); await saveShared(K.hk, next); }, []);
+  const updateGroups = useCallback(async (next) => { setGroups(next); await saveShared(K.groups, next); }, []);
+  const updateBlocks = useCallback(async (next) => { setBlocks(next); await saveShared(K.blocks, next); }, []);
 
   useEffect(() => { audit.user = currentUser; }, [currentUser]);
 
