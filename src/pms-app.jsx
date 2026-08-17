@@ -4790,7 +4790,9 @@ function RoomModal({ room, onSave, onClose }) {
   const [sensiboId, setSensiboId] = useState(room?.sensiboId || "");
   const [error, setError] = useState("");
 
-  const icalUrl = room?.icalToken ? `${window.location.origin}/ical/${room.icalToken}.ics` : null;
+  const icalUrl = room?.icalToken
+    ? `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ical-feed/${room.icalToken}.ics`
+    : null;
   const copyIcal = async () => {
     if (!icalUrl) return;
     try {
