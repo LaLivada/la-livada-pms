@@ -1145,21 +1145,6 @@ const STYLES = `
     .top-btn{ padding:9px 10px; }
   }
   @media (max-width:860px){
-    /* Camerele curg in pagina (scroll vertical normal); meniul principal
-       urca odata cu pagina, iar doar bara Azi/Rezervare ramane fixa sus,
-       cu un mic spatiu deasupra. cal-scroll pastreaza doar scroll orizontal.
-       .content-cal scoate overflow-x:auto (care ii cupleaza automat si
-       overflow-y, transformand-o intr-un container de scroll ce ar bloca
-       position:sticky sa ajunga la scroll-ul real al paginii) — scroll-ul
-       orizontal ramane oricum acoperit de cal-scroll insusi. */
-    .topbar-cal{ position:static; }
-    .content-cal{ overflow-x:visible; }
-    .cal-scroll{ max-height:none; overflow-y:visible; }
-    .cal-foot{ position:static; }
-    .cal-toolbar{
-      position:sticky; top:0; z-index:15;
-      background:var(--bg); box-shadow:0 1px 0 var(--border);
-    }
     .cal-occ{ flex-direction:row; gap:4px; }
     .occ-pct::before{ content:"• "; }
     .cal-legend{
@@ -1168,6 +1153,23 @@ const STYLES = `
     }
     .legend-item{ flex-shrink:0; gap:2px; white-space:nowrap; }
     .legend-chip{ width:12px; height:12px; font-size:8px; }
+  }
+
+  /* Calendar: camerele curg in pagina (scroll vertical normal, la orice
+     latime); meniul principal urca odata cu pagina, iar doar bara
+     Azi/Rezervare ramane fixa sus, cu un mic spatiu deasupra. cal-scroll
+     pastreaza doar scroll orizontal. .content-cal scoate overflow-x:auto
+     (care ii cupleaza automat si overflow-y, transformand-o intr-un
+     container de scroll ce ar bloca position:sticky sa ajunga la scroll-ul
+     real al paginii) — scroll-ul orizontal ramane oricum acoperit de
+     cal-scroll insusi. */
+  .topbar-cal{ position:static; }
+  .content-cal{ overflow-x:visible; }
+  .cal-scroll{ max-height:none; overflow-y:visible; }
+  .cal-foot{ position:static; }
+  .cal-toolbar{
+    position:sticky; top:0; z-index:15;
+    background:var(--bg); box-shadow:0 1px 0 var(--border);
   }
 `;
 
