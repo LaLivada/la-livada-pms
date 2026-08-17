@@ -880,11 +880,12 @@ const STYLES = `
 
   @media print{
     body{ background:#fff; }
-    /* .pms/.shell/.content raman cu min-height:100vh chiar si golite de
-       continut (regula de mai jos ascunde doar copiii lor) — fara asta,
-       ramane o pagina 1 complet goala inaintea facturii, care e randata
-       printr-un portal in <body>, deci vine dupa in DOM. */
-    .pms, .shell, .content{ min-height:0 !important; height:auto !important; }
+    /* #root (index.css) si .pms/.shell/.content raman cu min-height:100vh
+       (sau 100svh) chiar si golite de continut (regula de mai jos ascunde
+       doar copiii lor) — fara asta, ramane o pagina 1 complet goala
+       inaintea facturii, care e randata printr-un portal in <body>, deci
+       vine dupa #root in DOM. */
+    #root, .pms, .shell, .content{ min-height:0 !important; height:auto !important; }
     .pms .topbar, .pms .content > *:not(.arrival-overlay){ display:none !important; }
     .pms .no-print{ display:none !important; }
     .arrival-overlay{
