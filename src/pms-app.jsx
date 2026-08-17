@@ -267,7 +267,7 @@ const STYLES = `
     transition:background .15s, color .15s, border-color .15s; flex-shrink:0;
   }
   .icon-btn:hover{ background:var(--surface-2); color:var(--text); border-color:var(--text-muted); }
-  .content{ padding:20px 26px calc(40px + env(safe-area-inset-bottom)); flex:1; overflow-x:auto; }
+  .content{ padding:20px 26px calc(40px + env(safe-area-inset-bottom)); flex:1; overflow-x:auto; overscroll-behavior-x:contain; }
 
   /* ---------- Bottom nav (mobile) ---------- */
 
@@ -374,7 +374,7 @@ const STYLES = `
     background:var(--surface); box-shadow:var(--shadow-sm);
     max-height:calc(100vh - var(--topbar-h) - 132px);
     max-height:calc(100dvh - var(--topbar-h) - 132px);
-    -webkit-overflow-scrolling:touch; overscroll-behavior:contain; scrollbar-width:thin;
+    -webkit-overflow-scrolling:touch; overscroll-behavior:none; scrollbar-width:thin;
   }
   .cal-grid{ display:grid; min-width:1060px; }
   .cal-row{ display:grid; grid-template-columns:78px repeat(var(--days), minmax(66px, 1fr)); }
