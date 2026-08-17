@@ -755,38 +755,55 @@ const STYLES = `
   }
 
   /* ---------- Invoice (factura) ---------- */
-  .inv-top{ display:flex; justify-content:space-between; align-items:flex-start; padding:16px 20px; border-bottom:1px solid #d0d0cc; gap:20px; }
-  .inv-issuer{ font-size:11.5px; color:#444; line-height:1.6; margin-top:6px; }
-  .inv-issuer strong{ display:block; color:#141412; font-size:12.5px; margin-bottom:2px; }
-  .inv-meta{ text-align:right; flex-shrink:0; }
-  .inv-meta-title{ font-size:20px; font-weight:700; letter-spacing:.06em; color:#141412; }
-  .inv-meta-number{ font-size:13px; color:#333; margin-top:4px; font-weight:600; }
-  .inv-meta-date{ font-size:11px; color:#8a8a86; margin-top:3px; }
-  .inv-parties{ display:flex; border-bottom:1px solid #d0d0cc; }
-  .inv-party{ flex:1; padding:14px 20px; min-width:0; }
-  .inv-party + .inv-party{ border-left:1px solid #e0e0dc; }
-  .inv-party-lab{ font-size:9.5px; text-transform:uppercase; letter-spacing:.12em; color:#8a8a86; font-weight:700; margin-bottom:6px; }
+  .inv-hero{
+    position:relative; overflow:hidden; background:#1c1a17; color:#fff;
+    display:flex; align-items:flex-start; justify-content:space-between;
+    gap:20px; padding:26px 28px 30px;
+  }
+  .inv-hero::before, .inv-hero::after{ content:""; position:absolute; z-index:0; }
+  .inv-hero::before{ width:240px; height:240px; right:-70px; top:-110px; background:#332b1e; transform:rotate(35deg); }
+  .inv-hero::after{ width:120px; height:420px; right:54px; top:-160px; background:#4c3f29; transform:rotate(35deg); }
+  .inv-hero-brand{ position:relative; z-index:1; }
+  .inv-hero-logo{ font-size:19px; font-weight:700; letter-spacing:.14em; color:#e8c98a; font-family:Georgia,serif; }
+  .inv-hero-slogan{ font-size:9px; letter-spacing:.18em; text-transform:uppercase; color:#a89678; margin-top:2px; }
+  .inv-hero-issuer{ font-size:10.5px; color:#cfc4ac; line-height:1.65; margin-top:16px; }
+  .inv-hero-issuer strong{ display:block; color:#fff; font-size:11.5px; margin-bottom:3px; }
+  .inv-hero-meta{ position:relative; z-index:1; text-align:right; flex-shrink:0; }
+  .inv-hero-title{ font-size:30px; font-weight:800; letter-spacing:.03em; color:#fff; line-height:1; }
+  .inv-hero-number{ font-size:13px; color:#e8c98a; margin-top:9px; font-weight:600; }
+  .inv-hero-date{ font-size:10.5px; color:#a89678; margin-top:4px; }
+  .inv-parties{ display:flex; gap:36px; padding:22px 28px 6px; }
+  .inv-party{ flex:1; min-width:0; }
+  .inv-party-lab{ font-size:10px; text-transform:uppercase; letter-spacing:.1em; color:#a3907a; font-weight:700; margin-bottom:6px; }
   .inv-party-name{ font-size:13.5px; font-weight:700; color:#141412; }
-  .inv-party-line{ font-size:11.5px; color:#444; margin-top:2px; line-height:1.5; }
-  .inv-body{ padding:18px 20px; }
-  .inv-table{ width:100%; border-collapse:collapse; }
-  .inv-table thead th{ text-align:left; font-size:9.5px; text-transform:uppercase; letter-spacing:.08em; color:#8a8a86; font-weight:700; padding:0 6px 8px; border-bottom:2px solid #141412; }
+  .inv-party-line{ font-size:11.5px; color:#5a5650; margin-top:2px; line-height:1.55; }
+  .inv-body{ padding:6px 28px 26px; }
+  .inv-table{ width:100%; border-collapse:collapse; margin-top:12px; }
+  .inv-table thead th{ text-align:left; font-size:10px; text-transform:uppercase; letter-spacing:.06em; color:#141412; font-weight:700; padding:9px 8px; border-bottom:2px solid #141412; }
   .inv-table thead th.r{ text-align:right; }
-  .inv-table td{ padding:9px 6px; font-size:12.5px; border-bottom:1px solid #e6e6e2; color:#2b2b28; }
+  .inv-table td{ padding:9px 8px; font-size:12.5px; color:#2b2b28; }
   .inv-table td.r{ text-align:right; }
-  .inv-totals{ display:flex; justify-content:flex-end; margin-top:16px; }
-  .inv-totals-box{ min-width:260px; font-size:12.5px; }
-  .inv-totals-row{ display:flex; justify-content:space-between; padding:4px 0; color:#555; }
-  .inv-totals-row.total{ font-size:15px; font-weight:700; color:#141412; border-top:1.5px solid #141412; margin-top:6px; padding-top:8px; }
+  .inv-table tbody tr:nth-child(odd){ background:#f7f0e0; }
+  .inv-totals{ display:flex; justify-content:flex-end; margin-top:18px; }
+  .inv-totals-box{ min-width:280px; font-size:12.5px; }
+  .inv-totals-row{ display:flex; justify-content:space-between; padding:5px 10px; color:#5a5650; }
+  .inv-totals-row.total{
+    font-size:13.5px; font-weight:700; color:#fff; background:#c9a768; border-radius:4px;
+    margin-top:8px; padding:10px 12px; text-transform:uppercase; letter-spacing:.03em;
+  }
   .inv-totals-row.paid{ color:#2A7B7B; font-weight:600; }
-  .inv-payments{ margin-top:20px; padding-top:14px; border-top:1px solid #e0e0dc; }
-  .inv-payments-lab, .inv-notes strong{ font-size:9.5px; text-transform:uppercase; letter-spacing:.12em; color:#8a8a86; font-weight:700; margin-bottom:8px; display:block; }
-  .inv-payment-row{ display:flex; justify-content:space-between; font-size:11.5px; color:#444; padding:3px 0; }
-  .inv-notes{ margin-top:16px; padding-top:14px; border-top:1px solid #e0e0dc; font-size:11.5px; color:#555; }
-  .inv-foot{ display:flex; align-items:center; justify-content:space-between; padding:9px 20px; font-size:10.5px; color:#8a8a86; border-top:1px solid #d0d0cc; }
-  .inv-edit-input{ width:100%; border:1px solid #d0d0cc; border-radius:4px; padding:5px 6px; font:inherit; font-size:12.5px; color:#2b2b28; background:#fafaf8; }
+  .inv-payments{ margin-top:22px; padding-top:14px; border-top:1px solid #ecdfc0; }
+  .inv-payments-lab, .inv-notes strong{ font-size:10px; text-transform:uppercase; letter-spacing:.1em; color:#a3907a; font-weight:700; margin-bottom:8px; display:block; }
+  .inv-payment-row{ display:flex; justify-content:space-between; font-size:11.5px; color:#5a5650; padding:3px 0; }
+  .inv-notes{ margin-top:18px; padding-top:14px; border-top:1px solid #ecdfc0; font-size:11.5px; color:#5a5650; }
+  .inv-foot{ position:relative; overflow:hidden; padding:22px 28px 26px; margin-top:14px; }
+  .inv-foot::before{ content:""; position:absolute; z-index:0; left:-70px; bottom:-110px; width:220px; height:220px; background:#f4e9cd; transform:rotate(35deg); }
+  .inv-foot-inner{ position:relative; z-index:1; display:flex; justify-content:space-between; gap:24px; flex-wrap:wrap; }
+  .inv-foot-lab{ font-size:10px; text-transform:uppercase; letter-spacing:.1em; color:#a3907a; font-weight:700; margin-bottom:6px; }
+  .inv-foot-line{ font-size:11px; color:#5a5650; line-height:1.65; }
+  .inv-edit-input{ width:100%; border:1px solid #ddd2b3; border-radius:4px; padding:5px 6px; font:inherit; font-size:12.5px; color:#2b2b28; background:#fffdf8; }
   .inv-edit-input.r{ text-align:right; }
-  .inv-client-select{ margin-top:8px; font-size:12px; padding:6px 8px; border:1px solid #d0d0cc; border-radius:4px; width:100%; background:#fafaf8; }
+  .inv-client-select{ margin-top:8px; font-size:12px; padding:6px 8px; border:1px solid #ddd2b3; border-radius:4px; width:100%; background:#fffdf8; }
 
   /* ---------- Rooming list (printed document, fixed px) ---------- */
   .rooming-sheet .fisa-top{ align-items:flex-start; padding:14px 18px; }
@@ -4387,21 +4404,45 @@ function RecordPaymentInline({ invoice, core, onChanged }) {
   const methods = (core?.paymentMethods || []).filter((m) => m.active);
   const [method, setMethod] = useState(methods[0]?.id || "cash");
   const [reference, setReference] = useState("");
+  const [cardReceiptNumber, setCardReceiptNumber] = useState("");
+  const [cardReceiptDate, setCardReceiptDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [saving, setSaving] = useState(false);
+  const [receiptSeries, setReceiptSeries] = useState(null);
+
+  const isCash = method === "cash";
+  const isCard = method === "card";
+
+  useEffect(() => {
+    if (!isCash) return;
+    supabase.from("receipt_series").select("*").eq("id", "series-ch").maybeSingle()
+      .then(({ data }) => setReceiptSeries(data || null));
+  }, [isCash]);
 
   const submit = async () => {
     if (!(Number(amount) > 0)) return;
     setSaving(true);
+    let receiptSeriesVal = null, receiptNumberVal = null;
+    if (isCash) {
+      const seriesLetters = receiptSeries?.series || "CH";
+      const { data: numRow, error: numErr } = await supabase.rpc("next_receipt_number", { p_series: seriesLetters });
+      if (numErr) { toaster.show("Nu am putut aloca numărul de chitanță: " + numErr.message, { tone: "danger" }); setSaving(false); return; }
+      const r = Array.isArray(numRow) ? numRow[0] : numRow;
+      receiptSeriesVal = r.series; receiptNumberVal = r.number;
+    }
     const { error } = await supabase.from("payments").insert({
       id: uid(), invoice_id: invoice.id, amount: Number(amount), method,
       reference: reference.trim() || null, created_by: audit.user?.id || null,
+      receipt_series: receiptSeriesVal, receipt_number: receiptNumberVal,
+      card_receipt_number: isCard ? (cardReceiptNumber.trim() || null) : null,
+      card_receipt_date: isCard ? (cardReceiptDate || null) : null,
     });
     if (error) { toaster.show("Plata a eșuat: " + error.message, { tone: "danger" }); setSaving(false); return; }
     // Trigger-ul recalc_invoice_payment_status ruleaza server-side —
     // reincarcam factura ca sa vedem soldul/statusul actualizat.
     const { data: updated } = await supabase.from("invoices").select("*").eq("id", invoice.id).maybeSingle();
     const methodLabel = methods.find((m) => m.id === method)?.label || method;
-    await audit.push("Plată înregistrată", `${fmtMoney(amount)} · ${methodLabel}`);
+    const receiptNote = receiptSeriesVal ? ` · chitanță ${receiptSeriesVal} ${receiptNumberVal}` : "";
+    await audit.push("Plată înregistrată", `${fmtMoney(amount)} · ${methodLabel}${receiptNote}`);
     if (updated) onChanged(updated);
     setSaving(false);
     setOpen(false);
@@ -4422,6 +4463,22 @@ function RecordPaymentInline({ invoice, core, onChanged }) {
               </select>
             </label>
           </div>
+          {isCash && (
+            <div className="note" style={{ marginBottom: 10 }}>
+              Se alocă automat numărul următor din seria de chitanțe {receiptSeries?.series || "CH"}
+              {receiptSeries ? ` (${receiptSeries.series} ${receiptSeries.next_number})` : ""}.
+            </div>
+          )}
+          {isCard && (
+            <div className="field-row field-row-2col">
+              <label className="field"><span className="fl">Număr bon</span>
+                <input value={cardReceiptNumber} onChange={(e) => setCardReceiptNumber(e.target.value)} />
+              </label>
+              <label className="field"><span className="fl">Data bonului</span>
+                <input type="date" value={cardReceiptDate} onChange={(e) => setCardReceiptDate(e.target.value)} />
+              </label>
+            </div>
+          )}
           <label className="field"><span className="fl">Referință (opțional)</span><input value={reference} onChange={(e) => setReference(e.target.value)} /></label>
           <div className="modal-actions" style={{ marginTop: 0 }}>
             <div className="grow" />
@@ -4654,23 +4711,22 @@ function InvoicePrint({ invoiceId, core, onClose, onChanged }) {
       </div>
 
       <div className="fisa">
-        <div className="inv-top">
-          <div>
-            <div className="fisa-logo">LA LIVADĂ</div>
-            <div className="inv-issuer">
+        <div className="inv-hero">
+          <div className="inv-hero-brand">
+            <div className="inv-hero-logo">LA LIVADĂ</div>
+            <div className="inv-hero-slogan">Complex de cazare</div>
+            <div className="inv-hero-issuer">
               <strong>{issuer.name || "—"}</strong>
               {issuer.cui && <div>CUI: {issuer.cui}{issuer.regCom ? ` · ${issuer.regCom}` : ""}</div>}
               {issuer.address && <div>{issuer.address}{issuer.city ? `, ${issuer.city}` : ""}{issuer.county ? `, ${issuer.county}` : ""}</div>}
-              {issuer.iban && <div>IBAN: {issuer.iban}{issuer.bank ? ` · ${issuer.bank}` : ""}</div>}
-              {(issuer.email || issuer.phone) && <div>{[issuer.email, issuer.phone].filter(Boolean).join(" · ")}</div>}
             </div>
           </div>
-          <div className="inv-meta">
-            <div className="inv-meta-title">FACTURĂ</div>
-            <div className="inv-meta-number">{invoice.series ? `Seria ${invoice.series} nr. ${invoice.number}` : "Draft — fără număr alocat"}</div>
-            {invoice.issue_date && <div className="inv-meta-date">Emisă la {fmtDate(invoice.issue_date)}</div>}
+          <div className="inv-hero-meta">
+            <div className="inv-hero-title">FACTURĂ</div>
+            <div className="inv-hero-number">{invoice.series ? `Seria ${invoice.series} nr. ${invoice.number}` : "Draft — fără număr alocat"}</div>
+            {invoice.issue_date && <div className="inv-hero-date">Emisă la {fmtDate(invoice.issue_date)}</div>}
             {invoice.service_date_start && (
-              <div className="inv-meta-date">Perioadă cazare: {fmtDate(invoice.service_date_start)} → {fmtDate(invoice.service_date_end)}</div>
+              <div className="inv-hero-date">Perioadă cazare: {fmtDate(invoice.service_date_start)} → {fmtDate(invoice.service_date_end)}</div>
             )}
           </div>
         </div>
@@ -4761,12 +4817,22 @@ function InvoicePrint({ invoiceId, core, onClose, onChanged }) {
           {payments.length > 0 && (
             <div className="inv-payments">
               <span className="inv-payments-lab">Plăți</span>
-              {payments.map((p) => (
-                <div className="inv-payment-row" key={p.id}>
-                  <span>{fmtDate(p.paid_at)} · {(core.paymentMethods || []).find((m) => m.id === p.method)?.label || PAYMENT_METHOD_LABEL[p.method] || p.method}{p.reference ? ` · ${p.reference}` : ""}</span>
-                  <span>{fmtMoney(p.amount)}</span>
-                </div>
-              ))}
+              {payments.map((p) => {
+                const receipt = p.receipt_series
+                  ? `Chitanță ${p.receipt_series} ${p.receipt_number}`
+                  : p.card_receipt_number
+                    ? `Bon ${p.card_receipt_number}${p.card_receipt_date ? ` · ${fmtDate(p.card_receipt_date)}` : ""}`
+                    : "";
+                return (
+                  <div className="inv-payment-row" key={p.id}>
+                    <span>
+                      {fmtDate(p.paid_at)} · {(core.paymentMethods || []).find((m) => m.id === p.method)?.label || PAYMENT_METHOD_LABEL[p.method] || p.method}
+                      {p.reference ? ` · ${p.reference}` : ""}{receipt ? ` · ${receipt}` : ""}
+                    </span>
+                    <span>{fmtMoney(p.amount)}</span>
+                  </div>
+                );
+              })}
             </div>
           )}
 
@@ -4779,8 +4845,24 @@ function InvoicePrint({ invoiceId, core, onClose, onChanged }) {
         </div>
 
         <div className="inv-foot">
-          <span>La Livada — Complex de cazare</span>
-          <span>Document generat electronic</span>
+          <div className="inv-foot-inner">
+            <div>
+              <div className="inv-foot-lab">Date de plată</div>
+              <div className="inv-foot-line">
+                {issuer.bank && <div>Bancă: {issuer.bank}</div>}
+                {issuer.iban && <div>IBAN: {issuer.iban}</div>}
+                {!issuer.bank && !issuer.iban && <div>—</div>}
+              </div>
+            </div>
+            <div>
+              <div className="inv-foot-lab">Contact</div>
+              <div className="inv-foot-line">
+                {issuer.phone && <div>{issuer.phone}</div>}
+                {issuer.email && <div>{issuer.email}</div>}
+                {!issuer.phone && !issuer.email && <div>—</div>}
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -6585,6 +6667,43 @@ function PaymentMethodsEditor({ core, updateCore }) {
   );
 }
 
+function ReceiptSeriesEditor() {
+  const [row, setRow] = useState(null);
+  const [value, setValue] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const load = useCallback(async () => {
+    const { data } = await supabase.from("receipt_series").select("*").eq("id", "series-ch").maybeSingle();
+    if (data) { setRow(data); setValue(data.series); }
+  }, []);
+  useEffect(() => { load(); }, [load]);
+
+  const save = async () => {
+    const next = value.trim().toUpperCase();
+    if (!next || next === row?.series) return;
+    setSaving(true);
+    const { error } = await supabase.from("receipt_series").update({ series: next }).eq("id", "series-ch");
+    setSaving(false);
+    if (error) { toaster.show("Nu am putut salva seria: " + error.message, { tone: "danger" }); return; }
+    await audit.push("Serie chitanțe modificată", next);
+    await load();
+    toaster.show("Serie de chitanțe actualizată.");
+  };
+
+  if (!row) return null;
+  return (
+    <div className="toolbar" style={{ marginBottom: 14 }}>
+      <label className="field" style={{ maxWidth: 200, margin: 0 }}>
+        <span className="fl">Serie chitanțe (numerar)</span>
+        <input value={value} onChange={(e) => setValue(e.target.value)} />
+      </label>
+      <button className="btn btn-ghost" style={{ width: "auto" }} onClick={save} disabled={saving}>Salvează</button>
+      <div className="grow" />
+      <span className="badge-count">Următorul număr: {row.series} {row.next_number}</span>
+    </div>
+  );
+}
+
 function PaymentsListView({ core, updateCore }) {
   const [payments, setPayments] = useState(null);
   const [invoiceMap, setInvoiceMap] = useState({});
@@ -6613,9 +6732,16 @@ function PaymentsListView({ core, updateCore }) {
 
   const total = (payments || []).reduce((s, p) => s + Number(p.amount), 0);
 
+  const receiptLabel = (p) => {
+    if (p.receipt_series) return `Chitanță ${p.receipt_series} ${p.receipt_number}`;
+    if (p.card_receipt_number) return `Bon ${p.card_receipt_number}${p.card_receipt_date ? ` · ${fmtDate(p.card_receipt_date)}` : ""}`;
+    return "";
+  };
+
   return (
     <div>
       <PaymentMethodsEditor core={core} updateCore={updateCore} />
+      <ReceiptSeriesEditor />
       <div className="toolbar">
         <span className="badge-count">{(payments || []).length} plăți · {fmtMoney(total)} încasat</span>
       </div>
@@ -6637,6 +6763,7 @@ function PaymentsListView({ core, updateCore }) {
                   </div>
                   <div className="secondary">
                     {methodLabel(p.method)} · {fmtDate(p.paid_at)}{p.reference ? ` · ${p.reference}` : ""}
+                    {receiptLabel(p) ? ` · ${receiptLabel(p)}` : ""}
                   </div>
                 </div>
                 <span className="mono" style={{ fontWeight: 650 }}>{fmtMoney(p.amount)}</span>

@@ -468,17 +468,53 @@ create index invoice_item_links_folio_item on invoice_item_links(folio_item_id);
 -- PLĂȚI
 -- ---------------------------------------------------------------------
 create table payments (
-  id           text primary key,
-  invoice_id   text not null references invoices(id) on delete restrict,
-  amount       numeric not null check (amount > 0),
-  method       text not null,
-  paid_at      timestamptz not null default now(),
-  reference    text,
-  notes        text,
+  id                 text primary key,
+  invoice_id         text not null references invoices(id) on delete restrict,
+  amount             numeric not null check (amount > 0),
+  method             text not null,
+  paid_at            timestamptz not null default now(),
+  reference          text,
+  notes              text,
+  -- incasari numerar: numar de chitanta alocat automat (vezi
+  -- next_receipt_number mai jos) — la fel ca la facturi, niciodata
+  -- calculat in JS cu max(number)+1.
+  receipt_series     text,
+  receipt_number     int,
+  -- incasari card: numarul bonului de POS si data lui, completate manual
+  -- (pot diferi de data la care se inregistreaza plata in aplicatie).
+  card_receipt_number text,
+  card_receipt_date   date,
   created_by   uuid references staff(user_id),
   created_at   timestamptz not null default now()
 );
 create index payments_invoice on payments(invoice_id);
+
+-- ---------------------------------------------------------------------
+-- SERIE DE CHITANTE — numerar. Un singur rand, seria e personalizabila
+-- din UI (Financiar -> Incasari); numerotarea e alocata transactional,
+-- la fel ca la facturi.
+-- ---------------------------------------------------------------------
+create table receipt_series (
+  id           text primary key,
+  series       text not null unique,
+  next_number  int not null default 1,
+  active       boolean not null default true
+);
+insert into receipt_series (id, series) values ('series-ch', 'CH');
+
+create or replace function next_receipt_number(p_series text)
+returns table(series text, number int) language plpgsql security definer as $$
+declare v_number int;
+begin
+  update receipt_series set next_number = next_number + 1
+    where receipt_series.series = p_series and active
+    returning next_number - 1 into v_number;
+  if v_number is null then
+    raise exception 'Serie de chitanțe inexistentă sau inactivă: %', p_series;
+  end if;
+  return query select p_series, v_number;
+end;
+$$;
 
 -- Recalculeaza paid_amount si statusul facturii la fiecare plata
 -- inregistrata/stearsa, ca suma sa nu poata diverge de realitate.
@@ -797,6 +833,7 @@ alter table invoices               enable row level security;
 alter table invoice_items          enable row level security;
 alter table invoice_item_links     enable row level security;
 alter table payments               enable row level security;
+alter table receipt_series         enable row level security;
 alter table accounting_exports     enable row level security;
 alter table accounting_export_items enable row level security;
 alter table billing_permissions    enable row level security;
@@ -862,6 +899,9 @@ create policy "citeste plati" on payments for select to authenticated
   using (has_billing_permission('view_invoices'));
 create policy "scrie plati" on payments for all to authenticated
   using (has_billing_permission('record_payment')) with check (has_billing_permission('record_payment'));
+
+create policy "citeste serie chitante" on receipt_series for select to authenticated using (true);
+create policy "scrie serie chitante" on receipt_series for all to authenticated using (is_admin()) with check (is_admin());
 
 create policy "citeste exporturi" on accounting_exports for select to authenticated
   using (has_billing_permission('export_accounting'));
