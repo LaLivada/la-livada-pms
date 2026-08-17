@@ -989,6 +989,11 @@ const STYLES = `
   .mode-switch{
     display:flex; gap:4px; background:var(--surface-2); border-radius:11px; padding:4px; margin-bottom:16px;
   }
+  .billing-picker{ display:flex; gap:8px; }
+  .billing-picker select{ flex:1; min-width:0; }
+  @media (max-width:520px){
+    .billing-picker{ flex-direction:column; }
+  }
   .mode-switch button{
     flex:1; display:flex; align-items:center; justify-content:center; gap:6px; padding:9px;
     border:none; background:transparent; border-radius:8px; font-size:12.5px; font-weight:600;
@@ -1625,6 +1630,7 @@ const camelRes = (r) => ({
   occupantPhone: r.occupant_phone || "", occupantName:
     [r.occupant_last_name, r.occupant_first_name].filter(Boolean).join(" "),
   messages: r.messages || [], seeded: r.seeded,
+  billingCustomerId: r.billing_customer_id || "",
 });
 const snakeRes = (r) => ({
   id: r.id, room_id: r.roomId, guest_id: r.guestId || null, group_id: r.groupId || null,
@@ -1637,6 +1643,7 @@ const snakeRes = (r) => ({
   occupant_first_name: r.occupantFirstName || null,
   occupant_phone: r.occupantPhone || null,
   messages: r.messages || [], seeded: !!r.seeded,
+  billing_customer_id: r.billingCustomerId || null,
 });
 const camelGuest = (g) => ({
   id: g.id, lastName: g.last_name, firstName: g.first_name, name:
@@ -1673,6 +1680,47 @@ const snakeTier = (t, idx) => ({
   id: t.id, min_occ: Math.max(0, Math.min(100, Number(t.min) || 0)),
   max_occ: Math.max(0, Math.min(100, Number(t.max) || 0)),
   adjustment_pct: Number(t.adjustmentPct) || 0, sort_order: idx,
+});
+
+/* --- FACTURARE: client de facturare, TVA, produse ---------------- */
+const camelBillingCustomer = (c) => ({
+  id: c.id, kind: c.kind,
+  lastName: c.last_name || "", firstName: c.first_name || "", cnp: c.cnp || "",
+  companyName: c.company_name || "", cui: c.cui || "", regCom: c.reg_com || "",
+  contactName: c.contact_name || "",
+  address: c.address || "", city: c.city || "", county: c.county || "",
+  postalCode: c.postal_code || "", country: c.country || "România",
+  email: c.email || "", phone: c.phone || "", guestId: c.guest_id || "",
+  createdAt: c.created_at,
+});
+const snakeBillingCustomer = (c) => ({
+  id: c.id, kind: c.kind,
+  last_name: c.kind === "person" ? (c.lastName || null) : null,
+  first_name: c.kind === "person" ? (c.firstName || null) : null,
+  cnp: c.kind === "person" ? (c.cnp || null) : null,
+  company_name: c.kind === "company" ? (c.companyName || null) : null,
+  cui: c.kind === "company" ? (c.cui || null) : null,
+  reg_com: c.kind === "company" ? (c.regCom || null) : null,
+  contact_name: c.kind === "company" ? (c.contactName || null) : null,
+  address: c.address || "", city: c.city || "", county: c.county || "",
+  postal_code: c.postalCode || null, country: c.country || "România",
+  email: c.email || null, phone: c.phone || null, guest_id: c.guestId || null,
+});
+
+const camelVatRate = (v) => ({ id: v.id, label: v.label, rate: Number(v.rate), active: v.active });
+const snakeVatRate = (v) => ({ id: v.id, label: v.label, rate: Number(v.rate) || 0, active: !!v.active });
+
+const camelProduct = (p) => ({
+  id: p.id, name: p.name, internalCode: p.internal_code || "", accountingCode: p.accounting_code || "",
+  category: p.category, unit: p.unit, vatRateId: p.vat_rate_id,
+  defaultPrice: Number(p.default_price) || 0, active: p.active,
+  billingMode: p.billing_mode, sortOrder: p.sort_order,
+});
+const snakeProduct = (p, idx) => ({
+  id: p.id, name: p.name, internal_code: p.internalCode || null, accounting_code: p.accountingCode || null,
+  category: p.category, unit: p.unit || "buc", vat_rate_id: p.vatRateId,
+  default_price: Number(p.defaultPrice) || 0, active: !!p.active,
+  billing_mode: p.billingMode || "separate", sort_order: p.sortOrder ?? idx,
 });
 
 /* Trimite doar diferentele: randuri noi/modificate prin upsert,
@@ -1735,7 +1783,7 @@ async function saveRatesAndSeasons(beforeRates, afterRates) {
 }
 
 async function loadAll() {
-  const [rooms, guests, groups, res, rates, seasons, onlineTiers] = await Promise.all([
+  const [rooms, guests, groups, res, rates, seasons, onlineTiers, billingCustomers, vatRates, products] = await Promise.all([
     supabase.from("rooms").select("*").order("sort_order"),
     supabase.from("guests").select("*"),
     supabase.from("res_groups").select("*"),
@@ -1743,8 +1791,11 @@ async function loadAll() {
     supabase.from("rates").select("*").order("room_type"),
     supabase.from("seasons").select("*"),
     supabase.from("online_pricing_tiers").select("*").order("sort_order"),
+    supabase.from("billing_customers").select("*"),
+    supabase.from("vat_rates").select("*"),
+    supabase.from("products").select("*").order("sort_order"),
   ]);
-  for (const r of [rooms, guests, groups, res, rates, seasons, onlineTiers]) if (r.error) throw r.error;
+  for (const r of [rooms, guests, groups, res, rates, seasons, onlineTiers, billingCustomers, vatRates, products]) if (r.error) throw r.error;
 
   const base = {};
   rates.data.forEach((r) => {
@@ -1771,6 +1822,9 @@ async function loadAll() {
     onlinePricing: onlineTiers.data.map((t) => ({
       id: t.id, min: t.min_occ, max: t.max_occ, adjustmentPct: Number(t.adjustment_pct),
     })),
+    billingCustomers: billingCustomers.data.map(camelBillingCustomer),
+    vatRates: vatRates.data.map(camelVatRate),
+    products: products.data.map(camelProduct),
   };
 }
 
@@ -2147,6 +2201,9 @@ function PMSApp() {
           guests: db.guests,
           rates: db.rates,
           onlinePricing: db.onlinePricing,
+          billingCustomers: db.billingCustomers,
+          vatRates: db.vatRates,
+          products: db.products,
         });
         /* Rezervarile facute inainte de pretul inghetat (bookedPrice) inca
            n-au un snapshot — le calculam o singura data, acum, cu tarifele
@@ -2221,7 +2278,16 @@ function PMSApp() {
       if (next.onlinePricing !== before.onlinePricing) {
         await syncTable("online_pricing_tiers", before.onlinePricing || [], next.onlinePricing || [], snakeTier);
       }
-      const { rooms, guests, rates, onlinePricing, ...settings } = next;
+      if (next.billingCustomers !== before.billingCustomers) {
+        await syncTable("billing_customers", before.billingCustomers || [], next.billingCustomers || [], snakeBillingCustomer);
+      }
+      if (next.vatRates !== before.vatRates) {
+        await syncTable("vat_rates", before.vatRates || [], next.vatRates || [], snakeVatRate);
+      }
+      if (next.products !== before.products) {
+        await syncTable("products", before.products || [], next.products || [], snakeProduct);
+      }
+      const { rooms, guests, rates, onlinePricing, billingCustomers, vatRates, products, ...settings } = next;
       await saveShared(K.core, settings);
     } catch (e) { raporteazaEroare(e); }
   }, [raporteazaEroare]);
@@ -3709,6 +3775,8 @@ function ReservationModal({ data, core, updateCore, reservations, updateReservat
   const [guestId, setGuestId] = useState(editing?.guestId || "");
   const [guestQuery, setGuestQuery] = useState("");
   const [guestFormSeed, setGuestFormSeed] = useState(null);
+  const [billingCustomerId, setBillingCustomerId] = useState(editing?.billingCustomerId || "");
+  const [billingModalOpen, setBillingModalOpen] = useState(false);
   const [checkin, setCheckin] = useState(
     editing ? toLocalInputValue(editing.checkin) :
     (() => { const d = data.defaultDate ? new Date(data.defaultDate) : new Date(); d.setHours(15, 0, 0, 0); return toLocalInputValue(d.toISOString()); })()
@@ -3779,6 +3847,13 @@ function ReservationModal({ data, core, updateCore, reservations, updateReservat
     setGuestId(guest.id);
     setGuestQuery("");
     setGuestFormSeed(null);
+  };
+
+  const saveNewBillingCustomer = async (customer) => {
+    await updateCore({ ...core, billingCustomers: [...(core.billingCustomers || []), customer] });
+    await audit.push("Client de facturare adăugat", billingCustomerLabel(customer));
+    setBillingCustomerId(customer.id);
+    setBillingModalOpen(false);
   };
 
   /* A tag typed here joins the shared list, so it is reusable next time. */
@@ -3899,7 +3974,7 @@ function ReservationModal({ data, core, updateCore, reservations, updateReservat
           checkin: new Date(checkin).toISOString(), checkout: new Date(checkout).toISOString(),
           status, notes,
           adults: Number(adults) || 1, children: Number(children) || 0, source,
-          tags: [...tags], messages: [],
+          tags: [...tags], messages: [], billingCustomerId: billingCustomerId || null,
         };
         return groupTotal == null
           ? { ...base, priceOverride: null, bookedPrice: liveReservationTotalOnline(base, core, reservations) }
@@ -3924,7 +3999,7 @@ function ReservationModal({ data, core, updateCore, reservations, updateReservat
       checkin: new Date(checkin).toISOString(), checkout: new Date(checkout).toISOString(),
       status, notes,
       adults: Number(adults) || 1, children: Number(children) || 0, source, tags: [...tags],
-      messages: editing?.messages || [],
+      messages: editing?.messages || [], billingCustomerId: billingCustomerId || null,
     };
     /* Pretul manual e mereu explicit. Cel "auto" ramane inghetat in
        bookedPrice pana cand ceva ce chiar afecteaza pretul se schimba
@@ -4244,6 +4319,28 @@ function ReservationModal({ data, core, updateCore, reservations, updateReservat
           </label>
         )}
 
+        {!isBlock && (
+          <div className="field">
+            <span className="fl">Facturare către</span>
+            <div className="billing-picker">
+              <select value={billingCustomerId} onChange={(e) => setBillingCustomerId(e.target.value)}>
+                <option value="">Oaspetele rezervării (implicit)</option>
+                {(core.billingCustomers || []).map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {billingCustomerLabel(c)}{c.kind === "company" ? " · firmă" : ""}
+                  </option>
+                ))}
+              </select>
+              <button type="button" className="btn btn-ghost" style={{ width: "auto" }} onClick={() => setBillingModalOpen(true)}>
+                <Plus size={14} /> Client nou
+              </button>
+            </div>
+            <div className="note" style={{ marginTop: 6 }}>
+              Dacă nu alegi nimic, factura se emite pe datele oaspetelui de mai sus.
+            </div>
+          </div>
+        )}
+
         <label className="field">
           <span className="fl">Note</span>
           <textarea rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Observații interne" />
@@ -4314,6 +4411,16 @@ function ReservationModal({ data, core, updateCore, reservations, updateReservat
             guest={guestFormSeed}
             onSave={saveNewGuest}
             onClose={() => setGuestFormSeed(null)}
+          />
+        </div>
+      )}
+
+      {billingModalOpen && (
+        <div onClick={(e) => e.stopPropagation()}>
+          <BillingCustomerModal
+            seedFromGuest={selectedGuest}
+            onSave={saveNewBillingCustomer}
+            onClose={() => setBillingModalOpen(false)}
           />
         </div>
       )}
@@ -4632,6 +4739,12 @@ function guestFullName(g) {
   return composed || g.name || "";
 }
 
+function billingCustomerLabel(c) {
+  if (!c) return "";
+  if (c.kind === "company") return c.companyName || "";
+  return [c.lastName, c.firstName].filter(Boolean).join(" ").trim();
+}
+
 /* href pentru apel direct — tel: vrea doar cifre si "+", fara spatii. */
 function telHref(phone) {
   const digits = String(phone || "").replace(/[^\d+]/g, "");
@@ -4823,6 +4936,142 @@ function SubTabs({ tab, setTab, guestCount, groupCount }) {
         <UsersRound size={14} /> Grupuri <span className="tab-count">{groupCount}</span>
       </button>
     </div>
+  );
+}
+
+/* Verifica formatul si cifra de control a unui CUI/CIF romanesc.
+   Algoritmul oficial: ultima cifra e cifra de control, calculata din
+   primele cifre (aduse la 9 cifre prin completare cu 0 la stanga)
+   ponderate cu cheia 7-5-3-2-1-7-5-3-2, mod 11 (10 -> 0). Doar avertizam
+   la esec de control (nu blocam) — blocam doar formatul evident gresit
+   (altceva decat cifre, sau lungime in afara 2-10). */
+function validateCUIFormat(raw) {
+  const digits = String(raw || "").toUpperCase().replace(/^RO/, "").trim();
+  if (!digits) return { ok: true, warn: false };
+  if (!/^\d{2,10}$/.test(digits)) return { ok: false, warn: false, message: "CUI-ul trebuie să conțină doar cifre (2-10 cifre), opțional cu prefixul RO." };
+  const key = "753217532";
+  const base = digits.slice(0, -1).padStart(9, "0");
+  const control = Number(digits.slice(-1));
+  let sum = 0;
+  for (let i = 0; i < 9; i++) sum += Number(base[i]) * Number(key[i]);
+  let computed = (sum * 10) % 11;
+  if (computed === 10) computed = 0;
+  return { ok: true, warn: computed !== control, message: "Cifra de control nu se potrivește — verifică CUI-ul." };
+}
+
+const emptyBillingCustomer = () => ({
+  kind: "person", lastName: "", firstName: "", cnp: "",
+  companyName: "", cui: "", regCom: "", contactName: "",
+  address: "", city: "", county: "Cluj", country: "România",
+  email: "", phone: "", guestId: "",
+});
+
+function BillingCustomerModal({ customer, seedFromGuest, onSave, onClose }) {
+  useModalLock();
+  const [c, setC] = useState(() => ({
+    ...emptyBillingCustomer(),
+    ...(seedFromGuest ? {
+      kind: "person", lastName: seedFromGuest.lastName || "", firstName: seedFromGuest.firstName || "",
+      address: seedFromGuest.address || "", city: seedFromGuest.city || "", county: seedFromGuest.county || "Cluj",
+      country: seedFromGuest.country || "România", email: seedFromGuest.email || "", phone: seedFromGuest.phone || "",
+      guestId: seedFromGuest.id || "",
+    } : {}),
+    ...(customer || {}),
+  }));
+  const [error, setError] = useState("");
+  const set = (k) => (e) => { setC({ ...c, [k]: e.target.value }); setError(""); };
+
+  const cuiCheck = c.kind === "company" ? validateCUIFormat(c.cui) : { ok: true, warn: false };
+
+  const submit = () => {
+    const REQUIRED = c.kind === "person"
+      ? [["lastName", "nume"], ["firstName", "prenume"]]
+      : [["companyName", "denumire firmă"], ["cui", "CUI"]];
+    const missingCommon = [["address", "adresă"], ["city", "oraș"], ["county", "județ"], ["country", "țară"]]
+      .filter(([k]) => !String(c[k] ?? "").trim());
+    const missing = REQUIRED.filter(([k]) => !String(c[k] ?? "").trim()).concat(missingCommon);
+    if (missing.length) {
+      setError(`Completează: ${missing.map(([, label]) => label).join(", ")}.`);
+      return;
+    }
+    if (c.kind === "company" && !cuiCheck.ok) {
+      setError(cuiCheck.message);
+      return;
+    }
+    onSave({ ...c, id: customer?.id || uid() });
+  };
+
+  return (
+    <Dialog onClose={onClose} title={customer?.id ? "Editează client de facturare" : "Client de facturare nou"}>
+      <div className="mode-switch" style={{ marginBottom: 14 }}>
+        <button className={c.kind === "person" ? "on" : ""} onClick={() => setC({ ...c, kind: "person" })}>
+          <UserCheck size={14} /> Persoană fizică
+        </button>
+        <button className={c.kind === "company" ? "on" : ""} onClick={() => setC({ ...c, kind: "company" })}>
+          <Banknote size={14} /> Firmă
+        </button>
+      </div>
+
+      {c.kind === "person" ? (
+        <>
+          <div className="field-row field-row-2col">
+            <label className="field"><span className="fl">Nume *</span><input value={c.lastName} onChange={set("lastName")} placeholder="Popescu" /></label>
+            <label className="field"><span className="fl">Prenume *</span><input value={c.firstName} onChange={set("firstName")} placeholder="Andrei" /></label>
+          </div>
+          <label className="field"><span className="fl">CNP (opțional)</span><input value={c.cnp} onChange={set("cnp")} placeholder="1234567890123" /></label>
+        </>
+      ) : (
+        <>
+          <label className="field"><span className="fl">Denumire firmă *</span><input value={c.companyName} onChange={set("companyName")} placeholder="ABC Impex SRL" /></label>
+          <div className="field-row field-row-2col">
+            <label className="field">
+              <span className="fl">CUI/CIF *</span>
+              <input className={!cuiCheck.ok ? "input-error" : ""} value={c.cui} onChange={set("cui")} placeholder="RO12345678" />
+            </label>
+            <label className="field"><span className="fl">Nr. Reg. Comerțului</span><input value={c.regCom} onChange={set("regCom")} placeholder="J12/345/2020" /></label>
+          </div>
+          {c.kind === "company" && c.cui && cuiCheck.warn && (
+            <div className="note" style={{ marginTop: -6, marginBottom: 14 }}>{cuiCheck.message}</div>
+          )}
+          <label className="field"><span className="fl">Persoană de contact</span><input value={c.contactName} onChange={set("contactName")} placeholder="Nume persoană contact" /></label>
+        </>
+      )}
+
+      <div className="field-row field-row-2col">
+        <label className="field"><span className="fl">Adresă *</span><input value={c.address} onChange={set("address")} placeholder="Str. Exemplu nr. 10" /></label>
+        <label className="field"><span className="fl">Oraș *</span><input value={c.city} onChange={set("city")} /></label>
+      </div>
+      <div className="field-row field-row-2col">
+        <div className="field">
+          <label>Județ *</label>
+          {c.country === "România" ? (
+            <select value={c.county} onChange={set("county")}>
+              {JUDETE.map((j) => <option key={j} value={j}>{j}</option>)}
+            </select>
+          ) : (
+            <input value={c.county} onChange={set("county")} placeholder="Regiune" />
+          )}
+        </div>
+        <label className="field">
+          <span className="fl">Țară *</span>
+          <select value={c.country} onChange={set("country")}>
+            {TARI.map((t) => <option key={t} value={t}>{t}</option>)}
+          </select>
+        </label>
+      </div>
+      <label className="field"><span className="fl">Cod poștal</span><input value={c.postalCode || ""} onChange={set("postalCode")} /></label>
+      <div className="field-row field-row-2col">
+        <label className="field"><span className="fl">Email</span><input type="email" value={c.email} onChange={set("email")} /></label>
+        <label className="field"><span className="fl">Telefon</span><input value={c.phone} onChange={set("phone")} /></label>
+      </div>
+
+      {error && <div className="error-text" role="alert" style={{ marginBottom: 10 }}>{error}</div>}
+      <div className="modal-actions">
+        <div className="grow" />
+        <button className="btn btn-ghost" onClick={onClose}>Anulează</button>
+        <button className="btn btn-primary" style={{ width: "auto" }} onClick={submit}><Check size={15} /> Salvează</button>
+      </div>
+    </Dialog>
   );
 }
 
