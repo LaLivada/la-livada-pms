@@ -3873,7 +3873,7 @@ async function ensureCazareLine(folio, items, reservation, core) {
   return data;
 }
 
-function FolioPanel({ reservation, core }) {
+function FolioPanel({ reservation, core, updateCore }) {
   const [folio, setFolio] = useState(null);
   const [items, setItems] = useState([]);
   const [invoices, setInvoices] = useState([]);
@@ -4084,7 +4084,7 @@ function FolioPanel({ reservation, core }) {
       {builderOpen && (
         <div onClick={(e) => e.stopPropagation()}>
           <InvoiceBuilderModal
-            reservation={reservation} folio={folio} items={uninvoicedItems} core={core}
+            reservation={reservation} folio={folio} items={uninvoicedItems} core={core} updateCore={updateCore}
             onCreated={(inv) => { setInvoices((prev) => [inv, ...prev]); setBuilderOpen(false); load(); }}
             onClose={() => setBuilderOpen(false)}
           />
@@ -4148,7 +4148,7 @@ function AddExtraForm({ products, onSave, onCancel }) {
    GENERARE FACTURA — selecteaza pozitii din folio, separat/agregat,
    client de facturare, salveaza ca draft (fara numar alocat inca).
 ----------------------------------------------------------------*/
-function InvoiceBuilderModal({ reservation, folio, items, core, onCreated, onClose }) {
+function InvoiceBuilderModal({ reservation, folio, items, core, updateCore, onCreated, onClose }) {
   useModalLock();
   const cazareItem = items.find((i) => i.category === "cazare");
   const extraItems = items.filter((i) => i.category !== "cazare");
@@ -5156,7 +5156,7 @@ function ReservationModal({ data, core, updateCore, reservations, updateReservat
           </div>
         </div>}
 
-        {!isBlock && editing && <FolioPanel reservation={editing} core={core} />}
+        {!isBlock && editing && <FolioPanel reservation={editing} core={core} updateCore={updateCore} />}
 
         {!isBlock && (
           <div className="field">
