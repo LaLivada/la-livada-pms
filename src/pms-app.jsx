@@ -1132,6 +1132,20 @@ const STYLES = `
     .top-btn span{ display:none; }
     .top-btn{ padding:9px 10px; }
   }
+  @media (max-width:860px){
+    /* Camerele curg in pagina (scroll vertical normal); doar bara
+       Azi/Rezervare ramane fixa, iar cal-scroll pastreaza doar scroll orizontal.
+       .content nu poate fi container de scroll pentru position:sticky (overflow-x:auto
+       ii cupleaza si overflow-y), asa ca bara foloseste position:fixed + un spatiu
+       rezervat in .cal-view, in loc de sticky. */
+    .cal-scroll{ max-height:none; overflow-y:visible; }
+    .cal-foot{ position:static; }
+    .cal-view{ padding-top:calc(var(--cal-toolbar-h) + 10px); }
+    .cal-toolbar{
+      position:fixed; top:var(--topbar-h); left:0; right:0; z-index:15;
+      background:var(--bg); margin:0; padding:11px 14px; box-shadow:0 1px 0 var(--border);
+    }
+  }
 `;
 
 /* ---------------------------------------------------------------
@@ -3203,7 +3217,7 @@ function CalendarView({ core, updateCore, reservations, updateReservations, grou
 
 
   return (
-    <div>
+    <div className="cal-view">
       <div className="toolbar cal-toolbar">
         <div className="week-nav">
           <button onClick={() => setOffset((o) => o - DAYS)} aria-label="Cele 14 zile anterioare">
