@@ -928,7 +928,12 @@ const STYLES = `
     .rooming .c-sign{ display:table-cell !important; }
     .rooming tbody tr{ break-inside:avoid; page-break-inside:avoid; }
     .fisa-sep{ height:8mm; }
-    .modal-head{ position:static !important; }
+    /* Restul documentelor printabile (GroupPrint, fisa de sosire, rooming)
+       trec title={undefined} la Dialog, deci .modal-head nu se randeaza
+       deloc pentru ele. InvoicePrint trece un titlu real (folosit ca
+       heading de accesibilitate pe ecran) — .modal-head tot apare in DOM,
+       trebuie ascuns explicit la print. */
+    .arrival-modal .modal-head{ display:none !important; }
     .arrival-sheet{ display:block !important; }
     * { -webkit-print-color-adjust:exact; print-color-adjust:exact; }
     @page{ margin:10mm; }
