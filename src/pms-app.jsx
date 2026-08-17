@@ -754,51 +754,52 @@ const STYLES = `
     font-size:11px; color:#444;
   }
 
-  /* ---------- Invoice (factura) — banda laterala neagra/portocalie ---------- */
-  .inv-doc{ position:relative; overflow:hidden; background:#fff; min-height:600px; }
-  .inv-side{ position:absolute; left:0; top:0; bottom:0; width:34%; background:#1c1a17; overflow:hidden; z-index:0; }
-  .inv-side::before{
-    content:""; position:absolute; z-index:0; width:190%; height:58%; top:-16%; left:-45%;
-    background:#f5a623; border-radius:0 0 55% 45% / 0 0 100% 65%; transform:rotate(-11deg);
+  /* ---------- Invoice (factura) ---------- */
+  .inv-hero{
+    display:flex; align-items:flex-start; justify-content:space-between;
+    gap:20px; padding:22px 28px; border-bottom:1px solid #d0d0cc;
   }
-  .inv-side-inner{ position:relative; z-index:1; min-height:100%; display:flex; flex-direction:column; justify-content:flex-end; padding:24px 20px; color:#fff; box-sizing:border-box; }
-  .inv-side-lab{ color:#f5a623; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.08em; margin-bottom:6px; }
-  .inv-side-name{ font-size:13px; font-weight:700; margin-bottom:4px; }
-  .inv-side-line{ font-size:10.5px; color:#d8d0c4; line-height:1.6; }
-  .inv-side-rule{ border:none; border-top:1px solid rgba(255,255,255,.22); margin:16px 0; }
-  .inv-side-select{ margin-top:8px; font-size:11.5px; padding:6px 8px; border:1px solid #444; border-radius:4px; width:100%; background:#2a2722; color:#fff; }
-  .inv-main{ margin-left:34%; padding:26px 30px 30px; position:relative; z-index:1; box-sizing:border-box; }
-  .inv-head{ display:flex; justify-content:space-between; align-items:flex-start; gap:16px; }
-  .inv-brand{ }
-  .inv-brand-logo{ font-size:16px; font-weight:700; letter-spacing:.12em; color:#141412; font-family:Georgia,serif; }
-  .inv-brand-slogan{ font-size:9px; letter-spacing:.16em; text-transform:uppercase; color:#999; margin-top:2px; }
-  .inv-brand-issuer{ font-size:10px; color:#777; line-height:1.6; margin-top:10px; }
-  .inv-meta2{ text-align:right; flex-shrink:0; }
-  .inv-meta2-title{ font-size:28px; font-weight:800; letter-spacing:.04em; color:#f5a623; line-height:1; }
-  .inv-meta2-row{ display:flex; justify-content:flex-end; gap:10px; font-size:11.5px; margin-top:6px; }
-  .inv-meta2-lab{ font-weight:700; color:#141412; }
-  .inv-meta2-val{ color:#5a5650; }
-  .inv-table{ width:100%; border-collapse:collapse; margin-top:22px; }
-  .inv-table thead th{ text-align:left; font-size:10px; text-transform:uppercase; letter-spacing:.06em; color:#141412; font-weight:700; padding:8px; border-bottom:2px solid #141412; }
+  .inv-hero-brand{ }
+  .inv-hero-logo{ font-size:19px; font-weight:700; letter-spacing:.14em; color:#b08d3f; font-family:Georgia,serif; }
+  .inv-hero-slogan{ font-size:9px; letter-spacing:.18em; text-transform:uppercase; color:#999; margin-top:2px; }
+  .inv-hero-issuer{ font-size:10.5px; color:#555; line-height:1.65; margin-top:14px; }
+  .inv-hero-issuer strong{ display:block; color:#141412; font-size:11.5px; margin-bottom:3px; }
+  .inv-hero-meta{ text-align:right; flex-shrink:0; }
+  .inv-hero-title{ font-size:22px; font-weight:700; letter-spacing:.05em; color:#141412; }
+  .inv-hero-number{ font-size:13px; color:#5a5650; margin-top:8px; font-weight:600; }
+  .inv-hero-date{ font-size:10.5px; color:#8a8a86; margin-top:4px; }
+  .inv-parties{ display:flex; gap:36px; padding:22px 28px 6px; }
+  .inv-party{ flex:1; min-width:0; }
+  .inv-party-lab{ font-size:10px; text-transform:uppercase; letter-spacing:.1em; color:#a3907a; font-weight:700; margin-bottom:6px; }
+  .inv-party-name{ font-size:13.5px; font-weight:700; color:#141412; }
+  .inv-party-line{ font-size:11.5px; color:#5a5650; margin-top:2px; line-height:1.55; }
+  .inv-body{ padding:6px 28px 26px; }
+  .inv-table{ width:100%; border-collapse:collapse; margin-top:12px; }
+  .inv-table thead th{ text-align:left; font-size:10px; text-transform:uppercase; letter-spacing:.06em; color:#141412; font-weight:700; padding:9px 8px; border-bottom:2px solid #141412; }
   .inv-table thead th.r{ text-align:right; }
-  .inv-table td{ padding:9px 8px; font-size:12.5px; color:#2b2b28; border-bottom:1px solid #ececec; }
+  .inv-table td{ padding:9px 8px; font-size:12.5px; color:#2b2b28; }
   .inv-table td.r{ text-align:right; }
+  .inv-table tbody tr:nth-child(odd){ background:#f7f0e0; }
   .inv-totals{ display:flex; justify-content:flex-end; margin-top:18px; }
-  .inv-totals-box{ min-width:260px; font-size:12.5px; }
-  .inv-totals-row{ display:flex; justify-content:space-between; padding:5px 2px; color:#5a5650; }
+  .inv-totals-box{ min-width:280px; font-size:12.5px; }
+  .inv-totals-row{ display:flex; justify-content:space-between; padding:5px 10px; color:#5a5650; }
   .inv-totals-row.total{
-    font-size:14px; font-weight:700; color:#fff; background:#f5a623;
+    font-size:13.5px; font-weight:700; color:#fff; background:#c9a768; border-radius:4px;
     margin-top:8px; padding:10px 12px; text-transform:uppercase; letter-spacing:.03em;
   }
   .inv-totals-row.paid{ color:#2A7B7B; font-weight:600; }
-  .inv-payments{ margin-top:22px; padding-top:14px; border-top:1px solid #ececec; }
-  .inv-payments-lab, .inv-notes strong{ font-size:10px; text-transform:uppercase; letter-spacing:.1em; color:#999; font-weight:700; margin-bottom:8px; display:block; }
+  .inv-payments{ margin-top:22px; padding-top:14px; border-top:1px solid #ecdfc0; }
+  .inv-payments-lab, .inv-notes strong{ font-size:10px; text-transform:uppercase; letter-spacing:.1em; color:#a3907a; font-weight:700; margin-bottom:8px; display:block; }
   .inv-payment-row{ display:flex; justify-content:space-between; font-size:11.5px; color:#5a5650; padding:3px 0; }
-  .inv-notes{ margin-top:18px; padding-top:14px; border-top:1px solid #ececec; font-size:11.5px; color:#5a5650; }
-  .inv-sign{ margin-top:40px; display:flex; justify-content:flex-end; }
-  .inv-sign-box{ text-align:center; padding-top:8px; border-top:1px solid #141412; width:180px; font-size:10.5px; color:#5a5650; }
-  .inv-edit-input{ width:100%; border:1px solid #ddd; border-radius:4px; padding:5px 6px; font:inherit; font-size:12.5px; color:#2b2b28; background:#fdfdfd; }
+  .inv-notes{ margin-top:18px; padding-top:14px; border-top:1px solid #ecdfc0; font-size:11.5px; color:#5a5650; }
+  .inv-foot{ position:relative; overflow:hidden; padding:22px 28px 26px; margin-top:14px; }
+  .inv-foot::before{ content:""; position:absolute; z-index:0; left:-70px; bottom:-110px; width:220px; height:220px; background:#f4e9cd; transform:rotate(35deg); }
+  .inv-foot-inner{ position:relative; z-index:1; display:flex; justify-content:space-between; gap:24px; flex-wrap:wrap; }
+  .inv-foot-lab{ font-size:10px; text-transform:uppercase; letter-spacing:.1em; color:#a3907a; font-weight:700; margin-bottom:6px; }
+  .inv-foot-line{ font-size:11px; color:#5a5650; line-height:1.65; }
+  .inv-edit-input{ width:100%; border:1px solid #ddd2b3; border-radius:4px; padding:5px 6px; font:inherit; font-size:12.5px; color:#2b2b28; background:#fffdf8; }
   .inv-edit-input.r{ text-align:right; }
+  .inv-client-select{ margin-top:8px; font-size:12px; padding:6px 8px; border:1px solid #ddd2b3; border-radius:4px; width:100%; background:#fffdf8; }
 
   /* ---------- Rooming list (printed document, fixed px) ---------- */
   .rooming-sheet .fisa-top{ align-items:flex-start; padding:14px 18px; }
@@ -4705,59 +4706,55 @@ function InvoicePrint({ invoiceId, core, onClose, onChanged }) {
         </button>
       </div>
 
-      <div className="fisa inv-doc">
-        <div className="inv-side">
-          <div className="inv-side-inner">
-            <div className="inv-side-lab">Facturat către</div>
+      <div className="fisa">
+        <div className="inv-hero">
+          <div className="inv-hero-brand">
+            <div className="inv-hero-logo">LA LIVADĂ</div>
+            <div className="inv-hero-slogan">Complex de cazare</div>
+            <div className="inv-hero-issuer">
+              <strong>{issuer.name || "—"}</strong>
+              {issuer.cui && <div>CUI: {issuer.cui}{issuer.regCom ? ` · ${issuer.regCom}` : ""}</div>}
+              {issuer.address && <div>{issuer.address}{issuer.city ? `, ${issuer.city}` : ""}{issuer.county ? `, ${issuer.county}` : ""}</div>}
+            </div>
+          </div>
+          <div className="inv-hero-meta">
+            <div className="inv-hero-title">FACTURĂ</div>
+            <div className="inv-hero-number">{invoice.series ? `Seria ${invoice.series} nr. ${invoice.number}` : "Draft — fără număr alocat"}</div>
+            {invoice.issue_date && <div className="inv-hero-date">Emisă la {fmtDate(invoice.issue_date)}</div>}
+            {invoice.service_date_start && (
+              <div className="inv-hero-date">Perioadă cazare: {fmtDate(invoice.service_date_start)} → {fmtDate(invoice.service_date_end)}</div>
+            )}
+          </div>
+        </div>
+
+        <div className="inv-parties">
+          <div className="inv-party">
+            <div className="inv-party-lab">Prestator</div>
+            <div className="inv-party-name">{issuer.name || "—"}</div>
+            {issuer.cui && <div className="inv-party-line">CUI {issuer.cui}</div>}
+          </div>
+          <div className="inv-party">
+            <div className="inv-party-lab">Client</div>
             {customer ? (
               <>
-                <div className="inv-side-name">{billingCustomerLabel(customer)}</div>
-                {customer.kind === "company" && customer.cui && <div className="inv-side-line">CUI {customer.cui}{customer.regCom ? ` · ${customer.regCom}` : ""}</div>}
-                {customer.kind === "person" && customer.cnp && <div className="inv-side-line">CNP {customer.cnp}</div>}
-                <div className="inv-side-line">{customer.address}, {customer.city}, {customer.county}, {customer.country}</div>
+                <div className="inv-party-name">{billingCustomerLabel(customer)}</div>
+                {customer.kind === "company" && customer.cui && <div className="inv-party-line">CUI {customer.cui}{customer.regCom ? ` · ${customer.regCom}` : ""}</div>}
+                {customer.kind === "person" && customer.cnp && <div className="inv-party-line">CNP {customer.cnp}</div>}
+                <div className="inv-party-line">{customer.address}, {customer.city}, {customer.county}, {customer.country}</div>
               </>
-            ) : <div className="inv-side-line">—</div>}
+            ) : <div className="inv-party-line">—</div>}
             {invoice.status === "draft" && canBilling("create_invoice") && (
-              <select className="inv-side-select no-print" value={invoice.billing_customer_id || ""} onChange={(e) => changeBillingCustomer(e.target.value)}>
+              <select className="inv-client-select no-print" value={invoice.billing_customer_id || ""} onChange={(e) => changeBillingCustomer(e.target.value)}>
                 <option value="" disabled>Schimbă clientul…</option>
                 {(core.billingCustomers || []).map((c) => (
                   <option key={c.id} value={c.id}>{billingCustomerLabel(c)}{c.kind === "company" ? " · firmă" : ""}</option>
                 ))}
               </select>
             )}
-            {invoice.notes && (
-              <>
-                <hr className="inv-side-rule" />
-                <div className="inv-side-lab">Observații</div>
-                <div className="inv-side-line">{invoice.notes}</div>
-              </>
-            )}
           </div>
         </div>
 
-        <div className="inv-main">
-          <div className="inv-head">
-            <div className="inv-brand">
-              <div className="inv-brand-logo">LA LIVADĂ</div>
-              <div className="inv-brand-slogan">Complex de cazare</div>
-              <div className="inv-brand-issuer">
-                <strong style={{ display: "block", color: "#141412", fontSize: 11 }}>{issuer.name || "—"}</strong>
-                {issuer.cui && <div>CUI {issuer.cui}{issuer.regCom ? ` · ${issuer.regCom}` : ""}</div>}
-                {issuer.address && <div>{issuer.address}{issuer.city ? `, ${issuer.city}` : ""}{issuer.county ? `, ${issuer.county}` : ""}</div>}
-                {issuer.iban && <div>IBAN {issuer.iban}{issuer.bank ? ` · ${issuer.bank}` : ""}</div>}
-                {(issuer.phone || issuer.email) && <div>{[issuer.phone, issuer.email].filter(Boolean).join(" · ")}</div>}
-              </div>
-            </div>
-            <div className="inv-meta2">
-              <div className="inv-meta2-title">FACTURĂ</div>
-              <div className="inv-meta2-row"><span className="inv-meta2-lab">Nr.</span><span className="inv-meta2-val">{invoice.series ? `${invoice.series} ${invoice.number}` : "Draft"}</span></div>
-              {invoice.issue_date && <div className="inv-meta2-row"><span className="inv-meta2-lab">Data</span><span className="inv-meta2-val">{fmtDate(invoice.issue_date)}</span></div>}
-              {invoice.service_date_start && (
-                <div className="inv-meta2-row"><span className="inv-meta2-lab">Cazare</span><span className="inv-meta2-val">{fmtDate(invoice.service_date_start)} → {fmtDate(invoice.service_date_end)}</span></div>
-              )}
-            </div>
-          </div>
-
+        <div className="inv-body">
           <table className="inv-table">
             <thead>
               <tr>
@@ -4835,8 +4832,32 @@ function InvoicePrint({ invoiceId, core, onClose, onChanged }) {
             </div>
           )}
 
-          <div className="inv-sign">
-            <div className="inv-sign-box">Semnătură autorizată</div>
+          {invoice.notes && (
+            <div className="inv-notes">
+              <strong>Observații</strong>
+              <div>{invoice.notes}</div>
+            </div>
+          )}
+        </div>
+
+        <div className="inv-foot">
+          <div className="inv-foot-inner">
+            <div>
+              <div className="inv-foot-lab">Date de plată</div>
+              <div className="inv-foot-line">
+                {issuer.bank && <div>Bancă: {issuer.bank}</div>}
+                {issuer.iban && <div>IBAN: {issuer.iban}</div>}
+                {!issuer.bank && !issuer.iban && <div>—</div>}
+              </div>
+            </div>
+            <div>
+              <div className="inv-foot-lab">Contact</div>
+              <div className="inv-foot-line">
+                {issuer.phone && <div>{issuer.phone}</div>}
+                {issuer.email && <div>{issuer.email}</div>}
+                {!issuer.phone && !issuer.email && <div>—</div>}
+              </div>
+            </div>
           </div>
         </div>
       </div>
