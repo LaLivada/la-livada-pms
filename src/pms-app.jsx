@@ -6043,18 +6043,19 @@ function ViewportDebug() {
   useEffect(() => {
     const read = () => {
       const vv = window.visualViewport;
+      const modal = document.querySelector(".modal");
+      const rect = modal ? modal.getBoundingClientRect() : null;
       setInfo({
         vvH: vv ? Math.round(vv.height) : null,
         vvTop: vv ? Math.round(vv.offsetTop) : null,
-        vvW: vv ? Math.round(vv.width) : null,
         innerH: window.innerHeight,
-        scrollY: Math.round(window.scrollY),
-        cssVvh: getComputedStyle(document.documentElement).getPropertyValue("--vvh"),
-        cssVvt: getComputedStyle(document.documentElement).getPropertyValue("--vvt"),
+        modalTop: rect ? Math.round(rect.top) : null,
+        modalBottom: rect ? Math.round(rect.bottom) : null,
+        modalH: rect ? Math.round(rect.height) : null,
       });
     };
     read();
-    const id = setInterval(read, 500);
+    const id = setInterval(read, 200);
     window.visualViewport?.addEventListener("resize", read);
     window.visualViewport?.addEventListener("scroll", read);
     window.addEventListener("resize", read);
@@ -6068,11 +6069,14 @@ function ViewportDebug() {
   if (!info) return null;
   return (
     <div style={{
-      position: "fixed", top: 0, left: 0, right: 0, zIndex: 99999,
-      background: "#ffe600", color: "#000", fontSize: 11, fontFamily: "monospace",
-      padding: "4px 6px", lineHeight: 1.4, pointerEvents: "none",
+      position: "fixed", top: 4, left: 4, zIndex: 99999,
+      background: "rgba(255,230,0,0.92)", color: "#000", fontSize: 9, fontFamily: "monospace",
+      padding: "3px 5px", lineHeight: 1.35, pointerEvents: "none", borderRadius: 4, maxWidth: 150,
     }}>
-      vvH:{info.vvH} vvTop:{info.vvTop} vvW:{info.vvW} innerH:{info.innerH} scrollY:{info.scrollY} cssVvh:{info.cssVvh} cssVvt:{info.cssVvt}
+      vvH:{info.vvH} vvTop:{info.vvTop}<br />
+      innerH:{info.innerH}<br />
+      mTop:{info.modalTop} mBot:{info.modalBottom}<br />
+      mH:{info.modalH}
     </div>
   );
 }
