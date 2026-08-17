@@ -6,7 +6,7 @@ import {
   Sparkles, Check, Trash2, Pencil, ShieldCheck, UsersRound,
   BarChart3, History, LogIn, Printer, Banknote, ArrowRight,
   Settings, Eye, XCircle, MoveRight, Tag as TagIcon, Rows2, Rows3, MessageSquare, Wrench, UserCheck,
-  AlertTriangle, RefreshCw, Undo2, Copy, Info, Cpu, TrendingUp
+  AlertTriangle, RefreshCw, Undo2, Copy, Info, Cpu, TrendingUp, Phone, MessageCircle
 } from "lucide-react";
 
 /* ---------------------------------------------------------------
@@ -906,6 +906,8 @@ const STYLES = `
     .stat-value{ font-size:14px; white-space:normal; margin:3px 0 1px; }
     .stat-sub{ display:none; }
   }
+  .contact-quick{ display:inline-flex; align-items:center; gap:4px; flex-shrink:0; }
+  .contact-quick .icon-btn{ width:26px; height:26px; }
   .phone-input-row{ display:flex; gap:6px; }
   .phone-input-row input{ flex:1; min-width:0; }
   .phone-dial-wrap{ position:relative; flex-shrink:0; }
@@ -1398,6 +1400,7 @@ const SOURCES = [
   { key: "direct", label: "Direct" },
   { key: "phone", label: "Telefon" },
   { key: "walkin", label: "Walk-in" },
+  { key: "site", label: "Site propriu (online)" },
   { key: "booking", label: "Booking.com" },
   { key: "airbnb", label: "Airbnb" },
   { key: "other", label: "Altă agenție" },
@@ -1501,13 +1504,16 @@ function onlinePriceAdjustmentPct(occPct, tiers) {
 }
 
 /* Varianta de liveReservationTotal care mai aplica, DOAR pentru
-   rezervarile de pe site-ul propriu (source "direct"), ajustarea
-   procentuala din optimizatorul de pret pe grad de ocupare — vezi
-   OnlinePricingView. Booking.com/Airbnb nu pot primi preturi prin
-   feedul iCal (doar disponibilitate), asa ca nu sunt incluse aici. */
+   rezervarile facute de oaspete prin site-ul propriu de rezervari
+   (source "site"), ajustarea procentuala din optimizatorul de pret pe
+   grad de ocupare — vezi OnlinePricingView. NU se aplica rezervarilor
+   introduse manual de receptie (Direct/Telefon/Walk-in etc.), chiar
+   daca sunt fara plata online — doar strict celor prin site. Booking.com/
+   Airbnb nu pot primi preturi prin feedul iCal (doar disponibilitate),
+   asa ca nu sunt incluse aici. */
 function liveReservationTotalOnline(res, core, reservations) {
   const base = liveReservationTotal(res, core);
-  if (res.source !== "direct") return base;
+  if (res.source !== "site") return base;
   const tiers = core.onlinePricing;
   if (!tiers || !tiers.length) return base;
   const occPct = occupancyForStay(res.checkin, res.checkout, reservations, core.rooms.length, res.id);
@@ -1604,13 +1610,14 @@ const camelGuest = (g) => ({
   id: g.id, lastName: g.last_name, firstName: g.first_name, name:
     [g.last_name, g.first_name].filter(Boolean).join(" "),
   phone: g.phone, email: g.email || "", address: g.address || "",
-  city: g.city, county: g.county, country: g.country, notes: g.notes || "", seeded: g.seeded,
+  city: g.city, county: g.county, country: g.country, notes: g.notes || "",
+  salutation: g.salutation || "", seeded: g.seeded,
 });
 const snakeGuest = (g) => ({
   id: g.id, last_name: g.lastName || "-", first_name: g.firstName || "-",
   phone: g.phone || "-", email: g.email || null, address: g.address || null,
   city: g.city || "-", county: g.county || "-", country: g.country || "România",
-  notes: g.notes || null, seeded: !!g.seeded,
+  notes: g.notes || null, salutation: g.salutation || null, seeded: !!g.seeded,
 });
 const camelRoom = (r) => ({
   id: r.id, name: r.name, type: r.type, capacity: r.capacity,
@@ -4039,6 +4046,7 @@ function ReservationModal({ data, core, updateCore, reservations, updateReservat
                 <div className="gname">{guestFullName(selectedGuest)}</div>
                 <div className="gmeta">{[selectedGuest.phone, selectedGuest.city].filter(Boolean).join(" · ") || "Fără date de contact"}</div>
               </div>
+              <ContactQuickActions guest={selectedGuest} />
               <button className="icon-btn" onClick={() => { setGuestId(""); setGuestQuery(""); }} aria-label="Schimbă clientul">
                 <X size={15} />
               </button>
@@ -4355,7 +4363,10 @@ function ClientsView({ core, updateCore, groups, updateGroups, reservations, upd
               onClick={() => setHistoryGuest(g)}
               onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setHistoryGuest(g); } }}
             >
-              <div className="primary">{guestFullName(g)}</div>
+              <div className="primary" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                {guestFullName(g)}
+                <ContactQuickActions guest={g} onClick={(e) => e.stopPropagation()} />
+              </div>
               <div className="secondary">
                 {[g.phone, g.email, [g.city, g.county].filter(Boolean).join(", "), g.country !== "România" ? g.country : null]
                   .filter(Boolean).join(" · ")}
@@ -4551,7 +4562,7 @@ function PhoneDialPicker({ dial, onSelect }) {
 
 const emptyGuest = () => ({
   lastName: "", firstName: "", phone: "", email: "",
-  address: "", city: "", county: "Cluj", country: "România", notes: "",
+  address: "", city: "", county: "Cluj", country: "România", notes: "", salutation: "",
 });
 
 /* Group rooms can each carry their own occupant, while the group's
@@ -4571,12 +4582,66 @@ function guestFullName(g) {
   return composed || g.name || "";
 }
 
+/* href pentru apel direct — tel: vrea doar cifre si "+", fara spatii. */
+function telHref(phone) {
+  const digits = String(phone || "").replace(/[^\d+]/g, "");
+  return digits ? `tel:${digits}` : null;
+}
+
+/* Mesaj WhatsApp predefinit, personalizat cu titlul (Dl/Dna) ales pe fisa
+   clientului. Fara titlu salvat, mesajul sare peste formula de adresare
+   ca sa nu sune ciudat ("Buna ziua Popescu Andrei" fara Domnule/Doamna). */
+function whatsappHref(guest) {
+  const digits = String(guest?.phone || "").replace(/[^\d]/g, "");
+  if (!digits) return null;
+  const formula = guest?.salutation === "Dl" ? "domnule "
+    : guest?.salutation === "Dna" ? "doamnă " : "";
+  const name = guestFullName(guest);
+  const text = `Bună ziua ${formula}${name}, vă contactez de la recepția Complexului La Livada, `;
+  return `https://wa.me/${digits}?text=${encodeURIComponent(text)}`;
+}
+
+/* Perechea de iconite telefon/WhatsApp, refolosita in lista de clienti si
+   in fereastra de rezervare. `onClick` optional opreste propagarea cand
+   butoanele stau intr-un rand care are propriul click handler (ex. randul
+   de client care deschide istoricul la click). */
+function ContactQuickActions({ guest, onClick }) {
+  const tel = telHref(guest?.phone);
+  const wa = whatsappHref(guest);
+  if (!tel && !wa) return null;
+  return (
+    <span className="contact-quick" onClick={onClick}>
+      {tel && (
+        <a className="icon-btn" href={tel} title="Sună clientul" aria-label={`Sună ${guestFullName(guest)}`}>
+          <Phone size={14} />
+        </a>
+      )}
+      {wa && (
+        <a className="icon-btn" href={wa} target="_blank" rel="noreferrer"
+          title="Mesaj WhatsApp" aria-label={`Mesaj WhatsApp către ${guestFullName(guest)}`}>
+          <MessageCircle size={14} />
+        </a>
+      )}
+    </span>
+  );
+}
+
 const GuestFields = React.memo(function GuestFields({ value, onChange, invalid }) {
   const set = (k) => (e) => onChange({ ...value, [k]: e.target.value });
   const err = (k) => (invalid?.has(k) ? " input-error" : "");
   const { dial, local } = splitPhone(value.phone);
   return (
     <>
+      <div className="field-row field-row-2col">
+        <label className="field">
+          <select value={value.salutation} onChange={set("salutation")}>
+            <option value="">Dl / Dnă</option>
+            <option value="Dl">Domnul</option>
+            <option value="Dna">Doamna</option>
+          </select>
+        </label>
+        <div />
+      </div>
       <div className="field-row field-row-2col">
         <label className="field"><span className="fl">Nume *</span><input className={err("lastName")} value={value.lastName} onChange={set("lastName")} placeholder="Popescu" /></label>
         <label className="field"><span className="fl">Prenume *</span><input className={err("firstName")} value={value.firstName} onChange={set("firstName")} placeholder="Andrei" /></label>
@@ -6105,10 +6170,11 @@ function OnlinePricingView({ core, updateCore }) {
   return (
     <div>
       <div className="note">
-        Se aplică <strong>doar</strong> rezervărilor cu sursa <strong>Direct</strong> (site propriu) — Booking.com și
-        Airbnb nu pot primi tarife prin feedul iCal, doar disponibilitate, așa că rămân la tariful standard. Ocuparea
-        se calculează ca medie pe toată perioada sejurului, la nivel de proprietate (toate camerele), iar ajustarea
-        se aplică procentual peste prețul standard calculat din tarife/sezoane.
+        Se aplică <strong>doar</strong> rezervărilor cu sursa <strong>Site propriu (online)</strong> — nu afectează
+        rezervările introduse manual de recepție (Direct, Telefon, Walk-in etc.). Booking.com și Airbnb nu pot primi
+        tarife prin feedul iCal, doar disponibilitate, așa că rămân la tariful standard. Ocuparea se calculează ca
+        medie pe toată perioada sejurului, la nivel de proprietate (toate camerele), iar ajustarea se aplică
+        procentual peste prețul standard calculat din tarife/sezoane.
       </div>
 
       <div className="panel" style={{ padding: 18 }}>

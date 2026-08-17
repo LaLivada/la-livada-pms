@@ -57,6 +57,7 @@ create table guests (
   county      text not null,
   country     text not null default 'România',
   notes       text,
+  salutation  text check (salutation in ('Dl','Dna')),  -- pentru mesajul WhatsApp predefinit
   seeded      boolean not null default false,   -- date de test, ștergibile separat
   created_at  timestamptz not null default now()
 );
@@ -187,9 +188,11 @@ create table seasons (
 
 
 -- ---------------------------------------------------------------------
--- OPTIMIZATOR DE PREȚ PE GRAD DE OCUPARE (doar rezervări "direct")
+-- OPTIMIZATOR DE PREȚ PE GRAD DE OCUPARE (doar rezervări "site")
 --
--- Se aplică STRICT rezervărilor cu source = 'direct' (site propriu).
+-- Se aplică STRICT rezervărilor cu source = 'site' (site propriu de
+-- rezervări, facute de oaspete) — NU și celor introduse manual de
+-- recepție (direct/phone/walkin/other), chiar dacă sunt tot "directe".
 -- Booking.com/Airbnb nu pot primi prețuri prin feedul iCal — acesta duce
 -- doar disponibilitate, nu tarife — așa că rămân la tariful standard
 -- pana la o eventuala integrare de channel-manager separată.
