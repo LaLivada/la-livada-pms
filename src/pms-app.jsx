@@ -6035,56 +6035,9 @@ function SettingsView({ setView, items }) {
   );
 }
 
-/* Insigna temporara de diagnostic — arata ce raporteaza efectiv Safari
-   pentru dimensiunile de viewport, ca sa nu mai ghicim orb valorile.
-   De scos dupa ce se rezolva bug-ul cu popup-urile pe iPhone. */
-function ViewportDebug() {
-  const [info, setInfo] = useState(null);
-  useEffect(() => {
-    const read = () => {
-      const vv = window.visualViewport;
-      const modal = document.querySelector(".modal");
-      const rect = modal ? modal.getBoundingClientRect() : null;
-      setInfo({
-        vvH: vv ? Math.round(vv.height) : null,
-        vvTop: vv ? Math.round(vv.offsetTop) : null,
-        innerH: window.innerHeight,
-        modalTop: rect ? Math.round(rect.top) : null,
-        modalBottom: rect ? Math.round(rect.bottom) : null,
-        modalH: rect ? Math.round(rect.height) : null,
-      });
-    };
-    read();
-    const id = setInterval(read, 200);
-    window.visualViewport?.addEventListener("resize", read);
-    window.visualViewport?.addEventListener("scroll", read);
-    window.addEventListener("resize", read);
-    return () => {
-      clearInterval(id);
-      window.visualViewport?.removeEventListener("resize", read);
-      window.visualViewport?.removeEventListener("scroll", read);
-      window.removeEventListener("resize", read);
-    };
-  }, []);
-  if (!info) return null;
-  return (
-    <div style={{
-      position: "fixed", top: 4, left: 4, zIndex: 99999,
-      background: "rgba(255,230,0,0.92)", color: "#000", fontSize: 9, fontFamily: "monospace",
-      padding: "3px 5px", lineHeight: 1.35, pointerEvents: "none", borderRadius: 4, maxWidth: 150,
-    }}>
-      vvH:{info.vvH} vvTop:{info.vvTop}<br />
-      innerH:{info.innerH}<br />
-      mTop:{info.modalTop} mBot:{info.modalBottom}<br />
-      mH:{info.modalH}
-    </div>
-  );
-}
-
 export default function PMSAppRoot() {
   return (
     <ErrorBoundary>
-      <ViewportDebug />
       <PMSApp />
     </ErrorBoundary>
   );
