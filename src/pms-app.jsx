@@ -192,8 +192,11 @@ const STYLES = `
     display:flex; align-items:center; justify-content:center;
   }
   .brand-text{ min-width:0; }
-  .brand-name{ display:block; font-size:var(--fs-xl); font-weight:650; letter-spacing:-0.025em; color:var(--text); }
-  .brand-block .sub{ display:block; }
+  .brand-name{
+    display:block; font-size:var(--fs-xl); font-weight:650; letter-spacing:-0.025em; color:var(--text);
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+  .brand-block .sub{ display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .top-btn{
     display:flex; align-items:center; gap:7px; padding:9px 14px; border-radius:var(--r-sm);
     border:1px solid var(--border); background:var(--surface); font-size:var(--fs-base); font-weight:600;
@@ -609,22 +612,6 @@ const STYLES = `
     position:sticky; top:-22px; background:var(--surface); z-index:3;
     padding:4px 0 12px; margin:-4px 0 12px;
   }
-  @media (max-width:600px){
-    .modal{ max-height:92vh; padding:18px 16px calc(18px + env(safe-area-inset-bottom)); }
-    .field-row{ grid-template-columns:1fr; gap:0; }
-    .price-box{ padding:11px 12px; gap:10px; }
-    .pb-manual{ width:98px; }
-    .price-value{ font-size:var(--fs-xl); }
-    .today-cols{ grid-template-columns:1fr; }
-    .settings-grid{ grid-template-columns:1fr; }
-    .tabs-bar{ flex-direction:column; align-items:stretch; gap:10px; }
-    .tabs-bar .sub-tabs{ width:100%; }
-    .tabs-bar .sub-tabs button{ flex:1; }
-    .tabs-actions{ width:100%; }
-    .tabs-actions .btn{ flex:1; }
-    .room-grid{ grid-template-columns:repeat(auto-fill,minmax(160px,1fr)); }
-    .action-head{ flex-direction:column; align-items:flex-start; gap:8px; }
-  }
   @media (min-width:600px){
     .modal-overlay{ align-items:center; }
     .modal{ border-radius:var(--r-xl); margin-bottom:0; }
@@ -901,8 +888,9 @@ const STYLES = `
   .tabs-actions{ display:flex; gap:8px; flex-wrap:wrap; }
   .sub-tabs{
     display:flex; gap:4px; background:var(--surface-2); border-radius:11px; padding:4px;
-    margin-bottom:18px; flex-shrink:0;
+    margin-bottom:18px; flex-shrink:0; overflow-x:auto; -webkit-overflow-scrolling:touch;
   }
+  .sub-tabs button{ flex-shrink:0; }
   .sub-tabs button{
     display:flex; align-items:center; justify-content:center; gap:7px; padding:9px 14px;
     border:none; background:transparent; border-radius:8px; font-size:12.5px; font-weight:600;
@@ -1117,6 +1105,32 @@ const STYLES = `
   .note{
     font-size:12.5px; color:var(--text-muted); background:var(--surface-2); border-radius:8px; padding:10px 12px; margin-bottom:16px;
     line-height:1.5;
+  }
+
+  /* ---------- Responsive overrides (must stay last: same-specificity rules earlier
+     in this stylesheet would otherwise win by source order and silently defeat these) ---------- */
+  @media (max-width:600px){
+    .modal{ max-height:92vh; padding:18px 16px calc(18px + env(safe-area-inset-bottom)); }
+    .field-row{ grid-template-columns:1fr; gap:0; }
+    .field-row-2col{ grid-template-columns:1fr 1fr; gap:10px; }
+    .grp-dates{ flex-direction:column; align-items:stretch; }
+    .grp-dates .grp-nights{ flex-direction:row; justify-content:center; gap:5px; }
+    .price-box{ padding:11px 12px; gap:10px; }
+    .pb-manual{ width:98px; }
+    .price-value{ font-size:var(--fs-xl); }
+    .today-cols{ grid-template-columns:1fr; }
+    .settings-grid{ grid-template-columns:1fr; }
+    .tabs-bar{ flex-direction:column; align-items:stretch; gap:10px; }
+    .tabs-bar .sub-tabs{ width:100%; }
+    .tabs-bar .sub-tabs button{ flex:1; }
+    .tabs-actions{ width:100%; }
+    .tabs-actions .btn{ flex:1; }
+    .room-grid{ grid-template-columns:repeat(auto-fill,minmax(160px,1fr)); }
+    .action-head{ flex-direction:column; align-items:flex-start; gap:8px; }
+  }
+  @media (max-width:400px){
+    .top-btn span{ display:none; }
+    .top-btn{ padding:9px 10px; }
   }
 `;
 
@@ -1936,9 +1950,33 @@ function PMSApp() {
   const [initError, setInitError] = useState(null);
   const [reloadKey, setReloadKey] = useState(0);
   const [currentUser, setCurrentUser] = useState(null);
+  const [authChecked, setAuthChecked] = useState(false);
   const [view, setView] = useState("calendar");
 
+  /* La refresh de pagina, Supabase are deja sesiunea in localStorage —
+     o refolosim ca sa nu ceara login din nou de fiecare data. */
   useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user) {
+          const { data: st } = await supabase
+            .from("staff").select("name, role").eq("user_id", session.user.id).maybeSingle();
+          if (alive && st) setCurrentUser({ id: session.user.id, name: st.name, role: st.role });
+        }
+      } finally {
+        if (alive) setAuthChecked(true);
+      }
+    })();
+    const { data: sub } = supabase.auth.onAuthStateChange((event) => {
+      if (event === "SIGNED_OUT") setCurrentUser(null);
+    });
+    return () => { alive = false; sub.subscription.unsubscribe(); };
+  }, []);
+
+  useEffect(() => {
+    if (!authChecked) return;
     let alive = true;
     (async () => {
       try {
@@ -1977,7 +2015,7 @@ function PMSApp() {
       }
     })();
     return () => { alive = false; };
-  }, [reloadKey, currentUser]);
+  }, [reloadKey, currentUser, authChecked]);
 
   /* Fiecare functie trimite doar randurile schimbate. Starea locala
      se actualizeaza imediat, iar daca scrierea esueaza (de ex. camera
@@ -2281,6 +2319,7 @@ function Shell({ user, view, setView, onLogout, core, updateCore, reservations, 
               <button
                 className={"top-btn" + (safeView === "calendar" ? " active" : "")}
                 onClick={() => setView("calendar")}
+                aria-label="Calendar"
               >
                 <CalendarDays size={16} /> <span>Calendar</span>
               </button>
@@ -3818,7 +3857,7 @@ function ReservationModal({ data, core, updateCore, reservations, updateReservat
         </div>}
 
         {!isBlock && (
-          <div className="field-row">
+          <div className="field-row field-row-2col">
             <label className="field">
               <span className="fl">Adulți{isGroup ? " (per cameră)" : ""}</span>
               <input type="number" min="1" max="20" value={adults} onChange={(e) => setAdults(e.target.value)} />
