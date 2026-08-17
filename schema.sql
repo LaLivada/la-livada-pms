@@ -103,6 +103,12 @@ create table reservations (
   adults                int not null default 2,
   children              int not null default 0,
   price_override        numeric,
+  -- pretul "inghetat" la creare/ultima editare a datei-camerei-ocuparii,
+  -- calculat din tarifele curente in acel moment. Un tarif modificat
+  -- ulterior nu il mai atinge — doar o editare a rezervarii insasi
+  -- (data/camera/ocupare) il recalculeaza. NULL = rezervare cu pret
+  -- manual (price_override) sau inca nemigrata.
+  booked_price          numeric,
   source                text not null default 'direct',
   tags                  text[] not null default '{}',
   notes                 text,

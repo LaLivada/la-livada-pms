@@ -1538,11 +1538,11 @@ function nightlyRate(date, roomType, rates, occupancy) {
   return standard + Math.max(0, adults - 2) * adultSupplement + children * childSupplement;
 }
 
-function reservationTotal(res, core) {
-  if (res.priceOverride != null && res.priceOverride !== "") {
-    const n = Number(res.priceOverride);
-    return Number.isFinite(n) && n >= 0 ? n : 0;
-  }
+/* Calcul LIVE, mereu proaspat din tarifele curente — folosit doar ca sa
+   producem un nou pret inghetat (la creare/editare) sau ca ultim fallback
+   pentru rezervari vechi care inca nu au un snapshot. NU se foloseste
+   direct pentru afisare — vezi reservationTotal mai jos. */
+function liveReservationTotal(res, core) {
   const room = core.rooms.find((r) => r.id === res.roomId);
   if (!room) return 0;
   const n = nightsBetween(res.checkin, res.checkout);
@@ -1554,6 +1554,24 @@ function reservationTotal(res, core) {
     d.setDate(d.getDate() + 1);
   }
   return total;
+}
+
+/* Pretul afisat/facturat: suprascrierea manuala are mereu prioritate;
+   apoi pretul inghetat la creare (sau la ultima modificare de
+   data/ocupare/camera) — asa raman neschimbate rezervarile deja facute
+   cand se modifica doar tarifele, nu si rezervarea insasi. Calculul
+   live e ultim fallback, doar pentru rezervari vechi fara snapshot
+   inca (migrate automat la incarcarea aplicatiei — vezi backfillBookedPrices). */
+function reservationTotal(res, core) {
+  if (res.priceOverride != null && res.priceOverride !== "") {
+    const n = Number(res.priceOverride);
+    return Number.isFinite(n) && n >= 0 ? n : 0;
+  }
+  if (res.bookedPrice != null && res.bookedPrice !== "") {
+    const n = Number(res.bookedPrice);
+    if (Number.isFinite(n) && n >= 0) return n;
+  }
+  return liveReservationTotal(res, core);
 }
 
 /* Limiteaza adulti+copii la capacitatea camerei — apelata din onChange,
@@ -1609,6 +1627,7 @@ const camelRes = (r) => ({
   id: r.id, roomId: r.room_id, guestId: r.guest_id, groupId: r.group_id,
   checkin: r.checkin, checkout: r.checkout, status: r.status,
   adults: r.adults, children: r.children, priceOverride: r.price_override,
+  bookedPrice: r.booked_price,
   source: r.source, tags: r.tags || [], notes: r.notes || "",
   occupantLastName: r.occupant_last_name || "", occupantFirstName: r.occupant_first_name || "",
   occupantPhone: r.occupant_phone || "", occupantName:
@@ -1619,7 +1638,8 @@ const snakeRes = (r) => ({
   id: r.id, room_id: r.roomId, guest_id: r.guestId || null, group_id: r.groupId || null,
   checkin: new Date(r.checkin).toISOString(), checkout: new Date(r.checkout).toISOString(),
   status: r.status, adults: r.adults ?? 2, children: r.children ?? 0,
-  price_override: r.priceOverride ?? null, source: r.source || "direct",
+  price_override: r.priceOverride ?? null, booked_price: r.bookedPrice ?? null,
+  source: r.source || "direct",
   tags: r.tags || [], notes: r.notes || null,
   occupant_last_name: r.occupantLastName || null,
   occupant_first_name: r.occupantFirstName || null,
@@ -2125,7 +2145,20 @@ function PMSApp() {
           guests: db.guests,
           rates: db.rates,
         });
-        const r = db.reservations;
+        /* Rezervarile facute inainte de pretul inghetat (bookedPrice) inca
+           n-au un snapshot — le calculam o singura data, acum, cu tarifele
+           curente, ca sa nu mai fie afectate de modificari viitoare de
+           tarife. Scriere in fundal, fara sa blocheze incarcarea; no-op
+           la urmatoarele porniri, odata ce fiecare rezervare are snapshot. */
+        const rawRes = db.reservations;
+        const r = rawRes.map((x) => (x.priceOverride == null && x.bookedPrice == null)
+          ? { ...x, bookedPrice: liveReservationTotal(x, c) }
+          : x);
+        const backfilled = r.filter((x, i) => x !== rawRes[i]);
+        if (backfilled.length) {
+          syncTable("reservations", [], backfilled, snakeRes)
+            .catch((e) => console.error("Backfill bookedPrice esuat", e));
+        }
         const gr = db.groups.filter((g) => r.some((x) => x.groupId === g.id));
         const bl = db.blocks;
 
@@ -2793,8 +2826,18 @@ function GroupEditor({ group, core, groups, updateGroups, reservations, updateRe
   const maxN = nightsList.length ? Math.max(...nightsList) : 0;
   const totalValue = rows.reduce((v, r) => v + reservationTotal(r, core), 0);
 
+  /* Recalculeaza bookedPrice doar cand se schimba ceva ce afecteaza pretul
+     (data, ocupare, camera) si doar daca rezervarea nu are deja un pret
+     manual — altfel un tarif modificat intre timp ar "sari" pe rezervari
+     deja facute, fara sa fi fost editate cu adevarat. */
+  const PRICE_AFFECTING = ["roomId", "checkin", "checkout", "adults", "children"];
   const patchRow = async (id, patch) => {
-    await updateReservations(reservations.map((r) => (r.id === id ? { ...r, ...patch } : r)));
+    const row = reservations.find((r) => r.id === id);
+    let finalPatch = patch;
+    if (row && row.priceOverride == null && PRICE_AFFECTING.some((f) => patch[f] !== undefined)) {
+      finalPatch = { ...patch, bookedPrice: liveReservationTotal({ ...row, ...patch }, core) };
+    }
+    await updateReservations(reservations.map((r) => (r.id === id ? { ...r, ...finalPatch } : r)));
     setError("");
   };
 
@@ -2834,8 +2877,11 @@ function GroupEditor({ group, core, groups, updateGroups, reservations, updateRe
     }
 
     const ids = new Set(rows.map((r) => r.id));
-    await updateReservations(reservations.map((r) =>
-      ids.has(r.id) ? { ...r, checkin: ci.toISOString(), checkout: co.toISOString() } : r));
+    await updateReservations(reservations.map((r) => {
+      if (!ids.has(r.id)) return r;
+      const patched = { ...r, checkin: ci.toISOString(), checkout: co.toISOString() };
+      return r.priceOverride == null ? { ...patched, bookedPrice: liveReservationTotal(patched, core) } : patched;
+    }));
     await audit.push("Perioadă grup schimbată",
       `${group.name}: ${fmtDate(ci)} → ${fmtDate(co)} · ${rows.length} camere`);
     toaster.show(`Perioada grupului mutată pe ${fmtDate(ci)} → ${fmtDate(co)}`, { tone: "ok" });
@@ -2874,13 +2920,14 @@ function GroupEditor({ group, core, groups, updateGroups, reservations, updateRe
   const addRoom = async (roomId) => {
     if (!span) { setError("Grupul nu mai are nicio rezervare de la care să preiau datele."); return; }
     const template = rows[0];
-    const record = {
+    const recordBase = {
       id: uid(), roomId, guestId: group.mainGuestId, groupId: group.id,
       checkin: span.checkin, checkout: span.checkout,
       status: template?.status === "cancelled" ? "confirmed" : (template?.status || "confirmed"),
       notes: "", priceOverride: null, adults: 2, children: 0,
       source: template?.source || "direct", tags: [], messages: [],
     };
+    const record = { ...recordBase, bookedPrice: liveReservationTotal(recordBase, core) };
     await updateReservations([...reservations, record]);
     const rn = core.rooms.find((x) => x.id === roomId)?.name;
     await audit.push("Cameră adăugată în grup", `${group.name}: ${rn}`);
@@ -3663,6 +3710,15 @@ function ReservationModal({ data, core, updateCore, reservations, updateReservat
   const maxOccupancy = isGroup
     ? (roomIds.length ? Math.min(...roomIds.map((id) => core.rooms.find((r) => r.id === id)?.capacity || 20)) : 20)
     : (core.rooms.find((r) => r.id === roomId)?.capacity || 20);
+  /* Daca nimic ce afecteaza pretul (camera/data/ocupare) nu s-a schimbat
+     fata de rezervarea existenta, previzualizarea si salvarea folosesc
+     pretul deja inghetat, nu un recalcul cu tarifele curente. */
+  const priceAffectingChanged = !editing
+    || editing.roomId !== roomId
+    || new Date(editing.checkin).getTime() !== new Date(checkin).getTime()
+    || new Date(editing.checkout).getTime() !== new Date(checkout).getTime()
+    || (editing.adults ?? 2) !== (Number(adults) || 1)
+    || (editing.children ?? 0) !== (Number(children) || 0);
   const editingGroup = editing?.groupId ? groups.find((g) => g.id === editing.groupId) : null;
   const selectedGuest = guests.find((g) => g.id === guestId) || null;
   const matchingGuests = (() => {
@@ -3705,6 +3761,9 @@ function ReservationModal({ data, core, updateCore, reservations, updateReservat
   const previewTotal = (() => {
     if (priceOverride !== "") {
       return Math.max(0, Number(priceOverride) || 0);
+    }
+    if (!isGroup && editing && !priceAffectingChanged && editing.bookedPrice != null) {
+      return Number(editing.bookedPrice) || 0;
     }
     const ids = isGroup ? roomIds : [roomId];
     return ids.reduce((sum, rid) =>
@@ -3791,14 +3850,18 @@ function ReservationModal({ data, core, updateCore, reservations, updateReservat
       const groupTotal = priceOverride === "" ? null : Math.max(0, Number(priceOverride) || 0);
       const baseShare = groupTotal != null ? Math.floor(groupTotal / roomIds.length) : null;
       const remainder = groupTotal != null ? groupTotal - baseShare * roomIds.length : 0;
-      const newRes = roomIds.map((rid, idx) => ({
-        id: uid(), roomId: rid, guestId, groupId,
-        checkin: new Date(checkin).toISOString(), checkout: new Date(checkout).toISOString(),
-        status, notes,
-        priceOverride: groupTotal == null ? null : baseShare + (idx < remainder ? 1 : 0),
-        adults: Number(adults) || 1, children: Number(children) || 0, source,
-        tags: [...tags], messages: [],
-      }));
+      const newRes = roomIds.map((rid, idx) => {
+        const base = {
+          id: uid(), roomId: rid, guestId, groupId,
+          checkin: new Date(checkin).toISOString(), checkout: new Date(checkout).toISOString(),
+          status, notes,
+          adults: Number(adults) || 1, children: Number(children) || 0, source,
+          tags: [...tags], messages: [],
+        };
+        return groupTotal == null
+          ? { ...base, priceOverride: null, bookedPrice: liveReservationTotal(base, core) }
+          : { ...base, priceOverride: baseShare + (idx < remainder ? 1 : 0), bookedPrice: null };
+      });
       await updateGroups([...groups, group]);
       await updateReservations([...reservations, ...newRes]);
       await audit.push("Grup creat",
@@ -3812,14 +3875,26 @@ function ReservationModal({ data, core, updateCore, reservations, updateReservat
     /* Spread `editing` first so fields this form doesn't expose — the
        per-room occupant name/phone on group rooms above all — survive a
        save instead of being silently dropped by a from-scratch rebuild. */
-    const record = {
+    const recordBase = {
       ...(editing || {}),
       id: editing?.id || uid(), roomId, guestId, groupId: editing?.groupId || null,
       checkin: new Date(checkin).toISOString(), checkout: new Date(checkout).toISOString(),
-      status, notes, priceOverride: priceOverride === "" ? null : Number(priceOverride),
+      status, notes,
       adults: Number(adults) || 1, children: Number(children) || 0, source, tags: [...tags],
       messages: editing?.messages || [],
     };
+    /* Pretul manual e mereu explicit. Cel "auto" ramane inghetat in
+       bookedPrice pana cand ceva ce chiar afecteaza pretul se schimba
+       (data, camera, ocupare) — un simplu re-salvare (ex. doar o nota
+       modificata) sau un tarif schimbat ulterior nu il ating.
+       priceAffectingChanged e calculat mai sus, langa previewTotal. */
+    const record = priceOverride === ""
+      ? {
+          ...recordBase, priceOverride: null,
+          bookedPrice: priceAffectingChanged || editing?.bookedPrice == null
+            ? liveReservationTotal(recordBase, core) : editing.bookedPrice,
+        }
+      : { ...recordBase, priceOverride: Number(priceOverride), bookedPrice: null };
     const nextRes = editing ? reservations.map((r) => (r.id === editing.id ? record : r)) : [...reservations, record];
 
     await updateReservations(nextRes);
