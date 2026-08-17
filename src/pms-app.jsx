@@ -1396,6 +1396,15 @@ const isLive = (r) => !DEAD_STATUSES.includes(r.status);
    pentru protocol) si ClientsView/GuestHistory. */
 const isStatsEligible = (r) => isLive(r) && r.status !== "protocol";
 
+const INVOICE_STATUS_LABEL = {
+  draft: "Draft", issued: "Emisă", partially_paid: "Parțial plătită",
+  paid: "Plătită", cancelled: "Anulată", credited: "Stornată",
+};
+const INVOICE_STATUS_CLASS = {
+  draft: "st-pending", issued: "st-confirmed", partially_paid: "st-noshow",
+  paid: "st-checkedin", cancelled: "st-cancelled", credited: "st-protocol",
+};
+
 function isSameDay(a, b) {
   const x = new Date(a), y = new Date(b);
   return x.getFullYear() === y.getFullYear() && x.getMonth() === y.getMonth() && x.getDate() === y.getDate();
@@ -1857,6 +1866,16 @@ const audit = {
     await saveShared(K.log, next);
   },
 };
+
+/* Permisiuni granulare de facturare pentru userul curent — module-level
+   ca audit, populat o singura data la login (vezi PMSApp). Adminii au
+   automat tot (oglindeste has_billing_permission() din RLS — vezi
+   schema.sql — asta e doar pentru UI, RLS impune regula reala). */
+const billingPerms = { role: null, set: new Set() };
+function canBilling(perm) {
+  if (billingPerms.role === "admin") return true;
+  return billingPerms.set.has(perm);
+}
 
 async function loadShared(key, fallback) {
   try {
@@ -2326,6 +2345,22 @@ function PMSApp() {
   }, []);
 
   useEffect(() => { audit.user = currentUser; }, [currentUser]);
+
+  /* Adminii au automat tot (vezi canBilling); pentru restul, incarcam
+     doar drepturile explicit acordate din billing_permissions. */
+  useEffect(() => {
+    let alive = true;
+    billingPerms.role = currentUser?.role || null;
+    billingPerms.set = new Set();
+    if (currentUser && currentUser.role !== "admin") {
+      supabase.from("billing_permissions").select("permission").eq("user_id", currentUser.id)
+        .then(({ data, error }) => {
+          if (!alive || error) return;
+          billingPerms.set = new Set((data || []).map((r) => r.permission));
+        });
+    }
+    return () => { alive = false; };
+  }, [currentUser]);
 
   useEffect(() => {
     if (currentUser) {
@@ -3814,8 +3849,11 @@ async function ensureCazareLine(folio, items, reservation, core) {
 function FolioPanel({ reservation, core }) {
   const [folio, setFolio] = useState(null);
   const [items, setItems] = useState([]);
+  const [invoices, setInvoices] = useState([]);
   const [loading, setLoading] = useState(true);
   const [adding, setAdding] = useState(false);
+  const [builderOpen, setBuilderOpen] = useState(false);
+  const [printInvoiceId, setPrintInvoiceId] = useState(null);
   const [loadError, setLoadError] = useState("");
 
   const load = useCallback(async () => {
@@ -3838,6 +3876,11 @@ function FolioPanel({ reservation, core }) {
       const rest = (fi || []).filter((i) => i.category !== "cazare");
       setFolio(f);
       setItems(cazare ? [cazare, ...rest] : rest);
+
+      const { data: inv, error: invErr } = await supabase
+        .from("invoices").select("*").eq("folio_id", f.id).order("created_at", { ascending: false });
+      if (invErr) throw invErr;
+      setInvoices(inv || []);
     } catch (e) {
       setLoadError(e?.message || "Nu am putut încărca folio-ul.");
     } finally {
@@ -3852,8 +3895,8 @@ function FolioPanel({ reservation, core }) {
   useEffect(() => { load(); }, [load]);
 
   const total = items.reduce((s, i) => s + Number(i.total_amount), 0);
-  const uninvoicedTotal = items.filter((i) => i.invoiced_status !== "invoiced")
-    .reduce((s, i) => s + Number(i.total_amount), 0);
+  const uninvoicedItems = items.filter((i) => i.invoiced_status !== "invoiced");
+  const uninvoicedTotal = uninvoicedItems.reduce((s, i) => s + Number(i.total_amount), 0);
 
   const addExtra = async (product, quantity, price, dateStr) => {
     const vatRate = Number((core.vatRates || []).find((v) => v.id === product.vatRateId)?.rate) || 0;
@@ -3880,6 +3923,18 @@ function FolioPanel({ reservation, core }) {
     if (error) { toaster.show("Ștergerea a eșuat: " + error.message, { tone: "danger" }); return; }
     setItems((prev) => prev.filter((i) => i.id !== item.id));
     await audit.push("Poziție folio ștearsă", `${item.name} · ${fmtMoney(item.total_amount)}`);
+  };
+
+  const issueInvoice = async (invoice) => {
+    const { data: numRow, error: numErr } = await supabase.rpc("next_invoice_number", { p_series: "LIV" });
+    if (numErr) { toaster.show("Nu am putut aloca numărul de factură: " + numErr.message, { tone: "danger" }); return; }
+    const { series, number } = Array.isArray(numRow) ? numRow[0] : numRow;
+    const { data: updated, error } = await supabase.from("invoices").update({
+      series, number, status: "issued", issue_date: new Date().toISOString(), issued_by: audit.user?.id || null,
+    }).eq("id", invoice.id).select().maybeSingle();
+    if (error) { toaster.show("Emiterea a eșuat: " + error.message, { tone: "danger" }); return; }
+    setInvoices((prev) => prev.map((x) => (x.id === invoice.id ? updated : x)));
+    await audit.push("Factură emisă", `${series} ${number} · ${fmtMoney(invoice.total_amount)}`);
   };
 
   const activeProducts = (core.products || []).filter((p) => p.active && p.category !== "cazare");
@@ -3943,6 +3998,68 @@ function FolioPanel({ reservation, core }) {
           Niciun produs/serviciu activ — adaugă din Setări → Camere și tarife → Produse & TVA.
         </div>
       )}
+
+      {!loading && !loadError && (
+        <>
+          <div className="toolbar" style={{ marginTop: 18 }}>
+            <span className="fl" style={{ margin: 0 }}>Facturi</span>
+            <div className="grow" />
+            {canBilling("create_invoice") && (
+              <button type="button" className="btn btn-primary" style={{ width: "auto" }}
+                onClick={() => setBuilderOpen(true)} disabled={!uninvoicedItems.length}>
+                <Receipt size={15} /> Generează factură
+              </button>
+            )}
+          </div>
+          {invoices.length === 0 ? (
+            <div className="note">Nicio factură generată încă pentru această rezervare.</div>
+          ) : (
+            <div className="panel">
+              {invoices.map((inv) => (
+                <div className="list-row" key={inv.id}>
+                  <div>
+                    <div className="primary">
+                      {inv.series ? `${inv.series} ${inv.number}` : "Draft"}
+                      <span className={"role-tag " + INVOICE_STATUS_CLASS[inv.status]} style={{ marginLeft: 8 }}>
+                        {INVOICE_STATUS_LABEL[inv.status]}
+                      </span>
+                    </div>
+                    <div className="secondary">
+                      {fmtMoney(inv.total_amount)}{inv.paid_amount > 0 ? ` · încasat ${fmtMoney(inv.paid_amount)}` : ""}
+                    </div>
+                  </div>
+                  <div className="row-actions">
+                    {inv.status === "draft" && canBilling("issue_invoice") && (
+                      <button className="btn btn-ghost" style={{ width: "auto", padding: "8px 12px" }} onClick={() => issueInvoice(inv)}>
+                        Emite
+                      </button>
+                    )}
+                    <button className="icon-btn" onClick={() => setPrintInvoiceId(inv.id)} aria-label="Vezi factura">
+                      <Eye size={14} />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </>
+      )}
+
+      {builderOpen && (
+        <div onClick={(e) => e.stopPropagation()}>
+          <InvoiceBuilderModal
+            reservation={reservation} folio={folio} items={uninvoicedItems} core={core}
+            onCreated={(inv) => { setInvoices((prev) => [inv, ...prev]); setBuilderOpen(false); load(); }}
+            onClose={() => setBuilderOpen(false)}
+          />
+        </div>
+      )}
+      {printInvoiceId && (
+        <div onClick={(e) => e.stopPropagation()}>
+          <InvoicePrint invoiceId={printInvoiceId} core={core} onClose={() => setPrintInvoiceId(null)}
+            onChanged={(updated) => setInvoices((prev) => prev.map((x) => (x.id === updated.id ? updated : x)))} />
+        </div>
+      )}
     </div>
   );
 }
@@ -3988,6 +4105,506 @@ function AddExtraForm({ products, onSave, onCancel }) {
         </button>
       </div>
     </div>
+  );
+}
+
+/* ---------------------------------------------------------------
+   GENERARE FACTURA — selecteaza pozitii din folio, separat/agregat,
+   client de facturare, salveaza ca draft (fara numar alocat inca).
+----------------------------------------------------------------*/
+function InvoiceBuilderModal({ reservation, folio, items, core, onCreated, onClose }) {
+  useModalLock();
+  const cazareItem = items.find((i) => i.category === "cazare");
+  const extraItems = items.filter((i) => i.category !== "cazare");
+
+  const [selected, setSelected] = useState(() => new Set(items.map((i) => i.id)));
+  const [aggregate, setAggregate] = useState({}); // folio_item_id -> boolean
+  const [billingCustomerId, setBillingCustomerId] = useState(reservation.billingCustomerId || "");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  const toggle = (id) => setSelected((prev) => {
+    const next = new Set(prev);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    return next;
+  });
+
+  const selectedItems = items.filter((i) => selected.has(i.id));
+  const previewTotal = selectedItems.reduce((s, i) => s + Number(i.total_amount), 0);
+
+  const guest = core.guests.find((g) => g.id === reservation.guestId) || null;
+
+  const submit = async () => {
+    if (!selectedItems.length) { setError("Selectează cel puțin o poziție."); return; }
+    setSaving(true);
+    setError("");
+    try {
+      let custId = billingCustomerId;
+      if (!custId) {
+        // Fara client de facturare explicit — facturam pe oaspete,
+        // creand transparent o fisa billing_customers din datele lui.
+        if (!guest) { setError("Rezervarea nu are un oaspete asociat — alege un client de facturare."); setSaving(false); return; }
+        const newCust = {
+          id: uid(), kind: "person", lastName: guest.lastName, firstName: guest.firstName,
+          address: guest.address || "—", city: guest.city || "—", county: guest.county || "—",
+          country: guest.country || "România", email: guest.email || "", phone: guest.phone || "",
+          guestId: guest.id,
+        };
+        const { data: createdCust, error: custErr } = await supabase
+          .from("billing_customers").insert(snakeBillingCustomer(newCust)).select().maybeSingle();
+        if (custErr) throw custErr;
+        custId = createdCust.id;
+        await updateCore({ ...core, billingCustomers: [...(core.billingCustomers || []), camelBillingCustomer(createdCust)] });
+      }
+
+      const { data: invoice, error: invErr } = await supabase.from("invoices").insert({
+        id: uid(), folio_id: folio.id, billing_customer_id: custId, status: "draft",
+        service_date_start: reservation.checkin, service_date_end: reservation.checkout,
+      }).select().maybeSingle();
+      if (invErr) throw invErr;
+
+      // Construim liniile facturii: cazarea (daca selectata) primeste si
+      // valoarea extra-urilor agregate in ea; restul extra-urilor
+      // neagregate devin linii proprii. invoice_item_links tine minte,
+      // pentru fiecare linie, din ce pozitii de folio provine — inclusiv
+      // cand sunt mai multe (agregare) — ca sa nu poata fi refacturate.
+      const lines = []; // { name, category, quantity, unit_price, vat_rate, sourceIds: [] }
+      let cazareLine = null;
+      if (cazareItem && selected.has(cazareItem.id)) {
+        cazareLine = {
+          name: cazareItem.name, category: "cazare", quantity: cazareItem.quantity,
+          unitPrice: Number(cazareItem.unit_price), vatRate: Number(cazareItem.vat_rate),
+          netAmount: Number(cazareItem.net_amount), vatAmount: Number(cazareItem.vat_amount),
+          totalAmount: Number(cazareItem.total_amount), sourceIds: [cazareItem.id],
+        };
+        lines.push(cazareLine);
+      }
+      for (const item of extraItems) {
+        if (!selected.has(item.id)) continue;
+        if (aggregate[item.id] && cazareLine) {
+          // Agregat: se aduna in linia de cazare, TVA recalculat la cota
+          // cazarii peste totalul combinat (tratament standard pentru
+          // "inclus in pretul camerei").
+          cazareLine.totalAmount += Number(item.total_amount);
+          const recalced = calcAmounts(cazareLine.totalAmount, 1, cazareLine.vatRate);
+          cazareLine.netAmount = recalced.netAmount;
+          cazareLine.vatAmount = recalced.vatAmount;
+          cazareLine.unitPrice = cazareLine.totalAmount / (cazareLine.quantity || 1);
+          cazareLine.sourceIds.push(item.id);
+        } else {
+          lines.push({
+            name: item.name, category: item.category, quantity: Number(item.quantity),
+            unitPrice: Number(item.unit_price), vatRate: Number(item.vat_rate),
+            netAmount: Number(item.net_amount), vatAmount: Number(item.vat_amount),
+            totalAmount: Number(item.total_amount), sourceIds: [item.id],
+          });
+        }
+      }
+
+      const itemRows = lines.map((l, idx) => ({
+        id: uid(), invoice_id: invoice.id, name: l.name, quantity: l.quantity,
+        unit_price: l.unitPrice, vat_rate: l.vatRate, net_amount: l.netAmount,
+        vat_amount: l.vatAmount, total_amount: l.totalAmount, sort_order: idx,
+      }));
+      if (itemRows.length) {
+        const { error: itemsErr } = await supabase.from("invoice_items").insert(itemRows);
+        if (itemsErr) throw itemsErr;
+      }
+      const linkRows = lines.flatMap((l, idx) =>
+        l.sourceIds.map((folioItemId) => ({ invoice_item_id: itemRows[idx].id, folio_item_id: folioItemId })));
+      if (linkRows.length) {
+        const { error: linksErr } = await supabase.from("invoice_item_links").insert(linkRows);
+        if (linksErr) throw linksErr;
+      }
+
+      const allSourceIds = lines.flatMap((l) => l.sourceIds);
+      if (allSourceIds.length) {
+        const { error: markErr } = await supabase
+          .from("folio_items").update({ invoiced_status: "invoiced" }).in("id", allSourceIds);
+        if (markErr) throw markErr;
+      }
+
+      const subtotalNet = lines.reduce((s, l) => s + l.netAmount, 0);
+      const subtotalVat = lines.reduce((s, l) => s + l.vatAmount, 0);
+      const totalAmount = lines.reduce((s, l) => s + l.totalAmount, 0);
+      const { data: finalInvoice, error: updErr } = await supabase.from("invoices").update({
+        subtotal_net: subtotalNet, subtotal_vat: subtotalVat, total_amount: totalAmount,
+        created_by: audit.user?.id || null,
+      }).eq("id", invoice.id).select().maybeSingle();
+      if (updErr) throw updErr;
+
+      await audit.push("Factură creată (draft)", `${fmtMoney(totalAmount)} · ${lines.length} poziții`);
+      onCreated(finalInvoice);
+    } catch (e) {
+      setError(e?.message || "Salvarea facturii a eșuat.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Dialog onClose={onClose} title="Generează factură">
+      <div className="field">
+        <span className="fl">Facturare către</span>
+        <select value={billingCustomerId} onChange={(e) => setBillingCustomerId(e.target.value)}>
+          <option value="">{guestFullName(guest) || "Oaspetele rezervării"} (implicit)</option>
+          {(core.billingCustomers || []).map((c) => (
+            <option key={c.id} value={c.id}>{billingCustomerLabel(c)}{c.kind === "company" ? " · firmă" : ""}</option>
+          ))}
+        </select>
+      </div>
+
+      <div className="panel" style={{ marginBottom: 14 }}>
+        {items.map((i) => (
+          <div className="list-row" key={i.id}>
+            <label style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", flex: 1, minWidth: 0 }}>
+              <input type="checkbox" checked={selected.has(i.id)} onChange={() => toggle(i.id)} style={{ flexShrink: 0 }} />
+              <div style={{ minWidth: 0 }}>
+                <div className="primary">{i.name}</div>
+                <div className="secondary">{i.quantity} × {fmtMoney(i.unit_price)} · TVA {i.vat_rate}%</div>
+              </div>
+            </label>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              {i.category !== "cazare" && cazareItem && selected.has(cazareItem.id) && (
+                <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--text-muted)" }}>
+                  <input type="checkbox" checked={!!aggregate[i.id]}
+                    onChange={(e) => setAggregate({ ...aggregate, [i.id]: e.target.checked })} />
+                  agregă în cazare
+                </label>
+              )}
+              <span className="mono" style={{ fontWeight: 650 }}>{fmtMoney(i.total_amount)}</span>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="price-box">
+        <div className="pb-info">
+          <div className="price-label">Total factură</div>
+          <div className="price-value">{fmtMoney(previewTotal)}</div>
+        </div>
+      </div>
+
+      {error && <div className="error-text" role="alert" style={{ marginTop: 10 }}>{error}</div>}
+      <div className="modal-actions">
+        <div className="grow" />
+        <button className="btn btn-ghost" onClick={onClose}>Anulează</button>
+        <button className="btn btn-primary" style={{ width: "auto" }} onClick={submit} disabled={saving}>
+          <Check size={15} /> {saving ? "Se salvează…" : "Salvează draft"}
+        </button>
+      </div>
+    </Dialog>
+  );
+}
+
+/* ---------------------------------------------------------------
+   FACTURA — vizualizare + varianta printabila (pattern GroupPrint).
+----------------------------------------------------------------*/
+/* ---------------------------------------------------------------
+   PLATA, ANULARE, STORNARE
+----------------------------------------------------------------*/
+function RecordPaymentInline({ invoice, onChanged }) {
+  const [open, setOpen] = useState(false);
+  const sold = Math.max(0, Number(invoice.total_amount) - Number(invoice.paid_amount));
+  const [amount, setAmount] = useState(sold);
+  const [method, setMethod] = useState("cash");
+  const [reference, setReference] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const submit = async () => {
+    if (!(Number(amount) > 0)) return;
+    setSaving(true);
+    const { error } = await supabase.from("payments").insert({
+      id: uid(), invoice_id: invoice.id, amount: Number(amount), method,
+      reference: reference.trim() || null, created_by: audit.user?.id || null,
+    });
+    if (error) { toaster.show("Plata a eșuat: " + error.message, { tone: "danger" }); setSaving(false); return; }
+    // Trigger-ul recalc_invoice_payment_status ruleaza server-side —
+    // reincarcam factura ca sa vedem soldul/statusul actualizat.
+    const { data: updated } = await supabase.from("invoices").select("*").eq("id", invoice.id).maybeSingle();
+    await audit.push("Plată înregistrată", `${fmtMoney(amount)} · ${method}`);
+    if (updated) onChanged(updated);
+    setSaving(false);
+    setOpen(false);
+  };
+
+  return (
+    <div className="panel no-print" style={{ padding: 16, marginTop: 16 }}>
+      {open ? (
+        <>
+          <div className="field-row field-row-2col">
+            <label className="field"><span className="fl">Sumă</span>
+              <input type="number" min="0" value={amount} onChange={(e) => setAmount(Math.max(0, Number(e.target.value) || 0))} />
+            </label>
+            <label className="field"><span className="fl">Metodă</span>
+              <select value={method} onChange={(e) => setMethod(e.target.value)}>
+                <option value="cash">Numerar</option>
+                <option value="card">Card</option>
+                <option value="bank_transfer">Transfer bancar</option>
+                <option value="other">Altă metodă</option>
+              </select>
+            </label>
+          </div>
+          <label className="field"><span className="fl">Referință (opțional)</span><input value={reference} onChange={(e) => setReference(e.target.value)} /></label>
+          <div className="modal-actions" style={{ marginTop: 0 }}>
+            <div className="grow" />
+            <button className="btn btn-ghost" onClick={() => setOpen(false)}>Renunță</button>
+            <button className="btn btn-primary" style={{ width: "auto" }} onClick={submit} disabled={saving}>
+              <Check size={15} /> {saving ? "Se salvează…" : "Salvează"}
+            </button>
+          </div>
+        </>
+      ) : (
+        <button className="btn btn-primary" style={{ width: "auto" }} onClick={() => setOpen(true)}>
+          <CreditCard size={15} /> Adaugă plată{sold > 0 ? ` (${fmtMoney(sold)} rest)` : ""}
+        </button>
+      )}
+    </div>
+  );
+}
+
+/* Anulare: doar pe facturi fara nicio plata inregistrata — status trece
+   direct la 'cancelled', numarul alocat NU se reemite (ramane "ars").
+   Stornare: emite o factura NOUA, cu acelasi client si linii, dar sume
+   negative si credit_note_of catre originala — originala trece la
+   'credited', dar ramane in DB neschimbata (istoric intact). */
+function InvoiceCancelCreditActions({ invoice, onChanged }) {
+  const [busy, setBusy] = useState(false);
+  const [confirm, setConfirm] = useState(null);
+
+  const cancelInvoice = async () => {
+    setBusy(true);
+    const { data, error } = await supabase.from("invoices")
+      .update({ status: "cancelled" }).eq("id", invoice.id).select().maybeSingle();
+    setBusy(false);
+    if (error) { toaster.show("Anularea a eșuat: " + error.message, { tone: "danger" }); return; }
+    await audit.push("Factură anulată", `${invoice.series || "draft"} ${invoice.number || ""}`.trim());
+    onChanged(data);
+    setConfirm(null);
+  };
+
+  const creditInvoice = async () => {
+    setBusy(true);
+    try {
+      const { data: srcItems, error: itemsFetchErr } = await supabase
+        .from("invoice_items").select("*").eq("invoice_id", invoice.id);
+      if (itemsFetchErr) throw itemsFetchErr;
+
+      const { data: numRow, error: numErr } = await supabase.rpc("next_invoice_number", { p_series: "LIV" });
+      if (numErr) throw numErr;
+      const { series, number } = Array.isArray(numRow) ? numRow[0] : numRow;
+
+      const { data: credit, error: credErr } = await supabase.from("invoices").insert({
+        id: uid(), series, number, folio_id: invoice.folio_id, billing_customer_id: invoice.billing_customer_id,
+        status: "issued", issue_date: new Date().toISOString(),
+        subtotal_net: -invoice.subtotal_net, subtotal_vat: -invoice.subtotal_vat, total_amount: -invoice.total_amount,
+        credit_note_of: invoice.id, created_by: audit.user?.id || null, issued_by: audit.user?.id || null,
+      }).select().maybeSingle();
+      if (credErr) throw credErr;
+
+      const creditItems = (srcItems || []).map((l, idx) => ({
+        id: uid(), invoice_id: credit.id, product_id: l.product_id, name: l.name, quantity: -l.quantity,
+        unit_price: l.unit_price, vat_rate: l.vat_rate, net_amount: -l.net_amount, vat_amount: -l.vat_amount,
+        total_amount: -l.total_amount, sort_order: idx,
+      }));
+      if (creditItems.length) {
+        const { error: itemsErr } = await supabase.from("invoice_items").insert(creditItems);
+        if (itemsErr) throw itemsErr;
+      }
+
+      const { data: original, error: origErr } = await supabase.from("invoices")
+        .update({ status: "credited" }).eq("id", invoice.id).select().maybeSingle();
+      if (origErr) throw origErr;
+
+      await audit.push("Factură stornată",
+        `${series} ${number} stornează ${invoice.series || ""} ${invoice.number || ""}`.trim());
+      toaster.show(`Stornare emisă: ${series} ${number}`, { tone: "ok" });
+      onChanged(original);
+    } catch (e) {
+      toaster.show("Stornarea a eșuat: " + (e?.message || ""), { tone: "danger" });
+    } finally {
+      setBusy(false);
+      setConfirm(null);
+    }
+  };
+
+  return (
+    <div className="no-print" style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap", alignItems: "center" }}>
+      {confirm === "cancel" ? (
+        <>
+          <span style={{ fontSize: 13 }}>Sigur anulezi factura?</span>
+          <button className="btn btn-danger" style={{ width: "auto" }} disabled={busy} onClick={cancelInvoice}>Confirmă</button>
+          <button className="btn btn-ghost" style={{ width: "auto" }} onClick={() => setConfirm(null)}>Renunță</button>
+        </>
+      ) : confirm === "credit" ? (
+        <>
+          <span style={{ fontSize: 13 }}>Sigur storne­zi? Se emite o factură nouă, cu sume negative.</span>
+          <button className="btn btn-danger" style={{ width: "auto" }} disabled={busy} onClick={creditInvoice}>Confirmă</button>
+          <button className="btn btn-ghost" style={{ width: "auto" }} onClick={() => setConfirm(null)}>Renunță</button>
+        </>
+      ) : (
+        <>
+          {Number(invoice.paid_amount) === 0 && canBilling("cancel_invoice") && (
+            <button className="btn btn-ghost" style={{ width: "auto" }} onClick={() => setConfirm("cancel")}>
+              <XCircle size={15} /> Anulează factura
+            </button>
+          )}
+          {canBilling("create_credit_note") && (
+            <button className="btn btn-ghost" style={{ width: "auto" }} onClick={() => setConfirm("credit")}>
+              <Undo2 size={15} /> Stornează
+            </button>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+function InvoicePrint({ invoiceId, core, onClose, onChanged }) {
+  useModalLock();
+  const [invoice, setInvoice] = useState(null);
+  const [lines, setLines] = useState([]);
+  const [customer, setCustomer] = useState(null);
+  const [payments, setPayments] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      const { data: inv } = await supabase.from("invoices").select("*").eq("id", invoiceId).maybeSingle();
+      const { data: li } = await supabase.from("invoice_items").select("*").eq("invoice_id", invoiceId).order("sort_order");
+      const { data: pay } = await supabase.from("payments").select("*").eq("invoice_id", invoiceId).order("paid_at");
+      let cust = null;
+      if (inv?.billing_customer_id) {
+        const { data: c } = await supabase.from("billing_customers").select("*").eq("id", inv.billing_customer_id).maybeSingle();
+        cust = c ? camelBillingCustomer(c) : null;
+      }
+      if (!alive) return;
+      setInvoice(inv); setLines(li || []); setCustomer(cust); setPayments(pay || []);
+      setLoading(false);
+    })();
+    return () => { alive = false; };
+  }, [invoiceId]);
+
+  const issuer = core.invoiceIssuer || {};
+  const vatGroups = {};
+  lines.forEach((l) => {
+    const k = Number(l.vat_rate);
+    vatGroups[k] = vatGroups[k] || { rate: k, net: 0, vat: 0 };
+    vatGroups[k].net += Number(l.net_amount);
+    vatGroups[k].vat += Number(l.vat_amount);
+  });
+
+  if (loading) return <Dialog onClose={onClose} title="Factură"><div className="note">Se încarcă…</div></Dialog>;
+  if (!invoice) return <Dialog onClose={onClose} title="Factură"><div className="note">Factura nu a fost găsită.</div></Dialog>;
+
+  return (
+    <Dialog onClose={onClose} title={invoice.series ? `Factură ${invoice.series} ${invoice.number}` : "Factură (draft)"} className="arrival-modal">
+      <div className="no-print" style={{ display: "flex", gap: 8, marginBottom: 14 }}>
+        <span className={"role-tag " + INVOICE_STATUS_CLASS[invoice.status]}>{INVOICE_STATUS_LABEL[invoice.status]}</span>
+        <div className="grow" />
+        <button className="btn btn-ghost" style={{ width: "auto" }} onClick={() => window.print()}>
+          <Printer size={15} /> Descarcă PDF
+        </button>
+      </div>
+
+      <div className="fisa">
+        <div style={{ display: "flex", justifyContent: "space-between", gap: 20, marginBottom: 20 }}>
+          <div>
+            <strong>{issuer.name || "—"}</strong>
+            {issuer.cui && <div>CUI: {issuer.cui}</div>}
+            {issuer.regCom && <div>{issuer.regCom}</div>}
+            {issuer.address && <div>{issuer.address}{issuer.city ? `, ${issuer.city}` : ""}{issuer.county ? `, ${issuer.county}` : ""}</div>}
+            {issuer.iban && <div>IBAN: {issuer.iban}{issuer.bank ? ` (${issuer.bank})` : ""}</div>}
+          </div>
+          <div style={{ textAlign: "right" }}>
+            <h2 style={{ margin: 0 }}>FACTURĂ</h2>
+            <div>{invoice.series ? `Seria ${invoice.series} nr. ${invoice.number}` : "Draft — fără număr alocat"}</div>
+            {invoice.issue_date && <div>Data emiterii: {fmtDate(invoice.issue_date)}</div>}
+            {invoice.service_date_start && (
+              <div>Perioada: {fmtDate(invoice.service_date_start)} → {fmtDate(invoice.service_date_end)}</div>
+            )}
+          </div>
+        </div>
+
+        <div style={{ marginBottom: 20 }}>
+          <strong>Client</strong>
+          {customer ? (
+            <>
+              <div>{billingCustomerLabel(customer)}</div>
+              {customer.kind === "company" && customer.cui && <div>CUI: {customer.cui}</div>}
+              {customer.kind === "company" && customer.regCom && <div>{customer.regCom}</div>}
+              {customer.kind === "person" && customer.cnp && <div>CNP: {customer.cnp}</div>}
+              <div>{customer.address}, {customer.city}, {customer.county}, {customer.country}</div>
+            </>
+          ) : <div>—</div>}
+        </div>
+
+        <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 16 }}>
+          <thead>
+            <tr style={{ borderBottom: "1px solid #ccc", textAlign: "left" }}>
+              <th style={{ padding: "6px 4px" }}>Denumire</th>
+              <th style={{ padding: "6px 4px", textAlign: "right" }}>Cant.</th>
+              <th style={{ padding: "6px 4px", textAlign: "right" }}>Preț unitar</th>
+              <th style={{ padding: "6px 4px", textAlign: "right" }}>TVA</th>
+              <th style={{ padding: "6px 4px", textAlign: "right" }}>Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            {lines.map((l) => (
+              <tr key={l.id} style={{ borderBottom: "1px solid #eee" }}>
+                <td style={{ padding: "6px 4px" }}>{l.name}</td>
+                <td style={{ padding: "6px 4px", textAlign: "right" }}>{l.quantity}</td>
+                <td style={{ padding: "6px 4px", textAlign: "right" }}>{fmtMoney(l.unit_price)}</td>
+                <td style={{ padding: "6px 4px", textAlign: "right" }}>{l.vat_rate}%</td>
+                <td style={{ padding: "6px 4px", textAlign: "right" }}>{fmtMoney(l.total_amount)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+
+        <div style={{ display: "flex", justifyContent: "flex-end" }}>
+          <div style={{ minWidth: 240 }}>
+            {Object.values(vatGroups).map((g) => (
+              <div key={g.rate} style={{ display: "flex", justifyContent: "space-between" }}>
+                <span>Bază {g.rate}%</span><span>{fmtMoney(g.net)}</span>
+              </div>
+            ))}
+            {Object.values(vatGroups).map((g) => (
+              <div key={"vat" + g.rate} style={{ display: "flex", justifyContent: "space-between" }}>
+                <span>TVA {g.rate}%</span><span>{fmtMoney(g.vat)}</span>
+              </div>
+            ))}
+            <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 700, borderTop: "1px solid #ccc", marginTop: 4, paddingTop: 4 }}>
+              <span>Total</span><span>{fmtMoney(invoice.total_amount)}</span>
+            </div>
+            {payments.length > 0 && (
+              <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4 }}>
+                <span>Achitat</span><span>{fmtMoney(invoice.paid_amount)}</span>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {payments.length > 0 && (
+          <div style={{ marginTop: 16 }}>
+            <strong>Plăți</strong>
+            {payments.map((p) => (
+              <div key={p.id}>{fmtDate(p.paid_at)} · {p.method} · {fmtMoney(p.amount)}{p.reference ? ` · ${p.reference}` : ""}</div>
+            ))}
+          </div>
+        )}
+
+        {invoice.notes && <div style={{ marginTop: 16 }}><strong>Observații</strong><div>{invoice.notes}</div></div>}
+      </div>
+
+      {invoice.status === "issued" && canBilling("record_payment") && (
+        <RecordPaymentInline invoice={invoice} onChanged={(updated) => { setInvoice(updated); onChanged?.(updated); }} />
+      )}
+      {(invoice.status === "issued" || invoice.status === "partially_paid") && (
+        <InvoiceCancelCreditActions invoice={invoice} onChanged={(updated) => { setInvoice(updated); onChanged?.(updated); }} />
+      )}
+    </Dialog>
   );
 }
 
@@ -5481,6 +6098,69 @@ function ProductModal({ product, vatRates, onSave, onClose }) {
   );
 }
 
+/* Datele emitentului (hotelul), afisate pe PDF-ul facturii. Stocate ca
+   obiect simplu in settings (app_state), nu tabel propriu — un singur
+   set de date, nu o colectie. */
+const emptyInvoiceIssuer = () => ({
+  name: "", cui: "", regCom: "", address: "", city: "", county: "",
+  country: "România", iban: "", bank: "", email: "", phone: "",
+});
+
+function InvoiceIssuerCard({ core, updateCore }) {
+  const saved = core.invoiceIssuer || emptyInvoiceIssuer();
+  const [draft, setDraft] = useState(saved);
+  const [saving, setSaving] = useState(false);
+  const dirty = JSON.stringify(draft) !== JSON.stringify(saved);
+
+  useEffect(() => {
+    if (!dirty) setDraft(saved);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [saved]);
+
+  const set = (k) => (e) => setDraft({ ...draft, [k]: e.target.value });
+
+  const save = async () => {
+    setSaving(true);
+    await updateCore({ ...core, invoiceIssuer: draft });
+    await audit.push("Date emitent modificate", draft.name || "—");
+    setSaving(false);
+  };
+
+  return (
+    <div className="panel" style={{ padding: 18, marginBottom: 20 }}>
+      <div className="section-head" style={{ padding: 0, border: "none", marginBottom: 14 }}>
+        Date emitent (pe factura PDF)
+      </div>
+      <div className="field-row field-row-2col">
+        <label className="field"><span className="fl">Denumire</span><input value={draft.name} onChange={set("name")} placeholder="La Livada SRL" /></label>
+        <label className="field"><span className="fl">CUI</span><input value={draft.cui} onChange={set("cui")} placeholder="RO12345678" /></label>
+      </div>
+      <div className="field-row field-row-2col">
+        <label className="field"><span className="fl">Nr. Reg. Comerțului</span><input value={draft.regCom} onChange={set("regCom")} placeholder="J12/345/2020" /></label>
+        <label className="field"><span className="fl">Adresă</span><input value={draft.address} onChange={set("address")} /></label>
+      </div>
+      <div className="field-row field-row-2col">
+        <label className="field"><span className="fl">Oraș</span><input value={draft.city} onChange={set("city")} /></label>
+        <label className="field"><span className="fl">Județ</span><input value={draft.county} onChange={set("county")} /></label>
+      </div>
+      <div className="field-row field-row-2col">
+        <label className="field"><span className="fl">IBAN</span><input className="mono" value={draft.iban} onChange={set("iban")} placeholder="RO49 AAAA 1B31 0075 9384 0000" /></label>
+        <label className="field"><span className="fl">Bancă</span><input value={draft.bank} onChange={set("bank")} /></label>
+      </div>
+      <div className="field-row field-row-2col">
+        <label className="field"><span className="fl">Email</span><input type="email" value={draft.email} onChange={set("email")} /></label>
+        <label className="field"><span className="fl">Telefon</span><input value={draft.phone} onChange={set("phone")} /></label>
+      </div>
+      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <button className="btn btn-primary" style={{ width: "auto" }} onClick={save} disabled={!dirty || saving}>
+          <Check size={15} /> {saving ? "Se salvează…" : "Salvează"}
+        </button>
+        {dirty && <span style={{ color: "var(--text-muted)", fontSize: 13 }}>Modificări nesalvate</span>}
+      </div>
+    </div>
+  );
+}
+
 function ProductsView({ core, updateCore }) {
   const vatRates = core.vatRates || [];
   const products = core.products || [];
@@ -5517,6 +6197,8 @@ function ProductsView({ core, updateCore }) {
 
   return (
     <div>
+      <InvoiceIssuerCard core={core} updateCore={updateCore} />
+
       <div className="note">
         Nomenclatorul de produse/servicii și cotele de TVA sunt folosite la adăugarea de extra în folio și la
         generarea facturii. Nimic de aici nu e legat direct de e-Factura.
