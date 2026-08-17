@@ -1735,6 +1735,9 @@ const snakeBillingCustomer = (c) => ({
 const camelVatRate = (v) => ({ id: v.id, label: v.label, rate: Number(v.rate), active: v.active });
 const snakeVatRate = (v) => ({ id: v.id, label: v.label, rate: Number(v.rate) || 0, active: !!v.active });
 
+const camelPaymentMethod = (m) => ({ id: m.id, label: m.label, active: m.active, sortOrder: m.sort_order || 0 });
+const snakePaymentMethod = (m) => ({ id: m.id, label: m.label, active: !!m.active, sort_order: m.sortOrder || 0 });
+
 const camelProduct = (p) => ({
   id: p.id, name: p.name, internalCode: p.internal_code || "", accountingCode: p.accounting_code || "",
   category: p.category, unit: p.unit, vatRateId: p.vat_rate_id,
@@ -1808,7 +1811,7 @@ async function saveRatesAndSeasons(beforeRates, afterRates) {
 }
 
 async function loadAll() {
-  const [rooms, guests, groups, res, rates, seasons, onlineTiers, billingCustomers, vatRates, products] = await Promise.all([
+  const [rooms, guests, groups, res, rates, seasons, onlineTiers, billingCustomers, vatRates, products, paymentMethods] = await Promise.all([
     supabase.from("rooms").select("*").order("sort_order"),
     supabase.from("guests").select("*"),
     supabase.from("res_groups").select("*"),
@@ -1819,8 +1822,9 @@ async function loadAll() {
     supabase.from("billing_customers").select("*"),
     supabase.from("vat_rates").select("*"),
     supabase.from("products").select("*").order("sort_order"),
+    supabase.from("payment_methods").select("*").order("sort_order"),
   ]);
-  for (const r of [rooms, guests, groups, res, rates, seasons, onlineTiers, billingCustomers, vatRates, products]) if (r.error) throw r.error;
+  for (const r of [rooms, guests, groups, res, rates, seasons, onlineTiers, billingCustomers, vatRates, products, paymentMethods]) if (r.error) throw r.error;
 
   const base = {};
   rates.data.forEach((r) => {
@@ -1850,6 +1854,7 @@ async function loadAll() {
     billingCustomers: billingCustomers.data.map(camelBillingCustomer),
     vatRates: vatRates.data.map(camelVatRate),
     products: products.data.map(camelProduct),
+    paymentMethods: paymentMethods.data.map(camelPaymentMethod),
   };
 }
 
@@ -2239,6 +2244,7 @@ function PMSApp() {
           billingCustomers: db.billingCustomers,
           vatRates: db.vatRates,
           products: db.products,
+          paymentMethods: db.paymentMethods,
         });
         /* Rezervarile facute inainte de pretul inghetat (bookedPrice) inca
            n-au un snapshot — le calculam o singura data, acum, cu tarifele
@@ -2322,7 +2328,10 @@ function PMSApp() {
       if (next.products !== before.products) {
         await syncTable("products", before.products || [], next.products || [], snakeProduct);
       }
-      const { rooms, guests, rates, onlinePricing, billingCustomers, vatRates, products, ...settings } = next;
+      if (next.paymentMethods !== before.paymentMethods) {
+        await syncTable("payment_methods", before.paymentMethods || [], next.paymentMethods || [], snakePaymentMethod);
+      }
+      const { rooms, guests, rates, onlinePricing, billingCustomers, vatRates, products, paymentMethods, ...settings } = next;
       await saveShared(K.core, settings);
     } catch (e) { raporteazaEroare(e); }
   }, [raporteazaEroare]);
@@ -4330,11 +4339,12 @@ function InvoiceBuilderModal({ reservation, folio, items, core, onCreated, onClo
 /* ---------------------------------------------------------------
    PLATA, ANULARE, STORNARE
 ----------------------------------------------------------------*/
-function RecordPaymentInline({ invoice, onChanged }) {
+function RecordPaymentInline({ invoice, core, onChanged }) {
   const [open, setOpen] = useState(false);
   const sold = Math.max(0, Number(invoice.total_amount) - Number(invoice.paid_amount));
   const [amount, setAmount] = useState(sold);
-  const [method, setMethod] = useState("cash");
+  const methods = (core?.paymentMethods || []).filter((m) => m.active);
+  const [method, setMethod] = useState(methods[0]?.id || "cash");
   const [reference, setReference] = useState("");
   const [saving, setSaving] = useState(false);
 
@@ -4349,7 +4359,8 @@ function RecordPaymentInline({ invoice, onChanged }) {
     // Trigger-ul recalc_invoice_payment_status ruleaza server-side —
     // reincarcam factura ca sa vedem soldul/statusul actualizat.
     const { data: updated } = await supabase.from("invoices").select("*").eq("id", invoice.id).maybeSingle();
-    await audit.push("Plată înregistrată", `${fmtMoney(amount)} · ${method}`);
+    const methodLabel = methods.find((m) => m.id === method)?.label || method;
+    await audit.push("Plată înregistrată", `${fmtMoney(amount)} · ${methodLabel}`);
     if (updated) onChanged(updated);
     setSaving(false);
     setOpen(false);
@@ -4365,10 +4376,8 @@ function RecordPaymentInline({ invoice, onChanged }) {
             </label>
             <label className="field"><span className="fl">Metodă</span>
               <select value={method} onChange={(e) => setMethod(e.target.value)}>
-                <option value="cash">Numerar</option>
-                <option value="card">Card</option>
-                <option value="bank_transfer">Transfer bancar</option>
-                <option value="other">Altă metodă</option>
+                {methods.length === 0 && <option value="cash">Numerar</option>}
+                {methods.map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}
               </select>
             </label>
           </div>
@@ -4617,7 +4626,9 @@ function InvoicePrint({ invoiceId, core, onClose, onChanged }) {
           <div style={{ marginTop: 16 }}>
             <strong>Plăți</strong>
             {payments.map((p) => (
-              <div key={p.id}>{fmtDate(p.paid_at)} · {p.method} · {fmtMoney(p.amount)}{p.reference ? ` · ${p.reference}` : ""}</div>
+              <div key={p.id}>
+                {fmtDate(p.paid_at)} · {(core.paymentMethods || []).find((m) => m.id === p.method)?.label || PAYMENT_METHOD_LABEL[p.method] || p.method} · {fmtMoney(p.amount)}{p.reference ? ` · ${p.reference}` : ""}
+              </div>
             ))}
           </div>
         )}
@@ -4626,7 +4637,7 @@ function InvoicePrint({ invoiceId, core, onClose, onChanged }) {
       </div>
 
       {invoice.status === "issued" && canBilling("record_payment") && (
-        <RecordPaymentInline invoice={invoice} onChanged={(updated) => { setInvoice(updated); onChanged?.(updated); }} />
+        <RecordPaymentInline invoice={invoice} core={core} onChanged={(updated) => { setInvoice(updated); onChanged?.(updated); }} />
       )}
       {(invoice.status === "issued" || invoice.status === "partially_paid") && (
         <InvoiceCancelCreditActions invoice={invoice} onChanged={(updated) => { setInvoice(updated); onChanged?.(updated); }} />
@@ -6386,7 +6397,46 @@ function InvoicesListView({ core }) {
   );
 }
 
-function PaymentsListView({ core }) {
+function PaymentMethodsEditor({ core, updateCore }) {
+  const methods = core.paymentMethods || [];
+
+  const addMethod = async () => {
+    await updateCore({ ...core, paymentMethods: [...methods, { id: uid(), label: "Metodă nouă", active: true, sortOrder: methods.length }] });
+  };
+  const patchMethod = async (id, patch) => {
+    await updateCore({ ...core, paymentMethods: methods.map((m) => (m.id === id ? { ...m, ...patch } : m)) });
+  };
+  const removeMethod = async (id) => {
+    await updateCore({ ...core, paymentMethods: methods.filter((m) => m.id !== id) });
+  };
+
+  return (
+    <div style={{ marginBottom: 20 }}>
+      <div className="toolbar">
+        <span className="badge-count">{methods.length} metode de plată</span>
+        <div className="grow" />
+        <button className="btn btn-ghost" style={{ width: "auto" }} onClick={addMethod}><Plus size={15} /> Metodă nouă</button>
+      </div>
+      <div className="panel">
+        {methods.length === 0 ? (
+          <div className="section-empty">Nicio metodă de plată definită.</div>
+        ) : methods.map((m) => (
+          <div className="list-row" key={m.id}>
+            <div className="field-row" style={{ gridTemplateColumns: "1fr auto auto", alignItems: "center", gap: 10, width: "100%" }}>
+              <input value={m.label} onChange={(e) => patchMethod(m.id, { label: e.target.value })} />
+              <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 14, whiteSpace: "nowrap" }}>
+                <input type="checkbox" checked={m.active} onChange={(e) => patchMethod(m.id, { active: e.target.checked })} /> activă
+              </label>
+              <button className="icon-btn" onClick={() => removeMethod(m.id)} aria-label={`Șterge ${m.label}`}><Trash2 size={14} /></button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function PaymentsListView({ core, updateCore }) {
   const [payments, setPayments] = useState(null);
   const [invoiceMap, setInvoiceMap] = useState({});
   const [loadError, setLoadError] = useState("");
@@ -6410,11 +6460,13 @@ function PaymentsListView({ core }) {
     const c = (core.billingCustomers || []).find((x) => x.id === id);
     return c ? billingCustomerLabel(c) : "—";
   };
+  const methodLabel = (id) => (core.paymentMethods || []).find((m) => m.id === id)?.label || PAYMENT_METHOD_LABEL[id] || id;
 
   const total = (payments || []).reduce((s, p) => s + Number(p.amount), 0);
 
   return (
     <div>
+      <PaymentMethodsEditor core={core} updateCore={updateCore} />
       <div className="toolbar">
         <span className="badge-count">{(payments || []).length} plăți · {fmtMoney(total)} încasat</span>
       </div>
@@ -6435,7 +6487,7 @@ function PaymentsListView({ core }) {
                     {inv?.series ? `${inv.series} ${inv.number}` : "Factură"} · {customerLabel(inv?.billing_customer_id)}
                   </div>
                   <div className="secondary">
-                    {PAYMENT_METHOD_LABEL[p.method] || p.method} · {fmtDate(p.paid_at)}{p.reference ? ` · ${p.reference}` : ""}
+                    {methodLabel(p.method)} · {fmtDate(p.paid_at)}{p.reference ? ` · ${p.reference}` : ""}
                   </div>
                 </div>
                 <span className="mono" style={{ fontWeight: 650 }}>{fmtMoney(p.amount)}</span>
@@ -6543,7 +6595,7 @@ function FinancialView({ core, updateCore }) {
     </div>
   );
 
-  if (tab === "payments") return <div>{tabs}<PaymentsListView core={core} /></div>;
+  if (tab === "payments") return <div>{tabs}<PaymentsListView core={core} updateCore={updateCore} /></div>;
   if (tab === "products") return <div>{tabs}<ProductsView core={core} updateCore={updateCore} /></div>;
   if (tab === "permissions") return <div>{tabs}<BillingPermissionsView /></div>;
   return <div>{tabs}<InvoicesListView core={core} /></div>;

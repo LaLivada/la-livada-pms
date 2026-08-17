@@ -333,6 +333,25 @@ insert into products (id, name, internal_code, category, unit, vat_rate_id, defa
 
 
 -- ---------------------------------------------------------------------
+-- METODE DE PLATĂ — configurabile, nu hardcodate in cod. `payments.method`
+-- ramane text liber (fara FK) ca sa nu blocheze un istoric daca o metoda
+-- e stearsa ulterior; e doar id-ul uneia din aceste optiuni la momentul
+-- inregistrarii.
+-- ---------------------------------------------------------------------
+create table payment_methods (
+  id          text primary key,
+  label       text not null,
+  active      boolean not null default true,
+  sort_order  int not null default 0
+);
+insert into payment_methods (id, label, sort_order) values
+  ('cash', 'Numerar', 0),
+  ('card', 'Card', 1),
+  ('bank_transfer', 'Transfer bancar', 2),
+  ('other', 'Altă metodă', 3);
+
+
+-- ---------------------------------------------------------------------
 -- FOLIO — cel mult unul per rezervare (unique pe reservation_id).
 -- ---------------------------------------------------------------------
 create table folios (
@@ -770,6 +789,7 @@ create policy "admin sterge staff" on staff
 alter table billing_customers      enable row level security;
 alter table vat_rates              enable row level security;
 alter table products               enable row level security;
+alter table payment_methods        enable row level security;
 alter table folios                 enable row level security;
 alter table folio_items            enable row level security;
 alter table invoice_series         enable row level security;
@@ -793,6 +813,9 @@ create policy "scrie tva" on vat_rates for all to authenticated using (is_admin(
 
 create policy "citeste produse" on products for select to authenticated using (true);
 create policy "scrie produse" on products for all to authenticated using (is_admin()) with check (is_admin());
+
+create policy "citeste metode plata" on payment_methods for select to authenticated using (true);
+create policy "scrie metode plata" on payment_methods for all to authenticated using (is_admin()) with check (is_admin());
 
 create policy "citeste folio" on folios for select to authenticated
   using (has_billing_permission('view_invoices'));
