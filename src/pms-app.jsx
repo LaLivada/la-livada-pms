@@ -1052,9 +1052,10 @@ const STYLES = `
   .grp-num{ display:flex; flex-direction:column; gap:3px; flex:1; min-width:0; }
   .grp-num span{ font-size:var(--fs-xs); font-weight:600; color:var(--text-muted); }
   .grp-num input{
-    width:100%; padding:8px 10px; border:1px solid var(--border); border-radius:var(--r-sm);
-    font-size:var(--fs-base); background:var(--surface); color:var(--text);
+    width:100%; max-width:100%; min-width:0; padding:8px 10px; border:1px solid var(--border);
+    border-radius:var(--r-sm); font-size:var(--fs-base); background:var(--surface); color:var(--text);
   }
+  .grp-num input[type="datetime-local"]{ -webkit-appearance:none; appearance:none; }
   .grp-price{
     margin-left:auto; font-size:var(--fs-md); font-weight:650; color:var(--accent-strong);
     white-space:nowrap; padding-bottom:8px;
