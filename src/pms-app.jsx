@@ -5901,7 +5901,7 @@ function RatesView({ core, updateCore }) {
         </div>
         <div className="field-row field-row-2col">
           <label className="field">
-            <span className="fl">Supliment adult (lei/noapte, peste 2 adulți)</span>
+            <span className="fl">Supliment adult (lei/noapte)</span>
             <input type="number" min="0" value={draft.base.adultSupplement ?? ""} onChange={(e) => setBase("adultSupplement", e.target.value)} placeholder="0" />
           </label>
           <label className="field">
