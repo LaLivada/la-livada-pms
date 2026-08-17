@@ -1,5 +1,6 @@
 import { supabase } from "./supabase.js";
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import { createPortal } from "react-dom";
 import {
   CalendarDays, Users, DoorOpen, Zap, UserCog, LogOut,
   Plus, X, Search, ChevronLeft, ChevronRight, Flame, Wind, Snowflake,
@@ -4531,10 +4532,17 @@ function InvoicePrint({ invoiceId, core, onClose, onChanged }) {
     vatGroups[k].vat += Number(l.vat_amount);
   });
 
-  if (loading) return <Dialog onClose={onClose} title="Factură"><div className="note">Se încarcă…</div></Dialog>;
-  if (!invoice) return <Dialog onClose={onClose} title="Factură"><div className="note">Factura nu a fost găsită.</div></Dialog>;
+  // Randat prin portal in document.body, nu inline (spre deosebire de
+  // restul dialogurilor din fisier) — InvoicePrint se deschide de obicei
+  // din interiorul ReservationModal, deja el insusi un Dialog; regula CSS
+  // de print ascunde tot in .content cu exceptia .arrival-overlay, dar
+  // display:none pe un stramos (overlay-ul ReservationModal) ascunde si
+  // descendentii indiferent de clasa lor — portalul scoate factura din
+  // acel arbore, ca sa nu mai fie afectata.
+  if (loading) return createPortal(<Dialog onClose={onClose} title="Factură"><div className="note">Se încarcă…</div></Dialog>, document.body);
+  if (!invoice) return createPortal(<Dialog onClose={onClose} title="Factură"><div className="note">Factura nu a fost găsită.</div></Dialog>, document.body);
 
-  return (
+  return createPortal(
     <Dialog onClose={onClose} title={invoice.series ? `Factură ${invoice.series} ${invoice.number}` : "Factură (draft)"} className="arrival-modal" overlayClassName="arrival-overlay">
       <div className="no-print" style={{ display: "flex", gap: 8, marginBottom: 14 }}>
         <span className={"role-tag " + INVOICE_STATUS_CLASS[invoice.status]}>{INVOICE_STATUS_LABEL[invoice.status]}</span>
@@ -4642,7 +4650,8 @@ function InvoicePrint({ invoiceId, core, onClose, onChanged }) {
       {(invoice.status === "issued" || invoice.status === "partially_paid") && (
         <InvoiceCancelCreditActions invoice={invoice} onChanged={(updated) => { setInvoice(updated); onChanged?.(updated); }} />
       )}
-    </Dialog>
+    </Dialog>,
+    document.body
   );
 }
 
