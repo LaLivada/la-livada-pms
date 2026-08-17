@@ -4395,10 +4395,7 @@ function ClientsView({ core, updateCore, groups, updateGroups, reservations, upd
               onClick={() => setHistoryGuest(g)}
               onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setHistoryGuest(g); } }}
             >
-              <div className="primary" style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                {guestFullName(g)}
-                <ContactQuickActions guest={g} onClick={(e) => e.stopPropagation()} />
-              </div>
+              <div className="primary">{guestFullName(g)}</div>
               <div className="secondary">
                 {[g.phone, g.email, [g.city, g.county].filter(Boolean).join(", "), g.country !== "România" ? g.country : null]
                   .filter(Boolean).join(" · ")}
@@ -4741,7 +4738,12 @@ function GuestHistory({ guest, core, reservations, onClose }) {
 
         <div className="guest-contact-info">
           {contactLine && <div>{contactLine}{guest.country && guest.country !== "România" ? ` · ${guest.country}` : ""}</div>}
-          {guest.phone && <div><a href={`tel:${guest.phone.replace(/\s/g, "")}`}>{guest.phone}</a></div>}
+          {guest.phone && (
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              {guest.phone}
+              <ContactQuickActions guest={guest} />
+            </div>
+          )}
           {guest.email && <div><a href={`mailto:${guest.email}`}>{guest.email}</a></div>}
         </div>
 
