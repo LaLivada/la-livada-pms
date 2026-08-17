@@ -187,6 +187,27 @@ create table seasons (
 
 
 -- ---------------------------------------------------------------------
+-- OPTIMIZATOR DE PREȚ PE GRAD DE OCUPARE (doar rezervări "direct")
+--
+-- Se aplică STRICT rezervărilor cu source = 'direct' (site propriu).
+-- Booking.com/Airbnb nu pot primi prețuri prin feedul iCal — acesta duce
+-- doar disponibilitate, nu tarife — așa că rămân la tariful standard
+-- pana la o eventuala integrare de channel-manager separată.
+--
+-- Ocuparea se calculează ca medie pe toată perioada sejurului, la nivel
+-- de proprietate (toate camerele), nu per tip de cameră.
+-- ---------------------------------------------------------------------
+create table online_pricing_tiers (
+  id               text primary key,
+  min_occ          int not null check (min_occ >= 0 and min_occ <= 100),
+  max_occ          int not null check (max_occ >= 0 and max_occ <= 100),
+  adjustment_pct   numeric not null default 0,   -- ex. -5, 0, 10 → procent aplicat peste pretul standard
+  sort_order       int not null default 0,
+  check (min_occ < max_occ)
+);
+
+
+-- ---------------------------------------------------------------------
 -- PERSONAL
 -- Leagă conturile din Supabase Auth de rolurile aplicației.
 -- Înlocuiește vechiul sistem cu PIN-uri stocate în clar.
@@ -354,6 +375,7 @@ alter table res_groups   enable row level security;
 alter table reservations enable row level security;
 alter table rates        enable row level security;
 alter table seasons      enable row level security;
+alter table online_pricing_tiers enable row level security;
 alter table staff        enable row level security;
 alter table app_state    enable row level security;
 
@@ -369,6 +391,8 @@ create policy "staff citeste" on rates        for select to authenticated using 
 create policy "staff scrie"   on rates        for all    to authenticated using (true) with check (true);
 create policy "staff citeste" on seasons      for select to authenticated using (true);
 create policy "staff scrie"   on seasons      for all    to authenticated using (true) with check (true);
+create policy "staff citeste" on online_pricing_tiers for select to authenticated using (true);
+create policy "staff scrie"   on online_pricing_tiers for all    to authenticated using (true) with check (true);
 create policy "staff app_state" on app_state  for all    to authenticated using (true) with check (true);
 
 -- Fiecare angajat își vede doar propriul rând (rolul).

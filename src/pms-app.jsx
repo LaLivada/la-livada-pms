@@ -6,7 +6,7 @@ import {
   Sparkles, Check, Trash2, Pencil, ShieldCheck, UsersRound,
   BarChart3, History, LogIn, Printer, Banknote, ArrowRight,
   Settings, Eye, XCircle, MoveRight, Tag as TagIcon, Rows2, Rows3, MessageSquare, Wrench, UserCheck,
-  AlertTriangle, RefreshCw, Undo2, Copy, Info, Cpu
+  AlertTriangle, RefreshCw, Undo2, Copy, Info, Cpu, TrendingUp
 } from "lucide-react";
 
 /* ---------------------------------------------------------------
@@ -687,6 +687,31 @@ const STYLES = `
   .meter{ flex:1; height:7px; background:var(--surface-3); border-radius:var(--r-pill); overflow:hidden; min-width:70px; }
   .meter-fill{ height:100%; background:var(--accent); border-radius:var(--r-pill); }
   .season-grid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(110px,1fr)); gap:10px; }
+  .tier-row{
+    display:flex; align-items:flex-end; gap:10px; padding:12px 0;
+    border-bottom:1px solid var(--border-soft);
+  }
+  .tier-row:first-child{ padding-top:0; }
+  .tier-row:last-of-type{ border-bottom:none; }
+  .tier-row .field{ flex:1; min-width:0; }
+  .tier-sep{ padding-bottom:11px; color:var(--text-muted); font-weight:600; }
+  .tier-adj{ flex:1.2 !important; }
+  .tier-adj-input{
+    display:flex; align-items:center; gap:6px; border:1px solid var(--border); border-radius:var(--r-sm);
+    padding:0 10px; background:var(--surface);
+  }
+  .tier-adj-input input{
+    border:none; padding:11px 0; text-align:right; background:none; flex:1; min-width:0;
+  }
+  .tier-adj-input input:focus{ outline:none; box-shadow:none; }
+  .tier-adj-input span{ color:var(--text-muted); font-size:var(--fs-sm); flex-shrink:0; }
+  .tier-up{ color:var(--success); flex-shrink:0; }
+  .tier-down{ color:var(--danger); flex-shrink:0; transform:scaleY(-1); }
+  @media (max-width:640px){
+    .tier-row{ flex-wrap:wrap; }
+    .tier-sep{ display:none; }
+    .tier-row .field{ min-width:110px; }
+  }
   /* ---------- Arrival sheet ---------- */
   .arrival-modal{ max-width:700px; }
   .fisa{ border:1px solid #d0d0cc; font-family:'Inter',sans-serif; color:#2b2b28; background:#fff; }
@@ -1439,6 +1464,57 @@ function liveReservationTotal(res, core) {
   return total;
 }
 
+/* Ocuparea medie a proprietatii (in %) pe toata durata unui sejur —
+   media ocuparii fiecarei nopti din interval, ca sa reflecte cat de
+   "plina" e proprietatea in acea perioada, nu doar o singura zi.
+   `excludeId` scoate rezervarea insasi din calcul (altfel s-ar numara
+   pe sine ca ocupanta a propriilor nopti la o recalculare/editare). */
+function occupancyForStay(checkin, checkout, reservations, roomCount, excludeId) {
+  if (!roomCount) return 0;
+  const ciDay = startOfDay(checkin);
+  const coDay = startOfDay(checkout);
+  const nights = Math.max(1, Math.round((coDay - ciDay) / 86400000));
+  const live = (reservations || []).filter((r) => r.id !== excludeId && isLive(r));
+  let sumPct = 0;
+  for (let i = 0; i < nights; i++) {
+    const dStart = ciDay.getTime() + i * 86400000;
+    let occ = 0;
+    for (const r of live) {
+      const rCiDay = startOfDay(r.checkin).getTime();
+      const rCoDay = startOfDay(r.checkout).getTime();
+      if (rCiDay <= dStart && rCoDay > dStart) occ++;
+    }
+    sumPct += (occ / roomCount) * 100;
+  }
+  return sumPct / nights;
+}
+
+/* Pragul de ocupare in care se incadreaza occPct. Ultimul prag e tratat
+   inclusiv la capatul de sus (100% trebuie sa cada tot in pragul cel
+   mai ocupat, nu sa ramana neacoperit de niciun prag). */
+function onlinePriceAdjustmentPct(occPct, tiers) {
+  if (!tiers || !tiers.length) return 0;
+  const maxOverall = Math.max(...tiers.map((t) => Number(t.max) || 0));
+  const eff = Math.min(occPct, maxOverall - 0.0001);
+  const tier = tiers.find((t) => eff >= Number(t.min) && eff < Number(t.max));
+  return tier ? Number(tier.adjustmentPct) || 0 : 0;
+}
+
+/* Varianta de liveReservationTotal care mai aplica, DOAR pentru
+   rezervarile de pe site-ul propriu (source "direct"), ajustarea
+   procentuala din optimizatorul de pret pe grad de ocupare — vezi
+   OnlinePricingView. Booking.com/Airbnb nu pot primi preturi prin
+   feedul iCal (doar disponibilitate), asa ca nu sunt incluse aici. */
+function liveReservationTotalOnline(res, core, reservations) {
+  const base = liveReservationTotal(res, core);
+  if (res.source !== "direct") return base;
+  const tiers = core.onlinePricing;
+  if (!tiers || !tiers.length) return base;
+  const occPct = occupancyForStay(res.checkin, res.checkout, reservations, core.rooms.length, res.id);
+  const pct = onlinePriceAdjustmentPct(occPct, tiers);
+  return Math.round(base * (1 + pct / 100));
+}
+
 /* Pretul afisat/facturat: suprascrierea manuala are mereu prioritate;
    apoi pretul inghetat la creare (sau la ultima modificare de
    data/ocupare/camera) — asa raman neschimbate rezervarile deja facute
@@ -1554,6 +1630,11 @@ const snakeGroup = (g) => ({
   id: g.id, name: g.name, main_guest_id: g.mainGuestId || null,
   notes: g.notes || null, seeded: !!g.seeded,
 });
+const snakeTier = (t, idx) => ({
+  id: t.id, min_occ: Math.max(0, Math.min(100, Number(t.min) || 0)),
+  max_occ: Math.max(0, Math.min(100, Number(t.max) || 0)),
+  adjustment_pct: Number(t.adjustmentPct) || 0, sort_order: idx,
+});
 
 /* Trimite doar diferentele: randuri noi/modificate prin upsert,
    randuri disparute prin delete. */
@@ -1615,15 +1696,16 @@ async function saveRatesAndSeasons(beforeRates, afterRates) {
 }
 
 async function loadAll() {
-  const [rooms, guests, groups, res, rates, seasons] = await Promise.all([
+  const [rooms, guests, groups, res, rates, seasons, onlineTiers] = await Promise.all([
     supabase.from("rooms").select("*").order("sort_order"),
     supabase.from("guests").select("*"),
     supabase.from("res_groups").select("*"),
     supabase.from("reservations").select("*"),
     supabase.from("rates").select("*").order("room_type"),
     supabase.from("seasons").select("*"),
+    supabase.from("online_pricing_tiers").select("*").order("sort_order"),
   ]);
-  for (const r of [rooms, guests, groups, res, rates, seasons]) if (r.error) throw r.error;
+  for (const r of [rooms, guests, groups, res, rates, seasons, onlineTiers]) if (r.error) throw r.error;
 
   const base = {};
   rates.data.forEach((r) => {
@@ -1647,6 +1729,9 @@ async function loadAll() {
       id: b.id, roomId: b.room_id, start: b.checkin, end: b.checkout, reason: b.notes || "",
     })),
     rates: { base, seasons: Object.values(sez) },
+    onlinePricing: onlineTiers.data.map((t) => ({
+      id: t.id, min: t.min_occ, max: t.max_occ, adjustmentPct: Number(t.adjustment_pct),
+    })),
   };
 }
 
@@ -2022,6 +2107,7 @@ function PMSApp() {
           rooms: db.rooms,
           guests: db.guests,
           rates: db.rates,
+          onlinePricing: db.onlinePricing,
         });
         /* Rezervarile facute inainte de pretul inghetat (bookedPrice) inca
            n-au un snapshot — le calculam o singura data, acum, cu tarifele
@@ -2030,7 +2116,7 @@ function PMSApp() {
            la urmatoarele porniri, odata ce fiecare rezervare are snapshot. */
         const rawRes = db.reservations;
         const r = rawRes.map((x) => (x.priceOverride == null && x.bookedPrice == null)
-          ? { ...x, bookedPrice: liveReservationTotal(x, c) }
+          ? { ...x, bookedPrice: liveReservationTotalOnline(x, c, rawRes) }
           : x);
         const backfilled = r.filter((x, i) => x !== rawRes[i]);
         if (backfilled.length) {
@@ -2093,7 +2179,10 @@ function PMSApp() {
       await syncTable("rooms", before.rooms, next.rooms, snakeRoom);
       await syncTable("guests", before.guests, next.guests, snakeGuest);
       if (next.rates !== before.rates) await saveRatesAndSeasons(before.rates || {}, next.rates || {});
-      const { rooms, guests, rates, ...settings } = next;
+      if (next.onlinePricing !== before.onlinePricing) {
+        await syncTable("online_pricing_tiers", before.onlinePricing || [], next.onlinePricing || [], snakeTier);
+      }
+      const { rooms, guests, rates, onlinePricing, ...settings } = next;
       await saveShared(K.core, settings);
     } catch (e) { raporteazaEroare(e); }
   }, [raporteazaEroare]);
@@ -2706,7 +2795,7 @@ function GroupEditor({ group, core, groups, updateGroups, reservations, updateRe
     const row = reservations.find((r) => r.id === id);
     let finalPatch = patch;
     if (row && row.priceOverride == null && PRICE_AFFECTING.some((f) => patch[f] !== undefined)) {
-      finalPatch = { ...patch, bookedPrice: liveReservationTotal({ ...row, ...patch }, core) };
+      finalPatch = { ...patch, bookedPrice: liveReservationTotalOnline({ ...row, ...patch }, core, reservations) };
     }
     await updateReservations(reservations.map((r) => (r.id === id ? { ...r, ...finalPatch } : r)));
     setError("");
@@ -2751,7 +2840,7 @@ function GroupEditor({ group, core, groups, updateGroups, reservations, updateRe
     await updateReservations(reservations.map((r) => {
       if (!ids.has(r.id)) return r;
       const patched = { ...r, checkin: ci.toISOString(), checkout: co.toISOString() };
-      return r.priceOverride == null ? { ...patched, bookedPrice: liveReservationTotal(patched, core) } : patched;
+      return r.priceOverride == null ? { ...patched, bookedPrice: liveReservationTotalOnline(patched, core, reservations) } : patched;
     }));
     await audit.push("Perioadă grup schimbată",
       `${group.name}: ${fmtDate(ci)} → ${fmtDate(co)} · ${rows.length} camere`);
@@ -2804,7 +2893,7 @@ function GroupEditor({ group, core, groups, updateGroups, reservations, updateRe
       notes: "", priceOverride: null, adults: 2, children: 0,
       source: template?.source || "direct", tags: [], messages: [],
     };
-    const record = { ...recordBase, bookedPrice: liveReservationTotal(recordBase, core) };
+    const record = { ...recordBase, bookedPrice: liveReservationTotalOnline(recordBase, core, reservations) };
     await updateReservations([...reservations, record]);
     const rn = core.rooms.find((x) => x.id === roomId)?.name;
     await audit.push("Cameră adăugată în grup", `${group.name}: ${rn}`);
@@ -3668,7 +3757,7 @@ function ReservationModal({ data, core, updateCore, reservations, updateReservat
     }
     const ids = isGroup ? roomIds : [roomId];
     return ids.reduce((sum, rid) =>
-      sum + reservationTotal({ roomId: rid, checkin, checkout, adults, children }, core), 0);
+      sum + liveReservationTotalOnline({ roomId: rid, checkin, checkout, adults, children, source }, core, reservations), 0);
   })();
 
   /* One pass over reservations and blocks per date change, rather than a
@@ -3767,7 +3856,7 @@ function ReservationModal({ data, core, updateCore, reservations, updateReservat
           tags: [...tags], messages: [],
         };
         return groupTotal == null
-          ? { ...base, priceOverride: null, bookedPrice: liveReservationTotal(base, core) }
+          ? { ...base, priceOverride: null, bookedPrice: liveReservationTotalOnline(base, core, reservations) }
           : { ...base, priceOverride: baseShare + (idx < remainder ? 1 : 0), bookedPrice: null };
       });
       await updateGroups([...groups, group]);
@@ -3800,7 +3889,7 @@ function ReservationModal({ data, core, updateCore, reservations, updateReservat
       ? {
           ...recordBase, priceOverride: null,
           bookedPrice: priceAffectingChanged || editing?.bookedPrice == null
-            ? liveReservationTotal(recordBase, core) : editing.bookedPrice,
+            ? liveReservationTotalOnline(recordBase, core, reservations) : editing.bookedPrice,
         }
       : { ...recordBase, priceOverride: Number(priceOverride), bookedPrice: null };
     const nextRes = editing ? reservations.map((r) => (r.id === editing.id ? record : r)) : [...reservations, record];
@@ -4782,6 +4871,9 @@ function RoomsView({ core, updateCore, reservations, updateReservations, blocks,
       <button className={tab === "rates" ? "on" : ""} onClick={() => setTab("rates")}>
         <Banknote size={14} /> Tarife
       </button>
+      <button className={tab === "online" ? "on" : ""} onClick={() => setTab("online")}>
+        <TrendingUp size={14} /> Optimizator preț
+      </button>
       <button className={tab === "tags" ? "on" : ""} onClick={() => setTab("tags")}>
         <TagIcon size={14} /> Etichete <span className="tab-count">{(core.tags || DEFAULT_TAGS).length}</span>
       </button>
@@ -4790,6 +4882,10 @@ function RoomsView({ core, updateCore, reservations, updateReservations, blocks,
 
   if (tab === "rates") {
     return <div>{tabs}<RatesView core={core} updateCore={updateCore} /></div>;
+  }
+
+  if (tab === "online") {
+    return <div>{tabs}<OnlinePricingView core={core} updateCore={updateCore} /></div>;
   }
 
   if (tab === "tags") {
@@ -5943,6 +6039,120 @@ function TagsView({ core, updateCore }) {
             </div>
           </div>
         ))}
+      </div>
+    </div>
+  );
+}
+
+/* ---------------------------------------------------------------
+   OPTIMIZATOR PRET PE GRAD DE OCUPARE (doar rezervari "direct")
+----------------------------------------------------------------*/
+const DEFAULT_ONLINE_TIERS = [
+  { id: "ot1", min: 0, max: 30, adjustmentPct: -5 },
+  { id: "ot2", min: 30, max: 50, adjustmentPct: 0 },
+  { id: "ot3", min: 50, max: 70, adjustmentPct: 5 },
+  { id: "ot4", min: 70, max: 90, adjustmentPct: 10 },
+  { id: "ot5", min: 90, max: 100, adjustmentPct: 15 },
+];
+
+function OnlinePricingView({ core, updateCore }) {
+  /* `tiers` e ce e salvat cu adevarat (poate fi []); draft porneste din
+     sugestiile implicite DOAR daca inca nu exista nimic salvat — dar ca
+     obiect NOU, distinct de `tiers`, ca butonul de salvare sa fie activ
+     de la inceput (altfel sugestiile s-ar afisa fara sa poata fi
+     acceptate fara o editare in plus, inutila). */
+  const tiers = core.onlinePricing || [];
+  const [draft, setDraft] = useState(() => (tiers.length ? tiers : DEFAULT_ONLINE_TIERS.map((t) => ({ ...t }))));
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const dirty = JSON.stringify(draft) !== JSON.stringify(tiers);
+
+  useEffect(() => {
+    if (!dirty) setDraft(tiers.length ? tiers : DEFAULT_ONLINE_TIERS.map((t) => ({ ...t })));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tiers]);
+
+  const setTier = (id, patch) => {
+    setDraft((d) => d.map((t) => (t.id === id ? { ...t, ...patch } : t)));
+    setSaved(false);
+  };
+  const addTier = () => {
+    setDraft((d) => [...d, { id: uid(), min: 0, max: 10, adjustmentPct: 0 }]);
+    setSaved(false);
+  };
+  const removeTier = (id) => {
+    setDraft((d) => d.filter((t) => t.id !== id));
+    setSaved(false);
+  };
+
+  const save = async () => {
+    setSaving(true);
+    const normalized = draft
+      .map((t) => ({
+        ...t,
+        min: Math.max(0, Math.min(100, Number(t.min) || 0)),
+        max: Math.max(0, Math.min(100, Number(t.max) || 0)),
+        adjustmentPct: Number(t.adjustmentPct) || 0,
+      }))
+      .sort((a, b) => a.min - b.min);
+    await updateCore({ ...core, onlinePricing: normalized });
+    await audit.push("Optimizator preț online modificat", "Praguri de ocupare actualizate");
+    setDraft(normalized);
+    setSaving(false);
+    setSaved(true);
+  };
+
+  return (
+    <div>
+      <div className="note">
+        Se aplică <strong>doar</strong> rezervărilor cu sursa <strong>Direct</strong> (site propriu) — Booking.com și
+        Airbnb nu pot primi tarife prin feedul iCal, doar disponibilitate, așa că rămân la tariful standard. Ocuparea
+        se calculează ca medie pe toată perioada sejurului, la nivel de proprietate (toate camerele), iar ajustarea
+        se aplică procentual peste prețul standard calculat din tarife/sezoane.
+      </div>
+
+      <div className="panel" style={{ padding: 18 }}>
+        {draft.length === 0 ? (
+          <div className="section-empty">Niciun prag definit — rezervările directe folosesc tariful standard.</div>
+        ) : draft.map((t) => {
+          const sign = t.adjustmentPct > 0 ? "up" : t.adjustmentPct < 0 ? "down" : null;
+          return (
+            <div key={t.id} className="tier-row">
+              <label className="field" style={{ margin: 0 }}>
+                <span className="fl">Ocupare de la (%)</span>
+                <input type="number" min="0" max="100" value={t.min} onChange={(e) => setTier(t.id, { min: e.target.value })} />
+              </label>
+              <span className="tier-sep">–</span>
+              <label className="field" style={{ margin: 0 }}>
+                <span className="fl">până la (%)</span>
+                <input type="number" min="0" max="100" value={t.max} onChange={(e) => setTier(t.id, { max: e.target.value })} />
+              </label>
+              <label className="field tier-adj" style={{ margin: 0 }}>
+                <span className="fl">Ajustare preț</span>
+                <div className="tier-adj-input">
+                  <input type="number" step="1" value={t.adjustmentPct} onChange={(e) => setTier(t.id, { adjustmentPct: e.target.value })} />
+                  <span>%</span>
+                  {sign === "up" && <TrendingUp size={14} className="tier-up" />}
+                  {sign === "down" && <TrendingUp size={14} className="tier-down" />}
+                </div>
+              </label>
+              <button className="icon-btn" onClick={() => removeTier(t.id)} aria-label="Șterge pragul">
+                <Trash2 size={14} />
+              </button>
+            </div>
+          );
+        })}
+        <button className="btn btn-ghost" style={{ marginTop: draft.length ? 12 : 0 }} onClick={addTier}>
+          <Plus size={15} /> Prag nou
+        </button>
+      </div>
+
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 14 }}>
+        <button className="btn btn-primary" style={{ width: "auto" }} onClick={save} disabled={!dirty || saving}>
+          <Check size={15} /> {saving ? "Se salvează…" : "Salvează"}
+        </button>
+        {saved && !dirty && <span style={{ color: "var(--success)", fontSize: 13, fontWeight: 600 }}>Salvat</span>}
+        {dirty && <span style={{ color: "var(--text-muted)", fontSize: 13 }}>Modificări nesalvate</span>}
       </div>
     </div>
   );
