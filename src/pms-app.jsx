@@ -613,7 +613,7 @@ const STYLES = `
   }
   .modal-head{
     position:sticky; top:-22px; background:var(--surface); z-index:3;
-    padding:4px 0 12px; margin:-4px 0 12px;
+    padding:12px 0 12px; margin:-4px 0 12px;
   }
   @media (min-width:600px){
     .modal-overlay{ align-items:center; }
@@ -1899,6 +1899,7 @@ function Dialog({ title, onClose, children, className = "", overlayClassName = "
 let modalLockCount = 0;
 function useModalLock() {
   useEffect(() => {
+    measureVisualViewport();
     const body = document.body;
     if (modalLockCount === 0) {
       body.dataset.pmsOverflow = body.style.overflow || "";
@@ -1978,24 +1979,30 @@ function repairBlocks(list, core) {
    offsetTop conteaza la fel de mult: cand bara de adrese e vizibila, zona
    vizibila incepe mai jos decat y=0 al paginii, iar un element position:fixed
    cu top:0 se ancoreaza tot la y=0 (sub bara de adrese) daca nu scadem si
-   asta — altfel varful ferestrei modale ramane ascuns/taiat. */
+   asta — altfel varful ferestrei modale ramane ascuns/taiat.
+   Valorile astea nu sunt stabile chiar de la incarcarea paginii — Safari
+   le "aseaza" pe masura ce utilizatorul interactioneaza. De-aia le
+   recitim si in useModalLock, nu doar o singura data la pornirea
+   aplicatiei, ca fereastra sa fie corecta chiar daca utilizatorul
+   deschide un popup fara sa fi derulat pagina inainte. */
+function measureVisualViewport() {
+  const vv = window.visualViewport;
+  const h = vv ? vv.height : window.innerHeight;
+  const top = vv ? vv.offsetTop : 0;
+  document.documentElement.style.setProperty("--vvh", `${h}px`);
+  document.documentElement.style.setProperty("--vvt", `${top}px`);
+}
+
 function useVisualViewportHeight() {
   useEffect(() => {
-    const setVH = () => {
-      const vv = window.visualViewport;
-      const h = vv ? vv.height : window.innerHeight;
-      const top = vv ? vv.offsetTop : 0;
-      document.documentElement.style.setProperty("--vvh", `${h}px`);
-      document.documentElement.style.setProperty("--vvt", `${top}px`);
-    };
-    setVH();
-    window.visualViewport?.addEventListener("resize", setVH);
-    window.visualViewport?.addEventListener("scroll", setVH);
-    window.addEventListener("resize", setVH);
+    measureVisualViewport();
+    window.visualViewport?.addEventListener("resize", measureVisualViewport);
+    window.visualViewport?.addEventListener("scroll", measureVisualViewport);
+    window.addEventListener("resize", measureVisualViewport);
     return () => {
-      window.visualViewport?.removeEventListener("resize", setVH);
-      window.visualViewport?.removeEventListener("scroll", setVH);
-      window.removeEventListener("resize", setVH);
+      window.visualViewport?.removeEventListener("resize", measureVisualViewport);
+      window.visualViewport?.removeEventListener("scroll", measureVisualViewport);
+      window.removeEventListener("resize", measureVisualViewport);
     };
   }, []);
 }
