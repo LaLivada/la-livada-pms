@@ -1,6 +1,8 @@
 import { supabase } from "./supabase.js";
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
+import jsPDF from "jspdf";
+import html2canvas from "html2canvas";
 import {
   CalendarDays, Users, DoorOpen, Zap, UserCog, LogOut,
   Plus, X, Search, ChevronLeft, ChevronRight, Flame, Wind, Snowflake,
@@ -2045,6 +2047,44 @@ class ErrorBoundary extends React.Component {
 }
 
 /* ---------------------------------------------------------------
+   DESCARCARE PDF — generare directa din DOM (html2canvas + jsPDF), nu
+   window.print(). Safari/WebKit are mai multe bug-uri cunoscute la
+   randarea print-ului (fantome de position:sticky, pagini goale) care
+   nu apar deloc pe Chrome — html2canvas rastrizeaza elementul o singura
+   data intr-un canvas, deci rezultatul e identic pe orice browser si nu
+   mai depinde deloc de motorul de print/paginare al fiecaruia.
+----------------------------------------------------------------*/
+async function downloadElementAsPDF(el, filename) {
+  if (!el) return;
+  const canvas = await html2canvas(el, {
+    scale: 2, backgroundColor: "#ffffff", useCORS: true,
+    // .no-print e gandit pentru @media print (window.print()) — aici nu
+    // exista niciun context de print, deci regula CSS n-ar avea niciun
+    // efect; excludem explicit acele elemente (controale de editare,
+    // butoane) din captura, ca sa nu ajunga in PDF.
+    ignoreElements: (node) => node.classList?.contains("no-print"),
+  });
+  const imgData = canvas.toDataURL("image/png");
+  const pdf = new jsPDF({ unit: "mm", format: "a4" });
+  const pageWidth = pdf.internal.pageSize.getWidth();
+  const pageHeight = pdf.internal.pageSize.getHeight();
+  const imgWidth = pageWidth;
+  const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+  let heightLeft = imgHeight;
+  let position = 0;
+  pdf.addImage(imgData, "PNG", 0, position, imgWidth, imgHeight);
+  heightLeft -= pageHeight;
+  while (heightLeft > 0) {
+    position = heightLeft - imgHeight;
+    pdf.addPage();
+    pdf.addImage(imgData, "PNG", 0, position, imgWidth, imgHeight);
+    heightLeft -= pageHeight;
+  }
+  pdf.save(filename);
+}
+
+/* ---------------------------------------------------------------
    TOASTS
    Destructive actions are reversible for a few seconds instead of
    being guarded by another confirmation prompt.
@@ -2831,6 +2871,13 @@ function AutomationStrip({ core, reservations }) {
    GROUP ROOMING LIST (printable)
 ----------------------------------------------------------------*/
 function GroupPrint({ group, core, reservations, onClose }) {
+  const sheetRef = useRef(null);
+  const [downloading, setDownloading] = useState(false);
+  const download = async () => {
+    setDownloading(true);
+    try { await downloadElementAsPDF(sheetRef.current, `Cazare-grup-${group.id}.pdf`); }
+    finally { setDownloading(false); }
+  };
   const rows = reservations
     .filter((r) => r.groupId === group.id)
     .sort((a, b) => (core.rooms.find((x) => x.id === a.roomId)?.name || "")
@@ -2857,14 +2904,14 @@ function GroupPrint({ group, core, reservations, onClose }) {
       <div className="modal-head no-print">
         <h3>Listă cazare grup</h3>
         <div style={{ display: "flex", gap: 8 }}>
-          <button className="btn btn-primary" style={{ width: "auto" }} onClick={() => window.print()}>
-            <Printer size={15} /> Printează
+          <button className="btn btn-primary" style={{ width: "auto" }} onClick={download} disabled={downloading}>
+            <Printer size={15} /> {downloading ? "Se generează…" : "Descarcă PDF"}
           </button>
           <button className="icon-btn" onClick={onClose} aria-label="Închide fereastra"><X size={16} /></button>
         </div>
       </div>
 
-      <div className="arrival-sheet">
+      <div className="arrival-sheet" ref={sheetRef}>
         <div className="fisa rooming-sheet">
           <div className="fisa-top">
             <div className="fisa-logo">LA LIVADĂ</div>
@@ -4653,6 +4700,16 @@ function InvoicePrint({ invoiceId, core, onClose, onChanged }) {
   const [customer, setCustomer] = useState(null);
   const [payments, setPayments] = useState([]);
   const [loading, setLoading] = useState(true);
+  const fisaRef = useRef(null);
+  const [downloading, setDownloading] = useState(false);
+  const download = async () => {
+    setDownloading(true);
+    try {
+      await downloadElementAsPDF(fisaRef.current, `Factura-${invoice?.series || "draft"}-${invoice?.number || ""}.pdf`);
+    } finally {
+      setDownloading(false);
+    }
+  };
 
   const load = useCallback(async () => {
     const { data: inv } = await supabase.from("invoices").select("*").eq("id", invoiceId).maybeSingle();
@@ -4729,12 +4786,12 @@ function InvoicePrint({ invoiceId, core, onClose, onChanged }) {
       <div className="no-print" style={{ display: "flex", gap: 8, marginBottom: 14 }}>
         <span className={"role-tag " + INVOICE_STATUS_CLASS[invoice.status]}>{INVOICE_STATUS_LABEL[invoice.status]}</span>
         <div className="grow" />
-        <button className="btn btn-ghost" style={{ width: "auto" }} onClick={() => window.print()}>
-          <Printer size={15} /> Descarcă PDF
+        <button className="btn btn-ghost" style={{ width: "auto" }} onClick={download} disabled={downloading}>
+          <Printer size={15} /> {downloading ? "Se generează…" : "Descarcă PDF"}
         </button>
       </div>
 
-      <div className="fisa">
+      <div className="fisa" ref={fisaRef}>
         <div className="inv-hero">
           <div className="inv-hero-brand">
             <div className="inv-hero-logo">LA LIVADĂ</div>
@@ -7659,19 +7716,26 @@ function ArrivalSheet({ res, core, groups }) {
 
 function ArrivalForm({ res, core, groups, onClose }) {
   useModalLock();
+  const sheetRef = useRef(null);
+  const [downloading, setDownloading] = useState(false);
+  const download = async () => {
+    setDownloading(true);
+    try { await downloadElementAsPDF(sheetRef.current, `Fisa-anuntare-${res.id}.pdf`); }
+    finally { setDownloading(false); }
+  };
   return (
     <Dialog onClose={onClose} className="arrival-modal" overlayClassName="arrival-overlay" title={undefined}>
         <div className="modal-head no-print">
           <h3 id="arrival-title">Fișă de anunțare</h3>
           <div style={{ display: "flex", gap: 8 }}>
-            <button className="btn btn-primary" style={{ width: "auto" }} onClick={() => window.print()}>
-              <Printer size={15} /> Printează
+            <button className="btn btn-primary" style={{ width: "auto" }} onClick={download} disabled={downloading}>
+              <Printer size={15} /> {downloading ? "Se generează…" : "Descarcă PDF"}
             </button>
             <button className="icon-btn" onClick={onClose} aria-label="Închide fereastra"><X size={16} /></button>
           </div>
         </div>
 
-        <div className="arrival-sheet">
+        <div className="arrival-sheet" ref={sheetRef}>
           <ArrivalSheet res={res} core={core} groups={groups} />
           <div className="fisa-sep" />
           <ArrivalSheet res={res} core={core} groups={groups} />
