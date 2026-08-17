@@ -875,15 +875,53 @@ const STYLES = `
   }
   .stat:first-child .stat-value{ color:var(--accent-strong); }
   .stat-label{ font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:var(--text-muted); }
-  .stat-value{ font-size:24px; font-weight:650; letter-spacing:-0.03em; margin:5px 0 2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .stat-value{
+    font-size:clamp(15px, 3.4vw, 24px); font-weight:650; letter-spacing:-0.03em; margin:5px 0 2px;
+    white-space:normal; overflow-wrap:anywhere; line-height:1.15;
+  }
   .stat-sub{ font-size:11.5px; color:var(--text-muted); }
   @media (max-width:720px){
     .stat-row{ gap:7px; }
     .stat{ padding:11px 10px; border-radius:11px; }
     .stat-label{ font-size:9.5px; letter-spacing:.03em; }
-    .stat-value{ font-size:17px; margin:3px 0 1px; }
+    .stat-value{ font-size:clamp(13px, 4vw, 17px); margin:3px 0 1px; }
     .stat-sub{ display:none; }
   }
+  .phone-input-row{ display:flex; gap:6px; }
+  .phone-input-row input{ flex:1; min-width:0; }
+  .phone-dial-wrap{ position:relative; flex-shrink:0; }
+  .phone-dial-btn{
+    height:100%; padding:0 12px; border:1px solid var(--border); border-radius:var(--r-sm);
+    background:var(--surface); color:var(--text); font-size:var(--fs-base); font-weight:600;
+    min-width:64px;
+  }
+  .phone-dial-btn:hover{ background:var(--surface-2); }
+  .phone-dial-pop{
+    position:absolute; top:calc(100% + 6px); left:0; z-index:30; width:240px;
+    background:var(--surface); border:1px solid var(--border); border-radius:var(--r-sm);
+    box-shadow:var(--shadow); padding:8px;
+  }
+  .phone-dial-pop input{
+    width:100%; padding:8px 10px; border:1px solid var(--border); border-radius:var(--r-sm);
+    font-size:var(--fs-base); font-family:inherit; margin-bottom:6px;
+  }
+  .phone-dial-list{ max-height:240px; overflow-y:auto; display:flex; flex-direction:column; }
+  .phone-dial-item{
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
+    padding:8px 8px; border-radius:var(--r-xs); font-size:var(--fs-base); text-align:left;
+    background:none; border:none; color:var(--text);
+  }
+  .phone-dial-item:hover{ background:var(--surface-2); }
+  .phone-dial-item.on{ background:var(--accent-soft); color:var(--accent-strong); font-weight:600; }
+  .phone-dial-empty{ padding:10px 8px; font-size:var(--fs-sm); color:var(--text-muted); }
+  .guest-contact-info{
+    display:flex; flex-direction:column; gap:3px; font-size:var(--fs-base); color:var(--text-2);
+    margin-bottom:16px;
+  }
+  .guest-contact-info a{ color:var(--accent-strong); text-decoration:none; }
+  .guest-contact-info a:hover{ text-decoration:underline; }
+  .pager{ display:flex; align-items:center; justify-content:center; gap:14px; margin-top:14px; }
+  .pager-info{ font-size:var(--fs-sm); color:var(--text-muted); white-space:nowrap; }
   .today-cols{ display:grid; grid-template-columns:repeat(auto-fit,minmax(320px,1fr)); gap:14px; align-items:start; }
   .section-panel{ overflow:hidden; }
   .section-head{
@@ -1424,6 +1462,9 @@ function fmtMoney(v) {
 
 function fmtDate(d) {
   return FMT_DATE.format(new Date(d));
+}
+function fmtDateFull(d) {
+  return FMT_DATE_FULL.format(new Date(d));
 }
 function fmtDateTime(d) {
   return FMT_DATETIME.format(new Date(d));
@@ -4266,6 +4307,125 @@ const TARI = [
   "Yemen", "Zambia", "Zimbabwe",
 ];
 
+/* Prefixe telefonice — cheile trebuie sa acopere fiecare tara din TARI.
+   Ordinea afisata in selector vine din TARI (Romania prima, apoi
+   Republica Moldova, apoi alfabetic), nu de aici. */
+const PHONE_DIAL = {
+  "România": "+40", "Republica Moldova": "+373", "Afganistan": "+93", "Africa de Sud": "+27",
+  "Albania": "+355", "Algeria": "+213", "Andorra": "+376", "Angola": "+244",
+  "Antigua și Barbuda": "+1268", "Arabia Saudită": "+966", "Argentina": "+54", "Armenia": "+374",
+  "Australia": "+61", "Austria": "+43", "Azerbaidjan": "+994", "Bahamas": "+1242", "Bahrain": "+973",
+  "Bangladesh": "+880", "Barbados": "+1246", "Belarus": "+375", "Belgia": "+32", "Belize": "+501",
+  "Benin": "+229", "Bhutan": "+975", "Bolivia": "+591", "Bosnia și Herțegovina": "+387",
+  "Botswana": "+267", "Brazilia": "+55", "Brunei": "+673", "Bulgaria": "+359", "Burkina Faso": "+226",
+  "Burundi": "+257", "Cambodgia": "+855", "Camerun": "+237", "Canada": "+1", "Capul Verde": "+238",
+  "Cehia": "+420", "Chile": "+56", "China": "+86", "Cipru": "+357", "Columbia": "+57",
+  "Comore": "+269", "Congo": "+242", "Coreea de Nord": "+850", "Coreea de Sud": "+82",
+  "Costa Rica": "+506", "Coasta de Fildeș": "+225", "Croația": "+385", "Cuba": "+53",
+  "Danemarca": "+45", "Djibouti": "+253", "Dominica": "+1767", "Ecuador": "+593", "Egipt": "+20",
+  "El Salvador": "+503", "Elveția": "+41", "Emiratele Arabe Unite": "+971", "Eritreea": "+291",
+  "Estonia": "+372", "Eswatini": "+268", "Etiopia": "+251", "Fiji": "+679", "Filipine": "+63",
+  "Finlanda": "+358", "Franța": "+33", "Gabon": "+241", "Gambia": "+220", "Georgia": "+995",
+  "Germania": "+49", "Ghana": "+233", "Grecia": "+30", "Grenada": "+1473", "Guatemala": "+502",
+  "Guineea": "+224", "Guineea-Bissau": "+245", "Guineea Ecuatorială": "+240", "Guyana": "+592",
+  "Haiti": "+509", "Honduras": "+504", "India": "+91", "Indonezia": "+62", "Irak": "+964",
+  "Iran": "+98", "Irlanda": "+353", "Islanda": "+354", "Israel": "+972", "Italia": "+39",
+  "Jamaica": "+1876", "Japonia": "+81", "Iordania": "+962", "Kazahstan": "+7", "Kenya": "+254",
+  "Kirgizstan": "+996", "Kiribati": "+686", "Kosovo": "+383", "Kuweit": "+965", "Laos": "+856",
+  "Lesotho": "+266", "Letonia": "+371", "Liban": "+961", "Liberia": "+231", "Libia": "+218",
+  "Liechtenstein": "+423", "Lituania": "+370", "Luxemburg": "+352", "Macedonia de Nord": "+389",
+  "Madagascar": "+261", "Malaezia": "+60", "Malawi": "+265", "Maldive": "+960", "Mali": "+223",
+  "Malta": "+356", "Maroc": "+212", "Insulele Marshall": "+692", "Mauritania": "+222",
+  "Mauritius": "+230", "Mexic": "+52", "Micronezia": "+691", "Monaco": "+377", "Mongolia": "+976",
+  "Muntenegru": "+382", "Mozambic": "+258", "Myanmar": "+95", "Namibia": "+264", "Nauru": "+674",
+  "Nepal": "+977", "Nicaragua": "+505", "Niger": "+227", "Nigeria": "+234", "Norvegia": "+47",
+  "Noua Zeelandă": "+64", "Olanda": "+31", "Oman": "+968", "Pakistan": "+92", "Palau": "+680",
+  "Palestina": "+970", "Panama": "+507", "Papua Noua Guinee": "+675", "Paraguay": "+595",
+  "Peru": "+51", "Polonia": "+48", "Portugalia": "+351", "Qatar": "+974", "Regatul Unit": "+44",
+  "Republica Centrafricană": "+236", "Republica Dominicană": "+1809",
+  "Republica Democrată Congo": "+243", "Ruanda": "+250", "Rusia": "+7",
+  "Saint Kitts și Nevis": "+1869", "Saint Lucia": "+1758", "Saint Vincent și Grenadinele": "+1784",
+  "Samoa": "+685", "San Marino": "+378", "São Tomé și Príncipe": "+239", "Senegal": "+221",
+  "Serbia": "+381", "Seychelles": "+248", "Sierra Leone": "+232", "Singapore": "+65",
+  "Siria": "+963", "Slovacia": "+421", "Slovenia": "+386", "Insulele Solomon": "+677",
+  "Somalia": "+252", "Spania": "+34", "Sri Lanka": "+94", "Statele Unite ale Americii": "+1",
+  "Sudan": "+249", "Sudanul de Sud": "+211", "Suedia": "+46", "Surinam": "+597",
+  "Tadjikistan": "+992", "Tanzania": "+255", "Thailanda": "+66", "Timorul de Est": "+670",
+  "Togo": "+228", "Tonga": "+676", "Trinidad și Tobago": "+1868", "Tunisia": "+216", "Turcia": "+90",
+  "Turkmenistan": "+993", "Tuvalu": "+688", "Ucraina": "+380", "Uganda": "+256", "Ungaria": "+36",
+  "Uruguay": "+598", "Uzbekistan": "+998", "Vanuatu": "+678", "Vatican": "+379", "Venezuela": "+58",
+  "Vietnam": "+84", "Yemen": "+967", "Zambia": "+260", "Zimbabwe": "+263",
+};
+/* Ordinea vine din TARI — România prima, apoi Republica Moldova, apoi
+   alfabetic — asa ca majoritatea clientilor (romani) gasesc prefixul
+   fara sa caute. */
+const DIAL_LIST = TARI.map((t) => ({ country: t, dial: PHONE_DIAL[t] })).filter((d) => d.dial);
+
+/* Desparte un numar deja salvat in prefix+rest — daca nu incepe cu "+"
+   e tratat ca un numar romanesc vechi (fara prefix), ca sa nu se piarda
+   nimic la editarea unei fise existente. */
+function splitPhone(phone) {
+  const s = String(phone || "").trim();
+  if (s.startsWith("+")) {
+    const match = DIAL_LIST
+      .filter((d) => s.startsWith(d.dial))
+      .sort((a, b) => b.dial.length - a.dial.length)[0];
+    if (match) return { dial: match.dial, local: s.slice(match.dial.length).trim() };
+  }
+  return { dial: "+40", local: s };
+}
+function joinPhone(dial, local) {
+  const l = String(local || "").trim();
+  return l ? `${dial} ${l}` : "";
+}
+
+function PhoneDialPicker({ dial, onSelect }) {
+  const [open, setOpen] = useState(false);
+  const [q, setQ] = useState("");
+  const ref = useRef(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const close = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, [open]);
+
+  const t = q.trim().toLowerCase();
+  const filtered = t
+    ? DIAL_LIST.filter((d) => d.country.toLowerCase().includes(t) || d.dial.includes(t))
+    : DIAL_LIST;
+
+  return (
+    <div className="phone-dial-wrap" ref={ref}>
+      <button type="button" className="phone-dial-btn" onClick={() => setOpen((v) => !v)}>
+        <span className="mono">{dial}</span>
+      </button>
+      {open && (
+        <div className="phone-dial-pop">
+          <input
+            autoFocus placeholder="Caută țara" value={q}
+            onChange={(e) => setQ(e.target.value)}
+          />
+          <div className="phone-dial-list">
+            {filtered.length === 0 && <div className="phone-dial-empty">Nicio țară găsită.</div>}
+            {filtered.map((d) => (
+              <button
+                type="button" key={d.country}
+                className={"phone-dial-item" + (d.dial === dial ? " on" : "")}
+                onClick={() => { onSelect(d.dial); setOpen(false); setQ(""); }}
+              >
+                <span>{d.country}</span>
+                <span className="mono">{d.dial}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 const emptyGuest = () => ({
   lastName: "", firstName: "", phone: "", email: "",
   address: "", city: "", county: "Cluj", country: "România", notes: "",
@@ -4291,6 +4451,7 @@ function guestFullName(g) {
 const GuestFields = React.memo(function GuestFields({ value, onChange, invalid }) {
   const set = (k) => (e) => onChange({ ...value, [k]: e.target.value });
   const err = (k) => (invalid?.has(k) ? " input-error" : "");
+  const { dial, local } = splitPhone(value.phone);
   return (
     <>
       <div className="field-row field-row-2col">
@@ -4298,7 +4459,15 @@ const GuestFields = React.memo(function GuestFields({ value, onChange, invalid }
         <label className="field"><span className="fl">Prenume *</span><input className={err("firstName")} value={value.firstName} onChange={set("firstName")} placeholder="Andrei" /></label>
       </div>
       <div className="field-row field-row-2col">
-        <label className="field"><span className="fl">Telefon *</span><input className={err("phone")} value={value.phone} onChange={set("phone")} placeholder="07xx xxx xxx" /></label>
+        <label className="field">
+          <span className="fl">Telefon *</span>
+          <div className="phone-input-row">
+            <PhoneDialPicker dial={dial} onSelect={(d) => onChange({ ...value, phone: joinPhone(d, local) })} />
+            <input className={err("phone")} value={local}
+              onChange={(e) => onChange({ ...value, phone: joinPhone(dial, e.target.value) })}
+              placeholder="722 111 222" />
+          </div>
+        </label>
         <label className="field"><span className="fl">Email</span><input type="email" value={value.email} onChange={set("email")} placeholder="nume@exemplu.ro" /></label>
       </div>
       <div className="field-row field-row-2col">
@@ -4327,8 +4496,11 @@ const GuestFields = React.memo(function GuestFields({ value, onChange, invalid }
   );
 });
 
+const GUEST_HISTORY_PAGE_SIZE = 15;
+
 function GuestHistory({ guest, core, reservations, onClose }) {
   useModalLock();
+  const [page, setPage] = useState(0);
   const stays = reservations
     .filter((r) => r.guestId === guest.id)
     .sort((a, b) => new Date(b.checkin) - new Date(a.checkin));
@@ -4336,8 +4508,20 @@ function GuestHistory({ guest, core, reservations, onClose }) {
   const nights = live.reduce((n, r) => n + nightsBetween(r.checkin, r.checkout), 0);
   const spent = live.reduce((v, r) => v + reservationTotal(r, core), 0);
 
+  const pageCount = Math.max(1, Math.ceil(stays.length / GUEST_HISTORY_PAGE_SIZE));
+  const safePage = Math.min(page, pageCount - 1);
+  const pageStays = stays.slice(safePage * GUEST_HISTORY_PAGE_SIZE, (safePage + 1) * GUEST_HISTORY_PAGE_SIZE);
+
+  const contactLine = [guest.city, guest.county].filter(Boolean).join(", ");
+
   return (
     <Dialog onClose={onClose} title={guestFullName(guest)}>
+
+        <div className="guest-contact-info">
+          {contactLine && <div>{contactLine}{guest.country && guest.country !== "România" ? ` · ${guest.country}` : ""}</div>}
+          {guest.phone && <div><a href={`tel:${guest.phone.replace(/\s/g, "")}`}>{guest.phone}</a></div>}
+          {guest.email && <div><a href={`mailto:${guest.email}`}>{guest.email}</a></div>}
+        </div>
 
         <div className="stat-row" style={{ marginBottom: 14 }}>
           <Stat label="Sejururi" value={live.length} sub="valide" />
@@ -4349,22 +4533,37 @@ function GuestHistory({ guest, core, reservations, onClose }) {
         {stays.length === 0 ? (
           <div className="section-empty">Niciun sejur înregistrat.</div>
         ) : (
-          <div className="panel">
-            {stays.map((r) => (
-              <div className="list-row" key={r.id}>
-                <div>
-                  <div className="primary mono">{core.rooms.find((x) => x.id === r.roomId)?.name || "—"}</div>
-                  <div className="secondary">
-                    {fmtDate(r.checkin)} → {fmtDate(r.checkout)} · {nightsBetween(r.checkin, r.checkout)} nopți · {sourceLabel(r.source)}
+          <>
+            <div className="panel">
+              {pageStays.map((r) => (
+                <div className="list-row" key={r.id}>
+                  <div>
+                    <div className="primary mono">{core.rooms.find((x) => x.id === r.roomId)?.name || "—"}</div>
+                    <div className="secondary">
+                      {fmtDateFull(r.checkin)} → {fmtDateFull(r.checkout)} · {nightsBetween(r.checkin, r.checkout)} nopți · {sourceLabel(r.source)}
+                    </div>
                   </div>
+                  <span className={"role-tag " + (r.status === "checkedout" ? "role-receptionist"
+                    : isLive(r) ? "role-admin" : "role-housekeeping")}>
+                    {STATUS_LABEL[r.status]}
+                  </span>
                 </div>
-                <span className={"role-tag " + (r.status === "checkedout" ? "role-receptionist"
-                  : isLive(r) ? "role-admin" : "role-housekeeping")}>
-                  {STATUS_LABEL[r.status]}
-                </span>
+              ))}
+            </div>
+            {pageCount > 1 && (
+              <div className="pager">
+                <button className="btn btn-ghost" style={{ width: "auto" }} disabled={safePage === 0}
+                  onClick={() => setPage((p) => Math.max(0, p - 1))}>
+                  <ChevronLeft size={15} /> Anterior
+                </button>
+                <span className="pager-info">Pagina {safePage + 1} din {pageCount}</span>
+                <button className="btn btn-ghost" style={{ width: "auto" }} disabled={safePage >= pageCount - 1}
+                  onClick={() => setPage((p) => Math.min(pageCount - 1, p + 1))}>
+                  Următor <ChevronRight size={15} />
+                </button>
               </div>
-            ))}
-          </div>
+            )}
+          </>
         )}
       </Dialog>
   );
