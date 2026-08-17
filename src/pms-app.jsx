@@ -6,7 +6,7 @@ import {
   Sparkles, Check, Trash2, Pencil, ShieldCheck, UsersRound,
   BarChart3, History, LogIn, Printer, Banknote, ArrowRight,
   Settings, Eye, XCircle, MoveRight, Tag as TagIcon, Rows2, Rows3, MessageSquare, Wrench, UserCheck,
-  AlertTriangle, RefreshCw, Undo2
+  AlertTriangle, RefreshCw, Undo2, Copy, Info, Cpu
 } from "lucide-react";
 
 /* ---------------------------------------------------------------
@@ -1553,6 +1553,14 @@ function reservationTotal(res, core) {
   return total;
 }
 
+/* Limiteaza adulti+copii la capacitatea camerei — apelata din onChange,
+   cu valoarea CEALALTA (deja introdusa) ca sa nu depaseasca suma. */
+function clampOccupant(newVal, otherVal, capacity, min) {
+  const cap = Number(capacity) || 20;
+  const n = Math.max(min, Number(newVal) || min);
+  return Math.min(n, Math.max(min, cap - (Number(otherVal) || 0)));
+}
+
 /* Intl formatters are expensive to construct (far more than to use), and
    these run hundreds of times per render in lists, the calendar and
    reports — so build each one once at module level. */
@@ -2991,16 +2999,23 @@ function GroupEditor({ group, core, groups, updateGroups, reservations, updateRe
               </div>
 
               <div className="grp-row-body">
-                <label className="grp-num">
-                  <span>Adulți</span>
-                  <input type="number" min="1" max="20" value={r.adults ?? 2}
-                    onChange={(e) => patchRow(r.id, { adults: Math.max(1, Number(e.target.value) || 1) })} />
-                </label>
-                <label className="grp-num">
-                  <span>Copii</span>
-                  <input type="number" min="0" max="20" value={r.children ?? 0}
-                    onChange={(e) => patchRow(r.id, { children: Math.max(0, Number(e.target.value) || 0) })} />
-                </label>
+                {(() => {
+                  const roomCap = core.rooms.find((x) => x.id === r.roomId)?.capacity || 20;
+                  return (
+                    <>
+                      <label className="grp-num">
+                        <span>Adulți</span>
+                        <input type="number" min="1" max={roomCap} value={r.adults ?? 2}
+                          onChange={(e) => patchRow(r.id, { adults: clampOccupant(e.target.value, r.children ?? 0, roomCap, 1) })} />
+                      </label>
+                      <label className="grp-num">
+                        <span>Copii</span>
+                        <input type="number" min="0" max={roomCap} value={r.children ?? 0}
+                          onChange={(e) => patchRow(r.id, { children: clampOccupant(e.target.value, r.adults ?? 2, roomCap, 0) })} />
+                      </label>
+                    </>
+                  );
+                })()}
                 <div className="grp-price">{fmtMoney(reservationTotal(r, core))}</div>
               </div>
 
@@ -3636,6 +3651,12 @@ function ReservationModal({ data, core, updateCore, reservations, updateReservat
 
   const isGroup = !editing && mode === "group";
   const isBlock = !editing && mode === "block";
+  /* Cat timp e grup, adultii/copiii se aplica identic pe fiecare camera
+     selectata — capacitatea folosita e cea mai mica dintre camerele alese,
+     ca nicio camera sa nu ramana peste propria capacitate. */
+  const maxOccupancy = isGroup
+    ? (roomIds.length ? Math.min(...roomIds.map((id) => core.rooms.find((r) => r.id === id)?.capacity || 20)) : 20)
+    : (core.rooms.find((r) => r.id === roomId)?.capacity || 20);
   const editingGroup = editing?.groupId ? groups.find((g) => g.id === editing.groupId) : null;
   const selectedGuest = guests.find((g) => g.id === guestId) || null;
   const matchingGuests = (() => {
@@ -3984,12 +4005,19 @@ function ReservationModal({ data, core, updateCore, reservations, updateReservat
           <div className="field-row field-row-2col">
             <label className="field">
               <span className="fl">Adulți{isGroup ? " (per cameră)" : ""}</span>
-              <input type="number" min="1" max="20" value={adults} onChange={(e) => setAdults(e.target.value)} />
+              <input type="number" min="1" max={maxOccupancy} value={adults}
+                onChange={(e) => setAdults(clampOccupant(e.target.value, children, maxOccupancy, 1))} />
             </label>
             <label className="field">
               <span className="fl">Copii{isGroup ? " (per cameră)" : ""}</span>
-              <input type="number" min="0" max="20" value={children} onChange={(e) => setChildren(e.target.value)} />
+              <input type="number" min="0" max={maxOccupancy} value={children}
+                onChange={(e) => setChildren(clampOccupant(e.target.value, adults, maxOccupancy, 0))} />
             </label>
+          </div>
+        )}
+        {!isBlock && (
+          <div className="note" style={{ marginTop: -6 }}>
+            Maxim {maxOccupancy} {maxOccupancy === 1 ? "persoană" : "persoane"} pentru {isGroup ? "camerele selectate" : "camera selectată"}.
           </div>
         )}
         {isGroup && (
@@ -4672,32 +4700,80 @@ function RoomsView({ core, updateCore, reservations, updateReservations, blocks,
 
 function RoomModal({ room, onSave, onClose }) {
   useModalLock();
+  const [tab, setTab] = useState("info");
   const [name, setName] = useState(room?.name || "");
   const [type, setType] = useState(room?.type || "tiny");
+  const [capacity, setCapacity] = useState(room?.capacity ?? 2);
   const [boilerId, setBoilerId] = useState(room?.boilerId || "");
   const [ventId, setVentId] = useState(room?.ventId || "");
   const [sensiboId, setSensiboId] = useState(room?.sensiboId || "");
   const [error, setError] = useState("");
 
+  const icalUrl = room?.icalToken ? `${window.location.origin}/ical/${room.icalToken}.ics` : null;
+  const copyIcal = async () => {
+    if (!icalUrl) return;
+    try {
+      await navigator.clipboard.writeText(icalUrl);
+      toaster.show("Link iCal copiat", { tone: "ok" });
+    } catch {
+      toaster.show("Nu am putut copia automat — selectează linkul manual.", { tone: "danger" });
+    }
+  };
+
   const submit = () => {
-    if (!name.trim()) { setError("Numele camerei este obligatoriu."); return; }
-    onSave({ id: room?.id || uid(), name: name.trim(), type, boilerId: boilerId.trim(), ventId: ventId.trim(), sensiboId: sensiboId.trim() });
+    if (!name.trim()) { setError("Numele camerei este obligatoriu."); setTab("info"); return; }
+    const cap = Math.max(1, Number(capacity) || 1);
+    onSave({
+      id: room?.id || uid(), name: name.trim(), type, capacity: cap,
+      boilerId: boilerId.trim(), ventId: ventId.trim(), sensiboId: sensiboId.trim(),
+    });
   };
 
   return (
     <Dialog onClose={onClose} title={room ? "Editează cameră" : "Cameră nouă"}>
-        <div className="field-row">
-          <label className="field"><span className="fl">Nume cameră</span><input value={name} onChange={(e) => setName(e.target.value)} placeholder="1015" /></label>
-          <label className="field"><span className="fl">Tip</span>
-            <select value={type} onChange={(e) => setType(e.target.value)}>
-              <option value="tiny">Tiny house</option>
-              <option value="loft">Loft</option>
-            </select>
-          </label>
+        <div className="sub-tabs" style={{ marginBottom: 16 }}>
+          <button className={tab === "info" ? "on" : ""} onClick={() => setTab("info")}>
+            <Info size={14} /> Informații cameră
+          </button>
+          <button className={tab === "senzori" ? "on" : ""} onClick={() => setTab("senzori")}>
+            <Cpu size={14} /> Senzori
+          </button>
         </div>
-        <label className="field"><span className="fl">ID releu Shelly — boiler</span><input className="mono" value={boilerId} onChange={(e) => setBoilerId(e.target.value)} placeholder="shelly-boiler-1015" /></label>
-        <label className="field"><span className="fl">ID releu Shelly — ventilație</span><input className="mono" value={ventId} onChange={(e) => setVentId(e.target.value)} placeholder="shelly-vent-1015" /></label>
-        <label className="field"><span className="fl">ID dispozitiv Sensibo — AC</span><input className="mono" value={sensiboId} onChange={(e) => setSensiboId(e.target.value)} placeholder="sensibo-1015" /></label>
+
+        {tab === "info" ? (
+          <>
+            <div className="field-row">
+              <label className="field"><span className="fl">Nume cameră</span><input value={name} onChange={(e) => setName(e.target.value)} placeholder="1015" /></label>
+              <label className="field"><span className="fl">Tip</span>
+                <select value={type} onChange={(e) => setType(e.target.value)}>
+                  <option value="tiny">Tiny house</option>
+                  <option value="loft">Loft</option>
+                </select>
+              </label>
+            </div>
+            <label className="field">
+              <span className="fl">Link iCal</span>
+              <div style={{ display: "flex", gap: 8 }}>
+                <input className="mono" readOnly value={icalUrl || "Disponibil după prima salvare"}
+                  style={{ color: icalUrl ? undefined : "var(--text-muted)" }} />
+                <button type="button" className="icon-btn" onClick={copyIcal} disabled={!icalUrl}
+                  aria-label="Copiază linkul iCal" title="Copiază linkul iCal">
+                  <Copy size={14} />
+                </button>
+              </div>
+            </label>
+            <label className="field">
+              <span className="fl">Număr maxim de persoane</span>
+              <input type="number" min="1" max="20" value={capacity} onChange={(e) => setCapacity(e.target.value)} />
+            </label>
+          </>
+        ) : (
+          <>
+            <label className="field"><span className="fl">ID releu Shelly — boiler</span><input className="mono" value={boilerId} onChange={(e) => setBoilerId(e.target.value)} placeholder="shelly-boiler-1015" /></label>
+            <label className="field"><span className="fl">ID releu Shelly — ventilație</span><input className="mono" value={ventId} onChange={(e) => setVentId(e.target.value)} placeholder="shelly-vent-1015" /></label>
+            <label className="field"><span className="fl">ID dispozitiv Sensibo — AC</span><input className="mono" value={sensiboId} onChange={(e) => setSensiboId(e.target.value)} placeholder="sensibo-1015" /></label>
+          </>
+        )}
         {error && <div className="error-text" role="alert" style={{ marginBottom: 10 }}>{error}</div>}
         <div className="modal-actions">
           <div className="grow" />
