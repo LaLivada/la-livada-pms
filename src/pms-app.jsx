@@ -602,10 +602,15 @@ const STYLES = `
     justify-content:center; z-index:100; backdrop-filter:blur(1px);
     overscroll-behavior:contain; touch-action:manipulation;
     padding-left:env(safe-area-inset-left); padding-right:env(safe-area-inset-right);
+    padding-top:max(24px, env(safe-area-inset-top));
+    box-sizing:border-box;
   }
   .modal{
     background:var(--surface); width:100%; max-width:500px; border-radius:var(--r-xl) 20px 0 0;
-    max-height:90vh; max-height:90dvh; max-height:calc(var(--vvh, 100dvh) * 0.9);
+    /* scadem un spatiu fix, nu doar un procent — garanteaza un gol vizibil
+       sus indiferent cat de mare/mica iese metrica de inaltime folosita */
+    max-height:calc(100vh - 48px); max-height:calc(100dvh - 48px);
+    max-height:calc(var(--vvh, 100dvh) - 48px);
     overflow-y:auto; overscroll-behavior:contain;
     -webkit-overflow-scrolling:touch;
     padding:22px 22px calc(22px + env(safe-area-inset-bottom));
