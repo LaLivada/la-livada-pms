@@ -1147,7 +1147,7 @@ const STYLES = `
     .cal-scroll{ max-height:none; overflow-y:visible; }
     .cal-foot{ position:static; }
     .cal-toolbar{
-      position:sticky; top:8px; z-index:15;
+      position:sticky; top:0; z-index:15;
       background:var(--bg); box-shadow:0 1px 0 var(--border);
     }
     .cal-occ{ flex-direction:row; gap:4px; }
