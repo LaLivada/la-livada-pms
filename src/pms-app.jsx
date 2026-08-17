@@ -1511,11 +1511,28 @@ function inSeason(date, season) {
   return md >= season.start || md <= season.end; // wraps across new year
 }
 
-function nightlyRate(date, roomType, rates) {
+/* occupancy = {adults, children}; implicit 2 adulti/0 copii (ocuparea
+   standard) cand nu se cunoaste rezervarea (ex. rapoarte agregate).
+   Single (tarif redus) se aplica STRICT la 1 adult si 0 copii. Peste
+   ocuparea standard, suplimentul de adult se aplica per adult peste 2,
+   iar suplimentul de copil se aplica pentru fiecare copil, indiferent
+   de ocuparea totala. */
+function nightlyRate(date, roomType, rates, occupancy) {
   if (!rates) return 0;
+  const adultsRaw = Number(occupancy?.adults);
+  const adults = Number.isFinite(adultsRaw) ? adultsRaw : 2;
+  const childrenRaw = Number(occupancy?.children);
+  const children = Number.isFinite(childrenRaw) ? childrenRaw : 0;
   const season = (rates.seasons || []).find((sn) => inSeason(date, sn));
   const src = season || rates.base;
-  return Number(src?.[roomType] ?? rates.base?.[roomType] ?? 0);
+  const standard = Number(src?.[roomType] ?? rates.base?.[roomType] ?? 0);
+  if (adults === 1 && children === 0) {
+    const single = Number(rates.base?.[roomType + "Single"]) || 0;
+    if (single > 0) return single;
+  }
+  const adultSupplement = Number(rates.base?.adultSupplement) || 0;
+  const childSupplement = Number(rates.base?.childSupplement) || 0;
+  return standard + Math.max(0, adults - 2) * adultSupplement + children * childSupplement;
 }
 
 function reservationTotal(res, core) {
@@ -1526,10 +1543,11 @@ function reservationTotal(res, core) {
   const room = core.rooms.find((r) => r.id === res.roomId);
   if (!room) return 0;
   const n = nightsBetween(res.checkin, res.checkout);
+  const occupancy = { adults: res.adults ?? 2, children: res.children ?? 0 };
   let total = 0;
   const d = new Date(res.checkin); d.setHours(0, 0, 0, 0);
   for (let i = 0; i < n; i++) {
-    total += nightlyRate(d, room.type, core.rates);
+    total += nightlyRate(d, room.type, core.rates, occupancy);
     d.setDate(d.getDate() + 1);
   }
   return total;
@@ -1652,6 +1670,41 @@ async function syncTable(table, before, after, toRow) {
   }
 }
 
+/* rates/seasons au forma diferita de restul tabelelor (rates: o linie per
+   tip de camera; seasons: cheie compusa id+room_type, o "linie logica" din
+   JS devine 2 randuri, cate unul per tip) — nu se potrivesc cu syncTable,
+   asa ca le sincronizam separat. Suplimentele sunt globale, nu per tip de
+   camera, dar se scriu pe ambele randuri din rates ca sa ramana totul
+   intr-un singur tabel. */
+async function saveRatesAndSeasons(beforeRates, afterRates) {
+  const base = afterRates.base || {};
+  const rateRows = ["tiny", "loft"].map((t) => ({
+    room_type: t,
+    base_price: Number(base[t]) || 0,
+    single_price: base[t + "Single"] ? Number(base[t + "Single"]) : null,
+    adult_supplement: Number(base.adultSupplement) || 0,
+    child_supplement: Number(base.childSupplement) || 0,
+  }));
+  const { error: rateErr } = await supabase.from("rates").upsert(rateRows, { onConflict: "room_type" });
+  if (rateErr) throw rateErr;
+
+  const beforeIds = new Set((beforeRates.seasons || []).map((s) => s.id));
+  const afterIds = new Set((afterRates.seasons || []).map((s) => s.id));
+  const removedIds = [...beforeIds].filter((id) => !afterIds.has(id));
+  if (removedIds.length) {
+    const { error } = await supabase.from("seasons").delete().in("id", removedIds);
+    if (error) throw error;
+  }
+  const seasonRows = (afterRates.seasons || []).flatMap((s) => ["tiny", "loft"].map((t) => ({
+    id: s.id, name: s.name, start_md: s.start, end_md: s.end,
+    room_type: t, price: Number(s[t]) || 0, priority: 0,
+  })));
+  if (seasonRows.length) {
+    const { error } = await supabase.from("seasons").upsert(seasonRows, { onConflict: "id,room_type" });
+    if (error) throw error;
+  }
+}
+
 async function loadAll() {
   const [rooms, guests, groups, res, rates, seasons] = await Promise.all([
     supabase.from("rooms").select("*").order("sort_order"),
@@ -1664,7 +1717,12 @@ async function loadAll() {
   for (const r of [rooms, guests, groups, res, rates, seasons]) if (r.error) throw r.error;
 
   const base = {};
-  rates.data.forEach((r) => { base[r.room_type] = Number(r.base_price); });
+  rates.data.forEach((r) => {
+    base[r.room_type] = Number(r.base_price);
+    base[r.room_type + "Single"] = r.single_price != null ? Number(r.single_price) : 0;
+    base.adultSupplement = Number(r.adult_supplement) || 0;
+    base.childSupplement = Number(r.child_supplement) || 0;
+  });
   const sez = {};
   seasons.data.forEach((s) => {
     sez[s.id] = sez[s.id] || { id: s.id, name: s.name, start: s.start_md, end: s.end_md };
@@ -2112,6 +2170,7 @@ function PMSApp() {
     try {
       await syncTable("rooms", before.rooms, next.rooms, snakeRoom);
       await syncTable("guests", before.guests, next.guests, snakeGuest);
+      if (next.rates !== before.rates) await saveRatesAndSeasons(before.rates || {}, next.rates || {});
       const { rooms, guests, rates, ...settings } = next;
       await saveShared(K.core, settings);
     } catch (e) { raporteazaEroare(e); }
@@ -3622,7 +3681,7 @@ function ReservationModal({ data, core, updateCore, reservations, updateReservat
     }
     const ids = isGroup ? roomIds : [roomId];
     return ids.reduce((sum, rid) =>
-      sum + reservationTotal({ roomId: rid, checkin, checkout }, core), 0);
+      sum + reservationTotal({ roomId: rid, checkin, checkout, adults, children }, core), 0);
   })();
 
   /* One pass over reservations and blocks per date change, rather than a
@@ -5324,7 +5383,7 @@ function TodayView({ core, reservations, updateReservations, housekeeping, updat
       if (ci < tomorrow && co > today) {
         occ++;
         const room = roomById[r.roomId];
-        if (room) rev += nightlyRate(today, room.type, core.rates);
+        if (room) rev += nightlyRate(today, room.type, core.rates, { adults: r.adults ?? 2, children: r.children ?? 0 });
       }
     }
     arr.sort((a, b) => new Date(a.checkin) - new Date(b.checkin));
@@ -5536,7 +5595,7 @@ function ReportsView({ core, reservations }) {
         if (e.ciDayMs <= dStart && e.coDayMs > dStart) {
           occ++;
           if (e.room) {
-            rev += nightlyRate(d, e.room.type, core.rates);
+            rev += nightlyRate(d, e.room.type, core.rates, { adults: e.res.adults ?? 2, children: e.res.children ?? 0 });
             if (nightsByType[e.room.type] != null) nightsByType[e.room.type]++;
           }
         }
@@ -5781,36 +5840,56 @@ function TagsView({ core, updateCore }) {
 function RatesView({ core, updateCore }) {
   const rates = core.rates || { base: { tiny: 0, loft: 0 }, seasons: [] };
   const [draft, setDraft] = useState(rates);
+  const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const dirty = JSON.stringify(draft) !== JSON.stringify(rates);
 
-  const commit = async (next) => {
-    setDraft(next);
-    await updateCore({ ...core, rates: next });
-    await audit.push("Tarife modificate", "Configurare tarife actualizată");
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
+  const setBase = (key, v) => { setDraft((d) => ({ ...d, base: { ...d.base, [key]: v } })); setSaved(false); };
+  const setSeason = (id, patch) => {
+    setDraft((d) => ({ ...d, seasons: d.seasons.map((sn) => (sn.id === id ? { ...sn, ...patch } : sn)) }));
+    setSaved(false);
+  };
+  const addSeason = () => {
+    setDraft((d) => ({
+      ...d,
+      seasons: [...d.seasons, { id: uid(), name: "Sezon nou", start: "01-01", end: "01-31", tiny: d.base.tiny, loft: d.base.loft }],
+    }));
+    setSaved(false);
+  };
+  const removeSeason = (id) => {
+    setDraft((d) => ({ ...d, seasons: d.seasons.filter((sn) => sn.id !== id) }));
+    setSaved(false);
   };
 
-  const setBase = (type, v) => commit({ ...draft, base: { ...draft.base, [type]: Number(v) || 0 } });
-  const setSeason = (id, patch) =>
-    commit({ ...draft, seasons: draft.seasons.map((sn) => (sn.id === id ? { ...sn, ...patch } : sn)) });
-  const addSeason = () => commit({
-    ...draft,
-    seasons: [...draft.seasons, { id: uid(), name: "Sezon nou", start: "01-01", end: "01-31", tiny: draft.base.tiny, loft: draft.base.loft }],
-  });
-  const removeSeason = (id) => commit({ ...draft, seasons: draft.seasons.filter((sn) => sn.id !== id) });
+  const save = async () => {
+    setSaving(true);
+    const normalized = {
+      base: {
+        tiny: Number(draft.base.tiny) || 0, loft: Number(draft.base.loft) || 0,
+        tinySingle: Number(draft.base.tinySingle) || 0, loftSingle: Number(draft.base.loftSingle) || 0,
+        adultSupplement: Number(draft.base.adultSupplement) || 0, childSupplement: Number(draft.base.childSupplement) || 0,
+      },
+      seasons: draft.seasons.map((sn) => ({ ...sn, tiny: Number(sn.tiny) || 0, loft: Number(sn.loft) || 0 })),
+    };
+    await updateCore({ ...core, rates: normalized });
+    await audit.push("Tarife modificate", "Configurare tarife actualizată");
+    setDraft(normalized);
+    setSaving(false);
+    setSaved(true);
+  };
 
   return (
     <div>
       <div className="note">
         Tarifele sunt pe noapte, per cameră. Sezoanele au prioritate față de tariful de bază; se dau ca zi-lună
-        (LL-ZZ) și pot trece peste Anul Nou. Prețul unei rezervări se recalculează noapte cu noapte.
-        {saved && <strong style={{ color: "var(--success)", marginLeft: 8 }}>Salvat</strong>}
+        (LL-ZZ) și pot trece peste Anul Nou. Tariful single se aplică doar la 1 adult și niciun copil — orice altă
+        ocupare folosește tariful standard, plus suplimentul de adult peste 2 adulți și suplimentul de copil pentru
+        fiecare copil. Modificările se salvează doar la apăsarea butonului de mai jos.
       </div>
 
       <div className="panel" style={{ padding: 18, marginBottom: 16 }}>
         <div className="section-head" style={{ padding: 0, border: "none", marginBottom: 14 }}>Tarif de bază</div>
-        <div className="field-row">
+        <div className="field-row field-row-2col">
           <label className="field">
             <span className="fl">Tiny house (lei/noapte)</span>
             <input type="number" min="0" value={draft.base.tiny} onChange={(e) => setBase("tiny", e.target.value)} />
@@ -5819,6 +5898,33 @@ function RatesView({ core, updateCore }) {
             <span className="fl">Loft (lei/noapte)</span>
             <input type="number" min="0" value={draft.base.loft} onChange={(e) => setBase("loft", e.target.value)} />
           </label>
+        </div>
+        <div className="field-row field-row-2col">
+          <label className="field">
+            <span className="fl">Supliment adult (lei/noapte, peste 2 adulți)</span>
+            <input type="number" min="0" value={draft.base.adultSupplement ?? ""} onChange={(e) => setBase("adultSupplement", e.target.value)} placeholder="0" />
+          </label>
+          <label className="field">
+            <span className="fl">Supliment copil (lei/noapte)</span>
+            <input type="number" min="0" value={draft.base.childSupplement ?? ""} onChange={(e) => setBase("childSupplement", e.target.value)} placeholder="0" />
+          </label>
+        </div>
+        <div className="field-row field-row-2col">
+          <label className="field">
+            <span className="fl">Tiny house — ocupare single (lei/noapte)</span>
+            <input type="number" min="0" value={draft.base.tinySingle ?? ""} onChange={(e) => setBase("tinySingle", e.target.value)} placeholder="ex: 300" />
+          </label>
+          <label className="field">
+            <span className="fl">Loft — ocupare single (lei/noapte)</span>
+            <input type="number" min="0" value={draft.base.loftSingle ?? ""} onChange={(e) => setBase("loftSingle", e.target.value)} placeholder="ex: 420" />
+          </label>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <button className="btn btn-primary" style={{ width: "auto" }} onClick={save} disabled={!dirty || saving}>
+            <Check size={15} /> {saving ? "Se salvează…" : "Salvează tarifele"}
+          </button>
+          {saved && !dirty && <span style={{ color: "var(--success)", fontSize: 13, fontWeight: 600 }}>Salvat</span>}
+          {dirty && <span style={{ color: "var(--text-muted)", fontSize: 13 }}>Modificări nesalvate</span>}
         </div>
       </div>
 

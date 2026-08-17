@@ -149,9 +149,22 @@ create index res_camera   on reservations (room_id);
 -- legate de un an anume. Un sezon poate trece peste Anul Nou
 -- (ex. 12-20 → 01-05), caz tratat explicit în nightly_rate().
 -- ---------------------------------------------------------------------
+-- single_price: tarif redus pentru ocupare single (1 adult, 0 copii); NULL
+--   sau 0 inseamna ca nu e configurat, se cade pe tariful standard.
+-- adult_supplement / child_supplement: suplimente per noapte — adultul
+--   se aplica peste 2 adulti, copilul se aplica pentru fiecare copil.
+--   Sunt globale (nu variaza pe tip de camera), dar se scriu identic pe
+--   ambele randuri ca sa ramana totul intr-un singur tabel.
+-- ATENTIE: aceste 3 coloane sunt folosite doar de calculul din aplicatie
+--   (JS). Functiile de mai jos (nightly_rate/stay_total, pentru site-ul
+--   public de rezervari) inca nu le citesc — de actualizat cand se
+--   construieste acel flux, altfel preturile de acolo vor diferi.
 create table rates (
-  room_type   text primary key check (room_type in ('tiny','loft')),
-  base_price  numeric not null
+  room_type         text primary key check (room_type in ('tiny','loft')),
+  base_price        numeric not null,
+  single_price      numeric,
+  adult_supplement  numeric not null default 0,
+  child_supplement  numeric not null default 0
 );
 
 create table seasons (
