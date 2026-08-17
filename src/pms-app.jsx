@@ -932,8 +932,17 @@ const STYLES = `
        trec title={undefined} la Dialog, deci .modal-head nu se randeaza
        deloc pentru ele. InvoicePrint trece un titlu real (folosit ca
        heading de accesibilitate pe ecran) — .modal-head tot apare in DOM,
-       trebuie ascuns explicit la print. */
-    .arrival-modal .modal-head{ display:none !important; }
+       trebuie ascuns explicit la print. Safari/WebKit are un bug cunoscut:
+       un element position:sticky (asa e .modal-head in mod normal) lasa o
+       "fantoma" a spatiului chiar si cu display:none — de-aici bara goala
+       vazuta doar in Safari, nu si in Chrome. Resetam explicit si
+       position/top/margin, nu doar display, ca sa nu mai ramana nimic de
+       ancorat sticky. */
+    .arrival-modal .modal-head{
+      display:none !important; position:static !important; top:auto !important;
+      margin:0 !important; height:0 !important; min-height:0 !important;
+      padding:0 !important; overflow:hidden !important;
+    }
     .arrival-sheet{ display:block !important; }
     * { -webkit-print-color-adjust:exact; print-color-adjust:exact; }
     @page{ margin:10mm; }
