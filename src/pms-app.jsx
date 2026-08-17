@@ -1404,6 +1404,20 @@ const INVOICE_STATUS_CLASS = {
   draft: "st-pending", issued: "st-confirmed", partially_paid: "st-noshow",
   paid: "st-checkedin", cancelled: "st-cancelled", credited: "st-protocol",
 };
+const PAYMENT_METHOD_LABEL = {
+  cash: "Numerar", card: "Card", bank_transfer: "Transfer bancar", other: "Altă metodă",
+};
+const BILLING_PERMISSION_LABEL = {
+  view_invoices: "Vede facturile",
+  create_invoice: "Creează/editează draft",
+  issue_invoice: "Emite factura",
+  cancel_invoice: "Anulează factura",
+  create_credit_note: "Stornează",
+  record_payment: "Înregistrează plăți",
+  export_accounting: "Exportă contabilitate",
+  reexport_accounting: "Reexportă contabilitate",
+};
+const BILLING_PERMISSION_KEYS = Object.keys(BILLING_PERMISSION_LABEL);
 
 function isSameDay(a, b) {
   const x = new Date(a), y = new Date(b);
@@ -2518,6 +2532,7 @@ const SETTINGS_ITEMS = [
   { key: "clients", label: "Clienți", icon: Users, desc: "Oaspeți și grupuri", roles: ["admin", "receptionist"] },
   { key: "automation", label: "Automatizare", icon: Zap, desc: "Boiler, aer condiționat și ventilație înainte de sosire", roles: ["admin", "receptionist"] },
   { key: "rooms", label: "Camere și tarife", icon: DoorOpen, desc: "Numere, tip, dispozitive Shelly/Sensibo și prețuri", roles: ["admin"] },
+  { key: "financial", label: "Financiar", icon: Receipt, desc: "Facturi, încasări, produse și TVA", roles: ["admin"] },
   { key: "reports", label: "Rapoarte", icon: BarChart3, desc: "Ocupare, venit, ADR și RevPAR pe luni", roles: ["admin"] },
   { key: "users", label: "Useri și drepturi", icon: UserCog, desc: "Conturi și roluri", roles: ["admin"] },
   { key: "log", label: "Jurnal de activitate", icon: History, desc: "Cine ce a modificat și când", roles: ["admin"] },
@@ -2533,6 +2548,7 @@ const VIEW_TITLES = {
   housekeeping: ["Status camere", "Curățenie și pregătire pentru sosiri"],
   automation: ["Automatizare pre-sosire", "Boiler · aer condiționat · ventilație"],
   rooms: ["Configurare camere", "Mapare dispozitive Shelly / Sensibo"],
+  financial: ["Financiar", "Facturi, încasări, produse și TVA"],
   users: ["Useri și drepturi", "Acces pe roluri"],
   profile: ["Profilul meu", "Cont și securitate"],
 };
@@ -2551,6 +2567,7 @@ const VIEW_ROLES = {
   settings: ["admin", "receptionist"],
   profile: ["admin", "receptionist", "housekeeping"],
   rooms: ["admin"],
+  financial: ["admin"],
   reports: ["admin"],
   users: ["admin"],
   log: ["admin"],
@@ -2653,6 +2670,7 @@ function Shell({ user, view, setView, onLogout, core, updateCore, reservations, 
               reservations={reservations} updateReservations={updateReservations}
               blocks={blocks} updateBlocks={updateBlocks} />
           )}
+          {safeView === "financial" && <FinancialView core={core} updateCore={updateCore} />}
           {safeView === "users" && <UsersView />}
         </div>
       </div>
@@ -3866,8 +3884,17 @@ function FolioPanel({ reservation, core }) {
       if (!f) {
         const { data: created, error: cErr } = await supabase
           .from("folios").insert({ id: uid(), reservation_id: reservation.id }).select().maybeSingle();
-        if (cErr) throw cErr;
-        f = created;
+        if (cErr) {
+          // Cursa la montarea panoului (ex. dublu-efect în dev) poate face ca alt
+          // apel să fi creat deja folio-ul chiar acum — recuperăm în loc să eșuăm.
+          if (cErr.code !== "23505") throw cErr;
+          const { data: existing, error: reErr } = await supabase
+            .from("folios").select("*").eq("reservation_id", reservation.id).maybeSingle();
+          if (reErr) throw reErr;
+          f = existing;
+        } else {
+          f = created;
+        }
       }
       const { data: fi, error: iErr } = await supabase
         .from("folio_items").select("*").eq("folio_id", f.id).order("occurred_at");
@@ -6273,6 +6300,256 @@ function ProductsView({ core, updateCore }) {
 }
 
 /* ---------------------------------------------------------------
+   FINANCIAR — facturi emise, încasări, produse & TVA, permisiuni
+----------------------------------------------------------------*/
+function InvoicesListView({ core }) {
+  const [invoices, setInvoices] = useState(null);
+  const [loadError, setLoadError] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [search, setSearch] = useState("");
+  const [printInvoiceId, setPrintInvoiceId] = useState(null);
+
+  const load = useCallback(async () => {
+    const { data, error } = await supabase.from("invoices").select("*").order("created_at", { ascending: false });
+    if (error) { setLoadError(error.message); return; }
+    setInvoices(data || []);
+    setLoadError("");
+  }, []);
+  useEffect(() => { load(); }, [load]);
+
+  const customerLabel = (id) => {
+    const c = (core.billingCustomers || []).find((x) => x.id === id);
+    return c ? billingCustomerLabel(c) : "—";
+  };
+
+  const filtered = (invoices || []).filter((inv) => {
+    if (statusFilter !== "all" && inv.status !== statusFilter) return false;
+    if (search) {
+      const hay = `${inv.series || ""} ${inv.number || ""} ${customerLabel(inv.billing_customer_id)}`.toLowerCase();
+      if (!hay.includes(search.toLowerCase())) return false;
+    }
+    return true;
+  });
+
+  const totals = filtered.reduce((s, inv) => ({
+    total: s.total + Number(inv.total_amount), paid: s.paid + Number(inv.paid_amount),
+  }), { total: 0, paid: 0 });
+
+  return (
+    <div>
+      <div className="toolbar">
+        <input placeholder="Caută serie/număr/client…" value={search} onChange={(e) => setSearch(e.target.value)} style={{ maxWidth: 260 }} />
+        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} style={{ maxWidth: 200 }}>
+          <option value="all">Toate statusurile</option>
+          {Object.keys(INVOICE_STATUS_LABEL).map((s) => (
+            <option key={s} value={s}>{INVOICE_STATUS_LABEL[s]}</option>
+          ))}
+        </select>
+        <div className="grow" />
+        <span className="badge-count">{filtered.length} facturi · {fmtMoney(totals.total)} · încasat {fmtMoney(totals.paid)}</span>
+      </div>
+      {loadError ? (
+        <div className="note" style={{ color: "var(--danger)" }}>{loadError}</div>
+      ) : invoices === null ? (
+        <div className="note">Se încarcă…</div>
+      ) : filtered.length === 0 ? (
+        <div className="section-empty">Nicio factură.</div>
+      ) : (
+        <div className="panel">
+          {filtered.map((inv) => (
+            <div className="list-row" key={inv.id}>
+              <div>
+                <div className="primary">
+                  {inv.series ? `${inv.series} ${inv.number}` : "Draft"}
+                  <span className={"role-tag " + INVOICE_STATUS_CLASS[inv.status]} style={{ marginLeft: 8 }}>
+                    {INVOICE_STATUS_LABEL[inv.status]}
+                  </span>
+                </div>
+                <div className="secondary">
+                  {customerLabel(inv.billing_customer_id)} · {inv.issue_date ? fmtDate(inv.issue_date) : "neemisă"}
+                </div>
+              </div>
+              <div className="row-actions" style={{ gap: 10 }}>
+                <span className="mono" style={{ fontWeight: 650 }}>{fmtMoney(inv.total_amount)}</span>
+                <button className="icon-btn" onClick={() => setPrintInvoiceId(inv.id)} aria-label="Vezi factura">
+                  <Eye size={14} />
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+      {printInvoiceId && (
+        <InvoicePrint invoiceId={printInvoiceId} core={core} onClose={() => setPrintInvoiceId(null)} onChanged={() => load()} />
+      )}
+    </div>
+  );
+}
+
+function PaymentsListView({ core }) {
+  const [payments, setPayments] = useState(null);
+  const [invoiceMap, setInvoiceMap] = useState({});
+  const [loadError, setLoadError] = useState("");
+
+  const load = useCallback(async () => {
+    const { data, error } = await supabase.from("payments").select("*").order("paid_at", { ascending: false });
+    if (error) { setLoadError(error.message); return; }
+    setPayments(data || []);
+    const ids = [...new Set((data || []).map((p) => p.invoice_id))];
+    if (ids.length) {
+      const { data: invs } = await supabase.from("invoices").select("id, series, number, billing_customer_id").in("id", ids);
+      setInvoiceMap(Object.fromEntries((invs || []).map((i) => [i.id, i])));
+    } else {
+      setInvoiceMap({});
+    }
+    setLoadError("");
+  }, []);
+  useEffect(() => { load(); }, [load]);
+
+  const customerLabel = (id) => {
+    const c = (core.billingCustomers || []).find((x) => x.id === id);
+    return c ? billingCustomerLabel(c) : "—";
+  };
+
+  const total = (payments || []).reduce((s, p) => s + Number(p.amount), 0);
+
+  return (
+    <div>
+      <div className="toolbar">
+        <span className="badge-count">{(payments || []).length} plăți · {fmtMoney(total)} încasat</span>
+      </div>
+      {loadError ? (
+        <div className="note" style={{ color: "var(--danger)" }}>{loadError}</div>
+      ) : payments === null ? (
+        <div className="note">Se încarcă…</div>
+      ) : payments.length === 0 ? (
+        <div className="section-empty">Nicio plată înregistrată.</div>
+      ) : (
+        <div className="panel">
+          {payments.map((p) => {
+            const inv = invoiceMap[p.invoice_id];
+            return (
+              <div className="list-row" key={p.id}>
+                <div>
+                  <div className="primary">
+                    {inv?.series ? `${inv.series} ${inv.number}` : "Factură"} · {customerLabel(inv?.billing_customer_id)}
+                  </div>
+                  <div className="secondary">
+                    {PAYMENT_METHOD_LABEL[p.method] || p.method} · {fmtDate(p.paid_at)}{p.reference ? ` · ${p.reference}` : ""}
+                  </div>
+                </div>
+                <span className="mono" style={{ fontWeight: 650 }}>{fmtMoney(p.amount)}</span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function BillingPermissionsView() {
+  const [staffList, setStaffList] = useState(null);
+  const [perms, setPerms] = useState({});
+  const [loadError, setLoadError] = useState("");
+
+  const load = useCallback(async () => {
+    const { data: staffRows, error: sErr } = await supabase.from("staff").select("user_id, name, role")
+      .neq("role", "admin").order("name");
+    if (sErr) { setLoadError(sErr.message); return; }
+    setStaffList(staffRows || []);
+    const { data: permRows, error: pErr } = await supabase.from("billing_permissions").select("user_id, permission");
+    if (pErr) { setLoadError(pErr.message); return; }
+    const map = {};
+    for (const r of permRows || []) {
+      if (!map[r.user_id]) map[r.user_id] = new Set();
+      map[r.user_id].add(r.permission);
+    }
+    setPerms(map);
+    setLoadError("");
+  }, []);
+  useEffect(() => { load(); }, [load]);
+
+  const toggle = async (userId, perm, has) => {
+    if (has) {
+      const { error } = await supabase.from("billing_permissions").delete().eq("user_id", userId).eq("permission", perm);
+      if (error) { toaster.show("Nu am putut retrage permisiunea: " + error.message, { tone: "danger" }); return; }
+    } else {
+      const { error } = await supabase.from("billing_permissions")
+        .insert({ user_id: userId, permission: perm, granted_by: audit.user?.id || null });
+      if (error) { toaster.show("Nu am putut acorda permisiunea: " + error.message, { tone: "danger" }); return; }
+    }
+    setPerms((prev) => {
+      const next = { ...prev, [userId]: new Set(prev[userId] || []) };
+      if (has) next[userId].delete(perm); else next[userId].add(perm);
+      return next;
+    });
+    const staffMember = (staffList || []).find((u) => u.user_id === userId);
+    await audit.push(has ? "Permisiune facturare retrasă" : "Permisiune facturare acordată",
+      `${staffMember?.name || userId} · ${BILLING_PERMISSION_LABEL[perm]}`);
+  };
+
+  if (loadError) return <div className="note" style={{ color: "var(--danger)" }}>{loadError}</div>;
+  if (staffList === null) return <div className="note">Se încarcă…</div>;
+
+  return (
+    <div>
+      <div className="note" style={{ marginBottom: 14 }}>
+        Adminii au automat toate drepturile de facturare. Restul userilor primesc doar ce e bifat aici.
+      </div>
+      {staffList.length === 0 ? (
+        <div className="section-empty">Niciun user non-admin.</div>
+      ) : (
+        <div className="panel" style={{ overflowX: "auto" }}>
+          {staffList.map((u) => (
+            <div className="list-row" key={u.user_id} style={{ flexDirection: "column", alignItems: "stretch", gap: 8 }}>
+              <div className="primary">{u.name} <span className={"role-tag role-" + u.role} style={{ marginLeft: 8 }}>{ROLE_LABEL[u.role]}</span></div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: "6px 16px" }}>
+                {BILLING_PERMISSION_KEYS.map((perm) => {
+                  const has = perms[u.user_id]?.has(perm) || false;
+                  return (
+                    <label key={perm} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 14 }}>
+                      <input type="checkbox" checked={has} onChange={() => toggle(u.user_id, perm, has)} />
+                      {BILLING_PERMISSION_LABEL[perm]}
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function FinancialView({ core, updateCore }) {
+  const [tab, setTab] = useState("invoices");
+
+  const tabs = (
+    <div className="sub-tabs">
+      <button className={tab === "invoices" ? "on" : ""} onClick={() => setTab("invoices")}>
+        <Receipt size={14} /> Facturi
+      </button>
+      <button className={tab === "payments" ? "on" : ""} onClick={() => setTab("payments")}>
+        <CreditCard size={14} /> Încasări
+      </button>
+      <button className={tab === "products" ? "on" : ""} onClick={() => setTab("products")}>
+        <Package size={14} /> Produse & TVA
+      </button>
+      <button className={tab === "permissions" ? "on" : ""} onClick={() => setTab("permissions")}>
+        <ShieldCheck size={14} /> Permisiuni
+      </button>
+    </div>
+  );
+
+  if (tab === "payments") return <div>{tabs}<PaymentsListView core={core} /></div>;
+  if (tab === "products") return <div>{tabs}<ProductsView core={core} updateCore={updateCore} /></div>;
+  if (tab === "permissions") return <div>{tabs}<BillingPermissionsView /></div>;
+  return <div>{tabs}<InvoicesListView core={core} /></div>;
+}
+
+/* ---------------------------------------------------------------
    ROOMS / DEVICE CONFIG VIEW
 ----------------------------------------------------------------*/
 function RoomsView({ core, updateCore, reservations, updateReservations, blocks, updateBlocks }) {
@@ -6331,9 +6608,6 @@ function RoomsView({ core, updateCore, reservations, updateReservations, blocks,
       <button className={tab === "online" ? "on" : ""} onClick={() => setTab("online")}>
         <TrendingUp size={14} /> Optimizator preț
       </button>
-      <button className={tab === "products" ? "on" : ""} onClick={() => setTab("products")}>
-        <Package size={14} /> Produse & TVA
-      </button>
       <button className={tab === "tags" ? "on" : ""} onClick={() => setTab("tags")}>
         <TagIcon size={14} /> Etichete <span className="tab-count">{(core.tags || DEFAULT_TAGS).length}</span>
       </button>
@@ -6346,10 +6620,6 @@ function RoomsView({ core, updateCore, reservations, updateReservations, blocks,
 
   if (tab === "online") {
     return <div>{tabs}<OnlinePricingView core={core} updateCore={updateCore} /></div>;
-  }
-
-  if (tab === "products") {
-    return <div>{tabs}<ProductsView core={core} updateCore={updateCore} /></div>;
   }
 
   if (tab === "tags") {
