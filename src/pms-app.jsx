@@ -1125,7 +1125,7 @@ const STYLES = `
   /* ---------- Responsive overrides (must stay last: same-specificity rules earlier
      in this stylesheet would otherwise win by source order and silently defeat these) ---------- */
   @media (max-width:600px){
-    .modal{ max-height:92vh; padding:18px 16px calc(18px + env(safe-area-inset-bottom)); }
+    .modal{ padding:18px 16px calc(18px + env(safe-area-inset-bottom)); }
     .field-row{ grid-template-columns:1fr; gap:0; }
     .field-row-2col{ grid-template-columns:1fr 1fr; gap:10px; }
     .grp-dates{ flex-direction:column; align-items:stretch; }
