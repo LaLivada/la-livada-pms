@@ -4535,7 +4535,7 @@ function InvoicePrint({ invoiceId, core, onClose, onChanged }) {
   if (!invoice) return <Dialog onClose={onClose} title="Factură"><div className="note">Factura nu a fost găsită.</div></Dialog>;
 
   return (
-    <Dialog onClose={onClose} title={invoice.series ? `Factură ${invoice.series} ${invoice.number}` : "Factură (draft)"} className="arrival-modal">
+    <Dialog onClose={onClose} title={invoice.series ? `Factură ${invoice.series} ${invoice.number}` : "Factură (draft)"} className="arrival-modal" overlayClassName="arrival-overlay">
       <div className="no-print" style={{ display: "flex", gap: 8, marginBottom: 14 }}>
         <span className={"role-tag " + INVOICE_STATUS_CLASS[invoice.status]}>{INVOICE_STATUS_LABEL[invoice.status]}</span>
         <div className="grow" />
