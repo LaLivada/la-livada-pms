@@ -6030,9 +6030,52 @@ function SettingsView({ setView, items }) {
   );
 }
 
+/* Insigna temporara de diagnostic — arata ce raporteaza efectiv Safari
+   pentru dimensiunile de viewport, ca sa nu mai ghicim orb valorile.
+   De scos dupa ce se rezolva bug-ul cu popup-urile pe iPhone. */
+function ViewportDebug() {
+  const [info, setInfo] = useState(null);
+  useEffect(() => {
+    const read = () => {
+      const vv = window.visualViewport;
+      setInfo({
+        vvH: vv ? Math.round(vv.height) : null,
+        vvTop: vv ? Math.round(vv.offsetTop) : null,
+        vvW: vv ? Math.round(vv.width) : null,
+        innerH: window.innerHeight,
+        scrollY: Math.round(window.scrollY),
+        cssVvh: getComputedStyle(document.documentElement).getPropertyValue("--vvh"),
+        cssVvt: getComputedStyle(document.documentElement).getPropertyValue("--vvt"),
+      });
+    };
+    read();
+    const id = setInterval(read, 500);
+    window.visualViewport?.addEventListener("resize", read);
+    window.visualViewport?.addEventListener("scroll", read);
+    window.addEventListener("resize", read);
+    return () => {
+      clearInterval(id);
+      window.visualViewport?.removeEventListener("resize", read);
+      window.visualViewport?.removeEventListener("scroll", read);
+      window.removeEventListener("resize", read);
+    };
+  }, []);
+  if (!info) return null;
+  return (
+    <div style={{
+      position: "fixed", top: 0, left: 0, right: 0, zIndex: 99999,
+      background: "#ffe600", color: "#000", fontSize: 11, fontFamily: "monospace",
+      padding: "4px 6px", lineHeight: 1.4, pointerEvents: "none",
+    }}>
+      vvH:{info.vvH} vvTop:{info.vvTop} vvW:{info.vvW} innerH:{info.innerH} scrollY:{info.scrollY} cssVvh:{info.cssVvh} cssVvt:{info.cssVvt}
+    </div>
+  );
+}
+
 export default function PMSAppRoot() {
   return (
     <ErrorBoundary>
+      <ViewportDebug />
       <PMSApp />
     </ErrorBoundary>
   );
