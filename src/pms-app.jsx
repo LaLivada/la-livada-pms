@@ -145,11 +145,6 @@ const STYLES = `
   .role-admin{ background:var(--accent-soft); color:var(--accent-strong); }
   .role-receptionist{ background:var(--warning-soft); color:var(--warning); }
   .role-housekeeping{ background:var(--success-soft); color:var(--success); }
-  .pin-box{ background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:16px; }
-  .pin-box input{
-    width:100%; text-align:center; font-size:var(--fs-3xl); letter-spacing:10px; padding:12px;
-    border:1px solid var(--border); border-radius:var(--r-sm); margin-bottom:10px; font-family:'IBM Plex Mono',monospace;
-  }
   .btn{
     display:inline-flex; align-items:center; justify-content:center; gap:7px;
     padding:11px 18px; border-radius:var(--r-sm); border:1px solid transparent; font-size:var(--fs-md);
@@ -275,7 +270,7 @@ const STYLES = `
     /* Anything under 16px makes iOS zoom the page on focus. */
     .pms input, .pms select, .pms textarea,
     .field input, .field select, .field textarea,
-    .search-box input, .msg-compose textarea, .pin-box input{ font-size:var(--fs-lg); }
+    .search-box input, .msg-compose textarea{ font-size:var(--fs-lg); }
     .modal{ touch-action:pan-y; }
     .icon-btn{ width:42px; height:42px; }
     .btn{ padding:12px 18px; min-height:44px; }
@@ -1199,11 +1194,6 @@ function seedCore() {
     { id: "g2", lastName: "Marin", firstName: "Elena", name: "Marin Elena", phone: "0733 222 333", email: "elena.marin@example.com", address: "", city: "București", county: "București", country: "România", notes: "Alergie la pene" },
     { id: "g3", lastName: "Ionescu", firstName: "Mihai", name: "Ionescu Mihai", phone: "0744 333 444", email: "", address: "", city: "", county: "Cluj", country: "România", notes: "" },
   ];
-  const users = [
-    { id: "u1", name: "Radu", role: "admin", pin: "1234" },
-    { id: "u2", name: "Ioana", role: "receptionist", pin: "1111" },
-    { id: "u3", name: "Maria", role: "housekeeping", pin: "2222" },
-  ];
   const rates = {
     base: { tiny: 350, loft: 480 },
     seasons: [
@@ -1211,7 +1201,7 @@ function seedCore() {
       { id: uid(), name: "Sărbători de iarnă", start: "12-20", end: "01-05", tiny: 500, loft: 680 },
     ],
   };
-  return { rooms, guests, users, rates, tags: [...DEFAULT_TAGS] };
+  return { rooms, guests, rates, tags: [...DEFAULT_TAGS] };
 }
 
 const ROOM_TYPE = {
@@ -1932,9 +1922,7 @@ function useModalLock() {
 ----------------------------------------------------------------*/
 function validCore(c) {
   if (!c || typeof c !== "object") return false;
-  if (!Array.isArray(c.rooms) || !Array.isArray(c.guests) || !Array.isArray(c.users)) return false;
-  if (c.users.length === 0) return false;
-  return c.users.every((u) => u && typeof u.id === "string" && typeof u.role === "string");
+  return Array.isArray(c.rooms) && Array.isArray(c.guests);
 }
 
 function repairCore(c) {
@@ -1945,7 +1933,6 @@ function repairCore(c) {
     rooms: c.rooms.filter((r) => r && r.id && r.name)
       .map((r) => ({ ...r, type: r.type === "loft" ? "loft" : "tiny" })),
     guests: c.guests.filter((g) => g && g.id),
-    users: c.users.filter((u) => u && u.id && ROLE_LABEL[u.role]),
     rates: (c.rates && c.rates.base) ? c.rates : seed.rates,
     tags: Array.isArray(c.tags) && c.tags.length ? c.tags : [...DEFAULT_TAGS],
   };
@@ -2019,7 +2006,7 @@ function useVisualViewportHeight() {
 function PMSApp() {
   useVisualViewportHeight();
   const [loading, setLoading] = useState(true);
-  const [core, setCore] = useState({ rooms: [], guests: [], users: [] });
+  const [core, setCore] = useState({ rooms: [], guests: [] });
   const [reservations, setReservations] = useState([]);
   const [housekeeping, setHousekeeping] = useState({});
   const [groups, setGroups] = useState([]);
@@ -2320,7 +2307,7 @@ const SETTINGS_ITEMS = [
   { key: "automation", label: "Automatizare", icon: Zap, desc: "Boiler, aer condiționat și ventilație înainte de sosire", roles: ["admin", "receptionist"] },
   { key: "rooms", label: "Camere și tarife", icon: DoorOpen, desc: "Numere, tip, dispozitive Shelly/Sensibo și prețuri", roles: ["admin"] },
   { key: "reports", label: "Rapoarte", icon: BarChart3, desc: "Ocupare, venit, ADR și RevPAR pe luni", roles: ["admin"] },
-  { key: "users", label: "Useri și drepturi", icon: UserCog, desc: "Conturi, roluri și PIN-uri", roles: ["admin"] },
+  { key: "users", label: "Useri și drepturi", icon: UserCog, desc: "Conturi și roluri", roles: ["admin"] },
   { key: "log", label: "Jurnal de activitate", icon: History, desc: "Cine ce a modificat și când", roles: ["admin"] },
   { key: "seed", label: "Date de test", icon: Sparkles, desc: "Generează clienți și rezervări fictive pentru testare", roles: ["admin"] },
 ];
@@ -2425,7 +2412,7 @@ function Shell({ user, view, setView, onLogout, core, updateCore, reservations, 
 
         <div className={"content" + (safeView === "calendar" ? " content-cal" : "")}>
           {safeView === "profile" && (
-            <ProfileView user={user} core={core} updateCore={updateCore} onLogout={onLogout} onBack={() => setView(homeView)} />
+            <ProfileView user={user} onLogout={onLogout} onBack={() => setView(homeView)} />
           )}
           {safeView === "settings" && <SettingsView setView={setView} items={settingsItems} />}
           {safeView === "today" && (
@@ -2456,7 +2443,7 @@ function Shell({ user, view, setView, onLogout, core, updateCore, reservations, 
               reservations={reservations} updateReservations={updateReservations}
               blocks={blocks} updateBlocks={updateBlocks} />
           )}
-          {safeView === "users" && <UsersView core={core} updateCore={updateCore} />}
+          {safeView === "users" && <UsersView />}
           {safeView === "seed" && (
             <SeedDataView core={core} updateCore={updateCore}
               reservations={reservations} updateReservations={updateReservations}
@@ -4665,92 +4652,139 @@ function RoomModal({ room, onSave, onClose }) {
 /* ---------------------------------------------------------------
    USERS VIEW
 ----------------------------------------------------------------*/
-function UsersView({ core, updateCore }) {
+function UsersView() {
+  const [list, setList] = useState(null);
   const [modal, setModal] = useState(null);
-  const adminCount = core.users.filter((u) => u.role === "admin").length;
+  const [loadError, setLoadError] = useState("");
+  const adminCount = (list || []).filter((u) => u.role === "admin").length;
 
-  const save = async (user) => {
-    const exists = core.users.some((u) => u.id === user.id);
-    const next = exists ? core.users.map((u) => (u.id === user.id ? user : u)) : [...core.users, user];
-    await updateCore({ ...core, users: next });
-    await audit.push(exists ? "User modificat" : "User adăugat", `${user.name} (${ROLE_LABEL[user.role]})`);
+  const load = useCallback(async () => {
+    const { data, error } = await supabase.from("staff").select("user_id, name, role").order("name");
+    if (error) { setLoadError(error.message); return; }
+    setList(data);
+    setLoadError("");
+  }, []);
+  useEffect(() => { load(); }, [load]);
+
+  const save = async (user, isNew) => {
+    if (isNew) {
+      const { error } = await supabase.from("staff").insert({ user_id: user.user_id, name: user.name, role: user.role });
+      if (error) { toaster.show("Nu am putut adăuga userul: " + error.message, { tone: "danger" }); return; }
+    } else {
+      const { error } = await supabase.from("staff").update({ name: user.name, role: user.role }).eq("user_id", user.user_id);
+      if (error) { toaster.show("Nu am putut salva userul: " + error.message, { tone: "danger" }); return; }
+    }
+    await audit.push(isNew ? "User adăugat" : "User modificat", `${user.name} (${ROLE_LABEL[user.role]})`);
     setModal(null);
+    load();
   };
-  const remove = async (id) => {
-    const u = core.users.find((x) => x.id === id);
-    if (core.users.length <= 1) {
+
+  const remove = async (u) => {
+    if (list.length <= 1) {
       toaster.show("Nu poți șterge singurul user rămas.", { tone: "danger" });
       return;
     }
-    if (u?.role === "admin" && adminCount <= 1) {
+    if (u.role === "admin" && adminCount <= 1) {
       toaster.show("Nu poți șterge singurul admin. Numește întâi alt user admin.", { tone: "danger" });
       return;
     }
-    const before = core.users;
-    await updateCore({ ...core, users: core.users.filter((x) => x.id !== id) });
-    await audit.push("User șters", u?.name || id);
-    toaster.show(`${u?.name || "Userul"} a fost șters`, {
+    const { error } = await supabase.from("staff").delete().eq("user_id", u.user_id);
+    if (error) { toaster.show("Nu am putut șterge userul: " + error.message, { tone: "danger" }); return; }
+    await audit.push("User șters", u.name);
+    toaster.show(`${u.name} a fost șters`, {
       tone: "danger",
       onUndo: async () => {
-        await updateCore({ ...core, users: before });
-        await audit.push("Ștergere anulată", u?.name || id);
+        await supabase.from("staff").insert({ user_id: u.user_id, name: u.name, role: u.role });
+        await audit.push("Ștergere anulată", u.name);
+        load();
       },
     });
+    load();
   };
+
+  if (list === null) {
+    return loadError
+      ? <div className="section-empty">Nu am putut încărca lista de useri: {loadError}</div>
+      : <div className="section-empty">Se încarcă…</div>;
+  }
 
   return (
     <div>
+      <div className="note">
+        Contul (email + parolă) se creează în Supabase → Authentication → Users. De aici legi doar
+        numele și rolul de UUID-ul acelui cont.
+      </div>
       <div className="toolbar">
-        <span className="badge-count">{core.users.length} useri</span>
+        <span className="badge-count">{list.length} useri</span>
         <div className="grow" />
         <button className="btn btn-primary" style={{ width: "auto" }} onClick={() => setModal({ user: null })}>
           <Plus size={15} /> User nou
         </button>
       </div>
       <div className="panel">
-        {core.users.map((u) => (
-          <div className="list-row" key={u.id}>
+        {list.map((u) => (
+          <div className="list-row" key={u.user_id}>
             <div>
               <div className="primary">{u.name}</div>
-              <div className="secondary">PIN: <span className="mono">••••</span></div>
+              <div className="secondary mono" style={{ fontSize: 11 }}>{u.user_id}</div>
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
               <span className={"role-tag role-" + u.role}>{ROLE_LABEL[u.role]}</span>
               <div className="row-actions">
                 <button className="icon-btn" onClick={() => setModal({ user: u })} aria-label={`Editează ${u.name}`}><Pencil size={14} /></button>
-                <button className="icon-btn" onClick={() => remove(u.id)} aria-label={`Șterge ${u.name}`}><Trash2 size={14} /></button>
+                <button className="icon-btn" onClick={() => remove(u)} aria-label={`Șterge ${u.name}`}><Trash2 size={14} /></button>
               </div>
             </div>
           </div>
         ))}
       </div>
-      {modal && <UserModal user={modal.user} core={core} onSave={save} onClose={() => setModal(null)} />}
+      {modal && <UserModal user={modal.user} list={list} onSave={save} onClose={() => setModal(null)} />}
     </div>
   );
 }
 
-function UserModal({ user, core, onSave, onClose }) {
+function UserModal({ user, list, onSave, onClose }) {
   useModalLock();
+  const isNew = !user;
+  const [userId, setUserId] = useState(user?.user_id || "");
   const [name, setName] = useState(user?.name || "");
   const [role, setRole] = useState(user?.role || "receptionist");
-  const [pin, setPin] = useState(user?.pin || "");
   const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
 
-  const submit = () => {
+  const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+  const submit = async () => {
     if (!name.trim()) { setError("Numele este obligatoriu."); return; }
-    if (!/^\d{4}$/.test(pin)) { setError("PIN-ul trebuie să aibă exact 4 cifre."); return; }
+    if (isNew && !uuidRe.test(userId.trim())) {
+      setError("UUID invalid — copiază-l din Supabase → Authentication → Users.");
+      return;
+    }
+    if (isNew && list.some((u) => u.user_id === userId.trim())) {
+      setError("Acest UUID are deja un rol în aplicație.");
+      return;
+    }
     if (user && user.role === "admin" && role !== "admin") {
-      const otherAdmins = core.users.filter((u) => u.id !== user.id && u.role === "admin").length;
+      const otherAdmins = list.filter((u) => u.user_id !== user.user_id && u.role === "admin").length;
       if (otherAdmins === 0) {
         setError("Nu poți schimba rolul singurului admin. Numește întâi alt user admin.");
         return;
       }
     }
-    onSave({ id: user?.id || uid(), name: name.trim(), role, pin });
+    setBusy(true);
+    await onSave({ user_id: isNew ? userId.trim() : user.user_id, name: name.trim(), role }, isNew);
+    setBusy(false);
   };
 
   return (
     <Dialog onClose={onClose} title={user ? "Editează user" : "User nou"}>
+        {isNew && (
+          <label className="field">
+            <span className="fl">UUID cont Supabase</span>
+            <input className="mono" value={userId} onChange={(e) => setUserId(e.target.value)}
+              placeholder="ex: 3fa85f64-5717-4562-b3fc-2c963f66afa6" />
+          </label>
+        )}
         <label className="field"><span className="fl">Nume</span><input value={name} onChange={(e) => setName(e.target.value)} /></label>
         <label className="field">
           <span className="fl">Rol</span>
@@ -4760,14 +4794,11 @@ function UserModal({ user, core, onSave, onClose }) {
             <option value="housekeeping">Cameristă — doar status camere</option>
           </select>
         </label>
-        <label className="field"><span className="fl">PIN (4 cifre)</span>
-          <input className="mono" inputMode="numeric" maxLength={4} value={pin} onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))} />
-        </label>
         {error && <div className="error-text" role="alert" style={{ marginBottom: 10 }}>{error}</div>}
         <div className="modal-actions">
           <div className="grow" />
           <button className="btn btn-ghost" onClick={onClose}>Anulează</button>
-          <button className="btn btn-primary" style={{ width: "auto" }} onClick={submit}><Check size={15} /> Salvează</button>
+          <button className="btn btn-primary" style={{ width: "auto" }} onClick={submit} disabled={busy}><Check size={15} /> Salvează</button>
         </div>
     </Dialog>
   );
@@ -4909,20 +4940,22 @@ const PERMISSIONS = {
 };
 const ALL_PERMS = PERMISSIONS.admin;
 
-function ProfileView({ user, core, updateCore, onLogout, onBack }) {
-  const [pin, setPin] = useState("");
-  const [pin2, setPin2] = useState("");
+function ProfileView({ user, onLogout, onBack }) {
+  const [password, setPassword] = useState("");
+  const [password2, setPassword2] = useState("");
   const [msg, setMsg] = useState(null);
+  const [busy, setBusy] = useState(false);
   const mine = PERMISSIONS[user.role] || [];
 
-  const changePin = async () => {
-    if (!/^\d{4}$/.test(pin)) { setMsg({ type: "err", text: "PIN-ul trebuie să aibă exact 4 cifre." }); return; }
-    if (pin !== pin2) { setMsg({ type: "err", text: "Cele două PIN-uri nu coincid." }); return; }
-    const next = core.users.map((u) => (u.id === user.id ? { ...u, pin } : u));
-    await updateCore({ ...core, users: next });
-    user.pin = pin;
-    setPin(""); setPin2("");
-    setMsg({ type: "ok", text: "PIN schimbat. Îl folosești de la următoarea autentificare." });
+  const changePassword = async () => {
+    if (password.length < 8) { setMsg({ type: "err", text: "Parola trebuie să aibă cel puțin 8 caractere." }); return; }
+    if (password !== password2) { setMsg({ type: "err", text: "Cele două parole nu coincid." }); return; }
+    setBusy(true);
+    const { error } = await supabase.auth.updateUser({ password });
+    setBusy(false);
+    if (error) { setMsg({ type: "err", text: error.message }); return; }
+    setPassword(""); setPassword2("");
+    setMsg({ type: "ok", text: "Parola a fost schimbată." });
   };
 
   return (
@@ -4948,19 +4981,19 @@ function ProfileView({ user, core, updateCore, onLogout, onBack }) {
       </div>
 
       <div className="panel" style={{ padding: 20, marginBottom: 16 }}>
-        <h4 style={{ margin: "0 0 14px", fontSize: 14 }}>Schimbă PIN-ul</h4>
+        <h4 style={{ margin: "0 0 14px", fontSize: 14 }}>Schimbă parola</h4>
         <div className="field-row">
           <label className="field">
-            <span className="fl">PIN nou</span>
-            <input className="mono" type="password" inputMode="numeric" maxLength={4} value={pin} onChange={(e) => { setPin(e.target.value.replace(/\D/g, "")); setMsg(null); }} />
+            <span className="fl">Parolă nouă</span>
+            <input type="password" autoComplete="new-password" value={password} onChange={(e) => { setPassword(e.target.value); setMsg(null); }} />
           </label>
           <label className="field">
-            <span className="fl">Confirmă PIN</span>
-            <input className="mono" type="password" inputMode="numeric" maxLength={4} value={pin2} onChange={(e) => { setPin2(e.target.value.replace(/\D/g, "")); setMsg(null); }} />
+            <span className="fl">Confirmă parola</span>
+            <input type="password" autoComplete="new-password" value={password2} onChange={(e) => { setPassword2(e.target.value); setMsg(null); }} />
           </label>
         </div>
         {msg && <div className="error-text" role="alert" style={{ color: msg.type === "ok" ? "var(--success)" : "var(--danger)", marginBottom: 10 }}>{msg.text}</div>}
-        <button className="btn btn-primary" onClick={changePin}><ShieldCheck size={15} /> Salvează PIN-ul</button>
+        <button className="btn btn-primary" onClick={changePassword} disabled={busy}><ShieldCheck size={15} /> Salvează parola</button>
       </div>
 
       <div style={{ display: "flex", gap: 8 }}>

@@ -355,6 +355,31 @@ create policy "staff app_state" on app_state  for all    to authenticated using 
 create policy "vede propriul rand" on staff
   for select to authenticated using (user_id = auth.uid());
 
+-- Functie ajutatoare: verifica daca userul curent e admin, ocolind RLS
+-- pentru propriul query intern (evita recursivitatea infinita).
+create or replace function is_admin()
+returns boolean
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select exists(
+    select 1 from staff where user_id = auth.uid() and role = 'admin'
+  );
+$$;
+
+-- Adminii vad si administreaza toate randurile din staff (ecranul
+-- "Useri si drepturi" din aplicatie), nu doar propriul rand.
+create policy "admin vede tot staff" on staff
+  for select to authenticated using (is_admin());
+create policy "admin scrie staff" on staff
+  for insert to authenticated with check (is_admin());
+create policy "admin modifica staff" on staff
+  for update to authenticated using (is_admin()) with check (is_admin());
+create policy "admin sterge staff" on staff
+  for delete to authenticated using (is_admin());
+
 -- Vizitatorul anonim: doar căutare disponibilitate și creare rezervare.
 grant execute on function available_rooms(timestamptz, timestamptz, int) to anon;
 grant execute on function create_booking(text, timestamptz, timestamptz, text, text,
@@ -371,12 +396,17 @@ revoke execute on function nightly_rate(text, date) from anon;
 --
 -- 1. Creează un utilizator în Supabase: Authentication → Users →
 --    Add user (bifează "Auto Confirm User").
--- 2. Ia UUID-ul din coloana ID și rulează:
+-- 2. Ia UUID-ul din coloana ID.
+-- 3a. Pentru primul cont (înainte să existe vreun admin), rulează manual:
 --
 --    insert into staff (user_id, name, role)
 --    values ('UUID-UL-DE-ACOLO', 'Nume Prenume', 'admin');
 --
--- Fără acest rând, contul se autentifică dar nu primește acces —
+-- 3b. Pentru orice cont ulterior, un admin poate lega UUID-ul de un
+--     nume și rol direct din aplicație — Setări → Useri și drepturi →
+--     User nou. Nu mai e nevoie de SQL manual.
+--
+-- Fără un rând în staff, contul se autentifică dar nu primește acces —
 -- aplicația îl respinge cu "Contul nu are drepturi in aplicatie".
 -- =====================================================================
 
