@@ -756,22 +756,18 @@ const STYLES = `
 
   /* ---------- Invoice (factura) ---------- */
   .inv-hero{
-    position:relative; overflow:hidden; background:#1c1a17; color:#fff;
     display:flex; align-items:flex-start; justify-content:space-between;
-    gap:20px; padding:26px 28px 30px;
+    gap:20px; padding:22px 28px; border-bottom:1px solid #d0d0cc;
   }
-  .inv-hero::before, .inv-hero::after{ content:""; position:absolute; z-index:0; }
-  .inv-hero::before{ width:240px; height:240px; right:-70px; top:-110px; background:#332b1e; transform:rotate(35deg); }
-  .inv-hero::after{ width:120px; height:420px; right:54px; top:-160px; background:#4c3f29; transform:rotate(35deg); }
-  .inv-hero-brand{ position:relative; z-index:1; }
-  .inv-hero-logo{ font-size:19px; font-weight:700; letter-spacing:.14em; color:#e8c98a; font-family:Georgia,serif; }
-  .inv-hero-slogan{ font-size:9px; letter-spacing:.18em; text-transform:uppercase; color:#a89678; margin-top:2px; }
-  .inv-hero-issuer{ font-size:10.5px; color:#cfc4ac; line-height:1.65; margin-top:16px; }
-  .inv-hero-issuer strong{ display:block; color:#fff; font-size:11.5px; margin-bottom:3px; }
-  .inv-hero-meta{ position:relative; z-index:1; text-align:right; flex-shrink:0; }
-  .inv-hero-title{ font-size:30px; font-weight:800; letter-spacing:.03em; color:#fff; line-height:1; }
-  .inv-hero-number{ font-size:13px; color:#e8c98a; margin-top:9px; font-weight:600; }
-  .inv-hero-date{ font-size:10.5px; color:#a89678; margin-top:4px; }
+  .inv-hero-brand{ }
+  .inv-hero-logo{ font-size:19px; font-weight:700; letter-spacing:.14em; color:#b08d3f; font-family:Georgia,serif; }
+  .inv-hero-slogan{ font-size:9px; letter-spacing:.18em; text-transform:uppercase; color:#999; margin-top:2px; }
+  .inv-hero-issuer{ font-size:10.5px; color:#555; line-height:1.65; margin-top:14px; }
+  .inv-hero-issuer strong{ display:block; color:#141412; font-size:11.5px; margin-bottom:3px; }
+  .inv-hero-meta{ text-align:right; flex-shrink:0; }
+  .inv-hero-title{ font-size:22px; font-weight:700; letter-spacing:.05em; color:#141412; }
+  .inv-hero-number{ font-size:13px; color:#5a5650; margin-top:8px; font-weight:600; }
+  .inv-hero-date{ font-size:10.5px; color:#8a8a86; margin-top:4px; }
   .inv-parties{ display:flex; gap:36px; padding:22px 28px 6px; }
   .inv-party{ flex:1; min-width:0; }
   .inv-party-lab{ font-size:10px; text-transform:uppercase; letter-spacing:.1em; color:#a3907a; font-weight:700; margin-bottom:6px; }
