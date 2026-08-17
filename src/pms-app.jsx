@@ -906,8 +906,16 @@ const STYLES = `
     .stat-value{ font-size:14px; white-space:normal; margin:3px 0 1px; }
     .stat-sub{ display:none; }
   }
-  .contact-quick{ display:inline-flex; align-items:center; gap:4px; flex-shrink:0; }
-  .contact-quick .icon-btn{ width:26px; height:26px; }
+  .contact-quick{ display:inline-flex; align-items:center; gap:6px; flex-shrink:0; }
+  .contact-quick .icon-btn{ width:34px; height:34px; border-color:transparent; }
+  .contact-quick .icon-btn.tel{ background:var(--accent-soft); color:var(--accent-strong); }
+  .contact-quick .icon-btn.tel:hover{ background:var(--accent); color:#fff; }
+  .contact-quick .icon-btn.wa{ background:#DCF8E4; color:#1E9E4E; }
+  .contact-quick .icon-btn.wa:hover{ background:#25D366; color:#fff; }
+  @media (prefers-color-scheme: dark){
+    .contact-quick .icon-btn.wa{ background:rgba(37,211,102,0.18); color:#3FDE7C; }
+    .contact-quick .icon-btn.wa:hover{ background:#25D366; color:#0F1216; }
+  }
   .phone-input-row{ display:flex; gap:6px; }
   .phone-input-row input{ flex:1; min-width:0; }
   .phone-dial-wrap{ position:relative; flex-shrink:0; }
@@ -4612,14 +4620,14 @@ function ContactQuickActions({ guest, onClick }) {
   return (
     <span className="contact-quick" onClick={onClick}>
       {tel && (
-        <a className="icon-btn" href={tel} title="Sună clientul" aria-label={`Sună ${guestFullName(guest)}`}>
-          <Phone size={14} />
+        <a className="icon-btn tel" href={tel} title="Sună clientul" aria-label={`Sună ${guestFullName(guest)}`}>
+          <Phone size={17} />
         </a>
       )}
       {wa && (
-        <a className="icon-btn" href={wa} target="_blank" rel="noreferrer"
+        <a className="icon-btn wa" href={wa} target="_blank" rel="noreferrer"
           title="Mesaj WhatsApp" aria-label={`Mesaj WhatsApp către ${guestFullName(guest)}`}>
-          <MessageCircle size={14} />
+          <MessageCircle size={17} />
         </a>
       )}
     </span>
