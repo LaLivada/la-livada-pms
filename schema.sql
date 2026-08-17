@@ -463,6 +463,33 @@ create table invoice_item_links (
 );
 create index invoice_item_links_folio_item on invoice_item_links(folio_item_id);
 
+-- Pana acum prevenirea dublei facturari era doar la nivel de UI (clientul
+-- incarca folio_items neinvoiced_status si le exclude pe cele deja
+-- facturate) — o cursa (doi useri, doua tab-uri) putea produce doua
+-- facturi active pe aceeasi pozitie de folio, fara ca baza de date sa
+-- blocheze nimic. Trigger-ul de mai jos impune regula si la insert.
+create or replace function guard_invoice_item_link()
+returns trigger language plpgsql as $$
+declare v_conflict_invoice text;
+begin
+  select ii.invoice_id into v_conflict_invoice
+  from invoice_item_links l
+  join invoice_items ii on ii.id = l.invoice_item_id
+  join invoices inv on inv.id = ii.invoice_id
+  where l.folio_item_id = new.folio_item_id
+    and inv.status <> 'cancelled'
+    and ii.invoice_id <> (select invoice_id from invoice_items where id = new.invoice_item_id)
+  limit 1;
+  if v_conflict_invoice is not null then
+    raise exception 'Poziția de folio este deja facturată pe o altă factură activă (%).', v_conflict_invoice;
+  end if;
+  return new;
+end;
+$$;
+create trigger invoice_item_links_guard
+  before insert on invoice_item_links
+  for each row execute function guard_invoice_item_link();
+
 
 -- ---------------------------------------------------------------------
 -- PLĂȚI
@@ -506,6 +533,14 @@ create or replace function next_receipt_number(p_series text)
 returns table(series text, number int) language plpgsql security definer as $$
 declare v_number int;
 begin
+  -- Fiind security definer, functia ruleaza cu privilegii ridicate si e
+  -- apelabila de orice user autentificat prin RPC — fara acest control,
+  -- oricine (chiar fara nicio permisiune de facturare) ar putea consuma
+  -- numere din serie direct, ocolind canBilling() din UI, care e doar
+  -- cosmetic (nu impune nimic la nivel de baza de date).
+  if not has_billing_permission('record_payment') then
+    raise exception 'Nu ai permisiunea de a înregistra încasări.';
+  end if;
   update receipt_series set next_number = next_number + 1
     where receipt_series.series = p_series and active
     returning next_number - 1 into v_number;
@@ -551,6 +586,10 @@ create or replace function next_invoice_number(p_series text)
 returns table(series text, number int) language plpgsql security definer as $$
 declare v_number int;
 begin
+  -- Vezi observatia identica de la next_receipt_number mai sus.
+  if not has_billing_permission('issue_invoice') then
+    raise exception 'Nu ai permisiunea de a emite facturi.';
+  end if;
   update invoice_series set next_number = next_number + 1
     where invoice_series.series = p_series and active
     returning next_number - 1 into v_number;

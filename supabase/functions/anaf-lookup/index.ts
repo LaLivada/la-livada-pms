@@ -10,6 +10,9 @@
 // acest proxy catre serviciul public ANAF.
 //
 // deno-lint-ignore-file no-explicit-any
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const ANAF_URL = "https://webservicesp.anaf.ro/PlatitorTvaRest/api/v9/ws/tva";
 
 function todayISO(): string {
@@ -25,6 +28,19 @@ function jsonResponse(body: unknown, status = 200): Response {
 
 Deno.serve(async (req) => {
   if (req.method !== "GET") return jsonResponse({ error: "Metodă nepermisă." }, 405);
+
+  // Un JWT valid înseamnă doar "user logat în aplicație" — dar preluarea
+  // ANAF ține de fluxul de facturare, deci verificăm și permisiunea
+  // specifică (aceeași folosită la crearea unui client de facturare),
+  // nu doar autentificarea, ca să fie consecvent cu restul modulului.
+  const authHeader = req.headers.get("Authorization") || "";
+  const userClient = createClient(SUPABASE_URL, Deno.env.get("SUPABASE_ANON_KEY")!, {
+    global: { headers: { Authorization: authHeader } },
+  });
+  const { data: allowed, error: permErr } = await userClient.rpc("has_billing_permission", { perm: "create_invoice" });
+  if (permErr || !allowed) {
+    return jsonResponse({ error: "Nu ai permisiunea de a prelua date de facturare." }, 403);
+  }
 
   const url = new URL(req.url);
   const cuiRaw = (url.searchParams.get("cui") || "").toUpperCase().replace(/^RO/, "").trim();

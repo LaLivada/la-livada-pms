@@ -4003,9 +4003,12 @@ function FolioPanel({ reservation, core, updateCore }) {
     }
     // Doar campurile care afecteaza pretul de cazare — nu tot obiectul
     // reservation, ca sa nu reincarcam folio-ul la orice editare minora
-    // (ex. o nota) facuta in acelasi modal.
+    // (ex. o nota) facuta in acelasi modal. La fel pentru core: doar
+    // vatRates/products (folosite de ensureCazareLine), nu tot obiectul —
+    // altfel orice schimbare nelegata (o camera, o eticheta) din core
+    // reincarca inutil folio-ul cat timp modalul e deschis.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [reservation.id, reservation.checkin, reservation.checkout, reservation.priceOverride, reservation.bookedPrice, core]);
+  }, [reservation.id, reservation.checkin, reservation.checkout, reservation.priceOverride, reservation.bookedPrice, core.vatRates, core.products]);
 
   useEffect(() => { load(); }, [load]);
 
