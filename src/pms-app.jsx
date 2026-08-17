@@ -4186,7 +4186,11 @@ function ClientsView({ core, updateCore, groups, updateGroups, reservations, upd
           <div className="empty-state"><Users size={26} /><h4>Niciun client</h4><p>Adaugă primul client.</p></div>
         ) : filtered.map((g) => (
           <div className="list-row" key={g.id}>
-            <div>
+            <div
+              role="button" tabIndex={0} style={{ cursor: "pointer" }}
+              onClick={() => setHistoryGuest(g)}
+              onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setHistoryGuest(g); } }}
+            >
               <div className="primary">{guestFullName(g)}</div>
               <div className="secondary">
                 {[g.phone, g.email, [g.city, g.county].filter(Boolean).join(", "), g.country !== "România" ? g.country : null]
@@ -4196,8 +4200,9 @@ function ClientsView({ core, updateCore, groups, updateGroups, reservations, upd
                 const stays = reservations.filter((r) => r.guestId === g.id && isLive(r));
                 if (!stays.length) return null;
                 const nights = stays.reduce((n, r) => n + nightsBetween(r.checkin, r.checkout), 0);
+                const spent = stays.reduce((v, r) => v + reservationTotal(r, core), 0);
                 return <div className="secondary" style={{ marginTop: 3 }}>
-                  <strong>{stays.length}</strong> sejururi · {nights} nopți
+                  <strong>{stays.length}</strong> sejururi · {nights} nopți · {fmtMoney(spent)} încasați
                 </div>;
               })()}
             </div>
