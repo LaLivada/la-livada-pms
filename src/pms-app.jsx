@@ -397,6 +397,7 @@ const STYLES = `
   .cal-foot .cal-roomcell{ background:var(--surface-2); z-index:8; }
   .cal-roomcell .rname{ font-weight:600; font-size:var(--fs-md); font-family:'IBM Plex Mono',monospace; }
   .cal-roomcell .rfloor{ font-size:var(--fs-2xs); color:var(--text-muted); margin-top:1px; }
+  .room-cap-plus{ color:var(--danger); font-weight:700; }
   .cal-daycell{
     padding:10px 6px; border-right:1px solid var(--border-soft); text-align:center; font-size:var(--fs-xs);
     color:var(--text-muted); font-weight:600; text-transform:capitalize;
@@ -3434,7 +3435,10 @@ function CalendarView({ core, updateCore, reservations, updateReservations, grou
               <div className="cal-row">
                 <div className="cal-roomcell">
                   <div className="rname">{room.name}</div>
-                  <div className="rfloor">{ROOM_TYPE[room.type]?.short || ""}</div>
+                  <div className="rfloor">
+                    {ROOM_TYPE[room.type]?.short || ""}
+                    {room.capacity > 2 && <span className="room-cap-plus"> +</span>}
+                  </div>
                 </div>
                 {days.map((d, i) => {
                   const span = spans.find((sp) => sp.startIdx === i);
