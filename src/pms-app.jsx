@@ -4309,9 +4309,11 @@ const GuestFields = React.memo(function GuestFields({ value, onChange, invalid }
         <label className="field"><span className="fl">Telefon *</span><input className={err("phone")} value={value.phone} onChange={set("phone")} placeholder="07xx xxx xxx" /></label>
         <label className="field"><span className="fl">Email</span><input type="email" value={value.email} onChange={set("email")} placeholder="nume@exemplu.ro" /></label>
       </div>
-      <label className="field"><span className="fl">Adresă</span><input value={value.address} onChange={set("address")} placeholder="Str. Exemplu nr. 10" /></label>
       <div className="field-row">
+        <label className="field"><span className="fl">Adresă</span><input value={value.address} onChange={set("address")} placeholder="Str. Exemplu nr. 10" /></label>
         <label className="field"><span className="fl">Oraș *</span><input className={err("city")} value={value.city} onChange={set("city")} /></label>
+      </div>
+      <div className="field-row">
         <div className="field">
           <label>Județ *</label>
           {value.country === "România" ? (
@@ -4322,13 +4324,13 @@ const GuestFields = React.memo(function GuestFields({ value, onChange, invalid }
             <input className={err("county")} value={value.county} onChange={set("county")} placeholder="Regiune" />
           )}
         </div>
+        <label className="field">
+          <span className="fl">Țară *</span>
+          <select className={err("country")} value={value.country} onChange={set("country")}>
+            {TARI.map((t) => <option key={t} value={t}>{t}</option>)}
+          </select>
+        </label>
       </div>
-      <label className="field">
-        <span className="fl">Țară *</span>
-        <select className={err("country")} value={value.country} onChange={set("country")}>
-          {TARI.map((t) => <option key={t} value={t}>{t}</option>)}
-        </select>
-      </label>
     </>
   );
 });
