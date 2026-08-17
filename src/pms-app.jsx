@@ -530,10 +530,15 @@ const STYLES = `
   .bar-glyph{
     font-size:var(--fs-2xs); line-height:1; flex-shrink:0; opacity:.85; font-weight:700;
   }
+  .st-pending{ background:var(--surface-2); color:var(--text-muted); border:1px dashed var(--border); }
   .st-confirmed{ background:var(--accent-soft); color:var(--accent-strong); border:1px solid rgba(43,92,138,.35); }
+  .st-protocol{ background:#EDE7F6; color:#6A4C93; border:1px solid rgba(106,76,147,.35); }
   .st-checkedin{ background:var(--success-soft); color:var(--success); border:1px solid rgba(42,123,123,.35); }
   .st-checkedout{ background:var(--surface-2); color:var(--text-muted); border:1px solid var(--border); }
   .st-cancelled{ background:var(--danger-soft); color:var(--danger); border:1px solid var(--danger); text-decoration:line-through; }
+  @media (prefers-color-scheme: dark){
+    .st-protocol{ background:rgba(139,109,196,0.2); color:#C6AEEB; border-color:rgba(198,174,235,.35); }
+  }
 
   /* ---------- Lists ---------- */
   .list-row{
@@ -1356,20 +1361,32 @@ function seedGroups() {
 }
 
 const STATUS_LABEL = {
-  confirmed: "Confirmată", checkedin: "Checked-in", checkedout: "Checked-out",
-  noshow: "No-show", cancelled: "Anulată",
+  pending: "Cerere", confirmed: "Confirmată", protocol: "Protocol", checkedin: "Checked-in",
+  checkedout: "Checked-out", noshow: "No-show", cancelled: "Anulată",
 };
 const STATUS_GLYPH = {
-  confirmed: "●", checkedin: "▶", checkedout: "✓", noshow: "!", cancelled: "✕",
+  pending: "?", confirmed: "●", protocol: "§", checkedin: "▶", checkedout: "✓", noshow: "!", cancelled: "✕",
 };
 const STATUS_CLASS = {
-  confirmed: "st-confirmed", checkedin: "st-checkedin", checkedout: "st-checkedout",
-  noshow: "st-noshow", cancelled: "st-cancelled",
+  pending: "st-pending", confirmed: "st-confirmed", protocol: "st-protocol", checkedin: "st-checkedin",
+  checkedout: "st-checkedout", noshow: "st-noshow", cancelled: "st-cancelled",
 };
+
+/* La creare, o rezervare poate porni doar in una din aceste 3 stari.
+   La editare, statusul revine la cel operational clasic — Cerere si
+   Protocol sunt doar puncte de intrare, nu stari intre care se comuta
+   liber ulterior (vezi ReservationModal). */
+const CREATE_STATUSES = ["pending", "confirmed", "protocol"];
+const EDIT_STATUSES = ["confirmed", "checkedin", "checkedout", "noshow", "cancelled"];
 
 /* Statuses that no longer hold the room. */
 const DEAD_STATUSES = ["cancelled", "noshow"];
 const isLive = (r) => !DEAD_STATUSES.includes(r.status);
+/* Rezervarile "protocol" ocupa camera normal, dar nu se incaseaza bani pe
+   ele — nu trebuie sa apara in nicio statistica de venit/ocupare din
+   Rapoarte sau din fisele de client; vezi ReportsView (sectiune separata
+   pentru protocol) si ClientsView/GuestHistory. */
+const isStatsEligible = (r) => isLive(r) && r.status !== "protocol";
 
 function isSameDay(a, b) {
   const x = new Date(a), y = new Date(b);
@@ -3694,6 +3711,13 @@ function ReservationModal({ data, core, updateCore, reservations, updateReservat
     (() => { const d = data.defaultDate ? new Date(data.defaultDate) : new Date(); d.setDate(d.getDate() + 1); d.setHours(11, 0, 0, 0); return toLocalInputValue(d.toISOString()); })()
   );
   const [status, setStatus] = useState(editing?.status || "confirmed");
+  /* La creare: doar Cerere/Confirmata/Protocol. La editare: starile
+     operationale clasice — plus statusul curent, daca a ramas pe
+     Cerere/Protocol si n-a fost inca trecut mai departe, ca sa nu
+     dispara din select fara sa fi fost ales explicit altceva. */
+  const statusOptions = !editing
+    ? CREATE_STATUSES
+    : EDIT_STATUSES.includes(editing.status) ? EDIT_STATUSES : [editing.status, ...EDIT_STATUSES];
   const [priceOverride, setPriceOverride] = useState(editing?.priceOverride ?? "");
   const [adults, setAdults] = useState(editing?.adults ?? 2);
   const [children, setChildren] = useState(editing?.children ?? 0);
@@ -4195,7 +4219,7 @@ function ReservationModal({ data, core, updateCore, reservations, updateReservat
           <label className="field">
             <span className="fl">Status</span>
             <select value={status} onChange={(e) => setStatus(e.target.value)}>
-              {Object.entries(STATUS_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+              {statusOptions.map((k) => <option key={k} value={k}>{STATUS_LABEL[k]}</option>)}
             </select>
           </label>
         )}
@@ -4383,7 +4407,8 @@ function ClientsView({ core, updateCore, groups, updateGroups, reservations, upd
                 const stays = reservations.filter((r) => r.guestId === g.id && isLive(r));
                 if (!stays.length) return null;
                 const nights = stays.reduce((n, r) => n + nightsBetween(r.checkin, r.checkout), 0);
-                const spent = stays.reduce((v, r) => v + reservationTotal(r, core), 0);
+                // Protocol nu se incaseaza — nu intra in suma "incasati".
+                const spent = stays.filter(isStatsEligible).reduce((v, r) => v + reservationTotal(r, core), 0);
                 return <div className="secondary" style={{ marginTop: 3 }}>
                   <strong>{stays.length}</strong> sejururi · {nights} nopți · {fmtMoney(spent)} încasați
                 </div>;
@@ -4702,7 +4727,8 @@ function GuestHistory({ guest, core, reservations, onClose }) {
     .sort((a, b) => new Date(b.checkin) - new Date(a.checkin));
   const live = stays.filter(isLive);
   const nights = live.reduce((n, r) => n + nightsBetween(r.checkin, r.checkout), 0);
-  const spent = live.reduce((v, r) => v + reservationTotal(r, core), 0);
+  // Protocol nu se incaseaza — nu intra in "Valoare".
+  const spent = live.filter(isStatsEligible).reduce((v, r) => v + reservationTotal(r, core), 0);
 
   const pageCount = Math.max(1, Math.ceil(stays.length / GUEST_HISTORY_PAGE_SIZE));
   const safePage = Math.min(page, pageCount - 1);
@@ -5660,8 +5686,12 @@ function TodayView({ core, reservations, updateReservations, housekeeping, updat
         // Cota pe noapte din pretul REAL (inghetat/manual) al rezervarii,
         // nu un recalcul cu tarifele curente — altfel "Venit azi" nu se
         // potriveste cu ce plateste efectiv oaspetele. Vezi reservationTotal.
-        const n = nightsBetween(r.checkin, r.checkout);
-        rev += reservationTotal(r, core) / n;
+        // Rezervarile "protocol" nu se incaseaza — nu intra in venit,
+        // desi camera conteaza normal la ocupare (chiar e folosita).
+        if (r.status !== "protocol") {
+          const n = nightsBetween(r.checkin, r.checkout);
+          rev += reservationTotal(r, core) / n;
+        }
       }
     }
     arr.sort((a, b) => new Date(a.checkin) - new Date(b.checkin));
@@ -5849,8 +5879,11 @@ function ReportsView({ core, reservations }) {
   const stats = useMemo(() => {
     const roomById = new Map(core.rooms.map((r) => [r.id, r]));
     const active = [];
+    // Rezervarile protocol au propria sectiune, separata (protocolStats mai
+    // jos) — nu intra in ocupare/venit/ADR/RevPAR/surse ca sa nu denatureze
+    // cifrele reale de business cu sederi pe care nu se incaseaza bani.
     for (const r of reservations) {
-      if (!isLive(r)) continue;
+      if (!isStatsEligible(r)) continue;
       const ciMs = new Date(r.checkin).getTime();
       const coMs = new Date(r.checkout).getTime();
       if (!Number.isFinite(ciMs) || !Number.isFinite(coMs)) continue;
@@ -5914,6 +5947,31 @@ function ReportsView({ core, reservations }) {
   }, [reservations, core, monthStartMs, daysInMonth]);
 
   const { roomNights, revenue, perDay, capacity, byType, bySource, occupancy, adr, revpar, maxOcc } = stats;
+
+  /* Statistica separata, doar pentru camerele/rezervarile "protocol" —
+     numar sejururi, nopti si valoarea lor (pe nopti din luna, ca la
+     revenue de mai sus), fara sa se amestece cu cifrele de business. */
+  const protocolStats = useMemo(() => {
+    let count = 0, nights = 0, value = 0;
+    const seen = new Set();
+    for (const r of reservations) {
+      if (r.status !== "protocol") continue;
+      const ciMs = new Date(r.checkin).getTime();
+      const coMs = new Date(r.checkout).getTime();
+      if (!Number.isFinite(ciMs) || !Number.isFinite(coMs)) continue;
+      if (ciMs >= monthEnd.getTime() || coMs <= monthStartMs) continue;
+      if (!seen.has(r.id)) { seen.add(r.id); count++; }
+      const ciDay = new Date(ciMs); ciDay.setHours(0, 0, 0, 0);
+      const coDay = new Date(coMs); coDay.setHours(0, 0, 0, 0);
+      const totalNights = Math.max(1, Math.round((coDay - ciDay) / 86400000));
+      const perNight = reservationTotal(r, core) / totalNights;
+      for (let d = new Date(ciDay); d < coDay; d.setDate(d.getDate() + 1)) {
+        if (d.getTime() >= monthStartMs && d.getTime() < monthEnd.getTime()) { nights++; value += perNight; }
+      }
+    }
+    return { count, nights, value };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reservations, core, monthStartMs, daysInMonth]);
 
   return (
     <div>
@@ -5979,6 +6037,20 @@ function ReportsView({ core, reservations }) {
           </div>
         ))}
       </div>
+
+      {protocolStats.count > 0 && (
+        <div className="panel" style={{ marginTop: 14 }}>
+          <div className="section-head">
+            <span className={"role-tag " + STATUS_CLASS.protocol} style={{ marginRight: 8 }}>Protocol</span>
+            Statistică separată — necontorizată în venit
+          </div>
+          <div className="stat-row" style={{ padding: 16 }}>
+            <Stat label="Sejururi" value={protocolStats.count} sub="protocol" />
+            <Stat label="Nopți" value={protocolStats.nights} sub="în lună" />
+            <Stat label="Valoare" value={fmtMoney(protocolStats.value)} sub="neîncasată" />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

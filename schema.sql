@@ -100,7 +100,7 @@ create table reservations (
   checkin               timestamptz not null,
   checkout              timestamptz not null,
   status                text not null default 'confirmed'
-                          check (status in ('pending','confirmed','checkedin',
+                          check (status in ('pending','confirmed','protocol','checkedin',
                                             'checkedout','cancelled','noshow')),
   adults                int not null default 2,
   children              int not null default 0,
