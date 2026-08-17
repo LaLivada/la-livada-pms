@@ -990,6 +990,7 @@ const STYLES = `
   .mode-switch{
     display:flex; gap:4px; background:var(--surface-2); border-radius:11px; padding:4px; margin-bottom:16px;
   }
+  .folio-panel{ margin-bottom:16px; }
   .billing-picker{ display:flex; gap:8px; }
   .billing-picker select{ flex:1; min-width:0; }
   @media (max-width:520px){
@@ -3766,6 +3767,230 @@ function OccupantStepper({ label, value, otherValue, capacity, min, onChange }) 
   );
 }
 
+/* ---------------------------------------------------------------
+   FOLIO — pozitii de cazare + extra, direct din rezervare.
+   Nu trece prin core/syncTable (colectie separata, per rezervare) —
+   citeste/scrie direct in Supabase, incarcata la deschiderea modalului.
+----------------------------------------------------------------*/
+function calcAmounts(unitPrice, quantity, vatRate) {
+  const total = Number(unitPrice) * Number(quantity);
+  const vat = Number(vatRate) || 0;
+  const net = total / (1 + vat / 100);
+  return { totalAmount: total, netAmount: net, vatAmount: total - net };
+}
+
+/* Sincronizeaza linia de "Cazare" din folio cu pretul curent al
+   rezervarii (bookedPrice/priceOverride) — dar NICIODATA daca acea
+   linie e deja legata de o factura activa (invoiced_status='invoiced'),
+   ca sa nu modificam retroactiv ceva deja facturat. */
+async function ensureCazareLine(folio, items, reservation, core) {
+  const existing = items.find((i) => i.category === "cazare");
+  if (existing && existing.invoiced_status === "invoiced") return existing;
+
+  const cazareProduct = (core.products || []).find((p) => p.category === "cazare") || null;
+  const vatRate = cazareProduct
+    ? Number((core.vatRates || []).find((v) => v.id === cazareProduct.vatRateId)?.rate) || 0
+    : 0;
+  const nights = nightsBetween(reservation.checkin, reservation.checkout);
+  const total = reservationTotal(reservation, core);
+  const unitPrice = nights ? total / nights : total;
+  const { totalAmount, netAmount, vatAmount } = calcAmounts(unitPrice, nights, vatRate);
+
+  const row = {
+    id: existing?.id || uid(), folio_id: folio.id, product_id: cazareProduct?.id || null,
+    name: "Cazare", category: "cazare", quantity: nights, unit_price: unitPrice, vat_rate: vatRate,
+    net_amount: netAmount, vat_amount: vatAmount, total_amount: totalAmount,
+    occurred_at: reservation.checkin,
+  };
+  // Cand nu s-a schimbat nimic relevant, evitam un write inutil.
+  if (existing && Math.abs(existing.total_amount - totalAmount) < 0.01 && existing.quantity === nights) {
+    return existing;
+  }
+  const { data, error } = await supabase.from("folio_items").upsert(row).select().maybeSingle();
+  if (error) { console.error("Sincronizare linie cazare eșuată", error); return existing || null; }
+  return data;
+}
+
+function FolioPanel({ reservation, core }) {
+  const [folio, setFolio] = useState(null);
+  const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [adding, setAdding] = useState(false);
+  const [loadError, setLoadError] = useState("");
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setLoadError("");
+    try {
+      let { data: f, error: fErr } = await supabase
+        .from("folios").select("*").eq("reservation_id", reservation.id).maybeSingle();
+      if (fErr) throw fErr;
+      if (!f) {
+        const { data: created, error: cErr } = await supabase
+          .from("folios").insert({ id: uid(), reservation_id: reservation.id }).select().maybeSingle();
+        if (cErr) throw cErr;
+        f = created;
+      }
+      const { data: fi, error: iErr } = await supabase
+        .from("folio_items").select("*").eq("folio_id", f.id).order("occurred_at");
+      if (iErr) throw iErr;
+      const cazare = await ensureCazareLine(f, fi || [], reservation, core);
+      const rest = (fi || []).filter((i) => i.category !== "cazare");
+      setFolio(f);
+      setItems(cazare ? [cazare, ...rest] : rest);
+    } catch (e) {
+      setLoadError(e?.message || "Nu am putut încărca folio-ul.");
+    } finally {
+      setLoading(false);
+    }
+    // Doar campurile care afecteaza pretul de cazare — nu tot obiectul
+    // reservation, ca sa nu reincarcam folio-ul la orice editare minora
+    // (ex. o nota) facuta in acelasi modal.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reservation.id, reservation.checkin, reservation.checkout, reservation.priceOverride, reservation.bookedPrice, core]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const total = items.reduce((s, i) => s + Number(i.total_amount), 0);
+  const uninvoicedTotal = items.filter((i) => i.invoiced_status !== "invoiced")
+    .reduce((s, i) => s + Number(i.total_amount), 0);
+
+  const addExtra = async (product, quantity, price, dateStr) => {
+    const vatRate = Number((core.vatRates || []).find((v) => v.id === product.vatRateId)?.rate) || 0;
+    const { totalAmount, netAmount, vatAmount } = calcAmounts(price, quantity, vatRate);
+    const row = {
+      id: uid(), folio_id: folio.id, product_id: product.id, name: product.name, category: product.category,
+      quantity, unit_price: price, vat_rate: vatRate, net_amount: netAmount, vat_amount: vatAmount,
+      total_amount: totalAmount, occurred_at: new Date(dateStr).toISOString(),
+      created_by: audit.user?.id || null,
+    };
+    const { data, error } = await supabase.from("folio_items").insert(row).select().maybeSingle();
+    if (error) { toaster.show("Nu am putut adăuga serviciul: " + error.message, { tone: "danger" }); return; }
+    setItems((prev) => [...prev, data]);
+    await audit.push("Poziție folio adăugată", `${product.name} × ${quantity} · ${fmtMoney(totalAmount)}`);
+    setAdding(false);
+  };
+
+  const removeExtra = async (item) => {
+    if (item.invoiced_status === "invoiced") {
+      toaster.show("Poziția e deja facturată — nu poate fi ștearsă.", { tone: "danger" });
+      return;
+    }
+    const { error } = await supabase.from("folio_items").delete().eq("id", item.id);
+    if (error) { toaster.show("Ștergerea a eșuat: " + error.message, { tone: "danger" }); return; }
+    setItems((prev) => prev.filter((i) => i.id !== item.id));
+    await audit.push("Poziție folio ștearsă", `${item.name} · ${fmtMoney(item.total_amount)}`);
+  };
+
+  const activeProducts = (core.products || []).filter((p) => p.active && p.category !== "cazare");
+
+  return (
+    <div className="field folio-panel">
+      <span className="fl">Folio</span>
+      {loading ? (
+        <div className="note">Se încarcă…</div>
+      ) : loadError ? (
+        <div className="note" style={{ color: "var(--danger)" }}>{loadError}</div>
+      ) : (
+        <div className="panel">
+          {items.map((i) => (
+            <div className="list-row" key={i.id}>
+              <div>
+                <div className="primary">
+                  {i.name}
+                  {i.invoiced_status === "invoiced" && (
+                    <span className="role-tag role-admin" style={{ marginLeft: 8 }}>facturat</span>
+                  )}
+                </div>
+                <div className="secondary">
+                  {i.quantity} {i.category === "cazare" ? "nopți" : "buc"} × {fmtMoney(i.unit_price)} · TVA {i.vat_rate}% · {fmtDate(i.occurred_at)}
+                </div>
+              </div>
+              <div className="row-actions" style={{ gap: 10 }}>
+                <span className="mono" style={{ fontWeight: 650 }}>{fmtMoney(i.total_amount)}</span>
+                {i.category !== "cazare" && i.invoiced_status !== "invoiced" && (
+                  <button className="icon-btn" onClick={() => removeExtra(i)} aria-label={`Șterge ${i.name}`}>
+                    <Trash2 size={14} />
+                  </button>
+                )}
+              </div>
+            </div>
+          ))}
+          <div className="list-row" style={{ background: "var(--surface-2)" }}>
+            <div className="primary">Total folio</div>
+            <div style={{ textAlign: "right" }}>
+              <div className="mono" style={{ fontWeight: 700 }}>{fmtMoney(total)}</div>
+              {uninvoicedTotal !== total && (
+                <div className="secondary">{fmtMoney(uninvoicedTotal)} nefacturat</div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {!loading && !loadError && (
+        adding ? (
+          <AddExtraForm products={activeProducts} onSave={addExtra} onCancel={() => setAdding(false)} />
+        ) : (
+          <button type="button" className="btn btn-ghost" style={{ marginTop: 10 }}
+            onClick={() => setAdding(true)} disabled={!activeProducts.length}>
+            <Plus size={15} /> Adaugă serviciu
+          </button>
+        )
+      )}
+      {!loading && !activeProducts.length && (
+        <div className="note" style={{ marginTop: 8 }}>
+          Niciun produs/serviciu activ — adaugă din Setări → Camere și tarife → Produse & TVA.
+        </div>
+      )}
+    </div>
+  );
+}
+
+function AddExtraForm({ products, onSave, onCancel }) {
+  const [productId, setProductId] = useState(products[0]?.id || "");
+  const product = products.find((p) => p.id === productId);
+  const [quantity, setQuantity] = useState(1);
+  const [price, setPrice] = useState(product?.defaultPrice ?? 0);
+  const [date, setDate] = useState(toDateInput(new Date()));
+
+  return (
+    <div className="subform" style={{ marginTop: 10 }}>
+      <div className="field-row field-row-2col">
+        <label className="field">
+          <span className="fl">Produs</span>
+          <select value={productId} onChange={(e) => {
+            const p = products.find((x) => x.id === e.target.value);
+            setProductId(e.target.value);
+            setPrice(p?.defaultPrice ?? 0);
+          }}>
+            {products.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+          </select>
+        </label>
+        <label className="field"><span className="fl">Cantitate</span>
+          <input type="number" min="1" step="1" value={quantity} onChange={(e) => setQuantity(Math.max(1, Number(e.target.value) || 1))} />
+        </label>
+      </div>
+      <div className="field-row field-row-2col">
+        <label className="field"><span className="fl">Preț (cu TVA)</span>
+          <input type="number" min="0" value={price} onChange={(e) => setPrice(Math.max(0, Number(e.target.value) || 0))} />
+        </label>
+        <label className="field"><span className="fl">Dată</span>
+          <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+        </label>
+      </div>
+      <div className="modal-actions" style={{ marginTop: 0 }}>
+        <div className="grow" />
+        <button type="button" className="btn btn-ghost" onClick={onCancel}>Renunță</button>
+        <button type="button" className="btn btn-primary" style={{ width: "auto" }}
+          disabled={!product} onClick={() => product && onSave(product, quantity, price, date)}>
+          <Check size={15} /> Salvează
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function ReservationModal({ data, core, updateCore, reservations, updateReservations, groups, updateGroups, blocks, updateBlocks, onClose }) {
   useModalLock();
   const editing = data.reservation;
@@ -4275,6 +4500,8 @@ function ReservationModal({ data, core, updateCore, reservations, updateReservat
               }} />
           </div>
         </div>}
+
+        {!isBlock && editing && <FolioPanel reservation={editing} core={core} />}
 
         {!isBlock && (
           <div className="field">
