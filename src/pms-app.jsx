@@ -676,6 +676,7 @@ const STYLES = `
   }
   .field .fl{ letter-spacing:0.01em; }
   .field-row{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .field-row-dates{ grid-template-columns:1fr 84px 1fr; }
   .modal-actions{ display:flex; gap:8px; margin-top:18px; }
   .subform{ background:var(--surface-2); border-radius:var(--r-md); padding:14px 14px 2px; margin-bottom:14px; }
   .link-btn{
@@ -883,10 +884,10 @@ const STYLES = `
     font-size:19px; font-weight:650; color:var(--accent-strong); letter-spacing:-0.02em;
     margin-top:1px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
   }
-  .pb-manual{ display:flex; flex-direction:column; flex-shrink:0; width:112px; }
+  .pb-manual{ display:flex; flex-direction:column; flex-shrink:0; width:112px; max-width:40%; }
   .pb-manual label{
     font-size:10.5px; font-weight:600; color:var(--accent-strong); opacity:.75;
-    margin-bottom:3px; white-space:nowrap;
+    margin-bottom:3px; white-space:normal; line-height:1.25;
   }
   .pb-manual input{
     width:100%; padding:8px 10px; border:1px solid rgba(43,92,138,.28); border-radius:9px;
@@ -1123,7 +1124,7 @@ const STYLES = `
     width:100%; max-width:100%; min-width:0; padding:8px 10px; border:1px solid var(--border);
     border-radius:var(--r-sm); font-size:var(--fs-base); background:var(--surface); color:var(--text);
   }
-  .grp-num input[type="datetime-local"]{ -webkit-appearance:none; appearance:none; }
+  .grp-num input[type="date"]{ -webkit-appearance:none; appearance:none; }
   .stepper{
     display:flex; align-items:center; justify-content:space-between; gap:8px;
     border:1px solid var(--border); border-radius:var(--r-sm); background:var(--surface);
@@ -1597,6 +1598,12 @@ function toLocalInputValue(iso) {
   const off = d.getTimezoneOffset();
   const local = new Date(d.getTime() - off * 60000);
   return local.toISOString().slice(0, 16);
+}
+/* Inlocuieste doar partea de data dintr-o valoare existenta, pastrand ora
+   neatinsa — folosit de selectoarele de data (fara ora in UI, dar ora
+   ramane cea implicita/existenta in date). */
+function withNewDate(iso, dateStr) {
+  return `${dateStr}T${toLocalInputValue(iso).slice(11)}`;
 }
 
 /* ---------------------------------------------------------------
@@ -2976,13 +2983,13 @@ function GroupEditor({ group, core, groups, updateGroups, reservations, updateRe
           <div className="grp-dates">
             <label className="grp-num">
               <span>Sosire</span>
-              <input type="datetime-local" value={toLocalInputValue(span.checkin)}
-                onChange={(e) => shiftAll(e.target.value, null)} />
+              <input type="date" value={toDateInput(span.checkin)}
+                onChange={(e) => shiftAll(withNewDate(span.checkin, e.target.value), null)} />
             </label>
             <label className="grp-num">
               <span>Plecare</span>
-              <input type="datetime-local" value={toLocalInputValue(span.checkout)}
-                onChange={(e) => shiftAll(null, e.target.value)} />
+              <input type="date" value={toDateInput(span.checkout)}
+                onChange={(e) => shiftAll(null, withNewDate(span.checkout, e.target.value))} />
             </label>
             <div className="grp-nights">
               <span>{nightsBetween(span.checkin, span.checkout)}</span>
@@ -3032,13 +3039,13 @@ function GroupEditor({ group, core, groups, updateGroups, reservations, updateRe
               <div className="grp-dates">
                 <label className="grp-num">
                   <span>Sosire</span>
-                  <input type="datetime-local" value={toLocalInputValue(r.checkin)}
-                    onChange={(e) => changeDates(r.id, e.target.value, null)} />
+                  <input type="date" value={toDateInput(r.checkin)}
+                    onChange={(e) => changeDates(r.id, withNewDate(r.checkin, e.target.value), null)} />
                 </label>
                 <label className="grp-num">
                   <span>Plecare</span>
-                  <input type="datetime-local" value={toLocalInputValue(r.checkout)}
-                    onChange={(e) => changeDates(r.id, null, e.target.value)} />
+                  <input type="date" value={toDateInput(r.checkout)}
+                    onChange={(e) => changeDates(r.id, null, withNewDate(r.checkout, e.target.value))} />
                 </label>
                 <div className="grp-nights">
                   <span>{nightsBetween(r.checkin, r.checkout)}</span>
@@ -4152,14 +4159,27 @@ function ReservationModal({ data, core, updateCore, reservations, updateReservat
           </label>
         )}
 
-        <div className="field-row">
+        <div className="field-row field-row-dates">
           <label className="field">
             <span className="fl">{isBlock ? "De la" : "Check-in"}</span>
-            <input type="datetime-local" value={checkin} onChange={(e) => setCheckin(e.target.value)} />
+            <input type="date" value={checkin.slice(0, 10)} onChange={(e) => setCheckin(withNewDate(checkin, e.target.value))} />
+          </label>
+          <label className="field">
+            <span className="fl">Zile</span>
+            <select
+              value={Math.min(30, Math.max(1, nightsBetween(checkin, checkout)))}
+              onChange={(e) => {
+                const n = Number(e.target.value);
+                const [y, m, d] = checkin.slice(0, 10).split("-").map(Number);
+                setCheckout(withNewDate(checkout, toDateInput(new Date(y, m - 1, d + n))));
+              }}
+            >
+              {Array.from({ length: 30 }, (_, i) => i + 1).map((n) => <option key={n} value={n}>{n}</option>)}
+            </select>
           </label>
           <label className="field">
             <span className="fl">{isBlock ? "Până la" : "Check-out"}</span>
-            <input type="datetime-local" value={checkout} onChange={(e) => setCheckout(e.target.value)} />
+            <input type="date" value={checkout.slice(0, 10)} onChange={(e) => setCheckout(withNewDate(checkout, e.target.value))} />
           </label>
         </div>
 
