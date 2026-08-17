@@ -908,7 +908,10 @@ const STYLES = `
        vine dupa #root in DOM. */
     #root, .pms, .shell, .content{ min-height:0 !important; height:auto !important; }
     .pms .topbar, .pms .content > *:not(.arrival-overlay){ display:none !important; }
-    .pms .no-print{ display:none !important; }
+    /* Fara ".pms " in fata — InvoicePrint e randat printr-un portal direct
+       in <body>, deci elementele lui .no-print nu mai sunt descendente ale
+       .pms si selectorul scopat nu le-ar mai fi prins. */
+    .no-print{ display:none !important; }
     .arrival-overlay{
       position:static !important; background:none !important; backdrop-filter:none !important;
       display:block !important; padding:0 !important;
