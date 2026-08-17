@@ -720,6 +720,14 @@ const STYLES = `
     .tier-sep{ display:none; }
     .tier-row .field{ min-width:110px; }
   }
+  .vat-rate-row{ display:grid; grid-template-columns:1fr 100px auto; align-items:center; gap:10px; width:100%; }
+  @media (max-width:480px){
+    /* Coloana "auto" a butonului de stergere nu se restrange — pe telefon
+       icon-btn creste la 42px (target de atingere, vezi regula de mai jos)
+       si suma coloanelor fixe depaseste latimea ecranului, impingand
+       butonul in afara viewport-ului. Fixam coloanele 2/3 la latimi mici. */
+    .vat-rate-row{ grid-template-columns:1fr 60px 42px; gap:6px; }
+  }
   /* ---------- Arrival sheet ---------- */
   .arrival-modal{ max-width:700px; }
   .fisa{ border:1px solid #d0d0cc; font-family:'Inter',sans-serif; color:#2b2b28; background:#fff; }
@@ -4720,9 +4728,9 @@ function InvoicePrint({ invoiceId, core, onClose, onChanged }) {
           <div className="inv-hero-meta">
             <div className="inv-hero-title">FACTURĂ</div>
             <div className="inv-hero-number">{invoice.series ? `Seria ${invoice.series} nr. ${invoice.number}` : "Draft — fără număr alocat"}</div>
-            {invoice.issue_date && <div className="inv-hero-date">Emisă la {fmtDate(invoice.issue_date)}</div>}
+            {invoice.issue_date && <div className="inv-hero-date">Emisă la {fmtDateFull(invoice.issue_date)}</div>}
             {invoice.service_date_start && (
-              <div className="inv-hero-date">Perioadă cazare: {fmtDate(invoice.service_date_start)} → {fmtDate(invoice.service_date_end)}</div>
+              <div className="inv-hero-date">Perioadă cazare: {fmtDateFull(invoice.service_date_start)} → {fmtDateFull(invoice.service_date_end)}</div>
             )}
           </div>
         </div>
@@ -4817,12 +4825,12 @@ function InvoicePrint({ invoiceId, core, onClose, onChanged }) {
                 const receipt = p.receipt_series
                   ? `Chitanță ${p.receipt_series} ${p.receipt_number}`
                   : p.card_receipt_number
-                    ? `Bon ${p.card_receipt_number}${p.card_receipt_date ? ` · ${fmtDate(p.card_receipt_date)}` : ""}`
+                    ? `Bon ${p.card_receipt_number}${p.card_receipt_date ? ` · ${fmtDateFull(p.card_receipt_date)}` : ""}`
                     : "";
                 return (
                   <div className="inv-payment-row" key={p.id}>
                     <span>
-                      {fmtDate(p.paid_at)} · {(core.paymentMethods || []).find((m) => m.id === p.method)?.label || PAYMENT_METHOD_LABEL[p.method] || p.method}
+                      {fmtDateFull(p.paid_at)} · {(core.paymentMethods || []).find((m) => m.id === p.method)?.label || PAYMENT_METHOD_LABEL[p.method] || p.method}
                       {p.reference ? ` · ${p.reference}` : ""}{receipt ? ` · ${receipt}` : ""}
                     </span>
                     <span>{fmtMoney(p.amount)}</span>
@@ -6479,7 +6487,7 @@ function ProductsView({ core, updateCore }) {
           <div className="section-empty">Nicio cotă de TVA definită.</div>
         ) : vatRates.map((v) => (
           <div className="list-row" key={v.id}>
-            <div className="field-row" style={{ gridTemplateColumns: "1fr 100px auto", alignItems: "center", gap: 10, width: "100%" }}>
+            <div className="field-row vat-rate-row">
               <input value={v.label} onChange={(e) => patchVatRate(v.id, { label: e.target.value })} />
               <input type="number" min="0" step="0.1" value={v.rate} onChange={(e) => patchVatRate(v.id, { rate: Number(e.target.value) || 0 })} />
               <button className="icon-btn" onClick={() => removeVatRate(v.id)} aria-label={`Șterge cota ${v.label}`}><Trash2 size={14} /></button>
@@ -6604,7 +6612,7 @@ function InvoicesListView({ core }) {
                   </span>
                 </div>
                 <div className="secondary">
-                  {customerLabel(inv.billing_customer_id)} · {inv.issue_date ? fmtDate(inv.issue_date) : "neemisă"}
+                  {customerLabel(inv.billing_customer_id)} · {inv.issue_date ? fmtDateFull(inv.issue_date) : "neemisă"}
                 </div>
               </div>
               <div className="row-actions" style={{ gap: 10 }}>
@@ -6730,7 +6738,7 @@ function PaymentsListView({ core, updateCore }) {
 
   const receiptLabel = (p) => {
     if (p.receipt_series) return `Chitanță ${p.receipt_series} ${p.receipt_number}`;
-    if (p.card_receipt_number) return `Bon ${p.card_receipt_number}${p.card_receipt_date ? ` · ${fmtDate(p.card_receipt_date)}` : ""}`;
+    if (p.card_receipt_number) return `Bon ${p.card_receipt_number}${p.card_receipt_date ? ` · ${fmtDateFull(p.card_receipt_date)}` : ""}`;
     return "";
   };
 
@@ -6758,7 +6766,7 @@ function PaymentsListView({ core, updateCore }) {
                     {inv?.series ? `${inv.series} ${inv.number}` : "Factură"} · {customerLabel(inv?.billing_customer_id)}
                   </div>
                   <div className="secondary">
-                    {methodLabel(p.method)} · {fmtDate(p.paid_at)}{p.reference ? ` · ${p.reference}` : ""}
+                    {methodLabel(p.method)} · {fmtDateFull(p.paid_at)}{p.reference ? ` · ${p.reference}` : ""}
                     {receiptLabel(p) ? ` · ${receiptLabel(p)}` : ""}
                   </div>
                 </div>
