@@ -596,7 +596,7 @@ const STYLES = `
 
   /* ---------- Modal ---------- */
   .modal-overlay{
-    position:fixed; top:0; left:0; right:0; height:100vh; height:100dvh;
+    position:fixed; top:0; left:0; right:0; height:100vh; height:100dvh; height:var(--vvh, 100dvh);
     background:rgba(20,19,17,0.38); display:flex; align-items:flex-end;
     justify-content:center; z-index:100; backdrop-filter:blur(1px);
     overscroll-behavior:contain; touch-action:manipulation;
@@ -604,7 +604,8 @@ const STYLES = `
   }
   .modal{
     background:var(--surface); width:100%; max-width:500px; border-radius:var(--r-xl) 20px 0 0;
-    max-height:90vh; max-height:90dvh; overflow-y:auto; overscroll-behavior:contain;
+    max-height:90vh; max-height:90dvh; max-height:calc(var(--vvh, 100dvh) * 0.9);
+    overflow-y:auto; overscroll-behavior:contain;
     -webkit-overflow-scrolling:touch;
     padding:22px 22px calc(22px + env(safe-area-inset-bottom));
     animation:slideup .2s cubic-bezier(.2,.8,.2,1); box-shadow:var(--shadow-lg);
@@ -1134,17 +1135,20 @@ const STYLES = `
     .top-btn{ padding:9px 10px; }
   }
   @media (max-width:860px){
-    /* Camerele curg in pagina (scroll vertical normal); doar bara
-       Azi/Rezervare ramane fixa, iar cal-scroll pastreaza doar scroll orizontal.
-       .content nu poate fi container de scroll pentru position:sticky (overflow-x:auto
-       ii cupleaza si overflow-y), asa ca bara foloseste position:fixed + un spatiu
-       rezervat in .cal-view, in loc de sticky. */
+    /* Camerele curg in pagina (scroll vertical normal); meniul principal
+       urca odata cu pagina, iar doar bara Azi/Rezervare ramane fixa sus,
+       cu un mic spatiu deasupra. cal-scroll pastreaza doar scroll orizontal.
+       .content-cal scoate overflow-x:auto (care ii cupleaza automat si
+       overflow-y, transformand-o intr-un container de scroll ce ar bloca
+       position:sticky sa ajunga la scroll-ul real al paginii) — scroll-ul
+       orizontal ramane oricum acoperit de cal-scroll insusi. */
+    .topbar-cal{ position:static; }
+    .content-cal{ overflow-x:visible; }
     .cal-scroll{ max-height:none; overflow-y:visible; }
     .cal-foot{ position:static; }
-    .cal-view{ padding-top:calc(var(--cal-toolbar-h) + 10px); }
     .cal-toolbar{
-      position:fixed; top:var(--topbar-h); left:0; right:0; z-index:15;
-      background:var(--bg); margin:0; padding:11px 14px; box-shadow:0 1px 0 var(--border);
+      position:sticky; top:8px; z-index:15;
+      background:var(--bg); box-shadow:0 1px 0 var(--border);
     }
     .cal-occ{ flex-direction:row; gap:4px; }
     .occ-pct::before{ content:"• "; }
@@ -1959,10 +1963,31 @@ function repairBlocks(list, core) {
     new Date(b.end) > new Date(b.start));
 }
 
+/* Safari iOS raporteaza gresit 100vh (include zona ascunsa sub bara de
+   adrese), iar 100dvh nu e suportat decat din iOS 15.4. window.visualViewport
+   e sustinut din iOS 13 si da inaltimea vizibila reala — o punem intr-o
+   variabila CSS pe care o foloseste fereastra modala pentru dimensionare. */
+function useVisualViewportHeight() {
+  useEffect(() => {
+    const setVH = () => {
+      const h = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+      document.documentElement.style.setProperty("--vvh", `${h}px`);
+    };
+    setVH();
+    window.visualViewport?.addEventListener("resize", setVH);
+    window.addEventListener("resize", setVH);
+    return () => {
+      window.visualViewport?.removeEventListener("resize", setVH);
+      window.removeEventListener("resize", setVH);
+    };
+  }, []);
+}
+
 /* ---------------------------------------------------------------
    ROOT APP
 ----------------------------------------------------------------*/
 function PMSApp() {
+  useVisualViewportHeight();
   const [loading, setLoading] = useState(true);
   const [core, setCore] = useState({ rooms: [], guests: [], users: [] });
   const [reservations, setReservations] = useState([]);
@@ -2328,7 +2353,7 @@ function Shell({ user, view, setView, onLogout, core, updateCore, reservations, 
   return (
     <div className="shell">
       <div className="main">
-        <header className="topbar">
+        <header className={"topbar" + (safeView === "calendar" ? " topbar-cal" : "")}>
           <button className="brand-block" onClick={() => setView(homeView)} title="Înapoi la Azi">
             <span className="brand-mark"><DoorOpen size={16} /></span>
             <span className="brand-text">
@@ -2368,7 +2393,7 @@ function Shell({ user, view, setView, onLogout, core, updateCore, reservations, 
           </div>
         </header>
 
-        <div className="content">
+        <div className={"content" + (safeView === "calendar" ? " content-cal" : "")}>
           {safeView === "profile" && (
             <ProfileView user={user} core={core} updateCore={updateCore} onLogout={onLogout} onBack={() => setView(homeView)} />
           )}
