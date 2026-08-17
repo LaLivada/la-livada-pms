@@ -754,6 +754,40 @@ const STYLES = `
     font-size:11px; color:#444;
   }
 
+  /* ---------- Invoice (factura) ---------- */
+  .inv-top{ display:flex; justify-content:space-between; align-items:flex-start; padding:16px 20px; border-bottom:1px solid #d0d0cc; gap:20px; }
+  .inv-issuer{ font-size:11.5px; color:#444; line-height:1.6; margin-top:6px; }
+  .inv-issuer strong{ display:block; color:#141412; font-size:12.5px; margin-bottom:2px; }
+  .inv-meta{ text-align:right; flex-shrink:0; }
+  .inv-meta-title{ font-size:20px; font-weight:700; letter-spacing:.06em; color:#141412; }
+  .inv-meta-number{ font-size:13px; color:#333; margin-top:4px; font-weight:600; }
+  .inv-meta-date{ font-size:11px; color:#8a8a86; margin-top:3px; }
+  .inv-parties{ display:flex; border-bottom:1px solid #d0d0cc; }
+  .inv-party{ flex:1; padding:14px 20px; min-width:0; }
+  .inv-party + .inv-party{ border-left:1px solid #e0e0dc; }
+  .inv-party-lab{ font-size:9.5px; text-transform:uppercase; letter-spacing:.12em; color:#8a8a86; font-weight:700; margin-bottom:6px; }
+  .inv-party-name{ font-size:13.5px; font-weight:700; color:#141412; }
+  .inv-party-line{ font-size:11.5px; color:#444; margin-top:2px; line-height:1.5; }
+  .inv-body{ padding:18px 20px; }
+  .inv-table{ width:100%; border-collapse:collapse; }
+  .inv-table thead th{ text-align:left; font-size:9.5px; text-transform:uppercase; letter-spacing:.08em; color:#8a8a86; font-weight:700; padding:0 6px 8px; border-bottom:2px solid #141412; }
+  .inv-table thead th.r{ text-align:right; }
+  .inv-table td{ padding:9px 6px; font-size:12.5px; border-bottom:1px solid #e6e6e2; color:#2b2b28; }
+  .inv-table td.r{ text-align:right; }
+  .inv-totals{ display:flex; justify-content:flex-end; margin-top:16px; }
+  .inv-totals-box{ min-width:260px; font-size:12.5px; }
+  .inv-totals-row{ display:flex; justify-content:space-between; padding:4px 0; color:#555; }
+  .inv-totals-row.total{ font-size:15px; font-weight:700; color:#141412; border-top:1.5px solid #141412; margin-top:6px; padding-top:8px; }
+  .inv-totals-row.paid{ color:#2A7B7B; font-weight:600; }
+  .inv-payments{ margin-top:20px; padding-top:14px; border-top:1px solid #e0e0dc; }
+  .inv-payments-lab, .inv-notes strong{ font-size:9.5px; text-transform:uppercase; letter-spacing:.12em; color:#8a8a86; font-weight:700; margin-bottom:8px; display:block; }
+  .inv-payment-row{ display:flex; justify-content:space-between; font-size:11.5px; color:#444; padding:3px 0; }
+  .inv-notes{ margin-top:16px; padding-top:14px; border-top:1px solid #e0e0dc; font-size:11.5px; color:#555; }
+  .inv-foot{ display:flex; align-items:center; justify-content:space-between; padding:9px 20px; font-size:10.5px; color:#8a8a86; border-top:1px solid #d0d0cc; }
+  .inv-edit-input{ width:100%; border:1px solid #d0d0cc; border-radius:4px; padding:5px 6px; font:inherit; font-size:12.5px; color:#2b2b28; background:#fafaf8; }
+  .inv-edit-input.r{ text-align:right; }
+  .inv-client-select{ margin-top:8px; font-size:12px; padding:6px 8px; border:1px solid #d0d0cc; border-radius:4px; width:100%; background:#fafaf8; }
+
   /* ---------- Rooming list (printed document, fixed px) ---------- */
   .rooming-sheet .fisa-top{ align-items:flex-start; padding:14px 18px; }
   .rs-sub{ font-size:10.5px; color:#777; margin-top:3px; letter-spacing:.02em; }
@@ -846,6 +880,11 @@ const STYLES = `
 
   @media print{
     body{ background:#fff; }
+    /* .pms/.shell/.content raman cu min-height:100vh chiar si golite de
+       continut (regula de mai jos ascunde doar copiii lor) — fara asta,
+       ramane o pagina 1 complet goala inaintea facturii, care e randata
+       printr-un portal in <body>, deci vine dupa in DOM. */
+    .pms, .shell, .content{ min-height:0 !important; height:auto !important; }
     .pms .topbar, .pms .content > *:not(.arrival-overlay){ display:none !important; }
     .pms .no-print{ display:none !important; }
     .arrival-overlay{
@@ -4032,7 +4071,7 @@ function FolioPanel({ reservation, core, updateCore }) {
       )}
       {!loading && !activeProducts.length && (
         <div className="note" style={{ marginTop: 8 }}>
-          Niciun produs/serviciu activ — adaugă din Setări → Camere și tarife → Produse & TVA.
+          Niciun produs/serviciu activ — adaugă din Setări → Financiar → Produse & TVA.
         </div>
       )}
 
@@ -4497,6 +4536,34 @@ function InvoiceCancelCreditActions({ invoice, onChanged }) {
   );
 }
 
+// Rand editabil pentru o linie de factura draft — stare locala pana la
+// blur, ca sa nu trimitem un update la fiecare tasta apasata.
+function InvoiceLineEditRow({ line, onSave }) {
+  const [name, setName] = useState(line.name);
+  const [quantity, setQuantity] = useState(line.quantity);
+  const [unitPrice, setUnitPrice] = useState(line.unit_price);
+
+  useEffect(() => {
+    setName(line.name); setQuantity(line.quantity); setUnitPrice(line.unit_price);
+  }, [line.id, line.name, line.quantity, line.unit_price]);
+
+  const commit = () => {
+    const q = Number(quantity) || 0, p = Number(unitPrice) || 0;
+    if (name === line.name && q === Number(line.quantity) && p === Number(line.unit_price)) return;
+    onSave(line, { name: name.trim() || line.name, quantity: q, unit_price: p });
+  };
+
+  return (
+    <tr>
+      <td><input className="inv-edit-input" value={name} onChange={(e) => setName(e.target.value)} onBlur={commit} /></td>
+      <td className="r"><input className="inv-edit-input r" type="number" min="0" step="1" value={quantity} onChange={(e) => setQuantity(e.target.value)} onBlur={commit} /></td>
+      <td className="r"><input className="inv-edit-input r" type="number" min="0" step="0.01" value={unitPrice} onChange={(e) => setUnitPrice(e.target.value)} onBlur={commit} /></td>
+      <td className="r">{line.vat_rate}%</td>
+      <td className="r">{fmtMoney(Number(quantity) * Number(unitPrice) || 0)}</td>
+    </tr>
+  );
+}
+
 function InvoicePrint({ invoiceId, core, onClose, onChanged }) {
   useModalLock();
   const [invoice, setInvoice] = useState(null);
@@ -4505,23 +4572,56 @@ function InvoicePrint({ invoiceId, core, onClose, onChanged }) {
   const [payments, setPayments] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    let alive = true;
-    (async () => {
-      const { data: inv } = await supabase.from("invoices").select("*").eq("id", invoiceId).maybeSingle();
-      const { data: li } = await supabase.from("invoice_items").select("*").eq("invoice_id", invoiceId).order("sort_order");
-      const { data: pay } = await supabase.from("payments").select("*").eq("invoice_id", invoiceId).order("paid_at");
-      let cust = null;
-      if (inv?.billing_customer_id) {
-        const { data: c } = await supabase.from("billing_customers").select("*").eq("id", inv.billing_customer_id).maybeSingle();
-        cust = c ? camelBillingCustomer(c) : null;
-      }
-      if (!alive) return;
-      setInvoice(inv); setLines(li || []); setCustomer(cust); setPayments(pay || []);
-      setLoading(false);
-    })();
-    return () => { alive = false; };
+  const load = useCallback(async () => {
+    const { data: inv } = await supabase.from("invoices").select("*").eq("id", invoiceId).maybeSingle();
+    const { data: li } = await supabase.from("invoice_items").select("*").eq("invoice_id", invoiceId).order("sort_order");
+    const { data: pay } = await supabase.from("payments").select("*").eq("invoice_id", invoiceId).order("paid_at");
+    let cust = null;
+    if (inv?.billing_customer_id) {
+      const { data: c } = await supabase.from("billing_customers").select("*").eq("id", inv.billing_customer_id).maybeSingle();
+      cust = c ? camelBillingCustomer(c) : null;
+    }
+    setInvoice(inv); setLines(li || []); setCustomer(cust); setPayments(pay || []);
+    setLoading(false);
+    return inv;
   }, [invoiceId]);
+
+  useEffect(() => { load(); }, [load]);
+
+  // Recalculeaza net/TVA/total pentru o linie dupa editare, salveaza-o,
+  // apoi reface totalurile facturii din toate liniile — doar draft-urile
+  // se pot edita (facturile emise sunt blocate prin regula de business
+  // existenta: orice corectie dupa emitere trece prin stornare).
+  const saveLine = async (line, patch) => {
+    const next = { ...line, ...patch };
+    const { totalAmount, netAmount, vatAmount } = calcAmounts(Number(next.unit_price), Number(next.quantity), Number(next.vat_rate));
+    const row = { name: next.name, quantity: Number(next.quantity), unit_price: Number(next.unit_price), net_amount: netAmount, vat_amount: vatAmount, total_amount: totalAmount };
+    const { error } = await supabase.from("invoice_items").update(row).eq("id", line.id);
+    if (error) { toaster.show("Nu am putut salva linia: " + error.message, { tone: "danger" }); return; }
+    const freshLines = lines.map((l) => (l.id === line.id ? { ...l, ...row } : l));
+    const subtotalNet = freshLines.reduce((s, l) => s + Number(l.net_amount), 0);
+    const subtotalVat = freshLines.reduce((s, l) => s + Number(l.vat_amount), 0);
+    const totalAmountSum = freshLines.reduce((s, l) => s + Number(l.total_amount), 0);
+    const { data: updatedInvoice, error: invErr } = await supabase.from("invoices")
+      .update({ subtotal_net: subtotalNet, subtotal_vat: subtotalVat, total_amount: totalAmountSum })
+      .eq("id", invoice.id).select().maybeSingle();
+    if (invErr) { toaster.show("Nu am putut recalcula factura: " + invErr.message, { tone: "danger" }); return; }
+    setLines(freshLines);
+    setInvoice(updatedInvoice);
+    onChanged?.(updatedInvoice);
+    await audit.push("Linie factură modificată", `${next.name} · ${fmtMoney(totalAmount)}`);
+  };
+
+  const changeBillingCustomer = async (customerId) => {
+    const { data: updatedInvoice, error } = await supabase.from("invoices")
+      .update({ billing_customer_id: customerId }).eq("id", invoice.id).select().maybeSingle();
+    if (error) { toaster.show("Nu am putut schimba clientul: " + error.message, { tone: "danger" }); return; }
+    const cust = (core.billingCustomers || []).find((c) => c.id === customerId) || null;
+    setInvoice(updatedInvoice);
+    setCustomer(cust);
+    onChanged?.(updatedInvoice);
+    await audit.push("Client de facturare schimbat", cust ? billingCustomerLabel(cust) : "—");
+  };
 
   const issuer = core.invoiceIssuer || {};
   const vatGroups = {};
@@ -4553,95 +4653,134 @@ function InvoicePrint({ invoiceId, core, onClose, onChanged }) {
       </div>
 
       <div className="fisa">
-        <div style={{ display: "flex", justifyContent: "space-between", gap: 20, marginBottom: 20 }}>
+        <div className="inv-top">
           <div>
-            <strong>{issuer.name || "—"}</strong>
-            {issuer.cui && <div>CUI: {issuer.cui}</div>}
-            {issuer.regCom && <div>{issuer.regCom}</div>}
-            {issuer.address && <div>{issuer.address}{issuer.city ? `, ${issuer.city}` : ""}{issuer.county ? `, ${issuer.county}` : ""}</div>}
-            {issuer.iban && <div>IBAN: {issuer.iban}{issuer.bank ? ` (${issuer.bank})` : ""}</div>}
-          </div>
-          <div style={{ textAlign: "right" }}>
-            <h2 style={{ margin: 0 }}>FACTURĂ</h2>
-            <div>{invoice.series ? `Seria ${invoice.series} nr. ${invoice.number}` : "Draft — fără număr alocat"}</div>
-            {invoice.issue_date && <div>Data emiterii: {fmtDate(invoice.issue_date)}</div>}
-            {invoice.service_date_start && (
-              <div>Perioada: {fmtDate(invoice.service_date_start)} → {fmtDate(invoice.service_date_end)}</div>
-            )}
-          </div>
-        </div>
-
-        <div style={{ marginBottom: 20 }}>
-          <strong>Client</strong>
-          {customer ? (
-            <>
-              <div>{billingCustomerLabel(customer)}</div>
-              {customer.kind === "company" && customer.cui && <div>CUI: {customer.cui}</div>}
-              {customer.kind === "company" && customer.regCom && <div>{customer.regCom}</div>}
-              {customer.kind === "person" && customer.cnp && <div>CNP: {customer.cnp}</div>}
-              <div>{customer.address}, {customer.city}, {customer.county}, {customer.country}</div>
-            </>
-          ) : <div>—</div>}
-        </div>
-
-        <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 16 }}>
-          <thead>
-            <tr style={{ borderBottom: "1px solid #ccc", textAlign: "left" }}>
-              <th style={{ padding: "6px 4px" }}>Denumire</th>
-              <th style={{ padding: "6px 4px", textAlign: "right" }}>Cant.</th>
-              <th style={{ padding: "6px 4px", textAlign: "right" }}>Preț unitar</th>
-              <th style={{ padding: "6px 4px", textAlign: "right" }}>TVA</th>
-              <th style={{ padding: "6px 4px", textAlign: "right" }}>Total</th>
-            </tr>
-          </thead>
-          <tbody>
-            {lines.map((l) => (
-              <tr key={l.id} style={{ borderBottom: "1px solid #eee" }}>
-                <td style={{ padding: "6px 4px" }}>{l.name}</td>
-                <td style={{ padding: "6px 4px", textAlign: "right" }}>{l.quantity}</td>
-                <td style={{ padding: "6px 4px", textAlign: "right" }}>{fmtMoney(l.unit_price)}</td>
-                <td style={{ padding: "6px 4px", textAlign: "right" }}>{l.vat_rate}%</td>
-                <td style={{ padding: "6px 4px", textAlign: "right" }}>{fmtMoney(l.total_amount)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-
-        <div style={{ display: "flex", justifyContent: "flex-end" }}>
-          <div style={{ minWidth: 240 }}>
-            {Object.values(vatGroups).map((g) => (
-              <div key={g.rate} style={{ display: "flex", justifyContent: "space-between" }}>
-                <span>Bază {g.rate}%</span><span>{fmtMoney(g.net)}</span>
-              </div>
-            ))}
-            {Object.values(vatGroups).map((g) => (
-              <div key={"vat" + g.rate} style={{ display: "flex", justifyContent: "space-between" }}>
-                <span>TVA {g.rate}%</span><span>{fmtMoney(g.vat)}</span>
-              </div>
-            ))}
-            <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 700, borderTop: "1px solid #ccc", marginTop: 4, paddingTop: 4 }}>
-              <span>Total</span><span>{fmtMoney(invoice.total_amount)}</span>
+            <div className="fisa-logo">LA LIVADĂ</div>
+            <div className="inv-issuer">
+              <strong>{issuer.name || "—"}</strong>
+              {issuer.cui && <div>CUI: {issuer.cui}{issuer.regCom ? ` · ${issuer.regCom}` : ""}</div>}
+              {issuer.address && <div>{issuer.address}{issuer.city ? `, ${issuer.city}` : ""}{issuer.county ? `, ${issuer.county}` : ""}</div>}
+              {issuer.iban && <div>IBAN: {issuer.iban}{issuer.bank ? ` · ${issuer.bank}` : ""}</div>}
+              {(issuer.email || issuer.phone) && <div>{[issuer.email, issuer.phone].filter(Boolean).join(" · ")}</div>}
             </div>
-            {payments.length > 0 && (
-              <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4 }}>
-                <span>Achitat</span><span>{fmtMoney(invoice.paid_amount)}</span>
-              </div>
+          </div>
+          <div className="inv-meta">
+            <div className="inv-meta-title">FACTURĂ</div>
+            <div className="inv-meta-number">{invoice.series ? `Seria ${invoice.series} nr. ${invoice.number}` : "Draft — fără număr alocat"}</div>
+            {invoice.issue_date && <div className="inv-meta-date">Emisă la {fmtDate(invoice.issue_date)}</div>}
+            {invoice.service_date_start && (
+              <div className="inv-meta-date">Perioadă cazare: {fmtDate(invoice.service_date_start)} → {fmtDate(invoice.service_date_end)}</div>
             )}
           </div>
         </div>
 
-        {payments.length > 0 && (
-          <div style={{ marginTop: 16 }}>
-            <strong>Plăți</strong>
-            {payments.map((p) => (
-              <div key={p.id}>
-                {fmtDate(p.paid_at)} · {(core.paymentMethods || []).find((m) => m.id === p.method)?.label || PAYMENT_METHOD_LABEL[p.method] || p.method} · {fmtMoney(p.amount)}{p.reference ? ` · ${p.reference}` : ""}
-              </div>
-            ))}
+        <div className="inv-parties">
+          <div className="inv-party">
+            <div className="inv-party-lab">Prestator</div>
+            <div className="inv-party-name">{issuer.name || "—"}</div>
+            {issuer.cui && <div className="inv-party-line">CUI {issuer.cui}</div>}
           </div>
-        )}
+          <div className="inv-party">
+            <div className="inv-party-lab">Client</div>
+            {customer ? (
+              <>
+                <div className="inv-party-name">{billingCustomerLabel(customer)}</div>
+                {customer.kind === "company" && customer.cui && <div className="inv-party-line">CUI {customer.cui}{customer.regCom ? ` · ${customer.regCom}` : ""}</div>}
+                {customer.kind === "person" && customer.cnp && <div className="inv-party-line">CNP {customer.cnp}</div>}
+                <div className="inv-party-line">{customer.address}, {customer.city}, {customer.county}, {customer.country}</div>
+              </>
+            ) : <div className="inv-party-line">—</div>}
+            {invoice.status === "draft" && canBilling("create_invoice") && (
+              <select className="inv-client-select no-print" value={invoice.billing_customer_id || ""} onChange={(e) => changeBillingCustomer(e.target.value)}>
+                <option value="" disabled>Schimbă clientul…</option>
+                {(core.billingCustomers || []).map((c) => (
+                  <option key={c.id} value={c.id}>{billingCustomerLabel(c)}{c.kind === "company" ? " · firmă" : ""}</option>
+                ))}
+              </select>
+            )}
+          </div>
+        </div>
 
-        {invoice.notes && <div style={{ marginTop: 16 }}><strong>Observații</strong><div>{invoice.notes}</div></div>}
+        <div className="inv-body">
+          <table className="inv-table">
+            <thead>
+              <tr>
+                <th>Denumire</th>
+                <th className="r">Cant.</th>
+                <th className="r">Preț unitar</th>
+                <th className="r">TVA</th>
+                <th className="r">Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              {lines.map((l) => (
+                invoice.status === "draft" && canBilling("create_invoice")
+                  ? <InvoiceLineEditRow key={l.id} line={l} onSave={saveLine} />
+                  : (
+                    <tr key={l.id}>
+                      <td>{l.name}</td>
+                      <td className="r">{l.quantity}</td>
+                      <td className="r">{fmtMoney(l.unit_price)}</td>
+                      <td className="r">{l.vat_rate}%</td>
+                      <td className="r">{fmtMoney(l.total_amount)}</td>
+                    </tr>
+                  )
+              ))}
+            </tbody>
+          </table>
+          {invoice.status === "draft" && canBilling("create_invoice") && (
+            <div className="note no-print" style={{ marginTop: 6 }}>
+              Editează denumirea, cantitatea sau prețul direct în tabel — totalul facturii se recalculează automat. O factură emisă nu se mai poate edita (doar stornare).
+            </div>
+          )}
+
+          <div className="inv-totals">
+            <div className="inv-totals-box">
+              {Object.values(vatGroups).map((g) => (
+                <div className="inv-totals-row" key={g.rate}>
+                  <span>Bază {g.rate}%</span><span>{fmtMoney(g.net)}</span>
+                </div>
+              ))}
+              {Object.values(vatGroups).map((g) => (
+                <div className="inv-totals-row" key={"vat" + g.rate}>
+                  <span>TVA {g.rate}%</span><span>{fmtMoney(g.vat)}</span>
+                </div>
+              ))}
+              <div className="inv-totals-row total">
+                <span>Total</span><span>{fmtMoney(invoice.total_amount)}</span>
+              </div>
+              {payments.length > 0 && (
+                <div className="inv-totals-row paid">
+                  <span>Achitat</span><span>{fmtMoney(invoice.paid_amount)}</span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {payments.length > 0 && (
+            <div className="inv-payments">
+              <span className="inv-payments-lab">Plăți</span>
+              {payments.map((p) => (
+                <div className="inv-payment-row" key={p.id}>
+                  <span>{fmtDate(p.paid_at)} · {(core.paymentMethods || []).find((m) => m.id === p.method)?.label || PAYMENT_METHOD_LABEL[p.method] || p.method}{p.reference ? ` · ${p.reference}` : ""}</span>
+                  <span>{fmtMoney(p.amount)}</span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {invoice.notes && (
+            <div className="inv-notes">
+              <strong>Observații</strong>
+              <div>{invoice.notes}</div>
+            </div>
+          )}
+        </div>
+
+        <div className="inv-foot">
+          <span>La Livada — Complex de cazare</span>
+          <span>Document generat electronic</span>
+        </div>
       </div>
 
       {invoice.status === "issued" && canBilling("record_payment") && (
