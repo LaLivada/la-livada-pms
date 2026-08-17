@@ -267,10 +267,6 @@ const STYLES = `
   /* ---------- Bottom nav (mobile) ---------- */
 
   @media (pointer: coarse){
-    /* Anything under 16px makes iOS zoom the page on focus. */
-    .pms input, .pms select, .pms textarea,
-    .field input, .field select, .field textarea,
-    .search-box input, .msg-compose textarea{ font-size:var(--fs-lg); }
     .modal{ touch-action:pan-y; }
     .icon-btn{ width:42px; height:42px; }
     .btn{ padding:12px 18px; min-height:44px; }
@@ -868,23 +864,21 @@ const STYLES = `
     font-family:'IBM Plex Mono',monospace;
   }
   .pb-manual input:focus{ outline:none; border-color:var(--accent); box-shadow:0 0 0 3px rgba(43,92,138,.15); }
-  .stat-row{ display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:20px; }
-  .stat{
-    background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
-    padding:15px 16px; box-shadow:var(--shadow-sm); min-width:0;
-  }
+  .stat-row{ display:grid; grid-template-columns:repeat(4,1fr); gap:16px; margin-bottom:20px; }
+  .stat{ min-width:0; padding-left:14px; border-left:1px solid var(--border); }
+  .stat:first-child{ padding-left:0; border-left:none; }
   .stat:first-child .stat-value{ color:var(--accent-strong); }
   .stat-label{ font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:var(--text-muted); }
   .stat-value{
-    font-size:clamp(15px, 3.4vw, 24px); font-weight:650; letter-spacing:-0.03em; margin:5px 0 2px;
-    white-space:normal; overflow-wrap:anywhere; line-height:1.15;
+    font-size:17px; font-weight:650; letter-spacing:-0.02em; margin:4px 0 2px;
+    white-space:nowrap; overflow-wrap:anywhere; line-height:1.2;
   }
   .stat-sub{ font-size:11.5px; color:var(--text-muted); }
   @media (max-width:720px){
-    .stat-row{ gap:7px; }
-    .stat{ padding:11px 10px; border-radius:11px; }
+    .stat-row{ gap:10px; }
+    .stat{ padding-left:10px; }
     .stat-label{ font-size:9.5px; letter-spacing:.03em; }
-    .stat-value{ font-size:clamp(13px, 4vw, 17px); margin:3px 0 1px; }
+    .stat-value{ font-size:14px; white-space:normal; margin:3px 0 1px; }
     .stat-sub{ display:none; }
   }
   .phone-input-row{ display:flex; gap:6px; }
@@ -1090,6 +1084,21 @@ const STYLES = `
     border-radius:var(--r-sm); font-size:var(--fs-base); background:var(--surface); color:var(--text);
   }
   .grp-num input[type="datetime-local"]{ -webkit-appearance:none; appearance:none; }
+  .stepper{
+    display:flex; align-items:center; justify-content:space-between; gap:8px;
+    border:1px solid var(--border); border-radius:var(--r-sm); background:var(--surface);
+    padding:4px;
+  }
+  .stepper-btn{
+    width:34px; height:34px; flex-shrink:0; border:none; border-radius:var(--r-xs);
+    background:var(--surface-2); color:var(--text); font-size:18px; font-weight:600;
+    display:flex; align-items:center; justify-content:center; line-height:1;
+  }
+  .stepper-btn:hover:not(:disabled){ background:var(--accent-soft); color:var(--accent-strong); }
+  .stepper-btn:disabled{ opacity:.35; cursor:not-allowed; }
+  .stepper-value{ flex:1; text-align:center; font-size:var(--fs-md); font-weight:650; }
+  .grp-num .stepper{ padding:2px; }
+  .grp-num .stepper-btn{ width:28px; height:28px; font-size:15px; }
   .grp-price{
     margin-left:auto; font-size:var(--fs-md); font-weight:650; color:var(--accent-strong);
     white-space:nowrap; padding-bottom:8px;
@@ -1208,6 +1217,17 @@ const STYLES = `
   .cal-toolbar{
     position:sticky; top:0; z-index:15;
     background:var(--bg);
+  }
+
+  /* Sub 16px, iOS face automat zoom pe pagina la focus. Regula sta la
+     finalul foii de stil, cu !important, tocmai ca sa nu mai poata fi
+     rescrisa de vreo regula ulterioara cu specificitate egala (asa cum
+     s-a intamplat deja de cateva ori — vezi .search-box/.jump-pop/
+     .grp-dates input mai sus, care aveau font-size sub 16px si castigau
+     prin ordinea din fisier). Acopera orice input/select/textarea din
+     aplicatie, inclusiv cele adaugate ulterior. */
+  @media (pointer: coarse){
+    .pms input, .pms select, .pms textarea{ font-size:16px !important; }
   }
 `;
 
@@ -1435,14 +1455,6 @@ function reservationTotal(res, core) {
     if (Number.isFinite(n) && n >= 0) return n;
   }
   return liveReservationTotal(res, core);
-}
-
-/* Limiteaza adulti+copii la capacitatea camerei — apelata din onChange,
-   cu valoarea CEALALTA (deja introdusa) ca sa nu depaseasca suma. */
-function clampOccupant(newVal, otherVal, capacity, min) {
-  const cap = Number(capacity) || 20;
-  const n = Math.max(min, Number(newVal) || min);
-  return Math.min(n, Math.max(min, cap - (Number(otherVal) || 0)));
 }
 
 /* Intl formatters are expensive to construct (far more than to use), and
@@ -2918,16 +2930,16 @@ function GroupEditor({ group, core, groups, updateGroups, reservations, updateRe
                   const roomCap = core.rooms.find((x) => x.id === r.roomId)?.capacity || 20;
                   return (
                     <>
-                      <label className="grp-num">
+                      <div className="grp-num">
                         <span>Adulți</span>
-                        <input type="number" min="1" max={roomCap} value={r.adults ?? 2}
-                          onChange={(e) => patchRow(r.id, { adults: clampOccupant(e.target.value, r.children ?? 0, roomCap, 1) })} />
-                      </label>
-                      <label className="grp-num">
+                        <OccupantStepper label="Adulți" value={r.adults ?? 2} otherValue={r.children ?? 0} capacity={roomCap} min={1}
+                          onChange={(n) => patchRow(r.id, { adults: n })} />
+                      </div>
+                      <div className="grp-num">
                         <span>Copii</span>
-                        <input type="number" min="0" max={roomCap} value={r.children ?? 0}
-                          onChange={(e) => patchRow(r.id, { children: clampOccupant(e.target.value, r.adults ?? 2, roomCap, 0) })} />
-                      </label>
+                        <OccupantStepper label="Copii" value={r.children ?? 0} otherValue={r.adults ?? 2} capacity={roomCap} min={0}
+                          onChange={(n) => patchRow(r.id, { children: n })} />
+                      </div>
                     </>
                   );
                 })()}
@@ -3535,6 +3547,30 @@ function CalendarView({ core, updateCore, reservations, updateReservations, grou
   );
 }
 
+/* Stepper +/- pentru adulti/copii — evita inputurile numerice native (care
+   fac zoom pe iOS la focus si permit tastarea unei valori peste capacitate)
+   si aplica limita direct in logica de crestere/scadere. */
+function OccupantStepper({ label, value, otherValue, capacity, min, onChange }) {
+  const cap = Number(capacity) || 20;
+  const max = Math.max(min, cap - (Number(otherValue) || 0));
+  const v = Math.min(max, Math.max(min, Number(value) || min));
+  const set = (n) => onChange(Math.min(max, Math.max(min, n)));
+  /* Cand capacitatea scade (camera schimbata, celalalt ocupant crescut),
+     valoarea afisata se clampeaza automat — sincronizam si starea reala
+     din parinte, ca ce se vede sa fie mereu ce se si salveaza. */
+  useEffect(() => {
+    if (Number(value) !== v) onChange(v);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [v]);
+  return (
+    <div className="stepper">
+      <button type="button" className="stepper-btn" onClick={() => set(v - 1)} disabled={v <= min} aria-label={`${label} — scade`}>−</button>
+      <span className="stepper-value" aria-live="polite">{v}</span>
+      <button type="button" className="stepper-btn" onClick={() => set(v + 1)} disabled={v >= max} aria-label={`${label} — crește`}>+</button>
+    </div>
+  );
+}
+
 function ReservationModal({ data, core, updateCore, reservations, updateReservations, groups, updateGroups, blocks, updateBlocks, onClose }) {
   useModalLock();
   const editing = data.reservation;
@@ -3956,16 +3992,14 @@ function ReservationModal({ data, core, updateCore, reservations, updateReservat
 
         {!isBlock && (
           <div className="field-row field-row-2col">
-            <label className="field">
+            <div className="field">
               <span className="fl">Adulți{isGroup ? " (per cameră)" : ""}</span>
-              <input type="number" min="1" max={maxOccupancy} value={adults}
-                onChange={(e) => setAdults(clampOccupant(e.target.value, children, maxOccupancy, 1))} />
-            </label>
-            <label className="field">
+              <OccupantStepper label="Adulți" value={adults} otherValue={children} capacity={maxOccupancy} min={1} onChange={setAdults} />
+            </div>
+            <div className="field">
               <span className="fl">Copii{isGroup ? " (per cameră)" : ""}</span>
-              <input type="number" min="0" max={maxOccupancy} value={children}
-                onChange={(e) => setChildren(clampOccupant(e.target.value, adults, maxOccupancy, 0))} />
-            </label>
+              <OccupantStepper label="Copii" value={children} otherValue={adults} capacity={maxOccupancy} min={0} onChange={setChildren} />
+            </div>
           </div>
         )}
         {!isBlock && (
@@ -4527,7 +4561,7 @@ function GuestHistory({ guest, core, reservations, onClose }) {
           <Stat label="Sejururi" value={live.length} sub="valide" />
           <Stat label="Nopți" value={nights} sub="total" />
           <Stat label="Valoare" value={fmtMoney(spent)} sub="cumulat" />
-          <Stat label="Ultimul" value={live[0] ? fmtDate(live[0].checkin) : "—"} sub="sosire" />
+          <Stat label="Ultimul" value={live[0] ? fmtDateFull(live[0].checkin) : "—"} sub="sosire" />
         </div>
 
         {stays.length === 0 ? (
