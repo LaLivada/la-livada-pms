@@ -1485,12 +1485,12 @@ const snakeGuest = (g) => ({
 });
 const camelRoom = (r) => ({
   id: r.id, name: r.name, type: r.type, capacity: r.capacity,
-  shellyId: r.shelly_id || "", sensiboId: r.sensibo_id || "",
+  boilerId: r.shelly_id || "", ventId: r.vent_id || "", sensiboId: r.sensibo_id || "",
   icalToken: r.ical_token, sortOrder: r.sort_order,
 });
 const snakeRoom = (r, idx) => ({
   id: r.id, name: r.name, type: r.type, capacity: r.capacity ?? 2,
-  shelly_id: r.shellyId || null, sensibo_id: r.sensiboId || null,
+  shelly_id: r.boilerId || null, vent_id: r.ventId || null, sensibo_id: r.sensiboId || null,
   sort_order: r.sortOrder ?? idx,
 });
 const camelGroup = (g) => ({
@@ -1567,7 +1567,7 @@ async function loadAll() {
     supabase.from("guests").select("*"),
     supabase.from("res_groups").select("*"),
     supabase.from("reservations").select("*"),
-    supabase.from("rates").select("*"),
+    supabase.from("rates").select("*").order("room_type"),
     supabase.from("seasons").select("*"),
   ]);
   for (const r of [rooms, guests, groups, res, rates, seasons]) if (r.error) throw r.error;
@@ -2728,6 +2728,12 @@ function GroupEditor({ group, core, groups, updateGroups, reservations, updateRe
       setError("Camera aleasă este ocupată în intervalul acestei camere.");
       return;
     }
+    const newCap = core.rooms.find((x) => x.id === newRoomId)?.capacity || 20;
+    const occ = (row.adults ?? 2) + (row.children ?? 0);
+    if (occ > newCap) {
+      setError(`Ocuparea actuală (${occ}) depășește capacitatea camerei alese (${newCap}).`);
+      return;
+    }
     const from = core.rooms.find((x) => x.id === row.roomId)?.name;
     const to = core.rooms.find((x) => x.id === newRoomId)?.name;
     await patchRow(id, { roomId: newRoomId });
@@ -3638,6 +3644,13 @@ function ReservationModal({ data, core, updateCore, reservations, updateReservat
     if (priceErr) { setError(priceErr); return; }
     if (!Number.isFinite(Number(adults)) || Number(adults) < 1) { setError("Numărul de adulți trebuie să fie cel puțin 1."); return; }
     if (!Number.isFinite(Number(children)) || Number(children) < 0) { setError("Numărul de copii nu poate fi negativ."); return; }
+    /* Adulti/copii se clampeaza reactiv doar cand se modifica direct acele
+       campuri — schimbarea camerei (sau a camerelor de grup) dupa aceea nu
+       le reajusteaza, asa ca ocuparea trebuie reverificata explicit aici. */
+    if (Number(adults) + Number(children) > maxOccupancy) {
+      setError(`Ocuparea aleasă (${Number(adults) + Number(children)}) depășește capacitatea ${isGroup ? "camerelor selectate" : "camerei selectate"} (${maxOccupancy}).`);
+      return;
+    }
 
     /* The status dropdown could otherwise set "checkedin" on any date,
        going around the same-day rule the buttons enforce. Only block the
@@ -4485,7 +4498,11 @@ function RoomsView({ core, updateCore, reservations, updateReservations, blocks,
 
   const save = async (room) => {
     const exists = core.rooms.some((r) => r.id === room.id);
-    const next = exists ? core.rooms.map((r) => (r.id === room.id ? room : r)) : [...core.rooms, room];
+    // Merge peste rândul existent (nu înlocuire completă), ca sortOrder/
+    // icalToken sau orice alt câmp neexpus în formular să nu se piardă.
+    const next = exists
+      ? core.rooms.map((r) => (r.id === room.id ? { ...r, ...room } : r))
+      : [...core.rooms, room];
     await updateCore({ ...core, rooms: next });
     await audit.push(exists ? "Cameră modificată" : "Cameră adăugată", room.name);
     setModal(null);
@@ -5233,15 +5250,18 @@ function TodayView({ core, reservations, updateReservations, housekeeping, updat
       if (r.status === "checkedin") ih.push(r);
       if (ci < tomorrow && co > today) {
         occ++;
-        const room = roomById[r.roomId];
-        if (room) rev += nightlyRate(today, room.type, core.rates, { adults: r.adults ?? 2, children: r.children ?? 0 });
+        // Cota pe noapte din pretul REAL (inghetat/manual) al rezervarii,
+        // nu un recalcul cu tarifele curente — altfel "Venit azi" nu se
+        // potriveste cu ce plateste efectiv oaspetele. Vezi reservationTotal.
+        const n = nightsBetween(r.checkin, r.checkout);
+        rev += reservationTotal(r, core) / n;
       }
     }
     arr.sort((a, b) => new Date(a.checkin) - new Date(b.checkin));
     dep.sort((a, b) => new Date(a.checkout) - new Date(b.checkout));
     return { arrivals: arr, departures: dep, inHouse: ih, occupiedNow: occ, revenueToday: rev };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [reservations, roomById, core.rates]);
+  }, [reservations, roomById, core]);
 
   const toClean = useMemo(
     () => core.rooms.filter((r) => (housekeeping[r.id]?.status || "clean") !== "clean"),
@@ -5429,7 +5449,12 @@ function ReportsView({ core, reservations }) {
       if (!Number.isFinite(ciMs) || !Number.isFinite(coMs)) continue;
       const ciDay = new Date(ciMs); ciDay.setHours(0, 0, 0, 0);
       const coDay = new Date(coMs); coDay.setHours(0, 0, 0, 0);
-      active.push({ res: r, ciMs, coMs, ciDayMs: ciDay.getTime(), coDayMs: coDay.getTime(), room: roomById.get(r.roomId) });
+      // Cota pe noapte din pretul REAL (inghetat/manual), nu un recalcul cu
+      // tarifele curente — la fel ca in TodayView.revenueToday, altfel
+      // veniturile de aici nu se potrivesc cu cele din "bySource" mai jos.
+      const totalNights = Math.max(1, Math.round((coDay - ciDay) / 86400000));
+      const perNight = reservationTotal(r, core) / totalNights;
+      active.push({ res: r, ciMs, coMs, ciDayMs: ciDay.getTime(), coDayMs: coDay.getTime(), room: roomById.get(r.roomId), perNight });
     }
 
     let roomNights = 0, revenue = 0;
@@ -5446,7 +5471,7 @@ function ReportsView({ core, reservations }) {
         if (e.ciDayMs <= dStart && e.coDayMs > dStart) {
           occ++;
           if (e.room) {
-            rev += nightlyRate(d, e.room.type, core.rates, { adults: e.res.adults ?? 2, children: e.res.children ?? 0 });
+            rev += e.perNight;
             if (nightsByType[e.room.type] != null) nightsByType[e.room.type]++;
           }
         }
@@ -5497,7 +5522,7 @@ function ReportsView({ core, reservations }) {
 
       <div className="stat-row">
         <Stat label="Ocupare" value={`${occupancy}%`} sub={`${roomNights} din ${capacity} camere-nopți`} />
-        <Stat label="Venit" value={fmtMoney(revenue)} sub="estimat din tarife" />
+        <Stat label="Venit" value={fmtMoney(revenue)} sub="prețuri reale, pe nopți din lună" />
         <Stat label="ADR" value={fmtMoney(adr)} sub="tarif mediu pe noapte" />
         <Stat label="RevPAR" value={fmtMoney(revpar)} sub="venit pe cameră disponibilă" />
       </div>
@@ -5694,6 +5719,15 @@ function RatesView({ core, updateCore }) {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const dirty = JSON.stringify(draft) !== JSON.stringify(rates);
+
+  /* Daca tarifele se schimba din exterior (ex. un reload fortat de o
+     eroare de sincronizare in alta parte a aplicatiei) cat timp pagina
+     asta e deschisa, draft-ul ramane blocat pe useState-ul initial —
+     resincronizam aici, dar doar cat timp nu exista modificari nesalvate. */
+  useEffect(() => {
+    if (!dirty) setDraft(rates);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rates]);
 
   const setBase = (key, v) => { setDraft((d) => ({ ...d, base: { ...d.base, [key]: v } })); setSaved(false); };
   const setSeason = (id, patch) => {

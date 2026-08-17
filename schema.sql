@@ -32,7 +32,8 @@ create table rooms (
   name        text not null,
   type        text not null check (type in ('tiny','loft')),
   capacity    int  not null default 2,
-  shelly_id   text,                        -- releu boiler/lumini
+  shelly_id   text,                        -- releu boiler
+  vent_id     text,                        -- releu ventilație
   sensibo_id  text,                        -- control AC
   ical_token  text not null default encode(gen_random_bytes(16),'hex'),
   active      boolean not null default true,

@@ -46,11 +46,14 @@ Deno.serve(async (req) => {
   if (roomErr || !room) return new Response("Not found", { status: 404 });
 
   const oneDayAgo = new Date(Date.now() - 24 * 3600 * 1000).toISOString();
+  // "cancelled" si "noshow" elibereaza camera in restul aplicatiei (vezi
+  // DEAD_STATUSES/isLive in pms-app.jsx) — feedul trebuie sa fie consistent,
+  // altfel Booking/Airbnb tin camera blocata dupa un no-show.
   const { data: rows, error: resErr } = await supabase
     .from("reservations")
     .select("id, checkin, checkout, status, source, external_uid")
     .eq("room_id", room.id)
-    .neq("status", "cancelled")
+    .not("status", "in", "(cancelled,noshow)")
     .gte("checkout", oneDayAgo);
   if (resErr) return new Response("Server error", { status: 500 });
 
