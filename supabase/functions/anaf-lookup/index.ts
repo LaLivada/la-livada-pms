@@ -1,0 +1,83 @@
+// Cauta datele unei firme la ANAF dupa CUI, ca sa nu mai fie introduse
+// manual la crearea unui client de facturare tip firma (denumire, nr.
+// Reg. Comertului, adresa sediului social).
+//
+// GET https://<project>.supabase.co/functions/v1/anaf-lookup?cui=12345678
+//
+// Spre deosebire de ical-feed, foloseste autentificarea Supabase standard
+// (JWT-ul userului logat, trimis automat de supabase-js) — nu se
+// deployeaza cu --no-verify-jwt, doar userii din aplicatie pot folosi
+// acest proxy catre serviciul public ANAF.
+//
+// deno-lint-ignore-file no-explicit-any
+const ANAF_URL = "https://webservicesp.anaf.ro/PlatitorTvaRest/api/v9/ws/tva";
+
+function todayISO(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function jsonResponse(body: unknown, status = 200): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { "Content-Type": "application/json" },
+  });
+}
+
+Deno.serve(async (req) => {
+  if (req.method !== "GET") return jsonResponse({ error: "Metodă nepermisă." }, 405);
+
+  const url = new URL(req.url);
+  const cuiRaw = (url.searchParams.get("cui") || "").toUpperCase().replace(/^RO/, "").trim();
+  if (!/^\d{2,10}$/.test(cuiRaw)) {
+    return jsonResponse({ error: "CUI invalid — trebuie să conțină doar cifre." }, 400);
+  }
+  const cui = Number(cuiRaw);
+
+  let anafRes: Response;
+  try {
+    anafRes = await fetch(ANAF_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify([{ cui, data: todayISO() }]),
+    });
+  } catch {
+    return jsonResponse({ error: "Nu am putut contacta serviciul ANAF. Încearcă din nou." }, 502);
+  }
+  if (!anafRes.ok) {
+    return jsonResponse({ error: "Serviciul ANAF nu a răspuns corect." }, 502);
+  }
+
+  let data: any;
+  try {
+    data = await anafRes.json();
+  } catch {
+    return jsonResponse({ error: "Răspuns ANAF invalid." }, 502);
+  }
+
+  const found = (data?.found || [])[0];
+  if (!found) {
+    return jsonResponse({ error: "Nu am găsit nicio firmă cu acest CUI la ANAF." }, 404);
+  }
+
+  const g = found.date_generale || {};
+  // Adresa sediului social e structurata (strada/numar/localitate/judet) —
+  // mult mai utila decat "adresa" din date_generale, care e un singur
+  // string liber. Cadem pe acesta doar daca sediul social lipseste.
+  const sediu = found.adresa_sediu_social || {};
+  const strada = [sediu.sdenumire_Strada, sediu.snumar_Strada].filter(Boolean).join(" nr. ");
+  const address = strada || g.adresa || "";
+  const city = sediu.sdenumire_Localitate || "";
+  const county = sediu.sdenumire_Judet || "";
+  const postalCode = sediu.scod_Postal || g.codPostal || "";
+
+  return jsonResponse({
+    cui: String(g.cui ?? cui),
+    denumire: g.denumire || "",
+    regCom: g.nrRegCom || "",
+    address,
+    city,
+    county,
+    postalCode,
+    telefon: g.telefon || "",
+  });
+});
