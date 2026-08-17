@@ -4302,19 +4302,19 @@ const GuestFields = React.memo(function GuestFields({ value, onChange, invalid }
   const err = (k) => (invalid?.has(k) ? " input-error" : "");
   return (
     <>
-      <div className="field-row">
+      <div className="field-row field-row-2col">
         <label className="field"><span className="fl">Nume *</span><input className={err("lastName")} value={value.lastName} onChange={set("lastName")} placeholder="Popescu" /></label>
         <label className="field"><span className="fl">Prenume *</span><input className={err("firstName")} value={value.firstName} onChange={set("firstName")} placeholder="Andrei" /></label>
       </div>
-      <div className="field-row">
+      <div className="field-row field-row-2col">
         <label className="field"><span className="fl">Telefon *</span><input className={err("phone")} value={value.phone} onChange={set("phone")} placeholder="07xx xxx xxx" /></label>
         <label className="field"><span className="fl">Email</span><input type="email" value={value.email} onChange={set("email")} placeholder="nume@exemplu.ro" /></label>
       </div>
-      <div className="field-row">
+      <div className="field-row field-row-2col">
         <label className="field"><span className="fl">Adresă</span><input value={value.address} onChange={set("address")} placeholder="Str. Exemplu nr. 10" /></label>
         <label className="field"><span className="fl">Oraș *</span><input className={err("city")} value={value.city} onChange={set("city")} /></label>
       </div>
-      <div className="field-row">
+      <div className="field-row field-row-2col">
         <div className="field">
           <label>Județ *</label>
           {value.country === "România" ? (
