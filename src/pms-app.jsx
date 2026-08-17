@@ -597,6 +597,7 @@ const STYLES = `
   /* ---------- Modal ---------- */
   .modal-overlay{
     position:fixed; top:0; left:0; right:0; height:100vh; height:100dvh; height:var(--vvh, 100dvh);
+    top:var(--vvt, 0px);
     background:rgba(20,19,17,0.38); display:flex; align-items:flex-end;
     justify-content:center; z-index:100; backdrop-filter:blur(1px);
     overscroll-behavior:contain; touch-action:manipulation;
@@ -655,8 +656,15 @@ const STYLES = `
   label.field{ cursor:pointer; }
   label.field input, label.field select, label.field textarea{ cursor:auto; }
   .field input, .field select, .field textarea{
-    width:100%; padding:11px 13px; border:1px solid var(--border); border-radius:var(--r-sm); font-size:var(--fs-md);
-    background:var(--surface); color:var(--text); transition:border-color .15s, box-shadow .15s;
+    width:100%; max-width:100%; min-width:0; padding:11px 13px; border:1px solid var(--border);
+    border-radius:var(--r-sm); font-size:var(--fs-md); background:var(--surface); color:var(--text);
+    transition:border-color .15s, box-shadow .15s;
+  }
+  /* iOS ignora border/border-radius/padding pe datetime-local/date/time si
+     foloseste propriul aspect nativ, care poate depasi latimea cutiei —
+     -webkit-appearance:none il obliga sa respecte stilul definit mai sus. */
+  .field input[type="datetime-local"], .field input[type="date"], .field input[type="time"]{
+    -webkit-appearance:none; appearance:none;
   }
   .field input:focus, .field select:focus, .field textarea:focus{
     outline:none; border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-soft);
@@ -1966,18 +1974,27 @@ function repairBlocks(list, core) {
 /* Safari iOS raporteaza gresit 100vh (include zona ascunsa sub bara de
    adrese), iar 100dvh nu e suportat decat din iOS 15.4. window.visualViewport
    e sustinut din iOS 13 si da inaltimea vizibila reala — o punem intr-o
-   variabila CSS pe care o foloseste fereastra modala pentru dimensionare. */
+   variabila CSS pe care o foloseste fereastra modala pentru dimensionare.
+   offsetTop conteaza la fel de mult: cand bara de adrese e vizibila, zona
+   vizibila incepe mai jos decat y=0 al paginii, iar un element position:fixed
+   cu top:0 se ancoreaza tot la y=0 (sub bara de adrese) daca nu scadem si
+   asta — altfel varful ferestrei modale ramane ascuns/taiat. */
 function useVisualViewportHeight() {
   useEffect(() => {
     const setVH = () => {
-      const h = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+      const vv = window.visualViewport;
+      const h = vv ? vv.height : window.innerHeight;
+      const top = vv ? vv.offsetTop : 0;
       document.documentElement.style.setProperty("--vvh", `${h}px`);
+      document.documentElement.style.setProperty("--vvt", `${top}px`);
     };
     setVH();
     window.visualViewport?.addEventListener("resize", setVH);
+    window.visualViewport?.addEventListener("scroll", setVH);
     window.addEventListener("resize", setVH);
     return () => {
       window.visualViewport?.removeEventListener("resize", setVH);
+      window.visualViewport?.removeEventListener("scroll", setVH);
       window.removeEventListener("resize", setVH);
     };
   }, []);
