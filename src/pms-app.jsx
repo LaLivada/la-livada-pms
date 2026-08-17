@@ -1251,9 +1251,7 @@ function seedReservations(core) {
 }
 
 /* Minimal first-run demo data: one small group so a brand-new install
-   isn't an empty calendar. Distinct from buildBulkSeedData below, which
-   is the on-demand bulk generator behind Setări → Date de test and marks
-   everything it creates with `seeded: true` so it can be removed again. */
+   isn't an empty calendar. */
 function seedGroups() {
   return [{
     id: SEED_GROUP_ID,
@@ -1262,179 +1260,6 @@ function seedGroups() {
     createdAt: new Date().toISOString(),
     notes: "",
   }];
-}
-
-/* ---------------------------------------------------------------
-   BULK TEST DATA GENERATOR (Setări → Date de test)
-   50 fictional guests, 3 groups, and a mixed occupancy calendar
-   over the next 14 days — all conflict-checked against whatever is
-   already booked, so it layers on top of real data safely.
-----------------------------------------------------------------*/
-const SEED_FIRST_M = [
-  "Andrei", "Mihai", "Alexandru", "Radu", "Cristian", "Vlad", "Bogdan", "Florin", "Gabriel",
-  "Daniel", "Marian", "Cătălin", "Adrian", "Ionuț", "Sergiu", "Robert", "Ștefan", "Constantin",
-  "Emanuel", "Marius", "Dragoș", "Iulian", "Paul", "Tudor", "Cosmin",
-];
-const SEED_FIRST_F = [
-  "Elena", "Maria", "Ioana", "Andreea", "Cristina", "Diana", "Raluca", "Gabriela", "Simona",
-  "Alexandra", "Daniela", "Mihaela", "Roxana", "Georgiana", "Anca", "Corina", "Laura", "Monica",
-  "Adriana", "Carmen", "Nicoleta", "Oana", "Bianca", "Larisa", "Teodora",
-];
-const SEED_LAST = [
-  "Popescu", "Ionescu", "Popa", "Stan", "Dumitru", "Gheorghe", "Constantin", "Marin", "Stoica",
-  "Rusu", "Munteanu", "Matei", "Ciobanu", "Nistor", "Radu", "Barbu", "Cristea", "Toma", "Enache",
-  "Neagu", "Florea", "Ilie", "Pop", "Moldovan", "Dinu", "Voicu", "Anghel", "Sandu", "Preda",
-  "Dobre", "Lazăr", "Iordache", "Grigore", "Vasilescu", "Ene", "Zamfir", "Ungureanu", "Chirilă", "Manea",
-];
-const SEED_PLACES = [
-  { city: "Cluj-Napoca", county: "Cluj" }, { city: "București", county: "București" },
-  { city: "Timișoara", county: "Timiș" }, { city: "Iași", county: "Iași" },
-  { city: "Brașov", county: "Brașov" }, { city: "Constanța", county: "Constanța" },
-  { city: "Craiova", county: "Dolj" }, { city: "Sibiu", county: "Sibiu" },
-  { city: "Oradea", county: "Bihor" }, { city: "Ploiești", county: "Prahova" },
-  { city: "Arad", county: "Arad" }, { city: "Târgu Mureș", county: "Mureș" },
-  { city: "Baia Mare", county: "Maramureș" }, { city: "Suceava", county: "Suceava" },
-  { city: "Piatra Neamț", county: "Neamț" },
-];
-const SEED_SOURCES = ["direct", "direct", "phone", "walkin", "booking", "booking", "airbnb", "other"];
-
-function seedRandInt(min, max) { return min + Math.floor(Math.random() * (max - min + 1)); }
-function seedPick(arr) { return arr[seedRandInt(0, arr.length - 1)]; }
-function seedPhone() { return `07${seedRandInt(10, 99)} ${seedRandInt(100, 999)} ${seedRandInt(100, 999)}`; }
-function seedPerson() {
-  const male = Math.random() < 0.5;
-  return { firstName: seedPick(male ? SEED_FIRST_M : SEED_FIRST_F), lastName: seedPick(SEED_LAST) };
-}
-function seedAtHour(day, hour) {
-  const d = new Date(day); d.setHours(hour, 0, 0, 0); return d;
-}
-function seedOverlaps(aStart, aEnd, bStart, bEnd) { return aStart < bEnd && aEnd > bStart; }
-
-/* Builds 50 guests, 3 groups, and filler reservations for the next 14
-   days. Everything is checked against `existingReservations` (plus
-   whatever this same run has already placed) so nothing double-books
-   a room that's genuinely occupied. */
-function buildBulkSeedData(core, existingReservations) {
-  const guests = [];
-  for (let i = 0; i < 50; i++) {
-    const { firstName, lastName } = seedPerson();
-    const place = seedPick(SEED_PLACES);
-    guests.push({
-      id: "gseed-" + uid(), lastName, firstName, name: `${lastName} ${firstName}`, seeded: true,
-      phone: seedPhone(), email: `${firstName.toLowerCase()}.${lastName.toLowerCase()}@example.com`,
-      address: "", city: place.city, county: place.county, country: "România", notes: "",
-    });
-  }
-
-  const windowStart = new Date(startOfDay(new Date()).getTime() + 86400000); // tomorrow
-  const windowEnd = new Date(windowStart.getTime() + 14 * 86400000);
-
-  /* [{roomId, checkin: Date, checkout: Date}] — seeded from what's
-     already booked, then grown as this run places new reservations. */
-  const occupied = existingReservations
-    .filter((r) => isLive(r) && new Date(r.checkout) > windowStart && new Date(r.checkin) < windowEnd)
-    .map((r) => ({ roomId: r.roomId, checkin: new Date(r.checkin), checkout: new Date(r.checkout) }));
-
-  const isFree = (roomId, ci, co) =>
-    !occupied.some((o) => o.roomId === roomId && seedOverlaps(ci, co, o.checkin, o.checkout));
-
-  const newReservations = [];
-  const newGroups = [];
-  let guestCursor = 0;
-  const nextGuest = () => guests[guestCursor++ % guests.length];
-
-  /* --- 3 groups, 2–4 rooms each, somewhere in the first 10 days --- */
-  const GROUP_NAMES = ["Familia", "Grupul", "Delegația"];
-  for (let g = 0; g < 3; g++) {
-    const size = seedRandInt(2, 4);
-    const startOffset = seedRandInt(0, 9);
-    const nights = seedRandInt(2, 4);
-    const ci = seedAtHour(new Date(windowStart.getTime() + startOffset * 86400000), seedPick([14, 15, 16, 17]));
-    const co = seedAtHour(new Date(ci.getTime() + nights * 86400000), seedPick([10, 11, 12]));
-
-    const candidates = [...core.rooms].sort(() => Math.random() - 0.5);
-    const freeRooms = candidates.filter((r) => isFree(r.id, ci, co)).slice(0, size);
-    if (freeRooms.length < 2) continue; // not enough room this run, skip this group
-
-    const mainGuest = nextGuest();
-    const groupId = "gr-" + uid();
-    const groupName = `${seedPick(GROUP_NAMES)} ${mainGuest.lastName}`;
-
-    freeRooms.forEach((room) => {
-      const occ = seedPerson();
-      const rec = {
-        id: uid(), roomId: room.id, guestId: mainGuest.id, groupId, seeded: true,
-        checkin: ci.toISOString(), checkout: co.toISOString(),
-        status: "confirmed", notes: "",
-        occupantLastName: occ.lastName, occupantFirstName: occ.firstName,
-        occupantPhone: seedPhone(), occupantName: `${occ.lastName} ${occ.firstName}`,
-        priceOverride: null, adults: seedRandInt(1, 2), children: seedRandInt(0, 1) === 1 ? 1 : 0,
-        source: seedPick(SEED_SOURCES), tags: [], messages: [],
-      };
-      newReservations.push(rec);
-      occupied.push({ roomId: room.id, checkin: ci, checkout: co });
-    });
-
-    newGroups.push({ id: groupId, name: groupName, mainGuestId: mainGuest.id, seeded: true, createdAt: new Date().toISOString(), notes: "" });
-  }
-
-  /* --- fill remaining slots per room over the 14-day window --- */
-  core.rooms.forEach((room) => {
-    let cursor = new Date(windowStart);
-    let guard = 0;
-    while (cursor < windowEnd && guard++ < 40) {
-      const roomBusy = occupied
-        .filter((o) => o.roomId === room.id && o.checkout > cursor)
-        .sort((a, b) => a.checkin - b.checkin);
-      const blocking = roomBusy.find((o) => o.checkin <= cursor);
-      if (blocking) { cursor = new Date(blocking.checkout); continue; }
-
-      /* Pick the actual checkin instant first: a "nice" hour on a fresh
-         gap day (cursor sits at local midnight with nothing right before
-         it), otherwise exactly the moment the room turned over — never
-         an independently-random hour on a turnover day, since that could
-         land earlier than the previous guest's real checkout time. Every
-         boundary below is then measured from this final ci, so nothing
-         can drift back into the reservation that just ended. */
-      const freshDay = cursor.getHours() === 0 && cursor.getMinutes() === 0;
-      const ci = freshDay ? seedAtHour(cursor, seedPick([13, 14, 15, 16, 17, 18])) : new Date(cursor);
-
-      const roomBusyAfterCi = occupied
-        .filter((o) => o.roomId === room.id && o.checkout > ci)
-        .sort((a, b) => a.checkin - b.checkin);
-      const nextStart = roomBusyAfterCi.length ? roomBusyAfterCi[0].checkin : windowEnd;
-      const maxNights = Math.floor((nextStart - ci) / 86400000);
-      if (maxNights < 1) { cursor = nextStart; continue; }
-
-      const roll = Math.random();
-      const wantNights = roll < 0.4 ? 1 : roll < 0.7 ? 2 : roll < 0.9 ? 3 : seedRandInt(4, 5);
-      const nights = Math.min(wantNights, maxNights);
-
-      const co = seedAtHour(new Date(ci.getTime() + nights * 86400000), seedPick([10, 11, 12]));
-      const guest = nextGuest();
-      const tagsRoll = Math.random();
-
-      newReservations.push({
-        id: uid(), roomId: room.id, guestId: guest.id, seeded: true,
-        checkin: ci.toISOString(), checkout: co.toISOString(),
-        status: "confirmed", notes: "",
-        priceOverride: Math.random() < 0.08 ? seedRandInt(150, 900) : null,
-        adults: seedRandInt(1, 4), children: Math.random() < 0.25 ? seedRandInt(1, 2) : 0,
-        source: seedPick(SEED_SOURCES),
-        tags: tagsRoll < 0.1 ? ["VIP"] : tagsRoll < 0.16 ? ["Client fidel"] : [],
-        messages: [],
-      });
-      occupied.push({ roomId: room.id, checkin: ci, checkout: co });
-
-      const gapNights = Math.random() < 0.55 ? 0 : Math.random() < 0.8 ? 1 : 2;
-      cursor = gapNights > 0
-        ? startOfDay(new Date(co.getTime() + gapNights * 86400000))
-        : new Date(co);
-    }
-  });
-
-  const summary = `${guests.length} clienți noi · ${newGroups.length} grupuri · ${newReservations.length} rezervări adăugate pe următoarele 14 zile.`;
-  return { guests, newReservations, newGroups, summary };
 }
 
 const STATUS_LABEL = {
@@ -2412,7 +2237,6 @@ const SETTINGS_ITEMS = [
   { key: "reports", label: "Rapoarte", icon: BarChart3, desc: "Ocupare, venit, ADR și RevPAR pe luni", roles: ["admin"] },
   { key: "users", label: "Useri și drepturi", icon: UserCog, desc: "Conturi și roluri", roles: ["admin"] },
   { key: "log", label: "Jurnal de activitate", icon: History, desc: "Cine ce a modificat și când", roles: ["admin"] },
-  { key: "seed", label: "Date de test", icon: Sparkles, desc: "Generează clienți și rezervări fictive pentru testare", roles: ["admin"] },
 ];
 
 const VIEW_TITLES = {
@@ -2427,7 +2251,6 @@ const VIEW_TITLES = {
   rooms: ["Configurare camere", "Mapare dispozitive Shelly / Sensibo"],
   users: ["Useri și drepturi", "Acces pe roluri"],
   profile: ["Profilul meu", "Cont și securitate"],
-  seed: ["Date de test", "Generează clienți și rezervări fictive"],
 };
 
 function initials(name) {
@@ -2547,11 +2370,6 @@ function Shell({ user, view, setView, onLogout, core, updateCore, reservations, 
               blocks={blocks} updateBlocks={updateBlocks} />
           )}
           {safeView === "users" && <UsersView />}
-          {safeView === "seed" && (
-            <SeedDataView core={core} updateCore={updateCore}
-              reservations={reservations} updateReservations={updateReservations}
-              groups={groups} updateGroups={updateGroups} />
-          )}
         </div>
       </div>
     </div>
@@ -5019,132 +4837,6 @@ function UserModal({ user, list, onSave, onClose }) {
           <button className="btn btn-primary" style={{ width: "auto" }} onClick={submit} disabled={busy}><Check size={15} /> Salvează</button>
         </div>
     </Dialog>
-  );
-}
-
-/* ---------------------------------------------------------------
-   SEED DATA VIEW (Setări → Date de test)
-----------------------------------------------------------------*/
-function SeedDataView({ core, updateCore, reservations, updateReservations, groups, updateGroups }) {
-  const [confirmOpen, setConfirmOpen] = useState(false);
-  const [confirmClear, setConfirmClear] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const [result, setResult] = useState(null);
-
-  const seededGuests = core.guests.filter((g) => g.seeded).length;
-  const seededRes = reservations.filter((r) => r.seeded).length;
-  const seededGroups = groups.filter((g) => g.seeded).length;
-  const hasSeeded = seededGuests + seededRes + seededGroups > 0;
-
-  const run = async () => {
-    setBusy(true);
-    try {
-      const { guests, newReservations, newGroups, summary } = buildBulkSeedData(core, reservations);
-      await updateCore({ ...core, guests: [...core.guests, ...guests] });
-      await updateReservations([...reservations, ...newReservations]);
-      await updateGroups([...groups, ...newGroups]);
-      await audit.push("Date de test generate", summary);
-      toaster.show(summary, { tone: "ok" });
-      setResult(summary);
-    } finally {
-      setBusy(false);
-      setConfirmOpen(false);
-    }
-  };
-
-  /* Removes only records this generator created (seeded: true), so real
-     data entered alongside them is never touched. */
-  const clear = async () => {
-    setBusy(true);
-    try {
-      const before = { guests: core.guests, res: reservations, groups };
-      const summary = `${seededGuests} clienți · ${seededGroups} grupuri · ${seededRes} rezervări șterse.`;
-      await updateCore({ ...core, guests: core.guests.filter((g) => !g.seeded) });
-      await updateReservations(reservations.filter((r) => !r.seeded));
-      await updateGroups(groups.filter((g) => !g.seeded));
-      await audit.push("Date de test șterse", summary);
-      toaster.show(summary, {
-        tone: "danger",
-        onUndo: async () => {
-          await updateCore({ ...core, guests: before.guests });
-          await updateReservations(before.res);
-          await updateGroups(before.groups);
-          await audit.push("Ștergere date de test anulată", summary);
-        },
-      });
-      setResult(null);
-    } finally {
-      setBusy(false);
-      setConfirmClear(false);
-    }
-  };
-
-  return (
-    <div>
-      <div className="note" style={{ marginBottom: 14 }}>
-        Generează 50 de clienți fictivi, 3 grupuri de câte 2–4 camere și rezervări de durate
-        variate (de o noapte și de mai multe nopți) care umplu calendarul pentru următoarele
-        14 zile. Se adaugă peste datele existente, fără să șteargă nimic, și se verifică
-        împotriva rezervărilor reale ca să nu suprapună nicio cameră deja ocupată.
-      </div>
-
-      {hasSeeded && (
-        <div className="note" style={{ marginBottom: 14 }}>
-          În baza de date există deja date de test: <strong>{seededGuests} clienți</strong>,{" "}
-          <strong>{seededGroups} grupuri</strong> și <strong>{seededRes} rezervări</strong>.
-          Șterge-le înainte de a genera un set nou, ca să nu se acumuleze.
-        </div>
-      )}
-
-      <div className="panel" style={{ padding: 16 }}>
-        <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-          {!confirmOpen && !confirmClear && (
-            <>
-              <button className="btn btn-primary" style={{ width: "auto" }}
-                disabled={hasSeeded} onClick={() => setConfirmOpen(true)}>
-                <Sparkles size={15} /> Generează date de test
-              </button>
-              {hasSeeded && (
-                <button className="btn btn-danger" style={{ width: "auto" }} onClick={() => setConfirmClear(true)}>
-                  <Trash2 size={15} /> Șterge datele de test
-                </button>
-              )}
-            </>
-          )}
-
-          {confirmOpen && (
-            <>
-              <span style={{ fontSize: 13, color: "var(--text-muted)" }}>
-                Adaugă 50 clienți, 3 grupuri și rezervări pe 14 zile. Sigur?
-              </span>
-              <button className="btn btn-primary" style={{ width: "auto" }} disabled={busy} onClick={run}>
-                {busy ? "Se generează…" : "Confirmă"}
-              </button>
-              <button className="btn btn-ghost" disabled={busy} onClick={() => setConfirmOpen(false)}>Renunță</button>
-            </>
-          )}
-
-          {confirmClear && (
-            <>
-              <span style={{ fontSize: 13, color: "var(--text-muted)" }}>
-                Șterge {seededGuests} clienți, {seededGroups} grupuri și {seededRes} rezervări fictive.
-                Datele reale rămân neatinse. Sigur?
-              </span>
-              <button className="btn btn-danger" style={{ width: "auto" }} disabled={busy} onClick={clear}>
-                {busy ? "Se șterge…" : "Șterge tot"}
-              </button>
-              <button className="btn btn-ghost" disabled={busy} onClick={() => setConfirmClear(false)}>Renunță</button>
-            </>
-          )}
-        </div>
-
-        {result && (
-          <div className="note" style={{ marginTop: 14 }}>
-            <Check size={14} style={{ verticalAlign: "-2px", marginRight: 4 }} />{result}
-          </div>
-        )}
-      </div>
-    </div>
   );
 }
 
