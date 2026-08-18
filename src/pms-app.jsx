@@ -767,8 +767,8 @@ const STYLES = `
      A4 real dupa singlePage: modul de export scaleaza acest dreptunghi la
      210mm, iar min-height:1123px ii pastreaza si inaltimea de 297mm cand
      factura are putine linii; scroll orizontal doar pe ecrane inguste. */
-  .inv-sheet-wrap{ overflow-x:auto; -webkit-overflow-scrolling:touch; }
-  .inv-sheet{ width:794px; min-height:1123px; display:flex; flex-direction:column; }
+  .inv-sheet-wrap{ overflow:hidden; }
+  .inv-sheet{ width:794px; min-height:1123px; display:flex; flex-direction:column; transform-origin:top left; }
   .inv-top{ padding:32px 40px 0; }
   .inv-top-slogan{ font-size:9px; letter-spacing:.18em; text-transform:uppercase; color:#999; margin-top:6px; }
   .inv-top-issuer{ font-size:10px; color:#5a5650; line-height:1.6; margin-top:10px; }
@@ -2941,7 +2941,7 @@ function GroupPrint({ group, core, reservations, onClose }) {
       <div className="arrival-sheet" ref={sheetRef}>
         <div className="fisa rooming-sheet">
           <div className="fisa-top">
-            <img src="/logo.svg" alt="La Livadă" className="fisa-logo-img" />
+            <img src="/logo.png" alt="La Livadă" className="fisa-logo-img" />
             <div className="rs-meta">
               <div className="rs-meta-label">Listă cazare</div>
               <div className="rs-meta-value">{group.name}</div>
@@ -4760,6 +4760,30 @@ function InvoicePrint({ invoiceId, core, onClose, onChanged }) {
     }
   };
 
+  // Coala e fixata la 794px (latimea A4) ca sa iasa PDF-ul corect (vezi
+  // downloadElementAsPDF), dar pe ecran trebuie sa incapa in modal/telefon —
+  // o scalam vizual cu transform pe un wrapper din JURUL .fisa, nu pe .fisa
+  // insasi, ca html2canvas sa capteze mereu elementul la dimensiunea lui
+  // nativa, indiferent de latimea ecranului curent.
+  const scaleWrapRef = useRef(null);
+  const [scale, setScale] = useState(1);
+  const [sheetH, setSheetH] = useState(1123);
+  useEffect(() => {
+    const wrap = scaleWrapRef.current;
+    const sheet = fisaRef.current;
+    if (!wrap || !sheet) return;
+    const update = () => {
+      const w = wrap.clientWidth;
+      setScale(w > 0 ? Math.min(1, w / 794) : 1);
+      setSheetH(sheet.offsetHeight);
+    };
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(wrap);
+    ro.observe(sheet);
+    return () => ro.disconnect();
+  }, [invoice, lines]);
+
   const load = useCallback(async () => {
     const { data: inv } = await supabase.from("invoices").select("*").eq("id", invoiceId).maybeSingle();
     const { data: li } = await supabase.from("invoice_items").select("*").eq("invoice_id", invoiceId).order("sort_order");
@@ -4840,10 +4864,11 @@ function InvoicePrint({ invoiceId, core, onClose, onChanged }) {
         </button>
       </div>
 
-      <div className="inv-sheet-wrap">
+      <div className="inv-sheet-wrap" ref={scaleWrapRef} style={{ height: sheetH * scale }}>
+      <div style={{ transform: `scale(${scale})`, transformOrigin: "top left" }}>
       <div className="fisa inv-sheet" ref={fisaRef}>
         <div className="inv-top">
-          <img src="/logo.svg" alt="La Livadă" className="fisa-logo-img" />
+          <img src="/logo.png" alt="La Livadă" className="fisa-logo-img" />
           <div className="inv-top-slogan">Complex de cazare</div>
           <div className="inv-top-issuer">
             <strong>{issuer.name || "—"}</strong>
@@ -5002,6 +5027,7 @@ function InvoicePrint({ invoiceId, core, onClose, onChanged }) {
             </div>
           </div>
         </div>
+      </div>
       </div>
       </div>
 
@@ -7965,7 +7991,7 @@ function ArrivalSheet({ res, core, groups }) {
   return (
     <div className="fisa">
       <div className="fisa-top">
-        <img src="/logo.svg" alt="La Livadă" className="fisa-logo-img" />
+        <img src="/logo.png" alt="La Livadă" className="fisa-logo-img" />
         <div className="fisa-room">
           <div>Nr.</div>
           <div>ROOM No. {room.name || ""}</div>
