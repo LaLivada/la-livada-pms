@@ -5079,6 +5079,7 @@ function ReservationModal({ data, core, updateCore, reservations, updateReservat
   };
 
   const saveNewGuest = async (guest) => {
+    if (core.guests.some((g) => g.id === guest.id)) { setGuestId(guest.id); setGuestQuery(""); setGuestFormSeed(null); return; }
     await updateCore({ ...core, guests: [...core.guests, guest] });
     await audit.push("Client adăugat", guestFullName(guest));
     setGuestId(guest.id);
@@ -5087,6 +5088,7 @@ function ReservationModal({ data, core, updateCore, reservations, updateReservat
   };
 
   const saveNewBillingCustomer = async (customer) => {
+    if ((core.billingCustomers || []).some((c) => c.id === customer.id)) { setBillingCustomerId(customer.id); setBillingModalOpen(false); return; }
     await updateCore({ ...core, billingCustomers: [...(core.billingCustomers || []), customer] });
     await audit.push("Client de facturare adăugat", billingCustomerLabel(customer));
     setBillingCustomerId(customer.id);
@@ -6321,11 +6323,17 @@ function BillingCustomerModal({ customer, seedFromGuest, onSave, onClose }) {
     ...(customer || {}),
   }));
   const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
+  // Generat o singura data — nu la fiecare submit, ca un dublu-tap pe
+  // "Salveaza" (cat timp raspunsul serverului intarzie) sa nu produca doi
+  // clienti locali cu id-uri diferite inainte ca salvarea sa se termine.
+  const idRef = useRef(customer?.id || uid());
   const set = (k) => (e) => { setC({ ...c, [k]: e.target.value }); setError(""); };
 
   const cuiCheck = c.kind === "company" ? validateCUIFormat(c.cui) : { ok: true, warn: false };
 
-  const submit = () => {
+  const submit = async () => {
+    if (saving) return;
     const REQUIRED = c.kind === "person"
       ? [["lastName", "nume"], ["firstName", "prenume"]]
       : [["companyName", "denumire firmă"], ["cui", "CUI"]];
@@ -6340,7 +6348,12 @@ function BillingCustomerModal({ customer, seedFromGuest, onSave, onClose }) {
       setError(cuiCheck.message);
       return;
     }
-    onSave({ ...c, id: customer?.id || uid() });
+    setSaving(true);
+    try {
+      await onSave({ ...c, id: idRef.current });
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -6410,8 +6423,10 @@ function BillingCustomerModal({ customer, seedFromGuest, onSave, onClose }) {
       {error && <div className="error-text" role="alert" style={{ marginBottom: 10 }}>{error}</div>}
       <div className="modal-actions">
         <div className="grow" />
-        <button className="btn btn-ghost" onClick={onClose}>Anulează</button>
-        <button className="btn btn-primary" style={{ width: "auto" }} onClick={submit}><Check size={15} /> Salvează</button>
+        <button className="btn btn-ghost" onClick={onClose} disabled={saving}>Anulează</button>
+        <button className="btn btn-primary" style={{ width: "auto" }} onClick={submit} disabled={saving}>
+          <Check size={15} /> {saving ? "Se salvează…" : "Salvează"}
+        </button>
       </div>
     </Dialog>
   );
@@ -6422,13 +6437,22 @@ function GuestModal({ guest, onSave, onClose }) {
   const [g, setG] = useState(() => ({ ...emptyGuest(), ...(guest || {}) }));
   const [error, setError] = useState("");
   const [invalid, setInvalid] = useState(null);
+  const [saving, setSaving] = useState(false);
+  // Generat o singura data, nu la fiecare submit — altfel un dublu-tap pe
+  // "Salveaza" (usor de facut pe mobil cat timp raspunsul serverului
+  // intarzie) produce doua id-uri diferite, deci doi clienti locali
+  // distincti adaugati optimist in core.guests inainte ca salvarea sa se
+  // termine si dialogul sa se inchida — apar duplicate in cautare chiar
+  // daca la final se salveaza un singur rand in baza de date.
+  const idRef = useRef(guest?.id || uid());
 
   const REQUIRED = [
     ["lastName", "nume"], ["firstName", "prenume"], ["phone", "telefon"],
     ["city", "oraș"], ["county", "județ"], ["country", "țară"],
   ];
 
-  const submit = () => {
+  const submit = async () => {
+    if (saving) return;
     const missing = REQUIRED.filter(([k]) => !String(g[k] ?? "").trim());
     if (missing.length) {
       setInvalid(new Set(missing.map(([k]) => k)));
@@ -6436,16 +6460,21 @@ function GuestModal({ guest, onSave, onClose }) {
       return;
     }
     setInvalid(null);
+    setSaving(true);
     const record = {
       ...g,
-      id: guest?.id || uid(),
+      id: idRef.current,
       lastName: g.lastName.trim(), firstName: g.firstName.trim(),
       phone: g.phone.trim(), email: g.email.trim(),
       address: g.address.trim(), city: g.city.trim(),
       county: g.county.trim(), country: g.country.trim(),
     };
     record.name = guestFullName(record);
-    onSave(record);
+    try {
+      await onSave(record);
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -6455,8 +6484,10 @@ function GuestModal({ guest, onSave, onClose }) {
         {error && <div className="error-text" role="alert" style={{ marginBottom: 10 }}>{error}</div>}
         <div className="modal-actions">
           <div className="grow" />
-          <button className="btn btn-ghost" onClick={onClose}>Anulează</button>
-          <button className="btn btn-primary" style={{ width: "auto" }} onClick={submit}><Check size={15} /> Salvează</button>
+          <button className="btn btn-ghost" onClick={onClose} disabled={saving}>Anulează</button>
+          <button className="btn btn-primary" style={{ width: "auto" }} onClick={submit} disabled={saving}>
+            <Check size={15} /> {saving ? "Se salvează…" : "Salvează"}
+          </button>
         </div>
     </Dialog>
   );
