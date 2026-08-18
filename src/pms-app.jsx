@@ -8091,7 +8091,12 @@ function TodayView({ core, reservations, updateReservations, housekeeping, updat
     const today = startOfDay(new Date());
     const tomorrow = new Date(today.getTime() + 86400000);
     const arr = [], dep = [], ih = [];
-    let occ = 0, rev = 0;
+    // Set de camere, nu numar de rezervari — intr-o zi de turnover (o
+    // camera eliberata si realocata azi) doua rezervari diferite se
+    // suprapun cu azi pe aceeasi camera; numaratul pe rezervari dubla
+    // acea camera si umfla gradul de ocupare afisat pe "Azi".
+    const occRooms = new Set();
+    let rev = 0;
 
     for (const r of reservations) {
       if (!isLive(r)) continue;
@@ -8100,7 +8105,7 @@ function TodayView({ core, reservations, updateReservations, housekeeping, updat
       if (co >= today && co < tomorrow) dep.push(r);
       if (r.status === "checkedin") ih.push(r);
       if (ci < tomorrow && co > today) {
-        occ++;
+        occRooms.add(r.roomId);
         // Cota pe noapte din pretul REAL (inghetat/manual) al rezervarii,
         // nu un recalcul cu tarifele curente — altfel "Venit azi" nu se
         // potriveste cu ce plateste efectiv oaspetele. Vezi reservationTotal.
@@ -8114,7 +8119,7 @@ function TodayView({ core, reservations, updateReservations, housekeeping, updat
     }
     arr.sort((a, b) => new Date(a.checkin) - new Date(b.checkin));
     dep.sort((a, b) => new Date(a.checkout) - new Date(b.checkout));
-    return { arrivals: arr, departures: dep, inHouse: ih, occupiedNow: occ, revenueToday: rev };
+    return { arrivals: arr, departures: dep, inHouse: ih, occupiedNow: occRooms.size, revenueToday: rev };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reservations, roomById, core]);
 
@@ -8169,8 +8174,8 @@ function TodayView({ core, reservations, updateReservations, housekeeping, updat
       <AutomationStrip core={core} reservations={reservations} />
 
       <div className="today-cols">
-        <Section title="Sosiri" count={arrivals.length} empty="Nicio sosire astăzi.">
-          {arrivals.map((r) => (
+        <Section title="Sosiri" items={arrivals} empty="Nicio sosire astăzi."
+          renderItem={(r) => (
             <div className="list-row" key={r.id}>
               <div style={{ minWidth: 0 }}>
                 <div className="primary">{guestName(r)}</div>
@@ -8199,11 +8204,11 @@ function TodayView({ core, reservations, updateReservations, housekeeping, updat
                 )}
               </div>
             </div>
-          ))}
-        </Section>
+          )}
+        />
 
-        <Section title="Plecări" count={departures.length} empty="Nicio plecare astăzi.">
-          {departures.map((r) => (
+        <Section title="Plecări" items={departures} empty="Nicio plecare astăzi."
+          renderItem={(r) => (
             <div className="list-row" key={r.id}>
               <div style={{ minWidth: 0 }}>
                 <div className="primary">{guestName(r)}</div>
@@ -8222,11 +8227,11 @@ function TodayView({ core, reservations, updateReservations, housekeeping, updat
                 )}
               </div>
             </div>
-          ))}
-        </Section>
+          )}
+        />
 
-        <Section title="De pregătit" count={toClean.length} empty="Toate camerele sunt curate.">
-          {toClean.map((room) => (
+        <Section title="De pregătit" items={toClean} empty="Toate camerele sunt curate."
+          renderItem={(room) => (
             <div className="list-row" key={room.id}>
               <div>
                 <div className="primary mono">{room.name}</div>
@@ -8236,19 +8241,19 @@ function TodayView({ core, reservations, updateReservations, housekeeping, updat
                 Vezi <ArrowRight size={14} />
               </button>
             </div>
-          ))}
-        </Section>
+          )}
+        />
 
-        <Section title="În casă acum" count={inHouse.length} empty="Nicio cameră ocupată.">
-          {inHouse.map((r) => (
+        <Section title="În casă acum" items={inHouse} empty="Nicio cameră ocupată."
+          renderItem={(r) => (
             <div className="list-row" key={r.id}>
               <div>
                 <div className="primary">{guestName(r)}</div>
                 <div className="secondary"><span className="mono">{roomName(r.roomId)}</span> · pleacă {fmtDate(r.checkout)}</div>
               </div>
             </div>
-          ))}
-        </Section>
+          )}
+        />
       </div>
 
       {arrivalRes && <ArrivalForm res={arrivalRes} core={core} groups={groups} onClose={() => setArrivalRes(null)} />}
@@ -8266,12 +8271,30 @@ const Stat = React.memo(function Stat({ label, value, sub }) {
   );
 });
 
-const Section = React.memo(function Section({ title, count, empty, children }) {
-  const arr = React.Children.toArray(children);
+const TODAY_SECTION_PAGE_SIZE = 10;
+
+const Section = React.memo(function Section({ title, items, renderItem, empty }) {
+  const [page, setPage] = useState(0);
+  const pageCount = Math.max(1, Math.ceil(items.length / TODAY_SECTION_PAGE_SIZE));
+  const safePage = Math.min(page, pageCount - 1);
+  const pageItems = items.slice(safePage * TODAY_SECTION_PAGE_SIZE, (safePage + 1) * TODAY_SECTION_PAGE_SIZE);
   return (
     <div className="panel section-panel">
-      <div className="section-head">{title}<span className="badge-count">{count}</span></div>
-      {arr.length ? arr : <div className="section-empty">{empty}</div>}
+      <div className="section-head">{title}<span className="badge-count">{items.length}</span></div>
+      {pageItems.length ? pageItems.map(renderItem) : <div className="section-empty">{empty}</div>}
+      {pageCount > 1 && (
+        <div className="pager">
+          <button className="btn btn-ghost" style={{ width: "auto" }} disabled={safePage === 0}
+            onClick={() => setPage((p) => Math.max(0, p - 1))}>
+            <ChevronLeft size={15} />
+          </button>
+          <span className="pager-info">Pagina {safePage + 1} din {pageCount}</span>
+          <button className="btn btn-ghost" style={{ width: "auto" }} disabled={safePage >= pageCount - 1}
+            onClick={() => setPage((p) => Math.min(pageCount - 1, p + 1))}>
+            <ChevronRight size={15} />
+          </button>
+        </div>
+      )}
     </div>
   );
 });
