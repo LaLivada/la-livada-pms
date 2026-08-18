@@ -86,7 +86,7 @@ const STYLES = `
     .btn-primary{ color:#0F1216; }
     .cal-daycell.today{ color:#0F1216; }
     .avatar-btn.active, .room-chip.on, .tag-chip.on, .guest-chip-av, .big-avatar,
-    .rail .mark, .brand-mark, .settings-card:hover .ico{ color:#0F1216; }
+    .rail .mark, .settings-card:hover .ico{ color:#0F1216; }
     .cal-bar.block-bar{
       background:repeating-linear-gradient(45deg, var(--surface-3), var(--surface-3) 6px, var(--surface-2) 6px, var(--surface-2) 12px);
     }
@@ -134,11 +134,8 @@ const STYLES = `
       var(--bg);
   }
   .login-card{ width:100%; max-width:400px; }
-  .login-brand{ display:flex; align-items:center; gap:10px; margin-bottom:28px; }
-  .login-brand .mark{
-    width:36px; height:36px; border-radius:var(--r-sm); background:var(--accent);
-    display:flex; align-items:center; justify-content:center; color:#fff; flex-shrink:0;
-  }
+  .login-brand{ display:flex; align-items:center; gap:12px; margin-bottom:28px; }
+  .login-logo-img{ height:40px; width:auto; flex-shrink:0; }
   .login-brand h1{ font-size:var(--fs-xl); font-weight:600; margin:0; letter-spacing:-0.01em; }
   .login-brand p{ margin:0; font-size:var(--fs-base); color:var(--text-muted); }
   .login-user-field{ margin-bottom:18px; }
@@ -186,10 +183,7 @@ const STYLES = `
     border-radius:var(--r-md); text-align:left; transition:background .15s; min-width:0;
   }
   .brand-block:hover{ background:var(--surface-2); }
-  .brand-mark{
-    width:34px; height:34px; border-radius:var(--r-sm); background:var(--accent); color:#fff; flex-shrink:0;
-    display:flex; align-items:center; justify-content:center;
-  }
+  .brand-mark-img{ height:30px; width:auto; flex-shrink:0; }
   .brand-text{ min-width:0; }
   .brand-name{
     display:block; font-size:var(--fs-xl); font-weight:650; letter-spacing:-0.025em; color:var(--text);
@@ -734,7 +728,7 @@ const STYLES = `
   .arrival-modal{ max-width:700px; }
   .fisa{ border:1px solid #d0d0cc; font-family:'Inter',sans-serif; color:#2b2b28; background:#fff; }
   .fisa-top{ display:flex; align-items:center; justify-content:space-between; padding:12px 16px; border-bottom:1px solid #d0d0cc; }
-  .fisa-logo{ font-size:19px; font-weight:700; letter-spacing:.14em; color:#b08d3f; font-family:Georgia,serif; }
+  .fisa-logo-img{ height:34px; width:auto; display:block; }
   .fisa-room{ text-align:right; font-size:11.5px; color:#333; line-height:1.5; }
   .fisa-title{ text-align:center; font-size:17px; font-weight:500; padding:10px 8px 2px; }
   .fisa-sub{ text-align:center; font-size:11px; color:#777; padding-bottom:9px; border-bottom:1px solid #d0d0cc; }
@@ -770,7 +764,6 @@ const STYLES = `
     gap:20px; padding:22px 28px; border-bottom:1px solid #d0d0cc;
   }
   .inv-hero-brand{ }
-  .inv-hero-logo{ font-size:19px; font-weight:700; letter-spacing:.14em; color:#b08d3f; font-family:Georgia,serif; }
   .inv-hero-slogan{ font-size:9px; letter-spacing:.18em; text-transform:uppercase; color:#999; margin-top:2px; }
   .inv-hero-issuer{ font-size:10.5px; color:#555; line-height:1.65; margin-top:14px; }
   .inv-hero-issuer strong{ display:block; color:#141412; font-size:11.5px; margin-bottom:3px; }
@@ -2642,7 +2635,7 @@ function Login({ onLogin }) {
     <div className="login-wrap">
       <div className="login-card">
         <div className="login-brand">
-          <div className="mark"><DoorOpen size={18} /></div>
+          <img src="/logo.svg" alt="La Livadă" className="login-logo-img" />
           <div>
             <h1>La Livada PMS</h1>
             <p>Autentifica-te pentru a continua</p>
@@ -2746,7 +2739,7 @@ function Shell({ user, view, setView, onLogout, core, updateCore, reservations, 
       <div className="main">
         <header className={"topbar" + (safeView === "calendar" ? " topbar-cal" : "")}>
           <button className="brand-block" onClick={() => setView(homeView)} title="Înapoi la Azi">
-            <span className="brand-mark"><DoorOpen size={16} /></span>
+            <img src="/logo.svg" alt="La Livadă" className="brand-mark-img" />
             <span className="brand-text">
               <span className="brand-name">La Livada</span>
               <span className="sub">{title}</span>
@@ -2933,7 +2926,7 @@ function GroupPrint({ group, core, reservations, onClose }) {
       <div className="arrival-sheet" ref={sheetRef}>
         <div className="fisa rooming-sheet">
           <div className="fisa-top">
-            <div className="fisa-logo">LA LIVADĂ</div>
+            <img src="/logo.svg" alt="La Livadă" className="fisa-logo-img" />
             <div className="rs-meta">
               <div className="rs-meta-label">Listă cazare</div>
               <div className="rs-meta-value">{group.name}</div>
@@ -4835,7 +4828,7 @@ function InvoicePrint({ invoiceId, core, onClose, onChanged }) {
       <div className="fisa" ref={fisaRef}>
         <div className="inv-hero">
           <div className="inv-hero-brand">
-            <div className="inv-hero-logo">LA LIVADĂ</div>
+            <img src="/logo.svg" alt="La Livadă" className="fisa-logo-img" />
             <div className="inv-hero-slogan">Complex de cazare</div>
             <div className="inv-hero-issuer">
               <strong>{issuer.name || "—"}</strong>
