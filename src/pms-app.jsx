@@ -2054,8 +2054,9 @@ class ErrorBoundary extends React.Component {
    data intr-un canvas, deci rezultatul e identic pe orice browser si nu
    mai depinde deloc de motorul de print/paginare al fiecaruia.
 ----------------------------------------------------------------*/
-async function downloadElementAsPDF(el, filename) {
+async function downloadElementAsPDF(el, filename, opts = {}) {
   if (!el) return;
+  const { singlePage = false } = opts;
   const canvas = await html2canvas(el, {
     scale: 2, backgroundColor: "#ffffff", useCORS: true,
     // .no-print e gandit pentru @media print (window.print()) — aici nu
@@ -2070,6 +2071,20 @@ async function downloadElementAsPDF(el, filename) {
   const pageHeight = pdf.internal.pageSize.getHeight();
   const imgWidth = pageWidth;
   const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+  if (singlePage && imgHeight > pageHeight) {
+    // Documente scurte (facturi) trebuie sa incapa mereu pe o pagina —
+    // umplerea pe toata latimea pagini + paginare (varianta de mai jos)
+    // rupea in 2 pagini orice factura cu mai multe linii/plati/note, desi
+    // tot continutul ar fi incaput lejer pe o singura pagina micsorata.
+    // Scalam ca sa incapa integral pe inaltime, centrat orizontal.
+    const scale = pageHeight / imgHeight;
+    const w = imgWidth * scale;
+    const h = pageHeight;
+    pdf.addImage(imgData, "PNG", (pageWidth - w) / 2, 0, w, h);
+    pdf.save(filename);
+    return;
+  }
 
   let heightLeft = imgHeight;
   let position = 0;
@@ -4727,7 +4742,7 @@ function InvoicePrint({ invoiceId, core, onClose, onChanged }) {
   const download = async () => {
     setDownloading(true);
     try {
-      await downloadElementAsPDF(fisaRef.current, `Factura-${invoice?.series || "draft"}-${invoice?.number || ""}.pdf`);
+      await downloadElementAsPDF(fisaRef.current, `Factura-${invoice?.series || "draft"}-${invoice?.number || ""}.pdf`, { singlePage: true });
     } finally {
       setDownloading(false);
     }
