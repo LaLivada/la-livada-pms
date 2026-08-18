@@ -768,9 +768,15 @@ const STYLES = `
      210mm, iar min-height:1123px ii pastreaza si inaltimea de 297mm cand
      factura are putine linii; scroll orizontal doar pe ecrane inguste. */
   .inv-sheet-wrap{ overflow:hidden; }
-  .inv-sheet{ width:794px; min-height:1123px; display:flex; flex-direction:column; transform-origin:top left; }
+  .inv-sheet{ width:794px; min-height:1123px; display:flex; flex-direction:column; position:relative; transform-origin:top left; }
+  .inv-cancelled-stamp{
+    position:absolute; top:50%; left:50%; z-index:5; pointer-events:none; white-space:nowrap;
+    transform:translate(-50%,-50%) rotate(-18deg);
+    font-size:96px; font-weight:800; letter-spacing:.08em; color:rgba(200,40,40,.28);
+    border:6px solid rgba(200,40,40,.28); border-radius:14px; padding:10px 44px;
+  }
   .inv-top{ display:flex; align-items:flex-start; justify-content:space-between; gap:24px; padding:32px 40px 0; }
-  .inv-top-slogan{ font-size:9px; letter-spacing:.18em; text-transform:uppercase; color:#999; margin-top:6px; }
+  .inv-top .fisa-logo-img{ height:44px; }
   .inv-top-issuer{ font-size:10px; color:#5a5650; line-height:1.6; text-align:right; }
   .inv-top-issuer strong{ display:block; color:#141412; font-size:11.5px; margin-bottom:2px; }
   .inv-banner{ display:flex; align-items:center; gap:16px; margin:22px 40px 0; }
@@ -4884,10 +4890,10 @@ function InvoicePrint({ invoiceId, core, onClose, onChanged }) {
       <div className="inv-sheet-wrap" ref={scaleWrapRef} style={{ height: sheetH * scale }}>
       <div ref={scalerRef} style={{ transform: `scale(${scale})`, transformOrigin: "top left" }}>
       <div className="fisa inv-sheet" ref={fisaRef}>
+        {invoice.status === "cancelled" && <div className="inv-cancelled-stamp">ANULATĂ</div>}
         <div className="inv-top">
           <div>
             <img src="/logo.png" alt="La Livadă" className="fisa-logo-img" />
-            <div className="inv-top-slogan">Complex de cazare</div>
           </div>
           <div className="inv-top-issuer">
             <strong>{issuer.name || "—"}</strong>
