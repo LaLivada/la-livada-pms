@@ -122,8 +122,48 @@ create table reservations (
   hold_expires_at       timestamptz,
   seeded                boolean not null default false,
   created_at            timestamptz not null default now(),
+  -- Vezi triggerul de mai jos: e mecanismul care împiedică doi
+  -- utilizatori să-și suprascrie tăcut modificările.
+  updated_at            timestamptz not null default now(),
   check (checkout > checkin)
 );
+
+-- CONCURENȚĂ OPTIMISTĂ.
+-- Aplicația trimite rândul întreg din starea ei locală, deci doi
+-- utilizatori care editează aceeași rezervare în paralel și-ar suprascrie
+-- reciproc modificările, fără nicio eroare — al doilea salvat readuce
+-- pur și simplu valorile pe care le avea el la încărcare.
+--
+-- Clientul trimite înapoi `updated_at` exact așa cum l-a citit. Dacă
+-- rândul s-a schimbat între timp, valoarea lui e mai veche decât cea din
+-- baza de date și scrierea e refuzată; aplicația prinde eroarea,
+-- reîncarcă datele reale și cere reluarea modificării.
+create or replace function stamp_reservation_updated_at()
+returns trigger language plpgsql set search_path = public as $$
+begin
+  if tg_op = 'INSERT' then
+    -- Valoarea trimisă de client la inserare e ignorată: rândul e nou.
+    new.updated_at := now();
+    return new;
+  end if;
+
+  -- Un client care NU trimite updated_at (null) nu e blocat — verificarea
+  -- se aplică doar celor care participă la protocol. Așa rămân posibile
+  -- scripturile de întreținere/backfill, fără să slăbească protecția
+  -- pentru aplicație, care trimite mereu valoarea citită.
+  if new.updated_at is not null and old.updated_at is not null
+     and new.updated_at < old.updated_at then
+    raise exception 'Rezervarea a fost modificata de altcineva intre timp. Datele se reincarca — reia modificarea.'
+      using errcode = '40001';
+  end if;
+
+  new.updated_at := now();
+  return new;
+end;
+$$;
+create trigger reservations_stamp_updated_at
+  before insert or update on reservations
+  for each row execute function stamp_reservation_updated_at();
 
 -- Re-importul aceleiași rezervări din OTA nu creează duplicat.
 create unique index res_extern_unic
@@ -478,7 +518,7 @@ create index invoice_item_links_folio_item on invoice_item_links(folio_item_id);
 -- facturi active pe aceeasi pozitie de folio, fara ca baza de date sa
 -- blocheze nimic. Trigger-ul de mai jos impune regula si la insert.
 create or replace function guard_invoice_item_link()
-returns trigger language plpgsql as $$
+returns trigger language plpgsql set search_path = public as $$
 declare v_conflict_invoice text;
 begin
   select ii.invoice_id into v_conflict_invoice
@@ -539,7 +579,7 @@ create table receipt_series (
 insert into receipt_series (id, series) values ('series-ch', 'CH');
 
 create or replace function next_receipt_number(p_series text)
-returns table(series text, number int) language plpgsql security definer as $$
+returns table(series text, number int) language plpgsql security definer set search_path = public as $$
 declare v_number int;
 begin
   -- Fiind security definer, functia ruleaza cu privilegii ridicate si e
@@ -563,7 +603,7 @@ $$;
 -- Recalculeaza paid_amount si statusul facturii la fiecare plata
 -- inregistrata/stearsa, ca suma sa nu poata diverge de realitate.
 create or replace function recalc_invoice_payment_status()
-returns trigger language plpgsql as $$
+returns trigger language plpgsql set search_path = public as $$
 declare
   v_invoice_id text := coalesce(new.invoice_id, old.invoice_id);
   v_paid       numeric;
@@ -598,7 +638,7 @@ create trigger payments_recalc_invoice
 -- stari pe status) — un trigger, ca la invoice_item_links_guard, e mult
 -- mai clar si poate da mesaje de eroare explicite.
 create or replace function guard_invoice_update()
-returns trigger language plpgsql as $$
+returns trigger language plpgsql set search_path = public as $$
 begin
   -- Draft: editare libera (linii, sume, client) — dar tranzitia de status
   -- e permisa doar spre 'issued', ca sa nu se ocoleasca alocarea
@@ -665,7 +705,7 @@ create trigger invoices_update_guard
 -- Aloca urmatorul numar dintr-o serie, transactional — apelata o
 -- singura data, exact la tranzitia draft -> issued.
 create or replace function next_invoice_number(p_series text)
-returns table(series text, number int) language plpgsql security definer as $$
+returns table(series text, number int) language plpgsql security definer set search_path = public as $$
 declare v_number int;
 begin
   -- Vezi observatia identica de la next_receipt_number mai sus.
@@ -714,6 +754,33 @@ create index accounting_export_items_invoice on accounting_export_items(invoice_
 
 
 -- ---------------------------------------------------------------------
+-- INDECȘI PE CHEI STRĂINE
+--
+-- Postgres nu indexează automat partea care REFERĂ dintr-o cheie străină
+-- (doar cea referită). Fără index, orice ștergere sau actualizare în
+-- tabelul-părinte forțează o parcurgere completă a copilului ca să
+-- verifice constrângerea, iar join-urile obișnuite (factură → cine a
+-- emis-o, rezervare → oaspete) devin scanări întregi.
+--
+-- La volumul de acum nu se simte; contează după câteva luni de istoric.
+-- ---------------------------------------------------------------------
+create index accounting_exports_created_by   on accounting_exports (created_by);
+create index billing_permissions_granted_by  on billing_permissions (granted_by);
+create index folio_items_created_by          on folio_items (created_by);
+create index folio_items_product             on folio_items (product_id);
+create index invoice_items_product           on invoice_items (product_id);
+create index invoices_created_by             on invoices (created_by);
+create index invoices_credit_note_of         on invoices (credit_note_of);
+create index invoices_issued_by              on invoices (issued_by);
+create index payments_created_by             on payments (created_by);
+create index products_vat_rate               on products (vat_rate_id);
+create index res_groups_main_guest           on res_groups (main_guest_id);
+create index reservations_billing_customer   on reservations (billing_customer_id);
+create index reservations_group              on reservations (group_id);
+create index reservations_guest              on reservations (guest_id);
+
+
+-- ---------------------------------------------------------------------
 -- PERMISIUNI GRANULARE PENTRU FACTURARE
 -- Matrice utilizator x permisiune, separata de cele 3 roluri fixe
 -- (admin/receptionist/housekeeping) — nu inlocuieste rolurile, doar
@@ -750,7 +817,7 @@ $$;
 -- niciunul, se aplică tariful de bază.
 -- Ramura 'else' tratează sezoanele care trec peste Anul Nou.
 create or replace function nightly_rate(p_room_type text, p_date date)
-returns numeric language sql stable as $$
+returns numeric language sql stable set search_path = public as $$
   select coalesce(
     (select s.price from seasons s
       where s.room_type = p_room_type
@@ -769,7 +836,7 @@ $$;
 -- Totalul unui sejur: suma tarifelor pe nopți.
 -- Ziua plecării NU e noapte vândută, de aici '- 1' din generate_series.
 create or replace function stay_total(p_room_id text, p_checkin timestamptz, p_checkout timestamptz)
-returns numeric language sql stable as $$
+returns numeric language sql stable set search_path = public as $$
   select coalesce(sum(nightly_rate(r.type, d::date)), 0)
   from rooms r,
        generate_series(p_checkin::date, p_checkout::date - 1, interval '1 day') d
@@ -783,7 +850,7 @@ $$;
 -- temporară e validă (relevant doar dacă se adaugă plata online).
 create or replace function available_rooms(p_checkin timestamptz, p_checkout timestamptz, p_guests int default 1)
 returns table (room_id text, room_name text, room_type text, capacity int, total numeric)
-language sql stable as $$
+language sql stable set search_path = public as $$
   select r.id, r.name, r.type, r.capacity, stay_total(r.id, p_checkin, p_checkout)
   from rooms r
   where r.active
@@ -800,6 +867,20 @@ language sql stable as $$
 $$;
 
 
+-- Contorul de cereri pentru rate-limiting-ul funcției publice de
+-- rezervare de mai jos. RLS activat DAR fără nicio politică: nimeni nu
+-- ajunge la el prin API (nici anon, nici authenticated) — se citește și
+-- se scrie exclusiv din interiorul create_booking, care fiind
+-- `security definer` ocolește RLS pentru propriile query-uri.
+create table booking_attempts (
+  id          bigint generated always as identity primary key,
+  fingerprint text not null,           -- 'phone:<telefon>' sau 'ip:<adresă>'
+  created_at  timestamptz not null default now()
+);
+create index booking_attempts_fp_created on booking_attempts (fingerprint, created_at desc);
+alter table booking_attempts enable row level security;
+
+
 -- Creează o rezervare de pe site-ul public.
 --
 -- security definer: rulează cu drepturi depline, deși vizitatorul nu
@@ -811,6 +892,21 @@ $$;
 --
 -- Rezervarea intră direct 'confirmed', fără plată. Recepția
 -- reconfirmă telefonic.
+--
+-- RATE-LIMITING (adăugat după auditul de producție): fiind apelabilă
+-- fără autentificare și fără cost economic, funcția putea fi folosită ca
+-- să se umple calendarul cu rezervări false. Se limitează la 5 rezervări
+-- pe oră per număr de telefon și 20 per adresă IP.
+--
+-- Numărătoarea reflectă doar rezervările REUȘITE: un apel care eșuează
+-- (cameră inexistentă, suprapunere) face rollback la toată tranzacția,
+-- inclusiv la rândul de contorizare. E exact ce trebuie aici — scenariul
+-- vizat e flood-ul cu rezervări valide, nu cererile respinse, care nu
+-- ocupă nimic în calendar.
+--
+-- Limită cunoscută: oprește un script naiv (telefon/IP fix). Un atacator
+-- care le rotește pe amândouă cere CAPTCHA sau token de sesiune pe
+-- site-ul public — infrastructură care nu există în acest repo.
 create or replace function create_booking(
   p_room_id     text,
   p_checkin     timestamptz,
@@ -826,24 +922,64 @@ create or replace function create_booking(
   p_children    int default 0,
   p_notes       text default null
 ) returns table (reservation_id text, total numeric)
-language plpgsql security definer as $$
+language plpgsql security definer set search_path = public as $$
 declare
-  v_guest_id text;
-  v_res_id   text;
+  v_guest_id    text;
+  v_res_id      text;
+  v_phone_key   text;
+  v_ip          text;
+  v_count_phone int;
+  v_count_ip    int;
 begin
+  if coalesce(trim(p_last_name),'') = '' or coalesce(trim(p_first_name),'') = ''
+     or coalesce(trim(p_phone),'') = '' then
+    raise exception 'Nume, prenume și telefon sunt obligatorii.';
+  end if;
+
+  -- Telefonul e mereu disponibil (obligatoriu mai sus). IP-ul vine din
+  -- X-Forwarded-For, expus de PostgREST prin GUC-ul request.headers; dacă
+  -- acel GUC lipsește sau are alt format, IP-ul rămâne necunoscut și doar
+  -- limita pe telefon se aplică — funcția nu eșuează din cauza asta.
+  v_phone_key := lower(trim(p_phone));
+  begin
+    v_ip := nullif(split_part(coalesce(
+      current_setting('request.headers', true)::json->>'x-forwarded-for', ''
+    ), ',', 1), '');
+  exception when others then
+    v_ip := null;
+  end;
+
+  -- Auto-curățare, fără job separat: volumul e mic la scara unei pensiuni.
+  delete from booking_attempts where created_at < now() - interval '1 day';
+
+  select count(*) into v_count_phone from booking_attempts
+    where fingerprint = 'phone:' || v_phone_key and created_at > now() - interval '1 hour';
+  if v_count_phone >= 5 then
+    raise exception 'Prea multe cereri de rezervare cu acest număr de telefon. Sună recepția pentru asistență.';
+  end if;
+
+  if v_ip is not null then
+    select count(*) into v_count_ip from booking_attempts
+      where fingerprint = 'ip:' || v_ip and created_at > now() - interval '1 hour';
+    if v_count_ip >= 20 then
+      raise exception 'Prea multe cereri de rezervare de la această adresă. Încearcă mai târziu sau sună recepția.';
+    end if;
+  end if;
+
+  insert into booking_attempts (fingerprint) values ('phone:' || v_phone_key);
+  if v_ip is not null then
+    insert into booking_attempts (fingerprint) values ('ip:' || v_ip);
+  end if;
+
   if p_checkout <= p_checkin then
     raise exception 'Data de plecare trebuie să fie după data sosirii.';
   end if;
   if p_checkin < now() - interval '1 day' then
     raise exception 'Nu se pot face rezervări în trecut.';
   end if;
-  if coalesce(trim(p_last_name),'') = '' or coalesce(trim(p_first_name),'') = ''
-     or coalesce(trim(p_phone),'') = '' then
-    raise exception 'Nume, prenume și telefon sunt obligatorii.';
-  end if;
 
   select id into v_guest_id from guests
-   where lower(phone) = lower(trim(p_phone)) limit 1;
+   where lower(phone) = v_phone_key limit 1;
 
   if v_guest_id is null then
     v_guest_id := 'g-' || encode(gen_random_bytes(6),'hex');
@@ -889,25 +1025,26 @@ alter table online_pricing_tiers enable row level security;
 alter table staff        enable row level security;
 alter table app_state    enable row level security;
 
+-- CITIRE: tot personalul autentificat vede tot. Nemodificat de auditul
+-- de securitate — separarea pe roluri se aplică la scriere, mai jos.
 create policy "staff citeste" on rooms        for select to authenticated using (true);
-create policy "staff scrie"   on rooms        for all    to authenticated using (true) with check (true);
 create policy "staff citeste" on guests       for select to authenticated using (true);
-create policy "staff scrie"   on guests       for all    to authenticated using (true) with check (true);
 create policy "staff citeste" on res_groups   for select to authenticated using (true);
-create policy "staff scrie"   on res_groups   for all    to authenticated using (true) with check (true);
 create policy "staff citeste" on reservations for select to authenticated using (true);
-create policy "staff scrie"   on reservations for all    to authenticated using (true) with check (true);
 create policy "staff citeste" on rates        for select to authenticated using (true);
-create policy "staff scrie"   on rates        for all    to authenticated using (true) with check (true);
 create policy "staff citeste" on seasons      for select to authenticated using (true);
-create policy "staff scrie"   on seasons      for all    to authenticated using (true) with check (true);
+create policy "citeste app_state" on app_state for select to authenticated using (true);
 create policy "staff citeste" on online_pricing_tiers for select to authenticated using (true);
-create policy "staff scrie"   on online_pricing_tiers for all    to authenticated using (true) with check (true);
-create policy "staff app_state" on app_state  for all    to authenticated using (true) with check (true);
+create policy "scrie tiere pret" on online_pricing_tiers for insert to authenticated with check (is_admin());
+create policy "modifica tiere pret" on online_pricing_tiers for update to authenticated using (is_admin()) with check (is_admin());
+create policy "sterge tiere pret" on online_pricing_tiers for delete to authenticated using (is_admin());
 
--- Fiecare angajat își vede doar propriul rând (rolul).
-create policy "vede propriul rand" on staff
-  for select to authenticated using (user_id = auth.uid());
+-- Fiecare angajat își vede propriul rând (rolul); adminii îi văd pe toți
+-- (ecranul "Useri și drepturi"). O singură politică, nu două — altfel
+-- Postgres le evaluează pe amândouă la fiecare citire.
+-- `(select auth.uid())` se evaluează o dată pe query, nu o dată pe rând.
+create policy "vede staff" on staff
+  for select to authenticated using (user_id = (select auth.uid()) or is_admin());
 
 -- Functie ajutatoare: verifica daca userul curent e admin, ocolind RLS
 -- pentru propriul query intern (evita recursivitatea infinita).
@@ -923,10 +1060,102 @@ as $$
   );
 $$;
 
--- Adminii vad si administreaza toate randurile din staff (ecranul
--- "Useri si drepturi" din aplicatie), nu doar propriul rand.
-create policy "admin vede tot staff" on staff
-  for select to authenticated using (is_admin());
+-- Rolul userului curent, pentru politicile de scriere de mai jos.
+-- Acelasi pattern ca is_admin(): security definer ca sa nu recurseze
+-- prin RLS-ul propriu al tabelului staff.
+create or replace function staff_role()
+returns text
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select role from staff where user_id = auth.uid();
+$$;
+
+
+-- ---------------------------------------------------------------------
+-- SCRIERE — separată pe rol.
+--
+-- Înainte, o singură politică `for all using(true)` per tabel însemna că
+-- orice cont autentificat, inclusiv unul de cameristă, putea șterge orice
+-- rezervare sau schimba tarifele printr-un request direct către API.
+-- Sistemul de roluri exista doar în interfață (VIEW_ROLES din
+-- pms-app.jsx), unde nu impune nimic.
+--
+-- Împărțirea de mai jos oglindește exact acel model din interfață, ca să
+-- nu existe două definiții diferite ale acelorași drepturi:
+--   · rezervări / oaspeți / grupuri → admin sau recepționer
+--   · camere / tarife / sezoane     → doar admin ("Camere și tarife")
+--   · app_state                     → admin/recepționer peste tot;
+--     cameristele doar pe două chei: statusul de curățenie
+--     (updateHousekeeping) și jurnalul de activitate — schimbarea unui
+--     status scrie în ambele, iar fără a doua propriile lor acțiuni n-ar
+--     mai apărea în audit, exact pe dos față de rostul jurnalului.
+-- ---------------------------------------------------------------------
+create policy "scrie rezervari" on reservations
+  for insert to authenticated with check (is_admin() or staff_role() = 'receptionist');
+create policy "modifica rezervari" on reservations
+  for update to authenticated using (is_admin() or staff_role() = 'receptionist')
+  with check (is_admin() or staff_role() = 'receptionist');
+create policy "sterge rezervari" on reservations
+  for delete to authenticated using (is_admin() or staff_role() = 'receptionist');
+
+create policy "scrie oaspeti" on guests
+  for insert to authenticated with check (is_admin() or staff_role() = 'receptionist');
+create policy "modifica oaspeti" on guests
+  for update to authenticated using (is_admin() or staff_role() = 'receptionist')
+  with check (is_admin() or staff_role() = 'receptionist');
+create policy "sterge oaspeti" on guests
+  for delete to authenticated using (is_admin() or staff_role() = 'receptionist');
+
+create policy "scrie grupuri" on res_groups
+  for insert to authenticated with check (is_admin() or staff_role() = 'receptionist');
+create policy "modifica grupuri" on res_groups
+  for update to authenticated using (is_admin() or staff_role() = 'receptionist')
+  with check (is_admin() or staff_role() = 'receptionist');
+create policy "sterge grupuri" on res_groups
+  for delete to authenticated using (is_admin() or staff_role() = 'receptionist');
+
+create policy "scrie camere" on rooms
+  for insert to authenticated with check (is_admin());
+create policy "modifica camere" on rooms
+  for update to authenticated using (is_admin()) with check (is_admin());
+create policy "sterge camere" on rooms
+  for delete to authenticated using (is_admin());
+
+create policy "scrie tarife" on rates
+  for insert to authenticated with check (is_admin());
+create policy "modifica tarife" on rates
+  for update to authenticated using (is_admin()) with check (is_admin());
+create policy "sterge tarife" on rates
+  for delete to authenticated using (is_admin());
+
+create policy "scrie sezoane" on seasons
+  for insert to authenticated with check (is_admin());
+create policy "modifica sezoane" on seasons
+  for update to authenticated using (is_admin()) with check (is_admin());
+create policy "sterge sezoane" on seasons
+  for delete to authenticated using (is_admin());
+
+create policy "scrie app_state" on app_state
+  for insert to authenticated with check (
+    is_admin() or staff_role() = 'receptionist'
+    or (staff_role() = 'housekeeping' and key in ('pms:housekeeping:v3', 'pms:log:v3'))
+  );
+create policy "modifica app_state" on app_state
+  for update to authenticated using (
+    is_admin() or staff_role() = 'receptionist'
+    or (staff_role() = 'housekeeping' and key in ('pms:housekeeping:v3', 'pms:log:v3'))
+  ) with check (
+    is_admin() or staff_role() = 'receptionist'
+    or (staff_role() = 'housekeeping' and key in ('pms:housekeeping:v3', 'pms:log:v3'))
+  );
+create policy "sterge app_state" on app_state
+  for delete to authenticated using (is_admin() or staff_role() = 'receptionist');
+
+-- Administrarea conturilor (ecranul "Useri si drepturi") e strict a
+-- adminilor. Citirea e acoperita de politica "vede staff" de mai sus.
 create policy "admin scrie staff" on staff
   for insert to authenticated with check (is_admin());
 create policy "admin modifica staff" on staff
@@ -963,30 +1192,50 @@ alter table billing_permissions    enable row level security;
 -- facturi poate citi/scrie — nu sunt poziții sensibile separat.
 create policy "citeste clienti facturare" on billing_customers for select to authenticated
   using (has_billing_permission('view_invoices'));
-create policy "scrie clienti facturare" on billing_customers for all to authenticated
+create policy "scrie clienti facturare" on billing_customers for insert to authenticated
+  with check (has_billing_permission('create_invoice'));
+create policy "modifica clienti facturare" on billing_customers for update to authenticated
   using (has_billing_permission('create_invoice')) with check (has_billing_permission('create_invoice'));
+create policy "sterge clienti facturare" on billing_customers for delete to authenticated
+  using (has_billing_permission('create_invoice'));
 
 create policy "citeste tva" on vat_rates for select to authenticated using (true);
-create policy "scrie tva" on vat_rates for all to authenticated using (is_admin()) with check (is_admin());
+create policy "scrie tva" on vat_rates for insert to authenticated with check (is_admin());
+create policy "modifica tva" on vat_rates for update to authenticated using (is_admin()) with check (is_admin());
+create policy "sterge tva" on vat_rates for delete to authenticated using (is_admin());
 
 create policy "citeste produse" on products for select to authenticated using (true);
-create policy "scrie produse" on products for all to authenticated using (is_admin()) with check (is_admin());
+create policy "scrie produse" on products for insert to authenticated with check (is_admin());
+create policy "modifica produse" on products for update to authenticated using (is_admin()) with check (is_admin());
+create policy "sterge produse" on products for delete to authenticated using (is_admin());
 
 create policy "citeste metode plata" on payment_methods for select to authenticated using (true);
-create policy "scrie metode plata" on payment_methods for all to authenticated using (is_admin()) with check (is_admin());
+create policy "scrie metode plata" on payment_methods for insert to authenticated with check (is_admin());
+create policy "modifica metode plata" on payment_methods for update to authenticated using (is_admin()) with check (is_admin());
+create policy "sterge metode plata" on payment_methods for delete to authenticated using (is_admin());
 
 create policy "citeste folio" on folios for select to authenticated
   using (has_billing_permission('view_invoices'));
-create policy "scrie folio" on folios for all to authenticated
+create policy "scrie folio" on folios for insert to authenticated
+  with check (has_billing_permission('create_invoice'));
+create policy "modifica folio" on folios for update to authenticated
   using (has_billing_permission('create_invoice')) with check (has_billing_permission('create_invoice'));
+create policy "sterge folio" on folios for delete to authenticated
+  using (has_billing_permission('create_invoice'));
 
 create policy "citeste folio_items" on folio_items for select to authenticated
   using (has_billing_permission('view_invoices'));
-create policy "scrie folio_items" on folio_items for all to authenticated
+create policy "scrie folio_items" on folio_items for insert to authenticated
+  with check (has_billing_permission('create_invoice'));
+create policy "modifica folio_items" on folio_items for update to authenticated
   using (has_billing_permission('create_invoice')) with check (has_billing_permission('create_invoice'));
+create policy "sterge folio_items" on folio_items for delete to authenticated
+  using (has_billing_permission('create_invoice'));
 
 create policy "citeste serii" on invoice_series for select to authenticated using (true);
-create policy "scrie serii" on invoice_series for all to authenticated using (is_admin()) with check (is_admin());
+create policy "scrie serii" on invoice_series for insert to authenticated with check (is_admin());
+create policy "modifica serii" on invoice_series for update to authenticated using (is_admin()) with check (is_admin());
+create policy "sterge serii" on invoice_series for delete to authenticated using (is_admin());
 
 -- Facturi: draft se creeaza/edita cu create_invoice; tranzitia de status
 -- (emitere/anulare/stornare) cere permisiunea specifica actiunii —
@@ -1008,26 +1257,44 @@ create policy "modifica factura" on invoices for update to authenticated
 
 create policy "citeste linii factura" on invoice_items for select to authenticated
   using (has_billing_permission('view_invoices'));
-create policy "scrie linii factura" on invoice_items for all to authenticated
+create policy "scrie linii factura" on invoice_items for insert to authenticated
+  with check (has_billing_permission('create_invoice'));
+create policy "modifica linii factura" on invoice_items for update to authenticated
   using (has_billing_permission('create_invoice')) with check (has_billing_permission('create_invoice'));
+create policy "sterge linii factura" on invoice_items for delete to authenticated
+  using (has_billing_permission('create_invoice'));
 
 create policy "citeste linkuri factura" on invoice_item_links for select to authenticated
   using (has_billing_permission('view_invoices'));
-create policy "scrie linkuri factura" on invoice_item_links for all to authenticated
+create policy "scrie linkuri factura" on invoice_item_links for insert to authenticated
+  with check (has_billing_permission('create_invoice'));
+create policy "modifica linkuri factura" on invoice_item_links for update to authenticated
   using (has_billing_permission('create_invoice')) with check (has_billing_permission('create_invoice'));
+create policy "sterge linkuri factura" on invoice_item_links for delete to authenticated
+  using (has_billing_permission('create_invoice'));
 
 create policy "citeste plati" on payments for select to authenticated
   using (has_billing_permission('view_invoices'));
-create policy "scrie plati" on payments for all to authenticated
+create policy "scrie plati" on payments for insert to authenticated
+  with check (has_billing_permission('record_payment'));
+create policy "modifica plati" on payments for update to authenticated
   using (has_billing_permission('record_payment')) with check (has_billing_permission('record_payment'));
+create policy "sterge plati" on payments for delete to authenticated
+  using (has_billing_permission('record_payment'));
 
 create policy "citeste serie chitante" on receipt_series for select to authenticated using (true);
-create policy "scrie serie chitante" on receipt_series for all to authenticated using (is_admin()) with check (is_admin());
+create policy "scrie serie chitante" on receipt_series for insert to authenticated with check (is_admin());
+create policy "modifica serie chitante" on receipt_series for update to authenticated using (is_admin()) with check (is_admin());
+create policy "sterge serie chitante" on receipt_series for delete to authenticated using (is_admin());
 
 create policy "citeste exporturi" on accounting_exports for select to authenticated
   using (has_billing_permission('export_accounting'));
-create policy "scrie exporturi" on accounting_exports for all to authenticated
+create policy "scrie exporturi" on accounting_exports for insert to authenticated
+  with check (has_billing_permission('export_accounting'));
+create policy "modifica exporturi" on accounting_exports for update to authenticated
   using (has_billing_permission('export_accounting')) with check (has_billing_permission('export_accounting'));
+create policy "sterge exporturi" on accounting_exports for delete to authenticated
+  using (has_billing_permission('export_accounting'));
 
 create policy "citeste exporturi items" on accounting_export_items for select to authenticated
   using (has_billing_permission('export_accounting'));
@@ -1041,9 +1308,13 @@ create policy "scrie exporturi items" on accounting_export_items for insert to a
 -- Doar adminii gestioneaza matricea de permisiuni — altfel un
 -- receptioner cu create_invoice si-ar putea auto-acorda cancel_invoice.
 create policy "citeste permisiuni facturare" on billing_permissions for select to authenticated
-  using (is_admin() or user_id = auth.uid());
-create policy "scrie permisiuni facturare" on billing_permissions for all to authenticated
+  using (is_admin() or user_id = (select auth.uid()));
+create policy "scrie permisiuni facturare" on billing_permissions for insert to authenticated
+  with check (is_admin());
+create policy "modifica permisiuni facturare" on billing_permissions for update to authenticated
   using (is_admin()) with check (is_admin());
+create policy "sterge permisiuni facturare" on billing_permissions for delete to authenticated
+  using (is_admin());
 
 
 -- Vizitatorul anonim: doar căutare disponibilitate și creare rezervare.
@@ -1055,6 +1326,29 @@ grant execute on function create_booking(text, timestamptz, timestamptz, text, t
 -- funcțiilor de mai sus.
 revoke execute on function stay_total(text, timestamptz, timestamptz) from anon;
 revoke execute on function nightly_rate(text, date) from anon;
+
+-- Implicit, Supabase acordă rolului `anon` drepturi complete de tabel
+-- (INSERT/SELECT/UPDATE/DELETE) pe tot ce se creează în `public`. Azi
+-- asta nu se vede, fiindcă nicio politică RLS nu menționează `anon`, deci
+-- orice cerere anonimă e refuzată oricum. Problema e că RLS rămâne
+-- singurul strat: o singură politică viitoare scrisă din greșeală ca
+-- `using (true)` pentru anon ar deschide instant tot tabelul, fără nimic
+-- dedesubt care să prindă greșeala.
+--
+-- Revocarea de mai jos adaugă al doilea strat. Nu schimbă nimic pentru
+-- fluxurile publice: `available_rooms` și `create_booking` se apelează
+-- prin `grant execute`, iar a doua e `security definer` (scrie cu
+-- drepturile proprietarului funcției, nu ale rolului anon).
+revoke all on all tables in schema public from anon;
+
+-- Fără liniile astea, orice tabel adăugat de o migrare viitoare ar primi
+-- din nou grantul complet și problema ar reveni tăcut.
+alter default privileges for role postgres      in schema public revoke all on tables from anon;
+alter default privileges for role supabase_admin in schema public revoke all on tables from anon;
+
+-- staff_role() servește exclusiv politicile de mai sus, pentru utilizatori
+-- autentificați — un vizitator anonim nu are ce face cu ea.
+revoke execute on function staff_role() from anon;
 
 
 -- =====================================================================
