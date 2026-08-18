@@ -1054,6 +1054,7 @@ const STYLES = `
     border-bottom:1px solid var(--border); font-size:13px; font-weight:650;
   }
   .section-empty{ padding:22px 18px; font-size:12.5px; color:var(--text-muted); text-align:center; }
+  .section-panel .pager{ padding-bottom:16px; }
   .tabs-bar{
     display:flex; align-items:center; justify-content:space-between; gap:12px;
     flex-wrap:wrap; margin-bottom:18px;
