@@ -1458,7 +1458,7 @@ const EDIT_STATUSES = ["confirmed", "checkedin", "checkedout", "noshow", "cancel
 
 /* Statuses that no longer hold the room. */
 const DEAD_STATUSES = ["cancelled", "noshow"];
-const isLive = (r) => !DEAD_STATUSES.includes(r.status);
+export const isLive = (r) => !DEAD_STATUSES.includes(r.status);
 /* Rezervarile "protocol" ocupa camera normal, dar nu se incaseaza bani pe
    ele — nu trebuie sa apara in nicio statistica de venit/ocupare din
    Rapoarte sau din fisele de client; vezi ReportsView (sectiune separata
@@ -1492,7 +1492,7 @@ function isSameDay(a, b) {
   const x = new Date(a), y = new Date(b);
   return x.getFullYear() === y.getFullYear() && x.getMonth() === y.getMonth() && x.getDate() === y.getDate();
 }
-function startOfDay(d) { const x = new Date(d); x.setHours(0, 0, 0, 0); return x; }
+export function startOfDay(d) { const x = new Date(d); x.setHours(0, 0, 0, 0); return x; }
 function isToday(d) { return isSameDay(d, new Date()); }
 
 /* Single source of truth for which transitions are legal.
@@ -1500,7 +1500,7 @@ function isToday(d) { return isSameDay(d, new Date()); }
 const canCheckIn  = (r, now = new Date()) => r.status === "confirmed" && isSameDay(r.checkin, now);
 const canCheckOut = (r) => r.status === "checkedin";
 const canCancel   = (r) => r.status === "confirmed";
-function validateStay(checkin, checkout) {
+export function validateStay(checkin, checkout) {
   const ci = new Date(checkin), co = new Date(checkout);
   if (isNaN(ci.getTime())) return "Data de check-in nu este validă.";
   if (isNaN(co.getTime())) return "Data de check-out nu este validă.";
@@ -1538,13 +1538,22 @@ const DEFAULT_TAGS = [
 ];
 const ROLE_LABEL = { admin: "Admin", receptionist: "Recepționer", housekeeping: "Cameristă" };
 
-function nightsBetween(ci, co) {
+export function nightsBetween(ci, co) {
   const a = new Date(ci); a.setHours(0, 0, 0, 0);
   const b = new Date(co); b.setHours(0, 0, 0, 0);
   return Math.max(1, Math.round((b - a) / 86400000));
 }
 
-function inSeason(date, season) {
+/* Interval pe jumatate deschis [start, end) — o rezervare care se termina
+   exact cand alta incepe NU se suprapune (turnover in aceeasi zi e permis).
+   Single source of truth pentru "camera X e libera in intervalul Y" —
+   folosita atat la rezervari individuale cat si la editorul de grup, ca
+   sa nu existe doua implementari care ar putea diverge. */
+export function rangesOverlap(aStart, aEnd, bStart, bEnd) {
+  return new Date(aStart) < new Date(bEnd) && new Date(aEnd) > new Date(bStart);
+}
+
+export function inSeason(date, season) {
   const md = `${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
   if (season.start <= season.end) return md >= season.start && md <= season.end;
   return md >= season.start || md <= season.end; // wraps across new year
@@ -1556,7 +1565,7 @@ function inSeason(date, season) {
    ocuparea standard, suplimentul de adult se aplica per adult peste 2,
    iar suplimentul de copil se aplica pentru fiecare copil, indiferent
    de ocuparea totala. */
-function nightlyRate(date, roomType, rates, occupancy) {
+export function nightlyRate(date, roomType, rates, occupancy) {
   if (!rates) return 0;
   const adultsRaw = Number(occupancy?.adults);
   const adults = Number.isFinite(adultsRaw) ? adultsRaw : 2;
@@ -1578,7 +1587,7 @@ function nightlyRate(date, roomType, rates, occupancy) {
    producem un nou pret inghetat (la creare/editare) sau ca ultim fallback
    pentru rezervari vechi care inca nu au un snapshot. NU se foloseste
    direct pentru afisare — vezi reservationTotal mai jos. */
-function liveReservationTotal(res, core) {
+export function liveReservationTotal(res, core) {
   const room = core.rooms.find((r) => r.id === res.roomId);
   if (!room) return 0;
   const n = nightsBetween(res.checkin, res.checkout);
@@ -1597,7 +1606,7 @@ function liveReservationTotal(res, core) {
    "plina" e proprietatea in acea perioada, nu doar o singura zi.
    `excludeId` scoate rezervarea insasi din calcul (altfel s-ar numara
    pe sine ca ocupanta a propriilor nopti la o recalculare/editare). */
-function occupancyForStay(checkin, checkout, reservations, roomCount, excludeId) {
+export function occupancyForStay(checkin, checkout, reservations, roomCount, excludeId) {
   if (!roomCount) return 0;
   const ciDay = startOfDay(checkin);
   const coDay = startOfDay(checkout);
@@ -1620,7 +1629,7 @@ function occupancyForStay(checkin, checkout, reservations, roomCount, excludeId)
 /* Pragul de ocupare in care se incadreaza occPct. Ultimul prag e tratat
    inclusiv la capatul de sus (100% trebuie sa cada tot in pragul cel
    mai ocupat, nu sa ramana neacoperit de niciun prag). */
-function onlinePriceAdjustmentPct(occPct, tiers) {
+export function onlinePriceAdjustmentPct(occPct, tiers) {
   if (!tiers || !tiers.length) return 0;
   const maxOverall = Math.max(...tiers.map((t) => Number(t.max) || 0));
   const eff = Math.min(occPct, maxOverall - 0.0001);
@@ -1636,7 +1645,7 @@ function onlinePriceAdjustmentPct(occPct, tiers) {
    daca sunt fara plata online — doar strict celor prin site. Booking.com/
    Airbnb nu pot primi preturi prin feedul iCal (doar disponibilitate),
    asa ca nu sunt incluse aici. */
-function liveReservationTotalOnline(res, core, reservations) {
+export function liveReservationTotalOnline(res, core, reservations) {
   const base = liveReservationTotal(res, core);
   if (res.source !== "site") return base;
   const tiers = core.onlinePricing;
@@ -1652,7 +1661,7 @@ function liveReservationTotalOnline(res, core, reservations) {
    cand se modifica doar tarifele, nu si rezervarea insasi. Calculul
    live e ultim fallback, doar pentru rezervari vechi fara snapshot
    inca (migrate automat la incarcarea aplicatiei — vezi backfillBookedPrices). */
-function reservationTotal(res, core) {
+export function reservationTotal(res, core) {
   if (res.priceOverride != null && res.priceOverride !== "") {
     const n = Number(res.priceOverride);
     return Number.isFinite(n) && n >= 0 ? n : 0;
@@ -3037,10 +3046,10 @@ function GroupEditor({ group, core, groups, updateGroups, reservations, updateRe
     if (isNaN(ci.getTime()) || isNaN(co.getTime())) return set;
     for (const r of reservations) {
       if (!isLive(r) || r.id === exceptResId) continue;
-      if (ci < new Date(r.checkout) && co > new Date(r.checkin)) set.add(r.roomId);
+      if (rangesOverlap(ci, co, r.checkin, r.checkout)) set.add(r.roomId);
     }
     for (const b of blocks || []) {
-      if (ci < new Date(b.end) && co > new Date(b.start)) set.add(b.roomId);
+      if (rangesOverlap(ci, co, b.start, b.end)) set.add(b.roomId);
     }
     return set;
   };
@@ -3935,7 +3944,7 @@ function OccupantStepper({ label, value, otherValue, capacity, min, onChange }) 
    Nu trece prin core/syncTable (colectie separata, per rezervare) —
    citeste/scrie direct in Supabase, incarcata la deschiderea modalului.
 ----------------------------------------------------------------*/
-function calcAmounts(unitPrice, quantity, vatRate) {
+export function calcAmounts(unitPrice, quantity, vatRate) {
   const total = Number(unitPrice) * Number(quantity);
   const vat = Number(vatRate) || 0;
   const net = total / (1 + vat / 100);
@@ -5128,10 +5137,10 @@ function ReservationModal({ data, core, updateCore, reservations, updateReservat
     if (isNaN(ci.getTime()) || isNaN(co.getTime())) return set;
     for (const r of reservations) {
       if (!isLive(r) || r.id === editing?.id) continue;
-      if (ci < new Date(r.checkout) && co > new Date(r.checkin)) set.add(r.roomId);
+      if (rangesOverlap(ci, co, r.checkin, r.checkout)) set.add(r.roomId);
     }
     for (const b of blocks || []) {
-      if (ci < new Date(b.end) && co > new Date(b.start)) set.add(b.roomId);
+      if (rangesOverlap(ci, co, b.start, b.end)) set.add(b.roomId);
     }
     return set;
   }, [checkin, checkout, reservations, blocks, editing?.id]);
@@ -6169,7 +6178,7 @@ function SubTabs({ tab, setTab, guestCount, groupCount }) {
    ponderate cu cheia 7-5-3-2-1-7-5-3-2, mod 11 (10 -> 0). Doar avertizam
    la esec de control (nu blocam) — blocam doar formatul evident gresit
    (altceva decat cifre, sau lungime in afara 2-10). */
-function validateCUIFormat(raw) {
+export function validateCUIFormat(raw) {
   const digits = String(raw || "").toUpperCase().replace(/^RO/, "").trim();
   if (!digits) return { ok: true, warn: false };
   if (!/^\d{2,10}$/.test(digits)) return { ok: false, warn: false, message: "CUI-ul trebuie să conțină doar cifre (2-10 cifre), opțional cu prefixul RO." };
