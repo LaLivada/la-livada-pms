@@ -769,14 +769,14 @@ const STYLES = `
      factura are putine linii; scroll orizontal doar pe ecrane inguste. */
   .inv-sheet-wrap{ overflow:hidden; }
   .inv-sheet{ width:794px; min-height:1123px; display:flex; flex-direction:column; transform-origin:top left; }
-  .inv-top{ padding:32px 40px 0; }
+  .inv-top{ display:flex; align-items:flex-start; justify-content:space-between; gap:24px; padding:32px 40px 0; }
   .inv-top-slogan{ font-size:9px; letter-spacing:.18em; text-transform:uppercase; color:#999; margin-top:6px; }
-  .inv-top-issuer{ font-size:10px; color:#5a5650; line-height:1.6; margin-top:10px; }
+  .inv-top-issuer{ font-size:10px; color:#5a5650; line-height:1.6; text-align:right; }
   .inv-top-issuer strong{ display:block; color:#141412; font-size:11.5px; margin-bottom:2px; }
   .inv-banner{ display:flex; align-items:center; gap:16px; margin:22px 40px 0; }
-  .inv-banner-bar{ flex:1; height:12px; background:#CEA446; }
+  .inv-banner-bar{ flex:1; height:32px; background:#CEA446; }
   .inv-banner-bar.short{ flex:0 0 56px; }
-  .inv-banner-title{ font-size:32px; font-weight:800; letter-spacing:.06em; color:#1c1c1c; white-space:nowrap; }
+  .inv-banner-title{ font-size:32px; line-height:1; font-weight:800; letter-spacing:.06em; color:#1c1c1c; white-space:nowrap; }
   .inv-meta-row{ display:flex; justify-content:space-between; gap:36px; padding:26px 40px 0; }
   .inv-to-lab{ font-size:11px; text-transform:uppercase; letter-spacing:.08em; font-weight:700; color:#1c1c1c; margin-bottom:6px; }
   .inv-party-name{ font-size:14px; font-weight:700; color:#141412; }
@@ -787,6 +787,7 @@ const STYLES = `
   .inv-nums-row .v{ font-weight:700; color:#141412; }
   .inv-body{ padding:22px 40px 0; flex:1; display:flex; flex-direction:column; }
   .inv-table{ width:100%; border-collapse:collapse; }
+  .inv-table .c-no{ width:34px; }
   .inv-table thead th{ text-align:left; font-size:10.5px; text-transform:uppercase; letter-spacing:.06em; color:#fff; font-weight:700; padding:11px 10px; background:#1c1c1c; }
   .inv-table thead th.r{ text-align:right; }
   .inv-table thead th:first-child{ border-radius:4px 0 0 4px; }
@@ -807,7 +808,6 @@ const STYLES = `
   .inv-payments-lab, .inv-notes strong, .inv-foot-lab{ font-size:10px; text-transform:uppercase; letter-spacing:.1em; color:#a3907a; font-weight:700; margin-bottom:6px; display:block; }
   .inv-payment-row{ display:flex; justify-content:space-between; font-size:11.5px; color:#5a5650; padding:3px 0; }
   .inv-notes{ margin-top:16px; padding-top:12px; border-top:1px solid #ecdfc0; font-size:11.5px; color:#5a5650; }
-  .inv-thanks{ font-size:13px; font-weight:700; color:#1c1c1c; margin-top:22px; }
   .inv-foot{ margin-top:auto; padding:0 40px 32px; }
   .inv-foot-bar{ height:3px; background:#CEA446; margin:20px 0 14px; }
   .inv-foot-inner{ display:flex; justify-content:space-between; align-items:flex-end; gap:24px; flex-wrap:wrap; }
@@ -4717,7 +4717,7 @@ function InvoiceCancelCreditActions({ invoice, onChanged }) {
 
 // Rand editabil pentru o linie de factura draft — stare locala pana la
 // blur, ca sa nu trimitem un update la fiecare tasta apasata.
-function InvoiceLineEditRow({ line, onSave }) {
+function InvoiceLineEditRow({ line, index, onSave }) {
   const [name, setName] = useState(line.name);
   const [quantity, setQuantity] = useState(line.quantity);
   const [unitPrice, setUnitPrice] = useState(line.unit_price);
@@ -4734,6 +4734,7 @@ function InvoiceLineEditRow({ line, onSave }) {
 
   return (
     <tr>
+      <td className="r c-no">{index + 1}</td>
       <td><input className="inv-edit-input" value={name} onChange={(e) => setName(e.target.value)} onBlur={commit} /></td>
       <td className="r"><input className="inv-edit-input r" type="number" min="0" step="1" value={quantity} onChange={(e) => setQuantity(e.target.value)} onBlur={commit} /></td>
       <td className="r"><input className="inv-edit-input r" type="number" min="0" step="0.01" value={unitPrice} onChange={(e) => setUnitPrice(e.target.value)} onBlur={commit} /></td>
@@ -4751,21 +4752,36 @@ function InvoicePrint({ invoiceId, core, onClose, onChanged }) {
   const [payments, setPayments] = useState([]);
   const [loading, setLoading] = useState(true);
   const fisaRef = useRef(null);
+  const scalerRef = useRef(null);
   const [downloading, setDownloading] = useState(false);
   const download = async () => {
     setDownloading(true);
+    // getBoundingClientRect (folosit de html2canvas ca sa stie ce dimensiune
+    // are elementul) e afectat de transform-ul de scalare al parintelui —
+    // il dam deoparte cat timp capturam, altfel PDF-ul iese comprimat/
+    // suprapus pe telefon (unde scale e mult sub 1). Wrapper-ul de-asupra
+    // are si el o inaltime fixata la marimea scalata + overflow:hidden, care
+    // ar decupa coala redevenita nativa cat timp scalarea e scoasa — o dam
+    // deoparte si pe aceasta, apoi restauram ambele dupa capturare.
+    const scaler = scalerRef.current;
+    const wrap = scaleWrapRef.current;
+    const prevTransform = scaler?.style.transform;
+    const prevHeight = wrap?.style.height;
+    if (scaler) scaler.style.transform = "none";
+    if (wrap) wrap.style.height = "auto";
     try {
       await downloadElementAsPDF(fisaRef.current, `Factura-${invoice?.series || "draft"}-${invoice?.number || ""}.pdf`, { singlePage: true });
     } finally {
+      if (scaler) scaler.style.transform = prevTransform;
+      if (wrap) wrap.style.height = prevHeight;
       setDownloading(false);
     }
   };
 
   // Coala e fixata la 794px (latimea A4) ca sa iasa PDF-ul corect (vezi
   // downloadElementAsPDF), dar pe ecran trebuie sa incapa in modal/telefon —
-  // o scalam vizual cu transform pe un wrapper din JURUL .fisa, nu pe .fisa
-  // insasi, ca html2canvas sa capteze mereu elementul la dimensiunea lui
-  // nativa, indiferent de latimea ecranului curent.
+  // o scalam vizual cu transform pe un wrapper din JURUL .fisa (resetat
+  // temporar in download(), vezi mai sus).
   const scaleWrapRef = useRef(null);
   const [scale, setScale] = useState(1);
   const [sheetH, setSheetH] = useState(1123);
@@ -4866,11 +4882,13 @@ function InvoicePrint({ invoiceId, core, onClose, onChanged }) {
       </div>
 
       <div className="inv-sheet-wrap" ref={scaleWrapRef} style={{ height: sheetH * scale }}>
-      <div style={{ transform: `scale(${scale})`, transformOrigin: "top left" }}>
+      <div ref={scalerRef} style={{ transform: `scale(${scale})`, transformOrigin: "top left" }}>
       <div className="fisa inv-sheet" ref={fisaRef}>
         <div className="inv-top">
-          <img src="/logo.png" alt="La Livadă" className="fisa-logo-img" />
-          <div className="inv-top-slogan">Complex de cazare</div>
+          <div>
+            <img src="/logo.png" alt="La Livadă" className="fisa-logo-img" />
+            <div className="inv-top-slogan">Complex de cazare</div>
+          </div>
           <div className="inv-top-issuer">
             <strong>{issuer.name || "—"}</strong>
             {issuer.cui && <div>CUI: {issuer.cui}{issuer.regCom ? ` · ${issuer.regCom}` : ""}</div>}
@@ -4886,7 +4904,7 @@ function InvoicePrint({ invoiceId, core, onClose, onChanged }) {
 
         <div className="inv-meta-row">
           <div>
-            <div className="inv-to-lab">Facturare către</div>
+            <div className="inv-to-lab">Client</div>
             {customer ? (
               <>
                 <div className="inv-party-name">{billingCustomerLabel(customer)}</div>
@@ -4917,6 +4935,7 @@ function InvoicePrint({ invoiceId, core, onClose, onChanged }) {
           <table className="inv-table">
             <thead>
               <tr>
+                <th className="r c-no">Nr.</th>
                 <th>Denumire</th>
                 <th className="r">Cant.</th>
                 <th className="r">Preț unitar</th>
@@ -4925,11 +4944,12 @@ function InvoicePrint({ invoiceId, core, onClose, onChanged }) {
               </tr>
             </thead>
             <tbody>
-              {lines.map((l) => (
+              {lines.map((l, i) => (
                 invoice.status === "draft" && canBilling("create_invoice")
-                  ? <InvoiceLineEditRow key={l.id} line={l} onSave={saveLine} />
+                  ? <InvoiceLineEditRow key={l.id} line={l} index={i} onSave={saveLine} />
                   : (
                     <tr key={l.id}>
+                      <td className="r c-no">{i + 1}</td>
                       <td>{l.name}</td>
                       <td className="r">{l.quantity}</td>
                       <td className="r">{fmtMoney(l.unit_price)}</td>
@@ -4999,8 +5019,6 @@ function InvoicePrint({ invoiceId, core, onClose, onChanged }) {
               <div>{invoice.notes}</div>
             </div>
           )}
-
-          <div className="inv-thanks">Vă mulțumim pentru încredere!</div>
         </div>
 
         <div className="inv-foot">
@@ -5024,7 +5042,7 @@ function InvoicePrint({ invoiceId, core, onClose, onChanged }) {
             </div>
             <div className="inv-sign">
               <div className="inv-sign-line" />
-              <div className="inv-sign-lab">Semnătură autorizată</div>
+              <div className="inv-sign-lab">Semnătură client</div>
             </div>
           </div>
         </div>
