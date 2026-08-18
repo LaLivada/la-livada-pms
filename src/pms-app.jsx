@@ -761,48 +761,60 @@ const STYLES = `
     font-size:11px; color:#444;
   }
 
-  /* ---------- Invoice (factura) ---------- */
-  .inv-hero{
-    display:flex; align-items:flex-start; justify-content:space-between;
-    gap:20px; padding:22px 28px; border-bottom:1px solid #d0d0cc;
-  }
-  .inv-hero-brand{ }
-  .inv-hero-slogan{ font-size:9px; letter-spacing:.18em; text-transform:uppercase; color:#999; margin-top:2px; }
-  .inv-hero-issuer{ font-size:10.5px; color:#555; line-height:1.65; margin-top:14px; }
-  .inv-hero-issuer strong{ display:block; color:#141412; font-size:11.5px; margin-bottom:3px; }
-  .inv-hero-meta{ text-align:right; flex-shrink:0; }
-  .inv-hero-title{ font-size:22px; font-weight:700; letter-spacing:.05em; color:#141412; }
-  .inv-hero-number{ font-size:13px; color:#5a5650; margin-top:8px; font-weight:600; }
-  .inv-hero-date{ font-size:10.5px; color:#8a8a86; margin-top:4px; }
-  .inv-parties{ display:flex; gap:36px; padding:22px 28px 6px; }
-  .inv-party{ flex:1; min-width:0; }
-  .inv-party-lab{ font-size:10px; text-transform:uppercase; letter-spacing:.1em; color:#a3907a; font-weight:700; margin-bottom:6px; }
-  .inv-party-name{ font-size:13.5px; font-weight:700; color:#141412; }
+  /* ---------- Invoice (factura) — banner auriu, format A4 pe o pagina ---------- */
+  .invoice-modal{ max-width:860px; }
+  /* Continutul e fixat la latimea unei pagini A4 (~96dpi) ca sa iasa un PDF
+     A4 real dupa singlePage: modul de export scaleaza acest dreptunghi la
+     210mm, iar min-height:1123px ii pastreaza si inaltimea de 297mm cand
+     factura are putine linii; scroll orizontal doar pe ecrane inguste. */
+  .inv-sheet-wrap{ overflow-x:auto; -webkit-overflow-scrolling:touch; }
+  .inv-sheet{ width:794px; min-height:1123px; display:flex; flex-direction:column; }
+  .inv-top{ padding:32px 40px 0; }
+  .inv-top-slogan{ font-size:9px; letter-spacing:.18em; text-transform:uppercase; color:#999; margin-top:6px; }
+  .inv-top-issuer{ font-size:10px; color:#5a5650; line-height:1.6; margin-top:10px; }
+  .inv-top-issuer strong{ display:block; color:#141412; font-size:11.5px; margin-bottom:2px; }
+  .inv-banner{ display:flex; align-items:center; gap:16px; margin:22px 40px 0; }
+  .inv-banner-bar{ flex:1; height:12px; background:#CEA446; }
+  .inv-banner-bar.short{ flex:0 0 56px; }
+  .inv-banner-title{ font-size:32px; font-weight:800; letter-spacing:.06em; color:#1c1c1c; white-space:nowrap; }
+  .inv-meta-row{ display:flex; justify-content:space-between; gap:36px; padding:26px 40px 0; }
+  .inv-to-lab{ font-size:11px; text-transform:uppercase; letter-spacing:.08em; font-weight:700; color:#1c1c1c; margin-bottom:6px; }
+  .inv-party-name{ font-size:14px; font-weight:700; color:#141412; }
   .inv-party-line{ font-size:11.5px; color:#5a5650; margin-top:2px; line-height:1.55; }
-  .inv-body{ padding:6px 28px 26px; }
-  .inv-table{ width:100%; border-collapse:collapse; margin-top:12px; }
-  .inv-table thead th{ text-align:left; font-size:10px; text-transform:uppercase; letter-spacing:.06em; color:#141412; font-weight:700; padding:9px 8px; border-bottom:2px solid #141412; }
+  .inv-nums{ text-align:right; flex-shrink:0; font-size:12px; }
+  .inv-nums-row{ margin-top:4px; }
+  .inv-nums-row .k{ color:#8a8a86; margin-right:8px; }
+  .inv-nums-row .v{ font-weight:700; color:#141412; }
+  .inv-body{ padding:22px 40px 0; flex:1; display:flex; flex-direction:column; }
+  .inv-table{ width:100%; border-collapse:collapse; }
+  .inv-table thead th{ text-align:left; font-size:10.5px; text-transform:uppercase; letter-spacing:.06em; color:#fff; font-weight:700; padding:11px 10px; background:#1c1c1c; }
   .inv-table thead th.r{ text-align:right; }
-  .inv-table td{ padding:9px 8px; font-size:12.5px; color:#2b2b28; }
+  .inv-table thead th:first-child{ border-radius:4px 0 0 4px; }
+  .inv-table thead th:last-child{ border-radius:0 4px 4px 0; }
+  .inv-table td{ padding:10px 10px; font-size:12.5px; color:#2b2b28; border-bottom:1px solid #ececec; }
   .inv-table td.r{ text-align:right; }
-  .inv-table tbody tr:nth-child(odd){ background:#f7f0e0; }
-  .inv-totals{ display:flex; justify-content:flex-end; margin-top:18px; }
+  .inv-table tbody tr:nth-child(even){ background:#faf7ef; }
+  .inv-table-filler{ flex:1; min-height:40px; }
+  .inv-totals{ display:flex; justify-content:flex-end; margin-top:16px; }
   .inv-totals-box{ min-width:280px; font-size:12.5px; }
   .inv-totals-row{ display:flex; justify-content:space-between; padding:5px 10px; color:#5a5650; }
   .inv-totals-row.total{
-    font-size:13.5px; font-weight:700; color:#fff; background:#c9a768; border-radius:4px;
-    margin-top:8px; padding:10px 12px; text-transform:uppercase; letter-spacing:.03em;
+    font-size:14px; font-weight:800; color:#1c1c1c; background:#CEA446;
+    margin-top:8px; padding:12px 14px; text-transform:uppercase; letter-spacing:.03em;
   }
   .inv-totals-row.paid{ color:#2A7B7B; font-weight:600; }
-  .inv-payments{ margin-top:22px; padding-top:14px; border-top:1px solid #ecdfc0; }
-  .inv-payments-lab, .inv-notes strong{ font-size:10px; text-transform:uppercase; letter-spacing:.1em; color:#a3907a; font-weight:700; margin-bottom:8px; display:block; }
+  .inv-payments{ margin-top:20px; padding-top:12px; border-top:1px solid #ecdfc0; }
+  .inv-payments-lab, .inv-notes strong, .inv-foot-lab{ font-size:10px; text-transform:uppercase; letter-spacing:.1em; color:#a3907a; font-weight:700; margin-bottom:6px; display:block; }
   .inv-payment-row{ display:flex; justify-content:space-between; font-size:11.5px; color:#5a5650; padding:3px 0; }
-  .inv-notes{ margin-top:18px; padding-top:14px; border-top:1px solid #ecdfc0; font-size:11.5px; color:#5a5650; }
-  .inv-foot{ position:relative; overflow:hidden; padding:22px 28px 26px; margin-top:14px; }
-  .inv-foot::before{ content:""; position:absolute; z-index:0; left:-70px; bottom:-110px; width:220px; height:220px; background:#f4e9cd; transform:rotate(35deg); }
-  .inv-foot-inner{ position:relative; z-index:1; display:flex; justify-content:space-between; gap:24px; flex-wrap:wrap; }
-  .inv-foot-lab{ font-size:10px; text-transform:uppercase; letter-spacing:.1em; color:#a3907a; font-weight:700; margin-bottom:6px; }
+  .inv-notes{ margin-top:16px; padding-top:12px; border-top:1px solid #ecdfc0; font-size:11.5px; color:#5a5650; }
+  .inv-thanks{ font-size:13px; font-weight:700; color:#1c1c1c; margin-top:22px; }
+  .inv-foot{ margin-top:auto; padding:0 40px 32px; }
+  .inv-foot-bar{ height:3px; background:#CEA446; margin:20px 0 14px; }
+  .inv-foot-inner{ display:flex; justify-content:space-between; align-items:flex-end; gap:24px; flex-wrap:wrap; }
   .inv-foot-line{ font-size:11px; color:#5a5650; line-height:1.65; }
+  .inv-sign{ text-align:center; }
+  .inv-sign-line{ width:150px; border-top:1px solid #333; margin-bottom:6px; }
+  .inv-sign-lab{ font-size:10.5px; color:#5a5650; }
   .inv-edit-input{ width:100%; border:1px solid #ddd2b3; border-radius:4px; padding:5px 6px; font:inherit; font-size:12.5px; color:#2b2b28; background:#fffdf8; }
   .inv-edit-input.r{ text-align:right; }
   .inv-client-select{ margin-top:8px; font-size:12px; padding:6px 8px; border:1px solid #ddd2b3; border-radius:4px; width:100%; background:#fffdf8; }
@@ -4819,7 +4831,7 @@ function InvoicePrint({ invoiceId, core, onClose, onChanged }) {
   if (!invoice) return createPortal(<Dialog onClose={onClose} title="Factură"><div className="note">Factura nu a fost găsită.</div></Dialog>, document.body);
 
   return createPortal(
-    <Dialog onClose={onClose} title={invoice.series ? `Factură ${invoice.series} ${invoice.number}` : "Factură (draft)"} className="arrival-modal" overlayClassName="arrival-overlay">
+    <Dialog onClose={onClose} title={invoice.series ? `Factură ${invoice.series} ${invoice.number}` : "Factură (draft)"} className="arrival-modal invoice-modal" overlayClassName="arrival-overlay">
       <div className="no-print" style={{ display: "flex", gap: 8, marginBottom: 14 }}>
         <span className={"role-tag " + INVOICE_STATUS_CLASS[invoice.status]}>{INVOICE_STATUS_LABEL[invoice.status]}</span>
         <div className="grow" />
@@ -4828,35 +4840,27 @@ function InvoicePrint({ invoiceId, core, onClose, onChanged }) {
         </button>
       </div>
 
-      <div className="fisa" ref={fisaRef}>
-        <div className="inv-hero">
-          <div className="inv-hero-brand">
-            <img src="/logo.svg" alt="La Livadă" className="fisa-logo-img" />
-            <div className="inv-hero-slogan">Complex de cazare</div>
-            <div className="inv-hero-issuer">
-              <strong>{issuer.name || "—"}</strong>
-              {issuer.cui && <div>CUI: {issuer.cui}{issuer.regCom ? ` · ${issuer.regCom}` : ""}</div>}
-              {issuer.address && <div>{issuer.address}{issuer.city ? `, ${issuer.city}` : ""}{issuer.county ? `, ${issuer.county}` : ""}</div>}
-            </div>
-          </div>
-          <div className="inv-hero-meta">
-            <div className="inv-hero-title">FACTURĂ</div>
-            <div className="inv-hero-number">{invoice.series ? `Seria ${invoice.series} nr. ${invoice.number}` : "Draft — fără număr alocat"}</div>
-            {invoice.issue_date && <div className="inv-hero-date">Emisă la {fmtDateFull(invoice.issue_date)}</div>}
-            {invoice.service_date_start && (
-              <div className="inv-hero-date">Perioadă cazare: {fmtDateFull(invoice.service_date_start)} → {fmtDateFull(invoice.service_date_end)}</div>
-            )}
+      <div className="inv-sheet-wrap">
+      <div className="fisa inv-sheet" ref={fisaRef}>
+        <div className="inv-top">
+          <img src="/logo.svg" alt="La Livadă" className="fisa-logo-img" />
+          <div className="inv-top-slogan">Complex de cazare</div>
+          <div className="inv-top-issuer">
+            <strong>{issuer.name || "—"}</strong>
+            {issuer.cui && <div>CUI: {issuer.cui}{issuer.regCom ? ` · ${issuer.regCom}` : ""}</div>}
+            {issuer.address && <div>{issuer.address}{issuer.city ? `, ${issuer.city}` : ""}{issuer.county ? `, ${issuer.county}` : ""}</div>}
           </div>
         </div>
 
-        <div className="inv-parties">
-          <div className="inv-party">
-            <div className="inv-party-lab">Prestator</div>
-            <div className="inv-party-name">{issuer.name || "—"}</div>
-            {issuer.cui && <div className="inv-party-line">CUI {issuer.cui}</div>}
-          </div>
-          <div className="inv-party">
-            <div className="inv-party-lab">Client</div>
+        <div className="inv-banner">
+          <span className="inv-banner-bar" />
+          <span className="inv-banner-title">FACTURĂ</span>
+          <span className="inv-banner-bar short" />
+        </div>
+
+        <div className="inv-meta-row">
+          <div>
+            <div className="inv-to-lab">Facturare către</div>
             {customer ? (
               <>
                 <div className="inv-party-name">{billingCustomerLabel(customer)}</div>
@@ -4872,6 +4876,13 @@ function InvoicePrint({ invoiceId, core, onClose, onChanged }) {
                   <option key={c.id} value={c.id}>{billingCustomerLabel(c)}{c.kind === "company" ? " · firmă" : ""}</option>
                 ))}
               </select>
+            )}
+          </div>
+          <div className="inv-nums">
+            <div className="inv-nums-row"><span className="k">Factură nr.</span><span className="v">{invoice.series ? `${invoice.series} ${invoice.number}` : "Draft"}</span></div>
+            {invoice.issue_date && <div className="inv-nums-row"><span className="k">Data</span><span className="v">{fmtDateFull(invoice.issue_date)}</span></div>}
+            {invoice.service_date_start && (
+              <div className="inv-nums-row"><span className="k">Perioadă</span><span className="v">{fmtDateFull(invoice.service_date_start)} → {fmtDateFull(invoice.service_date_end)}</span></div>
             )}
           </div>
         </div>
@@ -4908,6 +4919,8 @@ function InvoicePrint({ invoiceId, core, onClose, onChanged }) {
               Editează denumirea, cantitatea sau prețul direct în tabel — totalul facturii se recalculează automat. O factură emisă nu se mai poate edita (doar stornare).
             </div>
           )}
+
+          <div className="inv-table-filler" />
 
           <div className="inv-totals">
             <div className="inv-totals-box">
@@ -4960,9 +4973,12 @@ function InvoicePrint({ invoiceId, core, onClose, onChanged }) {
               <div>{invoice.notes}</div>
             </div>
           )}
+
+          <div className="inv-thanks">Vă mulțumim pentru încredere!</div>
         </div>
 
         <div className="inv-foot">
+          <div className="inv-foot-bar" />
           <div className="inv-foot-inner">
             <div>
               <div className="inv-foot-lab">Date de plată</div>
@@ -4980,8 +4996,13 @@ function InvoicePrint({ invoiceId, core, onClose, onChanged }) {
                 {!issuer.phone && !issuer.email && <div>—</div>}
               </div>
             </div>
+            <div className="inv-sign">
+              <div className="inv-sign-line" />
+              <div className="inv-sign-lab">Semnătură autorizată</div>
+            </div>
           </div>
         </div>
+      </div>
       </div>
 
       {invoice.status === "issued" && canBilling("record_payment") && (
@@ -7944,7 +7965,7 @@ function ArrivalSheet({ res, core, groups }) {
   return (
     <div className="fisa">
       <div className="fisa-top">
-        <div className="fisa-logo">LA LIVADĂ</div>
+        <img src="/logo.svg" alt="La Livadă" className="fisa-logo-img" />
         <div className="fisa-room">
           <div>Nr.</div>
           <div>ROOM No. {room.name || ""}</div>
