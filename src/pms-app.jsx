@@ -1066,11 +1066,6 @@ const STYLES = `
     display:flex; gap:4px; background:var(--surface-2); border-radius:11px; padding:4px; margin-bottom:16px;
   }
   .folio-panel{ margin-bottom:16px; }
-  .billing-picker{ display:flex; gap:8px; }
-  .billing-picker select{ flex:1; min-width:0; }
-  @media (max-width:520px){
-    .billing-picker{ flex-direction:column; }
-  }
   .mode-switch button{
     flex:1; display:flex; align-items:center; justify-content:center; gap:6px; padding:9px;
     border:none; background:transparent; border-radius:8px; font-size:12.5px; font-weight:600;
@@ -4147,19 +4142,13 @@ function FolioPanel({ reservation, core, updateCore, billingCustomerId, setBilli
       {!loading && (
         <div className="field" style={{ marginTop: 18 }}>
           <span className="fl">Facturare către</span>
-          <div className="billing-picker">
-            <select value={billingCustomerId} onChange={(e) => setBillingCustomerId(e.target.value)}>
-              <option value="">Oaspetele rezervării (implicit)</option>
-              {(core.billingCustomers || []).map((c) => (
-                <option key={c.id} value={c.id}>
-                  {billingCustomerLabel(c)}{c.kind === "company" ? " · firmă" : ""}
-                </option>
-              ))}
-            </select>
-            <button type="button" className="btn btn-ghost" style={{ width: "auto" }} onClick={onNewBillingCustomer}>
-              <Plus size={14} /> Client nou
-            </button>
-          </div>
+          <BillingCustomerPicker
+            value={billingCustomerId}
+            customers={core.billingCustomers || []}
+            defaultLabel="Oaspetele rezervării"
+            onChange={setBillingCustomerId}
+            onNewBillingCustomer={onNewBillingCustomer}
+          />
           <div className="note" style={{ marginTop: 6 }}>
             Dacă nu alegi nimic, factura se emite pe datele oaspetelui de mai sus.
           </div>
@@ -4413,12 +4402,12 @@ function InvoiceBuilderModal({ reservation, folio, items, core, updateCore, onCr
     <Dialog onClose={onClose} title="Generează factură">
       <div className="field">
         <span className="fl">Facturare către</span>
-        <select value={billingCustomerId} onChange={(e) => setBillingCustomerId(e.target.value)}>
-          <option value="">{guestFullName(guest) || "Oaspetele rezervării"} (implicit)</option>
-          {(core.billingCustomers || []).map((c) => (
-            <option key={c.id} value={c.id}>{billingCustomerLabel(c)}{c.kind === "company" ? " · firmă" : ""}</option>
-          ))}
-        </select>
+        <BillingCustomerPicker
+          value={billingCustomerId}
+          customers={core.billingCustomers || []}
+          defaultLabel={guestFullName(guest) || "Oaspetele rezervării"}
+          onChange={setBillingCustomerId}
+        />
       </div>
 
       <div className="panel" style={{ marginBottom: 14 }}>
@@ -6197,6 +6186,127 @@ const emptyBillingCustomer = () => ({
   address: "", city: "", county: "Cluj", country: "România",
   email: "", phone: "", guestId: "",
 });
+
+// Cauta un client de facturare dupa nume/CUI/CNP/oras (acelasi tipar ca
+// selectorul de oaspete din ReservationModal) si cere confirmare pe un
+// pop-up cu datele complete inainte de a-l retine — pot exista mai multi
+// clienti cu acelasi nume, iar o factura emisa pe cine nu trebuie e greu
+// de reparat (doar prin stornare), deci merita acest pas in plus.
+function BillingCustomerPicker({ value, customers, defaultLabel, onChange, onNewBillingCustomer }) {
+  const [query, setQuery] = useState("");
+  const [pending, setPending] = useState(null);
+  const selected = customers.find((c) => c.id === value) || null;
+
+  const matches = (() => {
+    const t = query.trim().toLowerCase();
+    if (!t) return [];
+    const tDigits = t.replace(/\s/g, "");
+    return customers.filter((c) =>
+      billingCustomerLabel(c).toLowerCase().includes(t) ||
+      (c.contactName || "").toLowerCase().includes(t) ||
+      (c.cui || "").toLowerCase().includes(t) ||
+      (c.cnp || "").includes(tDigits) ||
+      (c.phone || "").replace(/\s/g, "").includes(tDigits) ||
+      (c.city || "").toLowerCase().includes(t)
+    );
+  })();
+
+  const custMeta = (c) => [
+    c.kind === "company" ? (c.cui && `CUI ${c.cui}`) : (c.cnp && `CNP ${c.cnp}`),
+    c.city,
+  ].filter(Boolean).join(" · ") || "Fără date suplimentare";
+
+  return (
+    <div className="guest-search">
+      {selected ? (
+        <div className="guest-chip">
+          <div className="guest-chip-av">{initials(billingCustomerLabel(selected))}</div>
+          <div className="guest-chip-body">
+            <div className="gname">{billingCustomerLabel(selected)}{selected.kind === "company" ? " · firmă" : ""}</div>
+            <div className="gmeta">{custMeta(selected)}</div>
+          </div>
+          <button type="button" className="icon-btn" onClick={() => { onChange(""); setQuery(""); }} aria-label="Schimbă clientul de facturare">
+            <X size={15} />
+          </button>
+        </div>
+      ) : (
+        <>
+          <div className="search-box" style={{ maxWidth: "none", width: "100%" }}>
+            <Search size={15} color="var(--text-muted)" />
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Caută după nume, CUI, CNP sau oraș…"
+            />
+          </div>
+          {query.trim() ? (
+            matches.length > 0 ? (
+              <div className="guest-results">
+                {matches.slice(0, 8).map((c) => (
+                  <button type="button" key={c.id} className="guest-result" onClick={() => setPending(c)}>
+                    <div className="guest-chip-av">{initials(billingCustomerLabel(c))}</div>
+                    <div>
+                      <div className="gname">{billingCustomerLabel(c)}{c.kind === "company" ? " · firmă" : ""}</div>
+                      <div className="gmeta">{custMeta(c)}</div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div className="guest-none">
+                <div>Niciun client cu „{query.trim()}”.</div>
+                {onNewBillingCustomer && (
+                  <button type="button" className="btn btn-primary" style={{ width: "auto", marginTop: 10 }} onClick={onNewBillingCustomer}>
+                    <Plus size={15} /> Adaugă client nou
+                  </button>
+                )}
+              </div>
+            )
+          ) : (
+            <div className="note" style={{ margin: 0 }}>Implicit: {defaultLabel}</div>
+          )}
+        </>
+      )}
+
+      {pending && (
+        <Dialog onClose={() => setPending(null)} title="Confirmă clientul de facturare">
+          <div className="guest-chip" style={{ marginBottom: 14 }}>
+            <div className="guest-chip-av">{initials(billingCustomerLabel(pending))}</div>
+            <div className="guest-chip-body">
+              <div className="gname">{billingCustomerLabel(pending)}</div>
+              <div className="gmeta">{pending.kind === "company" ? "Firmă" : "Persoană fizică"}</div>
+            </div>
+          </div>
+          <div className="guest-contact-info">
+            {pending.kind === "company" ? (
+              <>
+                {pending.cui && <div>CUI: {pending.cui}</div>}
+                {pending.regCom && <div>Reg. Com.: {pending.regCom}</div>}
+                {pending.contactName && <div>Persoană de contact: {pending.contactName}</div>}
+              </>
+            ) : (
+              pending.cnp && <div>CNP: {pending.cnp}</div>
+            )}
+            <div>{[pending.address, pending.city, pending.county, pending.country].filter(Boolean).join(", ") || "Fără adresă"}</div>
+            {pending.phone && <div>Telefon: {pending.phone}</div>}
+            {pending.email && <div>Email: {pending.email}</div>}
+          </div>
+          <div className="note">
+            Pot exista mai mulți clienți cu nume asemănător — verifică datele de mai sus înainte să confirmi.
+          </div>
+          <div className="modal-actions">
+            <div className="grow" />
+            <button type="button" className="btn btn-ghost" onClick={() => setPending(null)}>Renunță</button>
+            <button type="button" className="btn btn-primary" style={{ width: "auto" }}
+              onClick={() => { onChange(pending.id); setPending(null); setQuery(""); }}>
+              <Check size={15} /> Da, facturează pe acest client
+            </button>
+          </div>
+        </Dialog>
+      )}
+    </div>
+  );
+}
 
 function BillingCustomerModal({ customer, seedFromGuest, onSave, onClose }) {
   useModalLock();
