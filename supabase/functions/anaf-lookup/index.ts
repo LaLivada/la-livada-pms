@@ -19,14 +19,25 @@ function todayISO(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
+// Apelat din browser cu headere custom (Authorization, apikey) — browserul
+// trimite intai un preflight OPTIONS. Fara aceste headere CORS, preflight-ul
+// esueaza si fetch()-ul din pagina nu ajunge niciodata la functie — apare
+// ca "Failed to fetch" in consola, fara niciun raspuns HTTP vizibil.
+const CORS_HEADERS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, apikey, content-type",
+  "Access-Control-Allow-Methods": "GET, OPTIONS",
+};
+
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...CORS_HEADERS },
   });
 }
 
 Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS_HEADERS });
   if (req.method !== "GET") return jsonResponse({ error: "Metodă nepermisă." }, 405);
 
   // Un JWT valid înseamnă doar "user logat în aplicație" — dar preluarea
