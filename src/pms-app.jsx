@@ -86,7 +86,7 @@ const STYLES = `
     .btn-primary{ color:#0F1216; }
     .cal-daycell.today{ color:#0F1216; }
     .avatar-btn.active, .room-chip.on, .tag-chip.on, .guest-chip-av, .big-avatar,
-    .rail .mark, .settings-card:hover .ico{ color:#0F1216; }
+    .rail .mark, .brand-mark, .settings-card:hover .ico{ color:#0F1216; }
     .cal-bar.block-bar{
       background:repeating-linear-gradient(45deg, var(--surface-3), var(--surface-3) 6px, var(--surface-2) 6px, var(--surface-2) 12px);
     }
@@ -183,7 +183,10 @@ const STYLES = `
     border-radius:var(--r-md); text-align:left; transition:background .15s; min-width:0;
   }
   .brand-block:hover{ background:var(--surface-2); }
-  .brand-mark-img{ height:30px; width:auto; flex-shrink:0; }
+  .brand-mark{
+    width:34px; height:34px; border-radius:var(--r-sm); background:var(--accent); color:#fff; flex-shrink:0;
+    display:flex; align-items:center; justify-content:center;
+  }
   .brand-text{ min-width:0; }
   .brand-name{
     display:block; font-size:var(--fs-xl); font-weight:650; letter-spacing:-0.025em; color:var(--text);
@@ -2739,7 +2742,7 @@ function Shell({ user, view, setView, onLogout, core, updateCore, reservations, 
       <div className="main">
         <header className={"topbar" + (safeView === "calendar" ? " topbar-cal" : "")}>
           <button className="brand-block" onClick={() => setView(homeView)} title="Înapoi la Azi">
-            <img src="/logo.svg" alt="La Livadă" className="brand-mark-img" />
+            <span className="brand-mark"><DoorOpen size={16} /></span>
             <span className="brand-text">
               <span className="brand-name">La Livada</span>
               <span className="sub">{title}</span>
