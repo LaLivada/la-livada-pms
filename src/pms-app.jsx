@@ -15,8 +15,6 @@ import { validateCUIFormat } from "./lib/validation.js";
 import { mesajEroare } from "./lib/errors.js";
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
-import jsPDF from "jspdf";
-import html2canvas from "html2canvas";
 import {
   CalendarDays, Users, DoorOpen, Zap, UserCog, LogOut,
   Plus, X, Search, ChevronLeft, ChevronRight, Flame, Wind, Snowflake,
@@ -1944,6 +1942,14 @@ class ErrorBoundary extends React.Component {
 async function downloadElementAsPDF(el, filename, opts = {}) {
   if (!el) return;
   const { singlePage = false } = opts;
+  /* Incarcare la cerere: cele doua biblioteci inseamna ~180 KB din
+     pachetul principal, dar se folosesc doar cand cineva chiar descarca
+     un PDF — nu la fiecare pornire a aplicatiei. Importul dinamic le
+     scoate intr-un chunk separat, adus abia la primul click. */
+  const [{ default: jsPDF }, { default: html2canvas }] = await Promise.all([
+    import("jspdf"),
+    import("html2canvas"),
+  ]);
   const canvas = await html2canvas(el, {
     scale: 2, backgroundColor: "#ffffff", useCORS: true,
     // .no-print e gandit pentru @media print (window.print()) — aici nu
@@ -2228,6 +2234,29 @@ function PMSApp() {
   const [authChecked, setAuthChecked] = useState(false);
   const [view, setView] = useState("calendar");
 
+  /* Golirea completa a datelor tinute in memorie. Deconectarea stergea
+     doar sesiunea Supabase: rezervarile, oaspetii si jurnalul ramaneau in
+     starea React si erau inca vizibile pe ecranul urmatorului care se
+     autentifica pe acelasi calculator, pana la prima reincarcare.
+     Folosim doar setterele de stare (identitate stabila) plus cele doua
+     obiecte de la nivel de modul; ref-urile se resincronizeaza singure
+     din useEffect-urile lor. */
+  const resetStareLocala = useCallback(() => {
+    setCore({ rooms: [], guests: [] });
+    setReservations([]);
+    setHousekeeping({});
+    setGroups([]);
+    setLogEntries([]);
+    setBlocks([]);
+    setInitError(null);
+    setView("calendar");
+    audit.entries = [];
+    audit.user = null;
+    audit.setEntries = null;
+    billingPerms.role = null;
+    billingPerms.set = new Set();
+  }, []);
+
   /* La refresh de pagina, Supabase are deja sesiunea in localStorage —
      o refolosim ca sa nu ceara login din nou de fiecare data. */
   useEffect(() => {
@@ -2244,11 +2273,49 @@ function PMSApp() {
         if (alive) setAuthChecked(true);
       }
     })();
+    /* Supabase propaga evenimentele de autentificare intre taburile
+       aceluiasi browser, deci o deconectare intr-un tab goleste datele si
+       in celelalte, nu doar in cel in care s-a apasat butonul. */
     const { data: sub } = supabase.auth.onAuthStateChange((event) => {
-      if (event === "SIGNED_OUT") setCurrentUser(null);
+      if (event === "SIGNED_OUT") { setCurrentUser(null); resetStareLocala(); }
     });
     return () => { alive = false; sub.subscription.unsubscribe(); };
-  }, []);
+  }, [resetStareLocala]);
+
+  /* Rolul se citeste o singura data, la autentificare. Un tab lasat
+     deschis continua altfel sa lucreze cu drepturile vechi dupa ce
+     adminul le-a schimbat — pana la un refresh manual. Reverificam la
+     revenirea pe tab si periodic; daca randul din staff a disparut
+     (acces retras), deconectam. Baza impune oricum regulile prin RLS —
+     asta doar aliniaza interfata la realitate. */
+  useEffect(() => {
+    if (!currentUser) return;
+    let alive = true;
+    const verifica = async () => {
+      const { data: st, error } = await supabase
+        .from("staff").select("name, role").eq("user_id", currentUser.id).maybeSingle();
+      if (!alive || error) return;
+      if (!st) {
+        toaster.show("Contul tău nu mai are acces în aplicație.", { tone: "danger" });
+        await supabase.auth.signOut();
+        return;
+      }
+      if (st.role !== currentUser.role || st.name !== currentUser.name) {
+        setCurrentUser((u) => (u ? { ...u, name: st.name, role: st.role } : u));
+        if (st.role !== currentUser.role) {
+          toaster.show("Drepturile contului tău au fost modificate între timp.", { tone: "danger" });
+        }
+      }
+    };
+    const laFocus = () => verifica();
+    window.addEventListener("focus", laFocus);
+    const cronometru = setInterval(verifica, 5 * 60 * 1000);
+    return () => {
+      alive = false;
+      window.removeEventListener("focus", laFocus);
+      clearInterval(cronometru);
+    };
+  }, [currentUser]);
 
   useEffect(() => {
     if (!authChecked) return;
@@ -2512,7 +2579,12 @@ function PMSApp() {
         user={currentUser}
         view={view}
         setView={setView}
-        onLogout={async () => { await supabase.auth.signOut(); setCurrentUser(null); }}
+        /* Golim si local, nu doar sesiunea: daca reteaua pica in timpul
+           signOut, evenimentul SIGNED_OUT poate sa nu ajunga, iar datele
+           ar ramane pe ecran. */
+        onLogout={async () => {
+          try { await supabase.auth.signOut(); } finally { setCurrentUser(null); resetStareLocala(); }
+        }}
         core={core}
         updateCore={updateCore}
         reservations={reservations}
@@ -5521,7 +5593,7 @@ function ReservationModal({ data, core, updateCore, reservations, updateReservat
 
         <label className="field">
           <span className="fl">Note</span>
-          <textarea rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Observații interne" />
+          <textarea rows={2} maxLength={2000} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Observații interne" />
         </label>
 
         {editing?.messages?.length > 0 && (
@@ -6487,7 +6559,7 @@ function GuestModal({ guest, onSave, onClose }) {
   return (
     <Dialog onClose={onClose} title={guest?.id ? "Editează client" : "Client nou"}>
         <GuestFields value={g} invalid={invalid} onChange={(v) => { setG(v); setError(""); setInvalid(null); }} />
-        <label className="field"><span className="fl">Note</span><textarea rows={2} value={g.notes} onChange={(e) => setG({ ...g, notes: e.target.value })} /></label>
+        <label className="field"><span className="fl">Note</span><textarea rows={2} maxLength={2000} value={g.notes} onChange={(e) => setG({ ...g, notes: e.target.value })} /></label>
         {error && <div className="error-text" role="alert" style={{ marginBottom: 10 }}>{error}</div>}
         <div className="modal-actions">
           <div className="grow" />
@@ -9168,7 +9240,7 @@ function ReservationActions({ res: resSnapshot, core, groups, reservations, upda
 
           {msgOpen ? (
             <div className="msg-compose">
-              <textarea rows={3} autoFocus value={msgText} placeholder="ex. Sosesc după ora 22 · cerere pat suplimentar"
+              <textarea rows={3} autoFocus maxLength={2000} value={msgText} placeholder="ex. Sosesc după ora 22 · cerere pat suplimentar"
                 onChange={(e) => setMsgText(e.target.value)} />
               <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
                 <button className="btn btn-ghost" style={{ padding: "8px 12px" }}

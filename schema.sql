@@ -62,6 +62,19 @@ create table guests (
   created_at  timestamptz not null default now()
 );
 
+-- Plafoane de lungime — vezi explicația de la reservations mai jos.
+alter table guests add constraint guests_lungimi_text check (
+  length(coalesce(last_name, ''))  <= 100 and
+  length(coalesce(first_name, '')) <= 100 and
+  length(coalesce(address, ''))    <= 300 and
+  length(coalesce(city, ''))       <= 100 and
+  length(coalesce(county, ''))     <= 100 and
+  length(coalesce(country, ''))    <= 100 and
+  length(coalesce(email, ''))      <= 200 and
+  length(coalesce(phone, ''))      <= 40  and
+  length(coalesce(notes, ''))      <= 2000
+);
+
 
 -- ---------------------------------------------------------------------
 -- GRUPURI
@@ -73,6 +86,11 @@ create table res_groups (
   notes          text,
   seeded         boolean not null default false,
   created_at     timestamptz not null default now()
+);
+
+alter table res_groups add constraint res_groups_lungimi_text check (
+  length(coalesce(name, ''))  <= 200 and
+  length(coalesce(notes, '')) <= 2000
 );
 
 
@@ -177,6 +195,27 @@ create unique index res_extern_unic
 -- Intervalul '[)' face ca plecarea la 11:00 și sosirea la 15:00 în
 -- aceeași zi să NU fie considerate conflict — schimbul de oaspeți
 -- în aceeași zi rămâne posibil.
+-- PLAFOANE DE LUNGIME PE TEXTELE LIBERE.
+--
+-- Generarea PDF-ului (fișa de sosire, factura) rasterizează DOM-ul
+-- sincron, pe firul principal: un text foarte lung — lipit din greșeală
+-- sau introdus intenționat — umflă pagina și poate bloca tabul cât ține
+-- randarea.
+--
+-- Plafonul stă în bază, nu doar în formular, ca să acopere și importul
+-- iCal, și rezervările venite de pe site, și orice request direct către
+-- API — nu doar căile pe care le știe interfața. Valorile sunt largi
+-- față de uzul real (maximul din datele existente la introducere era 30
+-- de caractere).
+--
+-- Constrângerile pentru celelalte tabele sunt lângă definițiile lor.
+alter table reservations add constraint reservations_lungimi_text check (
+  length(coalesce(notes, ''))               <= 2000 and
+  length(coalesce(occupant_last_name, ''))  <= 100  and
+  length(coalesce(occupant_first_name, '')) <= 100  and
+  length(coalesce(occupant_phone, ''))      <= 40
+);
+
 alter table reservations add constraint fara_suprapunere
   exclude using gist (
     room_id with =,
@@ -325,6 +364,19 @@ create table billing_customers (
   )
 );
 create index billing_customers_guest on billing_customers(guest_id);
+alter table billing_customers add constraint billing_customers_lungimi_text check (
+  length(coalesce(company_name, '')) <= 200 and
+  length(coalesce(last_name, ''))    <= 100 and
+  length(coalesce(first_name, ''))   <= 100 and
+  length(coalesce(contact_name, '')) <= 200 and
+  length(coalesce(address, ''))      <= 300 and
+  length(coalesce(city, ''))         <= 100 and
+  length(coalesce(county, ''))       <= 100 and
+  length(coalesce(country, ''))      <= 100 and
+  length(coalesce(email, ''))        <= 200 and
+  length(coalesce(phone, ''))        <= 40  and
+  length(coalesce(reg_com, ''))      <= 50
+);
 -- Previne duplicarea clientilor de facturare cu acelasi CUI/CNP, chiar
 -- daca UI-ul e ocolit (ex. request direct). Normalizeaza CUI-ul (fara
 -- prefix RO, uppercase) la fel ca validateCUIFormat din front-end.
@@ -434,6 +486,10 @@ create table folio_items (
   invoiced_status text not null default 'uninvoiced' check (invoiced_status in ('uninvoiced','invoiced'))
 );
 create index folio_items_folio on folio_items(folio_id);
+alter table folio_items add constraint folio_items_lungimi_text check (
+  length(coalesce(name, ''))  <= 300 and
+  length(coalesce(notes, '')) <= 2000
+);
 
 
 -- ---------------------------------------------------------------------
@@ -483,6 +539,9 @@ create index invoices_folio on invoices(folio_id);
 create index invoices_billing_customer on invoices(billing_customer_id);
 create index invoices_status on invoices(status);
 create index invoices_issue_date on invoices(issue_date);
+alter table invoices add constraint invoices_lungimi_text check (
+  length(coalesce(notes, '')) <= 2000
+);
 
 create table invoice_items (
   id             text primary key,

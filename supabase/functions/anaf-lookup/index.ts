@@ -23,22 +23,57 @@ function todayISO(): string {
 // trimite intai un preflight OPTIONS. Fara aceste headere CORS, preflight-ul
 // esueaza si fetch()-ul din pagina nu ajunge niciodata la functie — apare
 // ca "Failed to fetch" in consola, fara niciun raspuns HTTP vizibil.
-const CORS_HEADERS = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, apikey, content-type",
-  "Access-Control-Allow-Methods": "GET, OPTIONS",
-};
+//
+// Originea permisa NU mai e "*": se citeste din variabila de mediu
+// ALLOWED_ORIGINS (lista separata prin virgula), ca sa nu fie niciun
+// domeniu scris in cod si ca dev/staging/productie sa poata diferi.
+//
+// ATENTIE LA DEPLOY: daca ALLOWED_ORIGINS nu e setata, raman permise doar
+// originile de dezvoltare de mai jos. Inainte de a folosi functia din
+// productie, seteaza secretul:
+//   Dashboard -> Edge Functions -> Secrets -> ALLOWED_ORIGINS
+//   (ex. "https://domeniul-aplicatiei.ro,https://www.domeniul-aplicatiei.ro")
+// sau: supabase secrets set ALLOWED_ORIGINS="https://domeniul-aplicatiei.ro"
+const ORIGINI_DEV = ["http://localhost:5173", "http://127.0.0.1:5173"];
+const ORIGINI_PERMISE = [
+  ...ORIGINI_DEV,
+  ...(Deno.env.get("ALLOWED_ORIGINS") || "")
+    .split(",")
+    .map((o) => o.trim())
+    .filter(Boolean),
+];
 
-function jsonResponse(body: unknown, status = 200): Response {
+// Se raspunde cu originea cererii doar daca e in lista. Altfel nu se
+// trimite deloc antetul, iar browserul blocheaza raspunsul — exact ce
+// vrem pentru un apel venit de pe un site strain.
+// "Vary: Origin" e obligatoriu cand raspunsul depinde de originea cererii,
+// altfel un cache intermediar ar putea servi antetul unui alt apelant.
+function corsHeaders(req: Request): Record<string, string> {
+  const origin = req.headers.get("Origin") || "";
+  const headers: Record<string, string> = {
+    "Access-Control-Allow-Headers": "authorization, apikey, content-type",
+    "Access-Control-Allow-Methods": "GET, OPTIONS",
+    "Vary": "Origin",
+  };
+  if (origin && ORIGINI_PERMISE.includes(origin)) {
+    headers["Access-Control-Allow-Origin"] = origin;
+  }
+  return headers;
+}
+
+function jsonResponse(body: unknown, status = 200, req?: Request): Response {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { "Content-Type": "application/json", ...CORS_HEADERS },
+    headers: {
+      "Content-Type": "application/json",
+      ...(req ? corsHeaders(req) : {}),
+    },
   });
 }
 
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS_HEADERS });
-  if (req.method !== "GET") return jsonResponse({ error: "Metodă nepermisă." }, 405);
+  if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: corsHeaders(req) });
+  if (req.method !== "GET") return jsonResponse({ error: "Metodă nepermisă." }, 405, req);
 
   // Un JWT valid înseamnă doar "user logat în aplicație" — dar preluarea
   // ANAF ține de fluxul de facturare, deci verificăm și permisiunea
@@ -50,13 +85,13 @@ Deno.serve(async (req) => {
   });
   const { data: allowed, error: permErr } = await userClient.rpc("has_billing_permission", { perm: "create_invoice" });
   if (permErr || !allowed) {
-    return jsonResponse({ error: "Nu ai permisiunea de a prelua date de facturare." }, 403);
+    return jsonResponse({ error: "Nu ai permisiunea de a prelua date de facturare." }, 403, req);
   }
 
   const url = new URL(req.url);
   const cuiRaw = (url.searchParams.get("cui") || "").toUpperCase().replace(/^RO/, "").trim();
   if (!/^\d{2,10}$/.test(cuiRaw)) {
-    return jsonResponse({ error: "CUI invalid — trebuie să conțină doar cifre." }, 400);
+    return jsonResponse({ error: "CUI invalid — trebuie să conțină doar cifre." }, 400, req);
   }
   const cui = Number(cuiRaw);
 
@@ -68,7 +103,7 @@ Deno.serve(async (req) => {
       body: JSON.stringify([{ cui, data: todayISO() }]),
     });
   } catch {
-    return jsonResponse({ error: "Nu am putut contacta serviciul ANAF. Încearcă din nou." }, 502);
+    return jsonResponse({ error: "Nu am putut contacta serviciul ANAF. Încearcă din nou." }, 502, req);
   }
   if (!anafRes.ok) {
     // Continutul raspunsului ajuta la diagnosticare — ANAF isi
@@ -82,19 +117,19 @@ Deno.serve(async (req) => {
       error: `Serviciul ANAF a răspuns cu eroare (status ${anafRes.status}).`,
       upstreamStatus: anafRes.status,
       upstreamSnippet: bodyText.slice(0, 200),
-    }, 502);
+    }, 502, req);
   }
 
   let data: any;
   try {
     data = await anafRes.json();
   } catch {
-    return jsonResponse({ error: "Răspuns ANAF invalid." }, 502);
+    return jsonResponse({ error: "Răspuns ANAF invalid." }, 502, req);
   }
 
   const found = (data?.found || [])[0];
   if (!found) {
-    return jsonResponse({ error: "Nu am găsit nicio firmă cu acest CUI la ANAF." }, 404);
+    return jsonResponse({ error: "Nu am găsit nicio firmă cu acest CUI la ANAF." }, 404, req);
   }
 
   const g = found.date_generale || {};
@@ -117,5 +152,5 @@ Deno.serve(async (req) => {
     county,
     postalCode,
     telefon: g.telefon || "",
-  });
+  }, 200, req);
 });
