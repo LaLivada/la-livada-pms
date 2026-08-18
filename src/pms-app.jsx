@@ -5642,6 +5642,7 @@ function ReservationModal({ data, core, updateCore, reservations, updateReservat
         <div onClick={(e) => e.stopPropagation()}>
           <BillingCustomerModal
             seedFromGuest={selectedGuest}
+            existingCustomers={core.billingCustomers || []}
             onSave={saveNewBillingCustomer}
             onClose={() => setBillingModalOpen(false)}
           />
@@ -6310,7 +6311,9 @@ function BillingCustomerPicker({ value, customers, defaultLabel, onChange, onNew
   );
 }
 
-function BillingCustomerModal({ customer, seedFromGuest, onSave, onClose }) {
+const normCui = (v) => String(v || "").toUpperCase().replace(/^RO/, "").trim();
+
+function BillingCustomerModal({ customer, seedFromGuest, existingCustomers, onSave, onClose }) {
   useModalLock();
   const [c, setC] = useState(() => ({
     ...emptyBillingCustomer(),
@@ -6324,11 +6327,16 @@ function BillingCustomerModal({ customer, seedFromGuest, onSave, onClose }) {
   }));
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+  // La primul submit cu un nume care se potriveste cu un client existent
+  // (dar CUI/CNP diferit sau lipsa), cerem confirmare explicita in loc sa
+  // salvam direct — abia la al doilea click, cu acelasi nume neschimbat,
+  // se salveaza efectiv. Orice modificare a formularului reseteaza asta.
+  const [nameWarning, setNameWarning] = useState(null);
   // Generat o singura data — nu la fiecare submit, ca un dublu-tap pe
   // "Salveaza" (cat timp raspunsul serverului intarzie) sa nu produca doi
   // clienti locali cu id-uri diferite inainte ca salvarea sa se termine.
   const idRef = useRef(customer?.id || uid());
-  const set = (k) => (e) => { setC({ ...c, [k]: e.target.value }); setError(""); };
+  const set = (k) => (e) => { setC({ ...c, [k]: e.target.value }); setError(""); setNameWarning(null); };
 
   const cuiCheck = c.kind === "company" ? validateCUIFormat(c.cui) : { ok: true, warn: false };
 
@@ -6348,6 +6356,66 @@ function BillingCustomerModal({ customer, seedFromGuest, onSave, onClose }) {
       setError(cuiCheck.message);
       return;
     }
+
+    // Verificarile de duplicat conteaza doar la crearea unui client nou —
+    // editarea unuia existent isi pastreaza propriul id, nu poate "coliza"
+    // cu sine insusi.
+    if (!customer?.id) {
+      const others = (existingCustomers || []).filter((e) => e.id !== idRef.current);
+
+      if (c.kind === "company") {
+        // La firma, CUI-ul identic e suficient — e un identificator legal
+        // unic, nu mai e nevoie sa comparam alte campuri.
+        if (c.cui.trim()) {
+          const dupCui = others.find((e) => e.kind === "company" && normCui(e.cui) === normCui(c.cui));
+          if (dupCui) {
+            setError(`Există deja o firmă cu acest CUI: ${billingCustomerLabel(dupCui)}${dupCui.city ? ` (${dupCui.city})` : ""}. Caut-o în listă în loc să creezi una nouă.`);
+            return;
+          }
+        }
+        const nameKey = c.companyName.trim().toLowerCase();
+        const dupName = others.find((e) => e.kind === "company" && (e.companyName || "").trim().toLowerCase() === nameKey);
+        if (dupName && !nameWarning) {
+          setNameWarning(dupName);
+          setError(`Există deja o firmă cu acest nume: ${billingCustomerLabel(dupName)}${dupName.city ? ` (${dupName.city})` : ""}. Dacă e alta firmă, apasă din nou „Salvează” ca să continui.`);
+          return;
+        }
+      } else {
+        // La persoana fizica, CNP-ul e optional — nu ne putem baza doar pe
+        // el. Comparam nume+prenume impreuna cu telefon si adresa, ca sa nu
+        // tratam drept "sigur acelasi om" doua persoane care doar au acelasi
+        // nume, dar nici sa nu ratam un duplicat cand CNP-ul lipseste.
+        const normVal = (v) => String(v || "").trim().toLowerCase();
+        const normPhone = (v) => String(v || "").replace(/\s/g, "");
+        const nameKey = `${normVal(c.lastName)} ${normVal(c.firstName)}`.trim();
+        const phoneKey = normPhone(c.phone);
+        const addrKey = c.address.trim() ? `${normVal(c.address)}|${normVal(c.city)}` : "";
+        const cnpKey = c.cnp.trim();
+
+        const persons = others.filter((e) => e.kind === "person");
+        if (cnpKey) {
+          const dupCnp = persons.find((e) => (e.cnp || "").trim() === cnpKey);
+          if (dupCnp) {
+            setError(`Există deja o persoană cu acest CNP: ${billingCustomerLabel(dupCnp)}${dupCnp.city ? ` (${dupCnp.city})` : ""}. Caut-o în listă în loc să creezi una nouă.`);
+            return;
+          }
+        }
+        const sameName = persons.filter((e) => `${normVal(e.lastName)} ${normVal(e.firstName)}`.trim() === nameKey);
+        const corroborated = sameName.find((e) =>
+          (phoneKey && normPhone(e.phone) === phoneKey) ||
+          (addrKey && e.address.trim() && `${normVal(e.address)}|${normVal(e.city)}` === addrKey)
+        );
+        const dup = corroborated || sameName[0];
+        if (dup && !nameWarning) {
+          setNameWarning(dup);
+          const reason = corroborated ? "acest nume și aceleași date de contact" : "acest nume";
+          setError(`Există deja o persoană cu ${reason}: ${billingCustomerLabel(dup)}${dup.city ? ` (${dup.city})` : ""}. Dacă e altcineva, apasă din nou „Salvează” ca să continui.`);
+          return;
+        }
+      }
+    }
+
+    setError("");
     setSaving(true);
     try {
       await onSave({ ...c, id: idRef.current });
@@ -6359,10 +6427,10 @@ function BillingCustomerModal({ customer, seedFromGuest, onSave, onClose }) {
   return (
     <Dialog onClose={onClose} title={customer?.id ? "Editează client de facturare" : "Client de facturare nou"}>
       <div className="mode-switch" style={{ marginBottom: 14 }}>
-        <button className={c.kind === "person" ? "on" : ""} onClick={() => setC({ ...c, kind: "person" })}>
+        <button className={c.kind === "person" ? "on" : ""} onClick={() => { setC({ ...c, kind: "person" }); setError(""); setNameWarning(null); }}>
           <UserCheck size={14} /> Persoană fizică
         </button>
-        <button className={c.kind === "company" ? "on" : ""} onClick={() => setC({ ...c, kind: "company" })}>
+        <button className={c.kind === "company" ? "on" : ""} onClick={() => { setC({ ...c, kind: "company" }); setError(""); setNameWarning(null); }}>
           <Banknote size={14} /> Firmă
         </button>
       </div>
