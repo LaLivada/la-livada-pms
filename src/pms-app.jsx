@@ -287,26 +287,6 @@ const STYLES = `
     .brand-name{ font-size:var(--fs-lg); }
   }
 
-  /* ---------- Automation strip ---------- */
-  .auto-strip{
-    display:flex; gap:10px; overflow-x:auto; padding-bottom:4px; margin-bottom:20px;
-    -webkit-overflow-scrolling:touch; overscroll-behavior-x:contain;
-  }
-  .auto-pill{
-    flex-shrink:0; display:flex; align-items:center; gap:10px; background:var(--surface);
-    border:1px solid var(--border); border-radius:var(--r-pill); padding:8px 14px 8px 8px;
-  }
-  .auto-pill .dot{ width:8px; height:8px; border-radius:50%; flex-shrink:0; }
-  .auto-pill .dot.soon{ background:var(--accent); box-shadow:0 0 0 4px var(--accent-soft); }
-  .auto-pill .dot.later{ background:var(--text-muted); }
-  .auto-pill .dot.done{ background:var(--success); }
-  .auto-pill .room{ font-weight:600; font-size:var(--fs-base); }
-  .auto-pill .when{ font-size:var(--fs-sm); color:var(--text-muted); }
-  .auto-empty{
-    font-size:var(--fs-base); color:var(--text-muted); background:var(--surface); border:1px dashed var(--border);
-    border-radius:var(--radius); padding:14px 16px; margin-bottom:20px;
-  }
-
   /* ---------- Cards / generic ---------- */
   .panel{ background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); box-shadow:var(--shadow-sm); overflow:hidden; }
   .toolbar{ display:flex; align-items:center; gap:10px; margin-bottom:16px; flex-wrap:wrap; }
@@ -1053,7 +1033,6 @@ const STYLES = `
   .guest-contact-info a:hover{ text-decoration:underline; }
   .pager{ display:flex; align-items:center; justify-content:center; gap:14px; margin-top:14px; }
   .pager-info{ font-size:var(--fs-sm); color:var(--text-muted); white-space:nowrap; }
-  .today-cols{ display:grid; grid-template-columns:repeat(auto-fit,minmax(320px,1fr)); gap:14px; align-items:start; }
   .section-panel{ overflow:hidden; }
   .section-head{
     display:flex; align-items:center; justify-content:space-between; padding:13px 18px;
@@ -1321,7 +1300,6 @@ const STYLES = `
     .price-box{ padding:11px 12px; gap:10px; }
     .pb-manual{ width:98px; }
     .price-value{ font-size:var(--fs-xl); }
-    .today-cols{ grid-template-columns:1fr; }
     .settings-grid{ grid-template-columns:1fr; }
     .tabs-bar{ flex-direction:column; align-items:stretch; gap:10px; }
     .tabs-bar .sub-tabs{ width:100%; }
@@ -2867,38 +2845,6 @@ function triggerLabel(diffMin) {
   if (diffMin < 60) return { text: `Pornește în ${diffMin} min`, cls: "soon" };
   const h = Math.floor(diffMin / 60), m = diffMin % 60;
   return { text: `Pornește în ${h}h ${m}min`, cls: "later" };
-}
-
-function AutomationStrip({ core, reservations }) {
-  /* The countdown text is derived from "now", so without a tick it would
-     freeze at whatever it read on first render — wrong within minutes on
-     a screen left open at reception. */
-  const [tick, setTick] = useState(0);
-  useEffect(() => {
-    const id = setInterval(() => setTick((t) => t + 1), 60000);
-    return () => clearInterval(id);
-  }, []);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const triggers = useMemo(() => computeTriggers(core, reservations, 24), [core, reservations, tick]);
-  if (triggers.length === 0) {
-    return <div className="auto-empty">Nicio sosire în următoarele 24h — fără declanșări de automatizare programate.</div>;
-  }
-  return (
-    <div className="auto-strip">
-      {triggers.map((t) => {
-        const lbl = triggerLabel(t.diffMin);
-        return (
-          <div className="auto-pill" key={t.reservation.id}>
-            <span className={"dot " + lbl.cls} />
-            <div>
-              <div className="room">{t.room.name}</div>
-              <div className="when">{lbl.text} · sosire {fmtDateTime(t.checkin)}</div>
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  );
 }
 
 /* ---------------------------------------------------------------
@@ -8103,6 +8049,7 @@ function ArrivalForm({ res, core, groups, onClose }) {
 function TodayView({ core, reservations, updateReservations, housekeeping, updateHousekeeping, setView, groups }) {
   const [arrivalRes, setArrivalRes] = useState(null);
   const [checkinError, setCheckinError] = useState("");
+  const [todayTab, setTodayTab] = useState("arrivals");
 
   /* One pass over the reservation list instead of six, and O(1) room lookups. */
   const roomById = useMemo(
@@ -8196,9 +8143,22 @@ function TodayView({ core, reservations, updateReservations, housekeeping, updat
         </button>
       </div>
 
-      <AutomationStrip core={core} reservations={reservations} />
+      <div className="sub-tabs">
+        <button className={todayTab === "arrivals" ? "on" : ""} onClick={() => setTodayTab("arrivals")}>
+          <LogIn size={14} /> Sosiri <span className="tab-count">{arrivals.length}</span>
+        </button>
+        <button className={todayTab === "departures" ? "on" : ""} onClick={() => setTodayTab("departures")}>
+          <LogOut size={14} /> Plecări <span className="tab-count">{departures.length}</span>
+        </button>
+        <button className={todayTab === "inhouse" ? "on" : ""} onClick={() => setTodayTab("inhouse")}>
+          <DoorOpen size={14} /> În house <span className="tab-count">{inHouse.length}</span>
+        </button>
+        <button className={todayTab === "clean" ? "on" : ""} onClick={() => setTodayTab("clean")}>
+          <Sparkles size={14} /> Camere de pregătit <span className="tab-count">{toClean.length}</span>
+        </button>
+      </div>
 
-      <div className="today-cols">
+      {todayTab === "arrivals" && (
         <Section title="Sosiri" items={arrivals} empty="Nicio sosire astăzi."
           renderItem={(r) => (
             <div className="list-row" key={r.id}>
@@ -8231,7 +8191,9 @@ function TodayView({ core, reservations, updateReservations, housekeeping, updat
             </div>
           )}
         />
+      )}
 
+      {todayTab === "departures" && (
         <Section title="Plecări" items={departures} empty="Nicio plecare astăzi."
           renderItem={(r) => (
             <div className="list-row" key={r.id}>
@@ -8254,8 +8216,23 @@ function TodayView({ core, reservations, updateReservations, housekeeping, updat
             </div>
           )}
         />
+      )}
 
-        <Section title="De pregătit" items={toClean} empty="Toate camerele sunt curate."
+      {todayTab === "inhouse" && (
+        <Section title="În house" items={inHouse} empty="Nicio cameră ocupată."
+          renderItem={(r) => (
+            <div className="list-row" key={r.id}>
+              <div>
+                <div className="primary">{guestName(r)}</div>
+                <div className="secondary"><span className="mono">{roomName(r.roomId)}</span> · pleacă {fmtDate(r.checkout)}</div>
+              </div>
+            </div>
+          )}
+        />
+      )}
+
+      {todayTab === "clean" && (
+        <Section title="Camere de pregătit" items={toClean} empty="Toate camerele sunt curate."
           renderItem={(room) => (
             <div className="list-row" key={room.id}>
               <div>
@@ -8268,18 +8245,7 @@ function TodayView({ core, reservations, updateReservations, housekeeping, updat
             </div>
           )}
         />
-
-        <Section title="În casă acum" items={inHouse} empty="Nicio cameră ocupată."
-          renderItem={(r) => (
-            <div className="list-row" key={r.id}>
-              <div>
-                <div className="primary">{guestName(r)}</div>
-                <div className="secondary"><span className="mono">{roomName(r.roomId)}</span> · pleacă {fmtDate(r.checkout)}</div>
-              </div>
-            </div>
-          )}
-        />
-      </div>
+      )}
 
       {arrivalRes && <ArrivalForm res={arrivalRes} core={core} groups={groups} onClose={() => setArrivalRes(null)} />}
     </div>
