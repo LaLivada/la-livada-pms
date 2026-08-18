@@ -24,18 +24,18 @@ function todayISO(): string {
 // esueaza si fetch()-ul din pagina nu ajunge niciodata la functie — apare
 // ca "Failed to fetch" in consola, fara niciun raspuns HTTP vizibil.
 //
-// Originea permisa NU mai e "*": se citeste din variabila de mediu
-// ALLOWED_ORIGINS (lista separata prin virgula), ca sa nu fie niciun
-// domeniu scris in cod si ca dev/staging/productie sa poata diferi.
+// Originea permisa NU mai e "*", ci lista de mai jos: domeniul aplicatiei
+// plus originile de dezvoltare. Functia merge asa cum e, fara nicio
+// configurare suplimentara.
 //
-// ATENTIE LA DEPLOY: daca ALLOWED_ORIGINS nu e setata, raman permise doar
-// originile de dezvoltare de mai jos. Inainte de a folosi functia din
-// productie, seteaza secretul:
-//   Dashboard -> Edge Functions -> Secrets -> ALLOWED_ORIGINS
-//   (ex. "https://domeniul-aplicatiei.ro,https://www.domeniul-aplicatiei.ro")
-// sau: supabase secrets set ALLOWED_ORIGINS="https://domeniul-aplicatiei.ro"
+// ALLOWED_ORIGINS (variabila de mediu, lista separata prin virgula) e
+// optionala si se ADAUGA la lista — utila pentru un preview de deploy sau
+// un staging, fara sa fie nevoie de o modificare de cod:
+//   supabase secrets set ALLOWED_ORIGINS="https://preview-xyz.vercel.app"
+const ORIGINI_APLICATIE = ["https://pms.lalivada.ro"];
 const ORIGINI_DEV = ["http://localhost:5173", "http://127.0.0.1:5173"];
 const ORIGINI_PERMISE = [
+  ...ORIGINI_APLICATIE,
   ...ORIGINI_DEV,
   ...(Deno.env.get("ALLOWED_ORIGINS") || "")
     .split(",")
