@@ -2066,25 +2066,29 @@ async function downloadElementAsPDF(el, filename, opts = {}) {
     ignoreElements: (node) => node.classList?.contains("no-print"),
   });
   const imgData = canvas.toDataURL("image/png");
+
+  if (singlePage) {
+    // O factura trebuie sa ramana mereu pe o singura pagina SI sa umple
+    // toata latimea — o pagina A4 fixa nu garanteaza asta (proportia
+    // continutului rareori se potriveste exact cu proportia A4: fie se
+    // rupe pe pagina 2, fie, daca micsoram sa incapa pe inaltime, ramane
+    // ingusta cu marginile goale). In loc sa fortam continutul intr-o
+    // forma A4, facem pagina exact de dimensiunea continutului — latime
+    // fixa (echivalentul unei coli A4 pe latime), inaltime calculata din
+    // raportul real al imaginii, fara nicio scalare/taiere.
+    const widthMM = 210;
+    const heightMM = (canvas.height * widthMM) / canvas.width;
+    const pdf = new jsPDF({ unit: "mm", format: [widthMM, heightMM] });
+    pdf.addImage(imgData, "PNG", 0, 0, widthMM, heightMM);
+    pdf.save(filename);
+    return;
+  }
+
   const pdf = new jsPDF({ unit: "mm", format: "a4" });
   const pageWidth = pdf.internal.pageSize.getWidth();
   const pageHeight = pdf.internal.pageSize.getHeight();
   const imgWidth = pageWidth;
   const imgHeight = (canvas.height * imgWidth) / canvas.width;
-
-  if (singlePage && imgHeight > pageHeight) {
-    // Documente scurte (facturi) trebuie sa incapa mereu pe o pagina —
-    // umplerea pe toata latimea pagini + paginare (varianta de mai jos)
-    // rupea in 2 pagini orice factura cu mai multe linii/plati/note, desi
-    // tot continutul ar fi incaput lejer pe o singura pagina micsorata.
-    // Scalam ca sa incapa integral pe inaltime, centrat orizontal.
-    const scale = pageHeight / imgHeight;
-    const w = imgWidth * scale;
-    const h = pageHeight;
-    pdf.addImage(imgData, "PNG", (pageWidth - w) / 2, 0, w, h);
-    pdf.save(filename);
-    return;
-  }
 
   let heightLeft = imgHeight;
   let position = 0;
