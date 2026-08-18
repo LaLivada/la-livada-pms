@@ -71,7 +71,18 @@ Deno.serve(async (req) => {
     return jsonResponse({ error: "Nu am putut contacta serviciul ANAF. Încearcă din nou." }, 502);
   }
   if (!anafRes.ok) {
-    return jsonResponse({ error: "Serviciul ANAF nu a răspuns corect." }, 502);
+    // Continutul raspunsului ajuta la diagnosticare — ANAF isi
+    // protejeaza acest subdomeniu cu un firewall care poate bloca cereri
+    // venite din infrastructura cloud (cookie-uri "TSxxxxxxxx" tipice
+    // F5/BIG-IP intr-o pagina falsa de 404), indiferent daca formatul
+    // cererii e corect.
+    const bodyText = await anafRes.text().catch(() => "");
+    console.error("ANAF a raspuns cu eroare", anafRes.status, bodyText.slice(0, 300));
+    return jsonResponse({
+      error: `Serviciul ANAF a răspuns cu eroare (status ${anafRes.status}).`,
+      upstreamStatus: anafRes.status,
+      upstreamSnippet: bodyText.slice(0, 200),
+    }, 502);
   }
 
   let data: any;

@@ -6191,7 +6191,11 @@ function BillingCustomerModal({ customer, seedFromGuest, onSave, onClose }) {
         { headers: { Authorization: `Bearer ${session?.access_token}`, apikey: import.meta.env.VITE_SUPABASE_ANON_KEY } }
       );
       const body = await res.json();
-      if (!res.ok) { setError(body?.error || "Preluarea de la ANAF a eșuat."); return; }
+      if (!res.ok) {
+        const detail = body?.upstreamStatus ? ` (ANAF a răspuns cu status ${body.upstreamStatus} — posibil blocat de firewall-ul ANAF pentru cereri din cloud; completează manual câmpurile.)` : "";
+        setError((body?.error || "Preluarea de la ANAF a eșuat.") + detail);
+        return;
+      }
       const matchedCounty = JUDETE.find((j) => j.toLowerCase() === String(body.county || "").toLowerCase());
       setC((prev) => ({
         ...prev,
