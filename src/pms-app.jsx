@@ -3999,7 +3999,7 @@ async function ensureCazareLine(folio, items, reservation, core) {
   return data;
 }
 
-function FolioPanel({ reservation, core, updateCore }) {
+function FolioPanel({ reservation, core, updateCore, billingCustomerId, setBillingCustomerId, onNewBillingCustomer }) {
   const [folio, setFolio] = useState(null);
   const [items, setItems] = useState([]);
   const [invoices, setInvoices] = useState([]);
@@ -4161,6 +4161,28 @@ function FolioPanel({ reservation, core, updateCore }) {
       {!loading && !activeProducts.length && (
         <div className="note" style={{ marginTop: 8 }}>
           Niciun produs/serviciu activ — adaugă din Setări → Financiar → Produse & TVA.
+        </div>
+      )}
+
+      {!loading && (
+        <div className="field" style={{ marginTop: 18 }}>
+          <span className="fl">Facturare către</span>
+          <div className="billing-picker">
+            <select value={billingCustomerId} onChange={(e) => setBillingCustomerId(e.target.value)}>
+              <option value="">Oaspetele rezervării (implicit)</option>
+              {(core.billingCustomers || []).map((c) => (
+                <option key={c.id} value={c.id}>
+                  {billingCustomerLabel(c)}{c.kind === "company" ? " · firmă" : ""}
+                </option>
+              ))}
+            </select>
+            <button type="button" className="btn btn-ghost" style={{ width: "auto" }} onClick={onNewBillingCustomer}>
+              <Plus size={14} /> Client nou
+            </button>
+          </div>
+          <div className="note" style={{ marginTop: 6 }}>
+            Dacă nu alegi nimic, factura se emite pe datele oaspetelui de mai sus.
+          </div>
         </div>
       )}
 
@@ -5468,7 +5490,11 @@ function ReservationModal({ data, core, updateCore, reservations, updateReservat
           </div>
         </div>}
 
-        {!isBlock && editing && <FolioPanel reservation={editing} core={core} updateCore={updateCore} />}
+        {!isBlock && editing && (
+          <FolioPanel reservation={editing} core={core} updateCore={updateCore}
+            billingCustomerId={billingCustomerId} setBillingCustomerId={setBillingCustomerId}
+            onNewBillingCustomer={() => setBillingModalOpen(true)} />
+        )}
 
         {!isBlock && (
           <div className="field">
@@ -5512,28 +5538,6 @@ function ReservationModal({ data, core, updateCore, reservations, updateReservat
               {statusOptions.map((k) => <option key={k} value={k}>{STATUS_LABEL[k]}</option>)}
             </select>
           </label>
-        )}
-
-        {!isBlock && (
-          <div className="field">
-            <span className="fl">Facturare către</span>
-            <div className="billing-picker">
-              <select value={billingCustomerId} onChange={(e) => setBillingCustomerId(e.target.value)}>
-                <option value="">Oaspetele rezervării (implicit)</option>
-                {(core.billingCustomers || []).map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {billingCustomerLabel(c)}{c.kind === "company" ? " · firmă" : ""}
-                  </option>
-                ))}
-              </select>
-              <button type="button" className="btn btn-ghost" style={{ width: "auto" }} onClick={() => setBillingModalOpen(true)}>
-                <Plus size={14} /> Client nou
-              </button>
-            </div>
-            <div className="note" style={{ marginTop: 6 }}>
-              Dacă nu alegi nimic, factura se emite pe datele oaspetelui de mai sus.
-            </div>
-          </div>
         )}
 
         <label className="field">
