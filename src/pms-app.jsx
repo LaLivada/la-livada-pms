@@ -8151,7 +8151,7 @@ function TodayView({ core, reservations, updateReservations, housekeeping, updat
           <LogOut size={14} /> Plecări <span className="tab-count">{departures.length}</span>
         </button>
         <button className={todayTab === "inhouse" ? "on" : ""} onClick={() => setTodayTab("inhouse")}>
-          <DoorOpen size={14} /> În house <span className="tab-count">{inHouse.length}</span>
+          <DoorOpen size={14} /> In house <span className="tab-count">{inHouse.length}</span>
         </button>
         <button className={todayTab === "clean" ? "on" : ""} onClick={() => setTodayTab("clean")}>
           <Sparkles size={14} /> Camere de pregătit <span className="tab-count">{toClean.length}</span>
@@ -8206,11 +8206,13 @@ function TodayView({ core, reservations, updateReservations, housekeeping, updat
               <div className="row-actions">
                 {r.status === "checkedout" ? (
                   <span className="role-tag role-receptionist">Plecat</span>
-                ) : (
+                ) : canCheckOut(r) ? (
                   <button className="btn btn-ghost" style={{ padding: "8px 12px" }}
                     onClick={() => doCheckOut(r, reservations, updateReservations, core, housekeeping, updateHousekeeping)}>
                     Check-out <ArrowRight size={14} />
                   </button>
+                ) : (
+                  <span className="role-tag role-admin">{STATUS_LABEL[r.status]}</span>
                 )}
               </div>
             </div>
@@ -8219,7 +8221,7 @@ function TodayView({ core, reservations, updateReservations, housekeeping, updat
       )}
 
       {todayTab === "inhouse" && (
-        <Section title="În house" items={inHouse} empty="Nicio cameră ocupată."
+        <Section title="In house" items={inHouse} empty="Nicio cameră ocupată."
           renderItem={(r) => (
             <div className="list-row" key={r.id}>
               <div>
