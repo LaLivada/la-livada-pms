@@ -6174,46 +6174,9 @@ function BillingCustomerModal({ customer, seedFromGuest, onSave, onClose }) {
     ...(customer || {}),
   }));
   const [error, setError] = useState("");
-  const [anafLoading, setAnafLoading] = useState(false);
   const set = (k) => (e) => { setC({ ...c, [k]: e.target.value }); setError(""); };
 
   const cuiCheck = c.kind === "company" ? validateCUIFormat(c.cui) : { ok: true, warn: false };
-
-  const lookupAnaf = async () => {
-    if (!cuiCheck.ok || !c.cui.trim()) { setError("Introdu un CUI valid înainte de a prelua datele de la ANAF."); return; }
-    setAnafLoading(true);
-    setError("");
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const cuiDigits = c.cui.toUpperCase().replace(/^RO/, "").trim();
-      const res = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/anaf-lookup?cui=${encodeURIComponent(cuiDigits)}`,
-        { headers: { Authorization: `Bearer ${session?.access_token}`, apikey: import.meta.env.VITE_SUPABASE_ANON_KEY } }
-      );
-      const body = await res.json();
-      if (!res.ok) {
-        const detail = body?.upstreamStatus ? ` (ANAF a răspuns cu status ${body.upstreamStatus} — posibil blocat de firewall-ul ANAF pentru cereri din cloud; completează manual câmpurile.)` : "";
-        setError((body?.error || "Preluarea de la ANAF a eșuat.") + detail);
-        return;
-      }
-      const matchedCounty = JUDETE.find((j) => j.toLowerCase() === String(body.county || "").toLowerCase());
-      setC((prev) => ({
-        ...prev,
-        companyName: body.denumire || prev.companyName,
-        regCom: body.regCom || prev.regCom,
-        address: body.address || prev.address,
-        city: body.city || prev.city,
-        county: matchedCounty || body.county || prev.county,
-        postalCode: body.postalCode || prev.postalCode,
-        phone: prev.phone || body.telefon || "",
-      }));
-      toaster.show("Datele firmei au fost preluate de la ANAF.");
-    } catch (e) {
-      setError("Preluarea de la ANAF a eșuat: " + (e?.message || "eroare necunoscută"));
-    } finally {
-      setAnafLoading(false);
-    }
-  };
 
   const submit = () => {
     const REQUIRED = c.kind === "person"
@@ -6258,13 +6221,7 @@ function BillingCustomerModal({ customer, seedFromGuest, onSave, onClose }) {
           <div className="field-row field-row-2col">
             <label className="field">
               <span className="fl">CUI/CIF *</span>
-              <div style={{ display: "flex", gap: 8 }}>
-                <input className={!cuiCheck.ok ? "input-error" : ""} value={c.cui} onChange={set("cui")} placeholder="RO12345678" style={{ flex: 1 }} />
-                <button type="button" className="btn btn-ghost" style={{ width: "auto", padding: "0 12px", flexShrink: 0 }}
-                  onClick={lookupAnaf} disabled={anafLoading || !c.cui.trim()} title="Preia datele firmei de la ANAF">
-                  {anafLoading ? <RefreshCw size={14} className="spin" /> : <Cpu size={14} />} ANAF
-                </button>
-              </div>
+              <input className={!cuiCheck.ok ? "input-error" : ""} value={c.cui} onChange={set("cui")} placeholder="RO12345678" />
             </label>
             <label className="field"><span className="fl">Nr. Reg. Comerțului</span><input value={c.regCom} onChange={set("regCom")} placeholder="J12/345/2020" /></label>
           </div>
