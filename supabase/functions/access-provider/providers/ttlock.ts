@@ -95,7 +95,11 @@ async function acces(): Promise<string> {
 
   const date = await r.json().catch(() => null);
   if (!r.ok || !date?.access_token) {
+    /* Raspunsul intreg, nu doar errmsg: TTLock pune uneori explicatia in
+       `description` sau `error_description`, iar `errcode` se cauta in lista
+       lor de erori. Nu contine nimic secret — e ce ne-au raspuns ei. */
     const brut = String(date?.errmsg || date?.error || "").trim();
+    const detaliuBrut = date ? JSON.stringify(date).slice(0, 200) : `HTTP ${r.status}`;
 
     /* „invalid client" nu inseamna neaparat ca datele sunt gresite: cel mai
        des inseamna ca aplicatia a fost creata pe ALTA regiune decat cea pe
@@ -147,10 +151,18 @@ async function acces(): Promise<string> {
     throw new EroareTTLock(
       pareRegiune
         ? `TTLock: „${brut}". Am încercat toate regiunile, niciuna nu acceptă aceste `
-          + `date. Ce are serverul: ${amprenta}. Compară client_id cu cel din portal; `
-          + `dacă e identic, atunci client_secret e cel greșit — ia-l cu butonul „View" `
-          + `din portal, nu din notițe.`
-        : (brut || `Autentificarea la TTLock a eșuat. Ce are serverul: ${amprenta}`),
+          + `date.
+
+Răspunsul lor: ${detaliuBrut}
+
+Ce are serverul: ${amprenta}`
+        : (brut
+            ? `${brut}
+
+Răspunsul lor: ${detaliuBrut}
+
+Ce are serverul: ${amprenta}`
+            : `Autentificarea la TTLock a eșuat. Răspunsul lor: ${detaliuBrut}. Ce are serverul: ${amprenta}`),
       date?.errcode);
   }
 
