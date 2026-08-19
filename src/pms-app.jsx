@@ -585,9 +585,16 @@ const STYLES = `
   .device-row{ display:flex; align-items:center; gap:6px; font-size:var(--fs-sm); color:var(--text-muted); margin-top:4px; }
 
   /* ---------- Modal ---------- */
+  /* FUNDALUL acopera intotdeauna tot ecranul, fara sa depinda de metrica
+     viewport-ului vizual.
+     Inainte isi lua inaltimea din --vvh (viewport-ul VIZUAL, care se
+     micsoreaza cand apare tastatura), desi position:fixed se raporteaza
+     la viewport-ul de LAYOUT, care pe iOS ramane la fel de inalt. Rezulta
+     un fundal mai scurt decat ecranul si, sub el, se vedea pagina de
+     dedesubt — exact golul din raportul de eroare. */
   .modal-overlay{
-    position:fixed; top:0; left:0; right:0; height:100vh; height:100dvh; height:var(--vvh, 100dvh);
-    top:var(--vvt, 0px);
+    position:fixed; inset:0;
+    height:100vh; height:100dvh;
     background:rgba(20,19,17,0.38); display:flex; align-items:flex-end;
     justify-content:center; z-index:100; backdrop-filter:blur(1px);
     overscroll-behavior:contain; touch-action:manipulation;
@@ -601,10 +608,18 @@ const STYLES = `
        sus indiferent cat de mare/mica iese metrica de inaltime folosita */
     max-height:calc(100vh - 48px); max-height:calc(100dvh - 48px);
     max-height:calc(var(--vvh, 100dvh) - 48px);
+    /* CARDUL, in schimb, chiar trebuie sa se fereasca de tastatura: --vvb
+       e inaltimea zonei acoperite de ea, masurata in measureVisualViewport.
+       Fara asta, campul in care se scrie ramane sub tastatura. */
+    margin-bottom:var(--vvb, 0px);
     overflow-y:auto; overscroll-behavior:contain;
     -webkit-overflow-scrolling:touch;
     padding:22px 22px calc(22px + env(safe-area-inset-bottom));
     animation:slideup .2s cubic-bezier(.2,.8,.2,1); box-shadow:var(--shadow-lg);
+    transition:margin-bottom .15s ease-out;
+  }
+  @media (prefers-reduced-motion: reduce){
+    .modal{ transition:none; animation:none; }
   }
   .modal-head{
     position:sticky; top:-22px; background:var(--surface); z-index:3;
@@ -2200,6 +2215,16 @@ function measureVisualViewport() {
   const top = vv ? vv.offsetTop : 0;
   document.documentElement.style.setProperty("--vvh", `${h}px`);
   document.documentElement.style.setProperty("--vvt", `${top}px`);
+
+  /* Inaltimea zonei acoperite de tastatura: cat ramane din viewport-ul de
+     LAYOUT (cel la care se raporteaza position:fixed) sub zona vizibila.
+     Cand tastatura e inchisa iese 0, deci nu schimba nimic.
+     Pragul de 24px ignora diferentele mici dintre cele doua metrici
+     (barele de browser care se ascund la derulare), ca sa nu sara cardul
+     cu cativa pixeli fara motiv. */
+  const layout = document.documentElement.clientHeight || h;
+  const jos = Math.max(0, Math.round(layout - (h + top)));
+  document.documentElement.style.setProperty("--vvb", jos > 24 ? `${jos}px` : "0px");
 }
 
 function useVisualViewportHeight() {
