@@ -102,7 +102,14 @@ export function onlineNightAdjustmentPct(occPct, tiers) {
       niciodata. Ocuparea masoara rezervarile stranse pana acum, nu
       cererea: o zi plina peste trei saptamani chiar inseamna cerere si
       merita tarif mai mare, dar o zi goala peste trei saptamani inseamna
-      doar ca e devreme — o reducere acolo ar fi bani lasati pe masa. */
+      doar ca e devreme — o reducere acolo ar fi bani lasati pe masa.
+
+   3. Rezervarea evaluata NU se numara pe sine in ocupare (de aici res.id
+      dat lui occupancyForStay). Pana in 19 august 2026 SQL o numara, si
+      diferenta se vedea doar la editare: la creare trigger-ul e BEFORE
+      INSERT, deci randul inca nu exista. O camera in plus inseamna 6,25
+      puncte de ocupare la 16 camere — destul cat sa sara un prag si sa
+      schimbe pretul cu 5%. Acum stay_total primeste acelasi id. */
 export function liveReservationTotalOnline(res, core, reservations) {
   const base = liveReservationTotal(res, core);
   if (res.source !== "site") return base;

@@ -265,7 +265,12 @@ begin
       new.room_id, new.checkin, new.checkout,
       greatest(coalesce(new.adults, 2), 1),
       greatest(coalesce(new.children, 0), 0),
-      new.source = 'site');        -- ajustarea pe ocupare doar pentru site
+      new.source = 'site',         -- ajustarea pe ocupare doar pentru site
+      -- Rezervarea nu se numără pe sine în ocupare. La INSERT nu conta
+      -- (trigger BEFORE, rândul încă nu e în tabel), dar la editare da:
+      -- o cameră în plus înseamnă 6,25 puncte la 16 camere, destul cât
+      -- să sară un prag. JS o exclude la fel, prin res.id.
+      new.id);
   end if;
 
   return new;
@@ -1026,11 +1031,11 @@ end; $$;
 
 -- Punctul de intrare pentru o zi anume. Calculul pragului trece prin
 -- funcția de mai sus, ca să existe o singură definiție a lui.
-create function online_night_adjustment_pct(p_zi date)
+create function online_night_adjustment_pct(p_zi date, p_exclude_id text default null)
 returns numeric language sql stable set search_path = public as $$
   -- Intervalul [p_zi, p_zi+1) are exact o noapte.
   select online_adjustment_for_occupancy(
-           occupancy_for_stay(p_zi::timestamptz, (p_zi + 1)::timestamptz, null));
+           occupancy_for_stay(p_zi::timestamptz, (p_zi + 1)::timestamptz, p_exclude_id));
 $$;
 
 
@@ -1040,7 +1045,10 @@ $$;
 -- prin site-ul propriu o primesc, exact ca liveReservationTotalOnline().
 create function stay_total(
   p_room_id text, p_checkin timestamptz, p_checkout timestamptz,
-  p_adults int default 2, p_children int default 0, p_online boolean default false
+  p_adults int default 2, p_children int default 0, p_online boolean default false,
+  -- Rezervarea care se recalculează, ca să nu se numere pe sine în ocupare.
+  -- Implicit null: la disponibilitatea publică rezervarea nici nu există încă.
+  p_exclude_id text default null
 ) returns numeric language plpgsql stable set search_path = public as $$
 declare v_tip text; v_baza numeric; v_online numeric;
 begin
@@ -1064,7 +1072,7 @@ begin
   -- aici e echivalentă — deci cele două implementări se citesc la fel.
   select coalesce(sum(
            nightly_rate(v_tip, d::date, p_adults, p_children)
-             * (100 + online_night_adjustment_pct(d::date)) / 100
+             * (100 + online_night_adjustment_pct(d::date, p_exclude_id)) / 100
          ), 0)
     into v_online
     from generate_series(p_checkin::date, p_checkout::date - 1, interval '1 day') d;
@@ -2220,8 +2228,8 @@ grant execute on function create_booking(text, timestamptz, timestamptz, text, t
 revoke execute on function allocate_group(timestamptz, timestamptz, int, int, text) from public, anon;
 revoke execute on function public_capacity() from public;
 revoke execute on function online_adjustment_for_occupancy(numeric) from public, anon;
-revoke execute on function online_night_adjustment_pct(date) from public, anon;
-revoke execute on function stay_total(text, timestamptz, timestamptz, int, int, boolean) from public, anon;
+revoke execute on function online_night_adjustment_pct(date, text) from public, anon;
+revoke execute on function stay_total(text, timestamptz, timestamptz, int, int, boolean, text) from public, anon;
 revoke execute on function nightly_rate(text, date, int, int)                             from public, anon;
 revoke execute on function occupancy_for_stay(timestamptz, timestamptz, text)             from public, anon;
 revoke execute on function is_admin()                                 from public, anon;
@@ -2232,8 +2240,8 @@ revoke execute on function next_receipt_number(text)                  from publi
 
 grant execute on function allocate_group(timestamptz, timestamptz, int, int, text) to authenticated, service_role;
 grant execute on function online_adjustment_for_occupancy(numeric) to authenticated, service_role;
-grant execute on function online_night_adjustment_pct(date) to authenticated, service_role;
-grant execute on function stay_total(text, timestamptz, timestamptz, int, int, boolean) to authenticated, service_role;
+grant execute on function online_night_adjustment_pct(date, text) to authenticated, service_role;
+grant execute on function stay_total(text, timestamptz, timestamptz, int, int, boolean, text) to authenticated, service_role;
 grant execute on function nightly_rate(text, date, int, int)                             to authenticated, service_role;
 grant execute on function occupancy_for_stay(timestamptz, timestamptz, text)             to authenticated, service_role;
 grant execute on function is_admin()                                 to authenticated, service_role;
