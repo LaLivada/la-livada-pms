@@ -1677,11 +1677,20 @@ const camelRoom = (r) => ({
   id: r.id, name: r.name, type: r.type, capacity: r.capacity,
   boilerId: r.shelly_id || "", ventId: r.vent_id || "", sensiboId: r.sensibo_id || "",
   icalToken: r.ical_token, sortOrder: r.sort_order,
+  /* Yala electronica a camerei. Trebuie sa treaca prin AMBELE mappere:
+     un camp prezent doar in formular, dar absent din snakeRoom, s-ar
+     pierde tacut la salvare — exact ce s-a intamplat cu tarifele. */
+  accessProvider: r.access_provider || "",
+  accessLockId: r.access_lock_id || "",
+  accessLockName: r.access_lock_name || "",
 });
 const snakeRoom = (r, idx) => ({
   id: r.id, name: r.name, type: r.type, capacity: r.capacity ?? 2,
   shelly_id: r.boilerId || null, vent_id: r.ventId || null, sensibo_id: r.sensiboId || null,
   sort_order: r.sortOrder ?? idx,
+  access_provider: r.accessLockId ? (r.accessProvider || "ttlock") : null,
+  access_lock_id: r.accessLockId || null,
+  access_lock_name: r.accessLockName || null,
 });
 const camelGroup = (g) => ({
   id: g.id, name: g.name, mainGuestId: g.main_guest_id,
@@ -1864,6 +1873,31 @@ const K = {
 
 /* Audit log — module-level so any component can record an action
    without threading a callback through every layer. */
+/* Apel catre functia `access-provider` — singurul drum prin care aplicatia
+   ajunge la yalele electronice. Nu vorbim niciodata direct cu TTLock din
+   browser: acolo ar trebui sa stea parola contului care administreaza toate
+   yalele. Functia primeste doar id-ul rezervarii si citeste singura restul.
+
+   Intoarce mereu un obiect, niciodata arunca: apelantii trebuie sa poata
+   continua (check-in-ul nu are voie sa cada fiindca o yala n-a raspuns). */
+async function cheamaAcces(action, payload = {}) {
+  try {
+    const { data, error } = await supabase.functions.invoke("access-provider", {
+      body: { action, ...payload },
+    });
+    if (error) {
+      /* invoke() marcheaza ca eroare orice status non-2xx, dar corpul are
+         mesajul nostru — il preferam celui generic al bibliotecii. */
+      let detaliu = error.message;
+      try { detaliu = (await error.context?.json())?.error || detaliu; } catch { /* ramane */ }
+      return { ok: false, error: detaliu };
+    }
+    return data || { ok: false, error: "Raspuns gol de la serviciul de acces." };
+  } catch (e) {
+    return { ok: false, error: e?.message || "Serviciul de acces nu a raspuns." };
+  }
+}
+
 const audit = {
   user: null,
   entries: [],
@@ -8167,6 +8201,12 @@ function RoomModal({ room, onSave, onClose }) {
   const [boilerId, setBoilerId] = useState(room?.boilerId || "");
   const [ventId, setVentId] = useState(room?.ventId || "");
   const [sensiboId, setSensiboId] = useState(room?.sensiboId || "");
+  const [accessLockId, setAccessLockId] = useState(room?.accessLockId || "");
+  const [accessLockName, setAccessLockName] = useState(room?.accessLockName || "");
+  /* Yalele citite de la furnizor. `null` = nu s-a cerut inca lista;
+     [] = s-a cerut si nu a venit niciuna. Distinctia conteaza pentru mesaj. */
+  const [yale, setYale] = useState(null);
+  const [yaleStare, setYaleStare] = useState(null);
   const [error, setError] = useState("");
 
   const icalUrl = room?.icalToken
@@ -8188,6 +8228,7 @@ function RoomModal({ room, onSave, onClose }) {
     onSave({
       id: room?.id || uid(), name: name.trim(), type, capacity: cap,
       boilerId: boilerId.trim(), ventId: ventId.trim(), sensiboId: sensiboId.trim(),
+      accessLockId: accessLockId.trim(), accessLockName: accessLockName.trim(),
     });
   };
 
@@ -8234,6 +8275,64 @@ function RoomModal({ room, onSave, onClose }) {
             <label className="field"><span className="fl">ID releu Shelly — boiler</span><input className="mono" value={boilerId} onChange={(e) => setBoilerId(e.target.value)} placeholder="shelly-boiler-1015" /></label>
             <label className="field"><span className="fl">ID releu Shelly — ventilație</span><input className="mono" value={ventId} onChange={(e) => setVentId(e.target.value)} placeholder="shelly-vent-1015" /></label>
             <label className="field"><span className="fl">ID dispozitiv Sensibo — AC</span><input className="mono" value={sensiboId} onChange={(e) => setSensiboId(e.target.value)} placeholder="sensibo-1015" /></label>
+
+            {/* Yala electronica. Id-ul se poate scrie de mana (din TTHOTEL)
+                sau ales din lista adusa de la furnizor. Potrivirea NU se face
+                automat dupa nume: numele yalei nu e o dovada ca e camera
+                potrivita, iar o asociere gresita deschide alta usa. */}
+            <div className="field-sep" style={{ margin: "18px 0 10px", borderTop: "1px solid var(--line)" }} />
+            <label className="field">
+              <span className="fl">Yală electronică — Lock ID</span>
+              <input className="mono" value={accessLockId}
+                onChange={(e) => setAccessLockId(e.target.value)}
+                placeholder="ex. 1234567 (din TTHOTEL)" />
+            </label>
+            <label className="field">
+              <span className="fl">Yală — denumire (opțional, pentru verificare)</span>
+              <input value={accessLockName} onChange={(e) => setAccessLockName(e.target.value)}
+                placeholder="cum apare yala în TTLock" />
+            </label>
+
+            <div className="modal-actions" style={{ marginTop: 4 }}>
+              <button type="button" className="btn btn-ghost" disabled={yaleStare === "caut"}
+                onClick={async () => {
+                  setYaleStare("caut");
+                  const r = await cheamaAcces("sync-locks");
+                  if (r.ok) { setYale(r.locks || []); setYaleStare(null); }
+                  else { setYale(null); setYaleStare(r.error || "Nu am putut citi yalele."); }
+                }}>
+                {yaleStare === "caut" ? "Citesc yalele…" : "Sincronizează yale"}
+              </button>
+            </div>
+
+            {typeof yaleStare === "string" && yaleStare !== "caut" && (
+              <div className="error-text" role="alert" style={{ marginTop: 8 }}>{yaleStare}</div>
+            )}
+
+            {yale && yale.length === 0 && (
+              <div className="ldv-mic" style={{ marginTop: 8 }}>
+                Contul nu are nicio yală. Verifică în TTHOTEL că yalele sunt pe contul configurat.
+              </div>
+            )}
+
+            {yale && yale.length > 0 && (
+              <label className="field" style={{ marginTop: 8 }}>
+                <span className="fl">Alege yala ({yale.length} găsite)</span>
+                <select value={accessLockId}
+                  onChange={(e) => {
+                    const y = yale.find((x) => x.lockId === e.target.value);
+                    setAccessLockId(e.target.value);
+                    if (y) setAccessLockName(y.lockAlias || y.lockName || "");
+                  }}>
+                  <option value="">— fără yală —</option>
+                  {yale.map((y) => (
+                    <option key={y.lockId} value={y.lockId}>
+                      {(y.lockAlias || y.lockName || "fără nume")} · {y.lockId}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
           </>
         )}
         {error && <div className="error-text" role="alert" style={{ marginBottom: 10 }}>{error}</div>}
