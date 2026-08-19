@@ -24,6 +24,7 @@
 // deno-lint-ignore-file no-explicit-any
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import * as ttlock from "./providers/ttlock.ts";
+import * as simulare from "./providers/simulare.ts";
 /* Logica pura (fus orar, sablon) sta in src/lib/acces.js, ca sa aiba o
    singura copie si sa fie testata cu vitest — vezi src/acces.test.js.
    Aici nu se rescrie, se importa. */
@@ -82,6 +83,7 @@ async function setari(admin: any) {
     minutePlecare: Number.isFinite(s.checkoutMinute)  ? s.checkoutMinute  : 0,
     grateMinute:   Number.isFinite(s.graceMinutes)    ? s.graceMinutes    : 30,
     codeLength:    s.codeLength,
+    provider:      s.provider || "ttlock",
     numeHotel:     s.hotelName || "Complex La Livada",
     sablon:        s.messageTemplate || SABLON_IMPLICIT,
   };
@@ -109,6 +111,15 @@ const dataRo = (iso: string) =>
   });
 
 // randeazaSablon vine din modulul comun (src/lib/acces.js).
+
+/* Furnizorul activ. Simularea se alege DELIBERAT, din setari — niciodata
+   ca rezerva automata cand TTLock nu raspunde: o cadere de retea nu are
+   voie sa se transforme tacut in coduri care nu deschid nicio usa. */
+function furnizor(s: { provider?: string }) {
+  return s.provider === "simulare"
+    ? { nume: "simulare", api: simulare }
+    : { nume: "ttlock", api: ttlock };
+}
 
 async function jurnal(admin: any, r: Record<string, unknown>) {
   // Auditul nu are voie să răstoarne operațiunea pe care o descrie.
@@ -152,8 +163,10 @@ Deno.serve(async (req) => {
      yala. Trimiterea unui email nu are nevoie de TTLock, iar dacă garda ar
      sta înaintea dispecerizării, un cod deja generat n-ar mai putea fi
      trimis oaspetelui doar fiindcă lipsesc credențialele. */
-  const cereYala = ["sync-locks", "issue", "revoke"].includes(actiune);
-  if (cereYala && !ttlock.configurat()) {
+  const setariAcum = await setari(admin);
+  const f = furnizor(setariAcum);
+  const cereYala = ["sync-locks", "issue", "revoke", "test-lock"].includes(actiune);
+  if (cereYala && !f.api.configurat()) {
     return raspuns({
       ok: false, reason: "neconfigurat",
       error: "Integrarea TTLock nu e configurată. Lipsesc secretele TTLOCK_* din Edge Functions.",
@@ -163,7 +176,7 @@ Deno.serve(async (req) => {
   try {
     // ---------------- SINCRONIZARE YALE ----------------
     if (actiune === "sync-locks") {
-      const yale = await ttlock.listeazaYale();
+      const yale = await f.api.listeazaYale();
       await jurnal(admin, {
         actor, action: "sincronizare yale", provider: "ttlock",
         detail: `${yale.length} yale citite`,
@@ -192,7 +205,7 @@ Deno.serve(async (req) => {
       let creat = null, eroareStergere = null;
 
       try {
-        creat = await ttlock.creeazaCod(lockId, de, pana, "Test PMS", genereazaCodPin(4));
+        creat = await f.api.creeazaCod(lockId, de, pana, "Test PMS", genereazaCodPin(4));
       } catch (e) {
         await jurnal(admin, {
           actor, action: "test yală", result: "error", provider: "ttlock",
@@ -201,7 +214,7 @@ Deno.serve(async (req) => {
         return raspuns({ ok: false, error: String((e as Error).message) }, 502);
       }
 
-      try { await ttlock.stergeCod(lockId, creat.externalId); }
+      try { await f.api.stergeCod(lockId, creat.externalId); }
       catch (e) { eroareStergere = String((e as Error).message); }
 
       await jurnal(admin, {
@@ -254,7 +267,7 @@ Deno.serve(async (req) => {
       const { data: existent } = await admin.from("access_codes")
         .select("*").eq("reservation_id", rez.id).eq("status", "active").maybeSingle();
 
-      const s = await setari(admin);
+      const s = setariAcum;
       const de = new Date(rez.checkin);
       const pana = expirareCod(rez.checkout, s);
 
@@ -268,7 +281,7 @@ Deno.serve(async (req) => {
         /* Perioada sau camera s-au schimbat: codul vechi nu mai are voie să
            rămână valabil. Îl ștergem de pe yală ÎNAINTE de a crea altul. */
         if (existent.external_id) {
-          try { await ttlock.stergeCod(existent.lock_id, existent.external_id); }
+          try { await f.api.stergeCod(existent.lock_id, existent.external_id); }
           catch (e) {
             await jurnal(admin, {
               actor, action: "revocare cod", result: "error",
@@ -286,14 +299,14 @@ Deno.serve(async (req) => {
       /* Lungimea vine din setari (implicit 6). TTLock nu documenteaza ce
          lungimi accepta o yala, deci nu presupunem: daca refuza, eroarea ei
          ajunge la receptie asa cum e. */
-      const nou = await ttlock.creeazaCod(
+      const nou = await f.api.creeazaCod(
         cam.access_lock_id, de, pana, `Rezervare ${rez.id}`,
         genereazaCodPin(lungimeCod(s)));
 
       const rand = {
         id: `ac-${crypto.randomUUID().slice(0, 12)}`,
         reservation_id: rez.id, room_id: rez.room_id,
-        provider: "ttlock", lock_id: cam.access_lock_id,
+        provider: f.nume, lock_id: cam.access_lock_id,
         code: nou.code, external_id: nou.externalId,
         valid_from: de.toISOString(), valid_until: pana.toISOString(),
         status: "active", generated_by: actor,
@@ -305,7 +318,7 @@ Deno.serve(async (req) => {
         /* Codul există pe yală dar nu în baza noastră — cel mai prost caz
            posibil. Îl ștergem imediat, ca să nu rămână un cod activ pe care
            PMS-ul nu îl știe și deci nu îl poate revoca niciodată. */
-        try { await ttlock.stergeCod(cam.access_lock_id, nou.externalId); } catch { /* nimic */ }
+        try { await f.api.stergeCod(cam.access_lock_id, nou.externalId); } catch { /* nimic */ }
         throw new Error(`Codul nu a putut fi salvat: ${eSalvare.message}`);
       }
 
@@ -325,7 +338,7 @@ Deno.serve(async (req) => {
 
       let eroare: string | null = null;
       if (cod.external_id) {
-        try { await ttlock.stergeCod(cod.lock_id, cod.external_id); }
+        try { await f.api.stergeCod(cod.lock_id, cod.external_id); }
         catch (e) { eroare = String((e as Error).message); }
       }
 
@@ -368,7 +381,7 @@ Deno.serve(async (req) => {
           error: "Oaspetele nu are o adresă de email salvată." }, 409);
       }
 
-      const s = await setari(admin);
+      const s = setariAcum;
       const text = randeazaSablon(s.sablon, {
         guest_name:  [oaspete?.first_name, oaspete?.last_name].filter(Boolean).join(" ") || "oaspete",
         hotel_name:  s.numeHotel,

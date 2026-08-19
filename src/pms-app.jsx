@@ -5404,6 +5404,13 @@ function SectiuneAcces({ res, core }) {
         </div>
       )}
 
+      {cod && cod.provider === "simulare" && (
+        <div className="error-text" role="alert" style={{ marginBottom: 6 }}>
+          COD SIMULAT — nu deschide nicio ușă. Serviciul de acces e în modul de
+          probă. Nu-l trimite oaspetelui.
+        </div>
+      )}
+
       {cod && (
         <div className="sumar-acces">
           <div className="mono" style={{ fontSize: 26, fontWeight: 700, letterSpacing: ".12em" }}>
@@ -5441,7 +5448,7 @@ function SectiuneAcces({ res, core }) {
             {lucrez ? "Lucrez…" : cod ? "Regenerează codul" : "Generează codul"}
           </button>
 
-          {cod && (
+          {cod && cod.provider !== "simulare" && (
             <button className="btn btn-ghost" disabled={lucrez} onClick={async () => {
               setEroare("");
               setLucrez(true);
@@ -5455,7 +5462,7 @@ function SectiuneAcces({ res, core }) {
             </button>
           )}
 
-          {cod && (() => {
+          {cod && cod.provider !== "simulare" && (() => {
             /* WhatsApp merge prin linkul wa.me: nu avem API oficial, iar o
                automatizare pe WhatsApp Web ar fi fragilă și împotriva
                regulilor lor. Recepționerul apasă trimite în aplicație.
