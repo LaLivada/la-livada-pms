@@ -132,13 +132,25 @@ async function acces(): Promise<string> {
       }
     }
 
+    /* Ce vede serverul in secrete, ca sa se poata compara cu portalul fara
+       drumuri inutile. NU includem niciodata secretul sau parola: doar
+       client_id (care e un identificator public, afisat in portal),
+       lungimile, si daca md5-ul are forma ceruta. De cele mai multe ori
+       diferenta sare in ochi din atat. */
+    const md5Valid = /^[0-9a-f]{32}$/.test(PASSWORD_MD5);
+    const amprenta =
+      `client_id=${CLIENT_ID || "(gol)"}, `
+      + `client_secret=${CLIENT_SECRET.length} caractere, `
+      + `user=${USERNAME || "(gol)"}, `
+      + `parolă md5 ${md5Valid ? "în formatul corect" : `NEVALIDĂ (${PASSWORD_MD5.length} caractere, trebuie 32 hexazecimale mici)`}`;
+
     throw new EroareTTLock(
       pareRegiune
-        ? `TTLock: „${brut}". Am încercat și celelalte regiuni, niciuna nu acceptă `
-          + `aceste date. Rămân două cauze: aplicația nu e încă aprobată pe portalul `
-          + `TTLock, sau client_id/client_secret nu sunt cele ale aplicației `
-          + `(verifică-le în portal, nu din notițe).`
-        : (brut || "Autentificarea la TTLock a eșuat. Verifică datele contului."),
+        ? `TTLock: „${brut}". Am încercat toate regiunile, niciuna nu acceptă aceste `
+          + `date. Ce are serverul: ${amprenta}. Compară client_id cu cel din portal; `
+          + `dacă e identic, atunci client_secret e cel greșit — ia-l cu butonul „View" `
+          + `din portal, nu din notițe.`
+        : (brut || `Autentificarea la TTLock a eșuat. Ce are serverul: ${amprenta}`),
       date?.errcode);
   }
 
