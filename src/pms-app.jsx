@@ -1898,6 +1898,65 @@ async function cheamaAcces(action, payload = {}) {
   }
 }
 
+/* Aduce codul de acces la zi după ce o rezervare s-a modificat.
+ *
+ * Trei situații în care codul vechi nu mai are voie să rămână valabil:
+ *   · perioada s-a schimbat — altfel ar deschide ușa mai mult sau mai
+ *     puțin decât ține rezervarea;
+ *   · camera s-a schimbat — altfel oaspetele mutat ar putea intra în
+ *     continuare în camera veche, unde între timp poate sta altcineva;
+ *   · rezervarea a fost anulată sau marcată no-show.
+ *
+ * Nu decidem noi ce se întâmplă la furnizor: `issue` din funcția edge
+ * recalculează perioada din rezervare, șterge codul vechi de pe yala lui
+ * și creează unul nou. Aici doar recunoaștem CÂND trebuie chemat.
+ *
+ * Ca peste tot în integrarea asta, eșecul nu răstoarnă salvarea: rezervarea
+ * e deja modificată, iar recepția primește un avertisment cu ce a rămas de
+ * făcut. Un cod nesincronizat e o problemă; o rezervare pierdută e alta,
+ * mai mare. */
+async function reconciliazaAcces(inainte, dupa, core) {
+  if (!inainte || !dupa) return;
+
+  const camera = core.rooms.find((r) => r.id === dupa.roomId);
+  const anulata = ["cancelled", "noshow"].includes(dupa.status);
+  const schimbatCamera  = inainte.roomId !== dupa.roomId;
+  const schimbatPerioada =
+    new Date(inainte.checkin).getTime()  !== new Date(dupa.checkin).getTime() ||
+    new Date(inainte.checkout).getTime() !== new Date(dupa.checkout).getTime();
+
+  if (!anulata && !schimbatCamera && !schimbatPerioada) return;
+
+  /* Un cod există doar după check-in. Fără el nu e nimic de sincronizat —
+     iar la anulare nu vrem să chemăm furnizorul degeaba. */
+  const { data: cod } = await supabase.from("access_codes")
+    .select("id").eq("reservation_id", dupa.id).eq("status", "active").maybeSingle();
+  if (!cod) return;
+
+  if (anulata) {
+    const r = await cheamaAcces("revoke", { reservationId: dupa.id });
+    await audit.push(r?.ok ? "Cod acces revocat" : "Revocare cod eșuată",
+      `${camera?.name || dupa.roomId}`);
+    if (!r?.ok) {
+      toaster.show(
+        "Rezervarea e anulată, dar codul de acces NU a putut fi șters de pe yală. Verifică în TTHOTEL.",
+        { tone: "danger" });
+    }
+    return;
+  }
+
+  const r = await cheamaAcces("issue", { reservationId: dupa.id });
+  await audit.push(r?.ok ? "Cod acces actualizat" : "Actualizare cod eșuată",
+    `${camera?.name || dupa.roomId}${schimbatCamera ? " · cameră schimbată" : ""}${schimbatPerioada ? " · perioadă schimbată" : ""}`);
+  if (r?.ok) {
+    toaster.show("Codul de acces a fost actualizat — oaspetele are alt cod.", { tone: "ok" });
+  } else {
+    toaster.show(
+      "Rezervarea e salvată, dar codul de acces nu a putut fi actualizat. Regenerează-l din rezervare.",
+      { tone: "danger" });
+  }
+}
+
 const audit = {
   user: null,
   entries: [],
@@ -3238,6 +3297,13 @@ function GroupEditor({ group, core, groups, updateGroups, reservations, updateRe
     }
     await updateReservations(reservations.map((r) => (r.id === id ? { ...r, ...finalPatch } : r)));
     setError("");
+    /* Editările din grup ocolesc fereastra rezervării, deci sincronizarea
+       yalei trebuie chemată și de aici — altfel o cameră schimbată în grup
+       ar lăsa codul vechi activ pe ușa veche. */
+    if (row) {
+      try { await reconciliazaAcces(row, { ...row, ...finalPatch }, core); }
+      catch (e) { console.error("Sincronizare acces", e); }
+    }
   };
 
   /* Keeps the free-text occupantName (used everywhere else for display)
@@ -3283,6 +3349,17 @@ function GroupEditor({ group, core, groups, updateGroups, reservations, updateRe
     }));
     await audit.push("Perioadă grup schimbată",
       `${group.name}: ${fmtDate(ci)} → ${fmtDate(co)} · ${rows.length} camere`);
+
+    /* Aceeași perioadă nouă pentru toate camerele: fiecare cod de acces
+       trebuie adus la zi separat, fiindcă fiecare stă pe altă yală. */
+    for (const r of rows) {
+      const inainte = reservations.find((x) => x.id === r.id);
+      if (!inainte) continue;
+      try {
+        await reconciliazaAcces(inainte,
+          { ...inainte, checkin: ci.toISOString(), checkout: co.toISOString() }, core);
+      } catch (e) { console.error("Sincronizare acces", e); }
+    }
     toaster.show(`Perioada grupului mutată pe ${fmtDate(ci)} → ${fmtDate(co)}`, { tone: "ok" });
     setError("");
   };
@@ -5603,6 +5680,12 @@ function ReservationModal({ data, core, updateCore, reservations, updateReservat
     const rn = core.rooms.find((r) => r.id === roomId)?.name;
     await audit.push(editing ? "Rezervare modificată" : "Rezervare creată",
       `${who} · ${rn} · ${fmtDate(checkin)} → ${fmtDate(checkout)}`);
+    /* După salvare, nu înainte: dacă sincronizarea yalei cade, rezervarea
+       rămâne modificată. Vezi comentariul de la reconciliazaAcces. */
+    if (editing) {
+      try { await reconciliazaAcces(editing, record, core); }
+      catch (e) { console.error("Sincronizare acces", e); }
+    }
     toaster.show(editing ? "Rezervare actualizată" : `Rezervare creată · ${rn}`, { tone: "ok" });
     onClose();
   };
@@ -5614,6 +5697,20 @@ function ReservationModal({ data, core, updateCore, reservations, updateReservat
   };
 
   const removeInner = async () => {
+    /* Revocarea ÎNAINTE de ștergere, nu după: odată rândul dispărut,
+       funcția edge nu mai are ce căuta, iar `on delete cascade` șterge și
+       codul din access_codes. Fără pasul ăsta ar rămâne un cod activ pe
+       yală despre care nu mai există nicio urmă nicăieri — cazul cel mai
+       urât, fiindcă nimeni n-ar mai ști nici măcar că trebuie căutat. */
+    try {
+      const rev = await cheamaAcces("revoke", { reservationId: editing.id });
+      if (rev && rev.ok === false && rev.reason !== "neconfigurat") {
+        toaster.show(
+          "Atenție: codul de acces nu a putut fi șters de pe yală. Verifică în TTHOTEL înainte de a șterge rezervarea.",
+          { tone: "danger" });
+      }
+    } catch (e) { console.error("Revocare acces la ștergere", e); }
+
     const nextRes = reservations.filter((r) => r.id !== editing.id);
     await updateReservations(nextRes);
 
