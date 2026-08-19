@@ -33,7 +33,9 @@ import {
 import { STILURI } from "./styles.js";
 import { JUDETE, TARI } from "./nomenclatoare.js";
 
-const ETICHETE_TIP = { tiny: "Căsuță Tiny", loft: "Loft" };
+/* Aceleași denumiri ca în PMS (vezi ROOM_TYPES din pms-app.jsx), ca
+   recepția și clientul să vorbească despre același lucru. */
+const ETICHETE_TIP = { tiny: "Tiny house", loft: "Loft" };
 const numeTip = (t) => ETICHETE_TIP[t] || t;
 
 const azi = () => new Date().toISOString().slice(0, 10);
@@ -42,6 +44,21 @@ const peste = (zile) => {
   d.setDate(d.getDate() + zile);
   return d.toISOString().slice(0, 10);
 };
+/* Aritmetica pe zile calendaristice, în UTC, pe „YYYY-MM-DD".
+   În fus local o zi are 23 sau 25 de ore la schimbarea orei, deci
+   scăderea a două date dă 2,96 sau 3,04 zile în loc de 3. Rotunjirea
+   ascunde asta la sejururi scurte, dar e o proprietate a lui `round`,
+   nu a calculului. În UTC ziua are mereu 86.400.000 ms, iar `setUTCDate`
+   trece corect peste luni și ani bisecți — deci nu ne mai bazăm pe noroc. */
+const adunaZile = (zi, n) => {
+  const d = new Date(`${zi}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + n);
+  return d.toISOString().slice(0, 10);
+};
+const noptiIntre = (a, b) =>
+  Math.max(0, Math.round(
+    (new Date(`${b}T00:00:00Z`) - new Date(`${a}T00:00:00Z`)) / 86400000));
+
 const fmtData = (iso) =>
   new Date(iso).toLocaleDateString("ro-RO", { day: "numeric", month: "long", year: "numeric" });
 const fmtBani = (n) => new Intl.NumberFormat("ro-RO", { maximumFractionDigits: 0 }).format(n) + " lei";
@@ -114,10 +131,37 @@ export default function App({ valoriInitiale }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const nopti = useMemo(() => {
-    const a = new Date(cautare.checkin), b = new Date(cautare.checkout);
-    return Math.max(0, Math.round((b - a) / 86400000));
-  }, [cautare.checkin, cautare.checkout]);
+  const nopti = useMemo(
+    () => noptiIntre(cautare.checkin, cautare.checkout),
+    [cautare.checkin, cautare.checkout]);
+
+  /* Perioada are trei câmpuri care descriu același lucru: sosire, plecare
+     și număr de nopți. Ca să nu se contrazică, plecarea e mereu cea
+     calculată — schimbi sosirea sau nopțile, plecarea se mută după ele.
+     Invers merge la fel: alegi plecarea, se recalculează nopțile. */
+  const schimbaSosirea = (zi) => setCautare((c) => ({
+    ...c,
+    checkin: zi,
+    // Păstrăm durata aleasă. Fără `max(1,…)`, o plecare rămasă în urma
+    // sosirii ar da zero nopți și butonul de căutare ar sta blocat.
+    checkout: adunaZile(zi, Math.max(1, noptiIntre(c.checkin, c.checkout))),
+  }));
+
+  const schimbaPlecarea = (zi) => setCautare((c) => ({
+    ...c,
+    checkout: noptiIntre(c.checkin, zi) >= 1 ? zi : adunaZile(c.checkin, 1),
+  }));
+
+  const schimbaNoptile = (n) => setCautare((c) => ({
+    ...c, checkout: adunaZile(c.checkin, n),
+  }));
+
+  /* 1–14 nopți acoperă practic tot. Dacă cineva a ales din calendar un
+     sejur mai lung, îl adăugăm în listă ca selectorul să nu apară gol. */
+  const optiuniNopti = useMemo(() => {
+    const baza = Array.from({ length: 14 }, (_, i) => i + 1);
+    return nopti > 14 ? [...baza, nopti] : baza;
+  }, [nopti]);
 
   async function cauta() {
     setEroare("");
@@ -257,16 +301,26 @@ export default function App({ valoriInitiale }) {
               : "Alege perioada sejurului"}
           </p>
           <div className="ldv-randuri">
-            <div className="ldv-rand-2">
+            <div className="ldv-rand-3">
               <label className="ldv-camp">
                 <span>Sosire</span>
                 <input type="date" value={cautare.checkin} min={azi()}
-                  onChange={(e) => setCautare((c) => ({ ...c, checkin: e.target.value }))} />
+                  onChange={(e) => e.target.value && schimbaSosirea(e.target.value)} />
+              </label>
+              <label className="ldv-camp">
+                <span>Nopți</span>
+                <select value={nopti}
+                  onChange={(e) => schimbaNoptile(Number(e.target.value))}>
+                  {optiuniNopti.map((n) => <option key={n} value={n}>{n}</option>)}
+                </select>
               </label>
               <label className="ldv-camp">
                 <span>Plecare</span>
-                <input type="date" value={cautare.checkout} min={cautare.checkin || azi()}
-                  onChange={(e) => setCautare((c) => ({ ...c, checkout: e.target.value }))} />
+                {/* Minimul e ziua de după sosire: o plecare în aceeași zi
+                    ar însemna zero nopți, deci nimic de rezervat. */}
+                <input type="date" value={cautare.checkout}
+                  min={adunaZile(cautare.checkin || azi(), 1)}
+                  onChange={(e) => e.target.value && schimbaPlecarea(e.target.value)} />
               </label>
             </div>
             <div className="ldv-rand-2">
