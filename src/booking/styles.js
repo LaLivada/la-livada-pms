@@ -74,6 +74,24 @@ export const STILURI = `
   min-height:44px;
   transition:border-color .15s, box-shadow .15s;
 }
+/* Câmpul de dată pe iOS.
+ *
+ * Safari îl randează cu stilizarea nativă, care îi impune o lățime
+ * proprie si ignora width:100% — caseta iese din card, in timp ce
+ * selectoarele de langa ea se opresc corect. Se vede si dupa faptul ca
+ * valoarea apare centrata: asta e afisarea nativa, nu a noastra.
+ * Doar appearance:none il face sa se comporte ca un camp obisnuit.
+ *
+ * display:block conteaza si el: ca inline-block, controlul isi pastreaza
+ * dimensionarea intrinseca chiar si dupa appearance:none.
+ *
+ * text-align:left readuce data la stanga, aliniata cu restul campurilor
+ * — pe iOS era centrata, singurul camp din formular care arata asa. */
+.ldv-camp input[type="date"]{
+  -webkit-appearance:none; appearance:none;
+  display:block; text-align:left;
+}
+
 .ldv-camp textarea{ min-height:76px; resize:vertical; }
 .ldv-camp input:focus,.ldv-camp select:focus,.ldv-camp textarea:focus{
   outline:none; border-color:var(--ldv-accent);
