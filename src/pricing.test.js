@@ -11,6 +11,7 @@ import {
 } from "./lib/pricing.js";
 import { calcAmounts, round2, splitEvenly } from "./lib/money.js";
 import { validateCUIFormat } from "./lib/validation.js";
+import { MATRICE_TARIF, TARIFE_REFERINTA } from "./lib/pricing-matrice.js";
 
 describe("nightsBetween", () => {
   it("counts full nights between two dates, ignoring time-of-day", () => {
@@ -167,6 +168,28 @@ describe("calcAmounts", () => {
     const { netAmount, vatAmount } = calcAmounts(100, 1, undefined);
     expect(netAmount).toBe(100);
     expect(vatAmount).toBe(0);
+  });
+});
+
+/* Paritatea cu implementarea din SQL. Vezi src/lib/pricing-matrice.js
+   pentru context: cele două formule au divergat luni de zile, iar acest
+   test e jumătatea JS a contractului. Cealaltă jumătate e verificată de
+   tests/paritate-pret.sql, pe aceleași valori. */
+describe("nightlyRate — paritate cu nightly_rate() din SQL", () => {
+  it.each(MATRICE_TARIF)(
+    "%s · %i adulți · %i copii → %i lei/noapte",
+    (tip, adulti, copii, asteptat) => {
+      const tarif = nightlyRate(
+        new Date(2026, 7, 20), tip, TARIFE_REFERINTA,
+        { adults: adulti, children: copii },
+      );
+      expect(tarif).toBe(asteptat);
+    },
+  );
+
+  it("acoperă ambele tipuri de cameră și 1–4 adulți cu 0–2 copii", () => {
+    // Dacă matricea se subțiază, testul de mai sus rămâne verde degeaba.
+    expect(MATRICE_TARIF).toHaveLength(24);
   });
 });
 

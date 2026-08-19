@@ -874,51 +874,126 @@ $$;
 -- Tariful unei nopți pentru un tip de cameră, la o dată dată.
 -- Sezonul cu prioritatea cea mai mare câștigă; dacă nu se potrivește
 -- niciunul, se aplică tariful de bază.
--- Ramura 'else' tratează sezoanele care trec peste Anul Nou.
-create or replace function nightly_rate(p_room_type text, p_date date)
-returns numeric language sql stable set search_path = public as $$
-  select coalesce(
-    (select s.price from seasons s
-      where s.room_type = p_room_type
-        and case when s.start_md <= s.end_md
-                 then to_char(p_date,'MM-DD') between s.start_md and s.end_md
-                 else to_char(p_date,'MM-DD') >= s.start_md
-                   or to_char(p_date,'MM-DD') <= s.end_md
-            end
-      order by s.priority desc limit 1),
-    (select r.base_price from rates r where r.room_type = p_room_type),
-    0
-  );
+--
+-- PARITATE CU JS: această funcție trebuie să producă exact aceleași
+-- valori ca nightlyRate() din src/lib/pricing.js. Până în august 2026
+-- nu primea deloc ocuparea, deci nu putea aplica tariful single sau
+-- suplimentele — 22 din 24 de combinații difereau, iar site-ul public
+-- cota alt preț decât înregistra PMS-ul.
+-- Contractul e în src/lib/pricing-matrice.js; verificarea, în
+-- tests/paritate-pret.sql.
+--
+-- Tariful single se aplică STRICT la 1 adult și 0 copii, și înlocuiește
+-- standardul (nu se adaugă peste el).
+create function nightly_rate(
+  p_room_type text, p_date date,
+  p_adults int default 2, p_children int default 0
+) returns numeric language sql stable set search_path = public as $$
+  with t as (
+    select
+      coalesce(
+        (select s.price from seasons s
+          where s.room_type = p_room_type
+            and case when s.start_md <= s.end_md
+                     then to_char(p_date,'MM-DD') between s.start_md and s.end_md
+                     else to_char(p_date,'MM-DD') >= s.start_md
+                       or to_char(p_date,'MM-DD') <= s.end_md
+                end
+          order by s.priority desc limit 1),
+        (select r.base_price from rates r where r.room_type = p_room_type),
+        0) as standard,
+      (select coalesce(r.single_price, 0)      from rates r where r.room_type = p_room_type) as single,
+      (select coalesce(r.adult_supplement, 0)  from rates r where r.room_type = p_room_type) as sup_a,
+      (select coalesce(r.child_supplement, 0)  from rates r where r.room_type = p_room_type) as sup_c
+  )
+  select case
+           when coalesce(p_adults,2) = 1 and coalesce(p_children,0) = 0 and t.single > 0
+           then t.single
+           else t.standard
+              + greatest(0, coalesce(p_adults,2) - 2) * t.sup_a
+              + coalesce(p_children,0) * t.sup_c
+         end
+  from t;
+$$;
+
+
+-- Ocuparea medie a proprietății, în procente, pe durata unui sejur.
+-- Oglindește occupancyForStay() din src/lib/availability.js: media pe
+-- nopți, nu pe zile-cameră. Numitorul e numărul TOTAL de camere, ca în
+-- JS (unde lista de camere nu e filtrată după `active`).
+create function occupancy_for_stay(
+  p_checkin timestamptz, p_checkout timestamptz, p_exclude_id text default null
+) returns numeric language sql stable set search_path = public as $$
+  with nopti as (
+    select generate_series(p_checkin::date, p_checkout::date - 1, interval '1 day')::date as zi
+  ), total as (
+    select nullif(count(*), 0)::numeric as n from rooms
+  )
+  select coalesce(avg(
+    (select count(*) from reservations r
+      where r.status not in ('cancelled','noshow')
+        and (p_exclude_id is null or r.id <> p_exclude_id)
+        and r.checkin::date <= nopti.zi
+        and r.checkout::date > nopti.zi
+    )::numeric / (select n from total) * 100
+  ), 0)
+  from nopti;
 $$;
 
 
 -- Totalul unui sejur: suma tarifelor pe nopți.
 -- Ziua plecării NU e noapte vândută, de aici '- 1' din generate_series.
-create or replace function stay_total(p_room_id text, p_checkin timestamptz, p_checkout timestamptz)
-returns numeric language sql stable set search_path = public as $$
-  select coalesce(sum(nightly_rate(r.type, d::date)), 0)
-  from rooms r,
-       generate_series(p_checkin::date, p_checkout::date - 1, interval '1 day') d
-  where r.id = p_room_id;
-$$;
+-- p_online aplică ajustarea pe grad de ocupare — doar rezervările făcute
+-- prin site-ul propriu o primesc, exact ca liveReservationTotalOnline().
+create function stay_total(
+  p_room_id text, p_checkin timestamptz, p_checkout timestamptz,
+  p_adults int default 2, p_children int default 0, p_online boolean default false
+) returns numeric language plpgsql stable set search_path = public as $$
+declare
+  v_tip text; v_baza numeric; v_occ numeric; v_max numeric; v_eff numeric; v_pct numeric;
+begin
+  select type into v_tip from rooms where id = p_room_id;
+  if v_tip is null then return 0; end if;
+
+  select coalesce(sum(nightly_rate(v_tip, d::date, p_adults, p_children)), 0)
+    into v_baza
+    from generate_series(p_checkin::date, p_checkout::date - 1, interval '1 day') d;
+  v_baza := round(v_baza, 2);
+
+  if not coalesce(p_online, false) then return v_baza; end if;
+  if not exists (select 1 from online_pricing_tiers) then return v_baza; end if;
+
+  v_occ := occupancy_for_stay(p_checkin, p_checkout, null);
+  -- Ultimul prag e inclusiv la capătul de sus, altfel 100% n-ar cădea
+  -- în niciun prag.
+  select max(max_occ) into v_max from online_pricing_tiers;
+  v_eff := least(v_occ, v_max - 0.0001);
+  select t.adjustment_pct into v_pct from online_pricing_tiers t
+   where v_eff >= t.min_occ and v_eff < t.max_occ limit 1;
+
+  return round(v_baza * (1 + coalesce(v_pct, 0) / 100));
+end; $$;
 
 
 -- Camerele libere într-un interval, cu prețul total.
 -- Singura funcție de citire pe care o folosește site-ul public.
 -- Rezervările 'pending' blochează camera doar cât timp rezervarea
 -- temporară e validă (relevant doar dacă se adaugă plata online).
+--
 -- security definer: rulează cu drepturile proprietarului, ca să poată citi
 -- rooms/reservations pentru un vizitator nelogat. Fără asta, RLS îi blochează
--- citirea și funcția întoarce listă goală — adică site-ul public de rezervări
--- ar arăta "nicio cameră liberă" mereu.
---
+-- citirea și funcția întoarce listă goală.
 -- Ce se expune public e exact ce întoarce semnătura: id, denumire, tip,
--- capacitate și preț total. Datele oaspeților și rezervările rămân
--- inaccesibile — RLS pe acele tabele nu e atins.
-create or replace function available_rooms(p_checkin timestamptz, p_checkout timestamptz, p_guests int default 1)
+-- capacitate și preț total. Datele oaspeților rămân inaccesibile.
+--
+-- p_guests se interpretează ca număr de adulți: la acest nivel nu se
+-- cunoaște defalcarea. Site-ul public folosește o funcție separată, care
+-- primește adulți și copii distinct.
+create function available_rooms(p_checkin timestamptz, p_checkout timestamptz, p_guests int default 1)
 returns table (room_id text, room_name text, room_type text, capacity int, total numeric)
 language sql stable security definer set search_path = public as $$
-  select r.id, r.name, r.type, r.capacity, stay_total(r.id, p_checkin, p_checkout)
+  select r.id, r.name, r.type, r.capacity,
+         stay_total(r.id, p_checkin, p_checkout, greatest(1, p_guests), 0, true)
   from rooms r
   where r.active
     and r.capacity >= p_guests
@@ -1058,11 +1133,21 @@ begin
   v_res_id := 'r-' || encode(gen_random_bytes(6),'hex');
 
   insert into reservations (id, room_id, guest_id, checkin, checkout, status,
-                            adults, children, source, notes)
+                            adults, children, source, notes, booked_price)
   values (v_res_id, p_room_id, v_guest_id, p_checkin, p_checkout, 'confirmed',
-          greatest(p_adults,1), greatest(p_children,0), 'site', nullif(trim(p_notes),''));
+          greatest(coalesce(p_adults,2),1), greatest(coalesce(p_children,0),0),
+          'site', nullif(trim(p_notes),''),
+          stay_total(p_room_id, p_checkin, p_checkout,
+                     greatest(coalesce(p_adults,2),1),
+                     greatest(coalesce(p_children,0),0), true));
 
-  return query select v_res_id, stay_total(p_room_id, p_checkin, p_checkout);
+  -- Prețul, cu ocuparea reală și ajustarea pentru site. Calculat înainte
+  -- de insert, ca să fie și înghețat în rând, și întors clientului —
+  -- aceeași valoare în ambele locuri, prin construcție. Fără asta, PMS-ul
+  -- îl recalcula singur la următoarea încărcare, cu alt rezultat.
+  return query select v_res_id, stay_total(p_room_id, p_checkin, p_checkout,
+                                           greatest(coalesce(p_adults,2),1),
+                                           greatest(coalesce(p_children,0),0), true);
 exception
   -- Doi vizitatori care rezervă simultan aceeași cameră: baza refuză,
   -- al doilea primește un mesaj clar, nu o eroare tehnică.
@@ -1401,16 +1486,18 @@ grant execute on function create_booking(text, timestamptz, timestamptz, text, t
 -- Versiunea anterioară a acestui fișier revoca doar de la `anon`, deci
 -- comentariul de aici („nu e expus public") descria o intenție care nu
 -- era de fapt aplicată. Descoperit de testele din tests/integration.
-revoke execute on function stay_total(text, timestamptz, timestamptz) from public, anon;
-revoke execute on function nightly_rate(text, date)                   from public, anon;
+revoke execute on function stay_total(text, timestamptz, timestamptz, int, int, boolean) from public, anon;
+revoke execute on function nightly_rate(text, date, int, int)                             from public, anon;
+revoke execute on function occupancy_for_stay(timestamptz, timestamptz, text)             from public, anon;
 revoke execute on function is_admin()                                 from public, anon;
 revoke execute on function has_billing_permission(text)               from public, anon;
 revoke execute on function staff_role()                               from public, anon;
 revoke execute on function next_invoice_number(text)                  from public, anon;
 revoke execute on function next_receipt_number(text)                  from public, anon;
 
-grant execute on function stay_total(text, timestamptz, timestamptz) to authenticated, service_role;
-grant execute on function nightly_rate(text, date)                   to authenticated, service_role;
+grant execute on function stay_total(text, timestamptz, timestamptz, int, int, boolean) to authenticated, service_role;
+grant execute on function nightly_rate(text, date, int, int)                             to authenticated, service_role;
+grant execute on function occupancy_for_stay(timestamptz, timestamptz, text)             to authenticated, service_role;
 grant execute on function is_admin()                                 to authenticated, service_role;
 grant execute on function has_billing_permission(text)               to authenticated, service_role;
 grant execute on function staff_role()                               to authenticated, service_role;
