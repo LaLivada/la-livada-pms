@@ -33,3 +33,6 @@ supabase/.temp/
 # Playwright
 test-results/
 playwright-report/
+
+# Raportul de audit, generat local (binar, publicat si ca artifact)
+La Livada PMS - Audit.pdf
