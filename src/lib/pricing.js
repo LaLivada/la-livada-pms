@@ -70,41 +70,52 @@ export function onlinePriceAdjustmentPct(occPct, tiers) {
   return tier ? Number(tier.adjustmentPct) || 0 : 0;
 }
 
-/* Ziua calendaristica in ora Romaniei, ca "YYYY-MM-DD" (en-CA da exact
-   formatul ISO). Fixam fusul explicit fiindca "azi" trebuie sa insemne
-   acelasi lucru peste tot: in SQL, unde baza ruleaza pe UTC si intre
-   miezul noptii si ora 3 data UTC e inca cea de ieri, si in browser,
-   care ar folosi altfel fusul calculatorului. */
-const ziuaRomania = (d) => new Intl.DateTimeFormat("en-CA", {
-  timeZone: "Europe/Bucharest",
-  year: "numeric", month: "2-digit", day: "2-digit",
-}).format(new Date(d));
-
 /* Varianta de liveReservationTotal care mai aplica, DOAR pentru
    rezervarile facute de oaspete prin site-ul propriu de rezervari
-   (source "site"), ajustarea procentuala din optimizatorul de pret pe
-   grad de ocupare — vezi OnlinePricingView. NU se aplica rezervarilor
-   introduse manual de receptie (Direct/Telefon/Walk-in etc.), chiar
-   daca sunt fara plata online — doar strict celor prin site. Booking.com/
-   Airbnb nu pot primi preturi prin feedul iCal (doar disponibilitate),
-   asa ca nu sunt incluse aici.
+   (source "site"), ajustarea din optimizatorul de pret pe grad de ocupare
+   — vezi OnlinePricingView. NU se aplica rezervarilor introduse manual de
+   receptie (Direct/Telefon/Walk-in etc.), chiar daca sunt fara plata
+   online — doar strict celor prin site. Booking.com/Airbnb nu pot primi
+   preturi prin feedul iCal (doar disponibilitate), asa ca nu sunt incluse.
 
-   Si numai pentru sosiri CHIAR AZI. Optimizatorul se uita la gradul de
-   ocupare de acum; pentru o data peste doua luni acela e aproape zero
-   indiferent de cerere, fiindca rezervarile nu s-au strans inca, iar
-   pragul cel mai de jos ar da o reducere nemeritata. E gandit ca parghie
-   de last-minute: cine cere o camera pentru la noapte plateste mai mult
-   sau mai putin dupa cat de plina e pensiunea in seara aceea.
-   Aceeasi regula e impusa si in SQL, in stay_total. */
-export function liveReservationTotalOnline(res, core, reservations, acum = new Date()) {
+   Doua reguli, ambele impuse identic in SQL (stay_total /
+   online_night_adjustment_pct):
+
+   1. Ajustarea se face PE NOAPTE, dupa ocuparea acelei nopti, nu dupa
+      media sejurului. Un sejur care prinde un weekend plin si trei zile
+      goale nu trebuie sa dilueze majorarea weekendului intr-o medie.
+
+   2. Doar MAJORARILE se aplica; sub tariful de baza nu se coboara
+      niciodata. Ocuparea masoara rezervarile stranse pana acum, nu
+      cererea: o zi plina peste trei saptamani chiar inseamna cerere si
+      merita tarif mai mare, dar o zi goala peste trei saptamani inseamna
+      doar ca e devreme — o reducere acolo ar fi bani lasati pe masa. */
+export function liveReservationTotalOnline(res, core, reservations) {
   const base = liveReservationTotal(res, core);
   if (res.source !== "site") return base;
-  if (ziuaRomania(res.checkin) !== ziuaRomania(acum)) return base;
   const tiers = core.onlinePricing;
   if (!tiers || !tiers.length) return base;
-  const occPct = occupancyForStay(res.checkin, res.checkout, reservations, core.rooms.length, res.id);
-  const pct = onlinePriceAdjustmentPct(occPct, tiers);
-  return Math.round(base * (1 + pct / 100));
+  const room = core.rooms.find((r) => r.id === res.roomId);
+  if (!room) return base;
+
+  const n = nightsBetween(res.checkin, res.checkout);
+  const occupancy = { adults: res.adults ?? 2, children: res.children ?? 0 };
+  let total = 0;
+  const d = new Date(res.checkin); d.setHours(0, 0, 0, 0);
+  for (let i = 0; i < n; i++) {
+    const urmatoarea = new Date(d); urmatoarea.setDate(urmatoarea.getDate() + 1);
+    const occPct = occupancyForStay(d, urmatoarea, reservations, core.rooms.length, res.id);
+    const pct = Math.max(0, onlinePriceAdjustmentPct(occPct, tiers));
+    /* Inmultim cu (100+pct)/100, nu cu (1 + pct/100). In virgula mobila
+       1,15 nu e exact, iar 350 × 1,15 da 402,49999999999997 — deci
+       Math.round coboara la 402, in timp ce SQL, care lucreaza pe numeric
+       zecimal exact, obtine 402,50 si urca la 403. Forma de aici tine
+       inmultirea pe intregi si imparte la final, asa ca valorile de tip
+       „exact .5" raman exacte si cele doua implementari cad la fel. */
+    total += nightlyRate(d, room.type, core.rates, occupancy) * (100 + pct) / 100;
+    d.setDate(d.getDate() + 1);
+  }
+  return Math.round(total);
 }
 
 /* Pretul afisat/facturat: suprascrierea manuala are mereu prioritate;

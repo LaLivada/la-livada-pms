@@ -991,6 +991,35 @@ create function occupancy_for_stay(
 $$;
 
 
+-- Ajustarea online pentru O SINGURĂ noapte, după gradul de ocupare al
+-- acelei nopți.
+--
+-- Doar majorările se aplică; sub tariful de bază nu se coboară niciodată.
+-- Motivul e în datele reale: din 90 de zile în față, 59 aveau ocupare
+-- exact 0%, iar între ziua 8 și 30 erau 15 zile goale și 5 peste 70%.
+-- O zi plină peste trei săptămâni chiar înseamnă cerere și merită tarif
+-- mai mare; o zi goală peste trei săptămâni înseamnă doar că e devreme,
+-- iar o reducere acolo ar fi bani lăsați pe masă.
+create function online_night_adjustment_pct(p_zi date)
+returns numeric language plpgsql stable set search_path = public as $$
+declare v_occ numeric; v_max numeric; v_eff numeric; v_pct numeric;
+begin
+  if not exists (select 1 from online_pricing_tiers) then return 0; end if;
+
+  -- Intervalul [p_zi, p_zi+1) are exact o noapte.
+  v_occ := occupancy_for_stay(p_zi::timestamptz, (p_zi + 1)::timestamptz, null);
+
+  -- Ultimul prag e inclusiv la capătul de sus, altfel 100% n-ar cădea
+  -- în niciun prag.
+  select max(max_occ) into v_max from online_pricing_tiers;
+  v_eff := least(v_occ, v_max - 0.0001);
+  select t.adjustment_pct into v_pct from online_pricing_tiers t
+   where v_eff >= t.min_occ and v_eff < t.max_occ limit 1;
+
+  return greatest(0, coalesce(v_pct, 0));
+end; $$;
+
+
 -- Totalul unui sejur: suma tarifelor pe nopți.
 -- Ziua plecării NU e noapte vândută, de aici '- 1' din generate_series.
 -- p_online aplică ajustarea pe grad de ocupare — doar rezervările făcute
@@ -999,8 +1028,7 @@ create function stay_total(
   p_room_id text, p_checkin timestamptz, p_checkout timestamptz,
   p_adults int default 2, p_children int default 0, p_online boolean default false
 ) returns numeric language plpgsql stable set search_path = public as $$
-declare
-  v_tip text; v_baza numeric; v_occ numeric; v_max numeric; v_eff numeric; v_pct numeric;
+declare v_tip text; v_baza numeric; v_online numeric;
 begin
   select type into v_tip from rooms where id = p_room_id;
   if v_tip is null then return 0; end if;
@@ -1012,35 +1040,18 @@ begin
 
   if not coalesce(p_online, false) then return v_baza; end if;
 
-  -- Optimizatorul se aplică numai sosirilor de AZI.
-  --
-  -- El citește gradul de ocupare de acum. Pentru o dată peste două luni
-  -- acela e aproape zero indiferent de cerere — rezervările pur și simplu
-  -- nu s-au strâns încă — deci ar cădea mereu în pragul cel mai de jos și
-  -- ar da o reducere nemeritată cuiva care rezervă din timp. E gândit ca
-  -- pârghie de last-minute: cine cere o cameră pentru la noapte plătește
-  -- mai mult sau mai puțin după cât de plină e pensiunea în seara aceea.
-  --
-  -- Ziua se ia în ora României, nu a bazei: baza rulează pe UTC, iar între
-  -- miezul nopții și ora 3 data UTC e încă cea de ieri — o rezervare făcută
-  -- la 1 noaptea pentru chiar acea noapte ar fi ratat regula.
+  -- Fiecare noapte se ajustează după ocuparea EI, nu după media sejurului:
+  -- un sejur care prinde un weekend plin și trei zile goale nu trebuie să
+  -- dilueze majorarea weekendului într-o medie.
   -- Aceeași regulă e impusă și în JS, în liveReservationTotalOnline.
-  if (p_checkin at time zone 'Europe/Bucharest')::date
-     <> (now()     at time zone 'Europe/Bucharest')::date then
-    return v_baza;
-  end if;
+  select coalesce(sum(
+           nightly_rate(v_tip, d::date, p_adults, p_children)
+             * (1 + online_night_adjustment_pct(d::date) / 100)
+         ), 0)
+    into v_online
+    from generate_series(p_checkin::date, p_checkout::date - 1, interval '1 day') d;
 
-  if not exists (select 1 from online_pricing_tiers) then return v_baza; end if;
-
-  v_occ := occupancy_for_stay(p_checkin, p_checkout, null);
-  -- Ultimul prag e inclusiv la capătul de sus, altfel 100% n-ar cădea
-  -- în niciun prag.
-  select max(max_occ) into v_max from online_pricing_tiers;
-  v_eff := least(v_occ, v_max - 0.0001);
-  select t.adjustment_pct into v_pct from online_pricing_tiers t
-   where v_eff >= t.min_occ and v_eff < t.max_occ limit 1;
-
-  return round(v_baza * (1 + coalesce(v_pct, 0) / 100));
+  return round(v_online);
 end; $$;
 
 
@@ -1971,6 +1982,7 @@ grant execute on function create_booking(text, timestamptz, timestamptz, text, t
 -- Versiunea anterioară a acestui fișier revoca doar de la `anon`, deci
 -- comentariul de aici („nu e expus public") descria o intenție care nu
 -- era de fapt aplicată. Descoperit de testele din tests/integration.
+revoke execute on function online_night_adjustment_pct(date) from public, anon;
 revoke execute on function stay_total(text, timestamptz, timestamptz, int, int, boolean) from public, anon;
 revoke execute on function nightly_rate(text, date, int, int)                             from public, anon;
 revoke execute on function occupancy_for_stay(timestamptz, timestamptz, text)             from public, anon;
@@ -1980,6 +1992,7 @@ revoke execute on function staff_role()                               from publi
 revoke execute on function next_invoice_number(text)                  from public, anon;
 revoke execute on function next_receipt_number(text)                  from public, anon;
 
+grant execute on function online_night_adjustment_pct(date) to authenticated, service_role;
 grant execute on function stay_total(text, timestamptz, timestamptz, int, int, boolean) to authenticated, service_role;
 grant execute on function nightly_rate(text, date, int, int)                             to authenticated, service_role;
 grant execute on function occupancy_for_stay(timestamptz, timestamptz, text)             to authenticated, service_role;

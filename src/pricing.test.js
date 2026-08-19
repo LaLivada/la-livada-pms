@@ -141,33 +141,45 @@ describe("liveReservationTotalOnline", () => {
     const res = { id: "a", roomId: "r1", checkin: "2026-08-18T15:00:00Z", checkout: "2026-08-19T11:00:00Z", adults: 2, children: 0, source: "direct" };
     expect(liveReservationTotalOnline(res, core, [res])).toBe(300);
   });
-  // Sosirea e 18 august, ora 18:00 in Romania (15:00 UTC). `acum` se da
-  // explicit, ca testele sa nu depinda de ziua in care ruleaza.
-  const res = { id: "a", roomId: "r1", checkin: "2026-08-18T15:00:00Z", checkout: "2026-08-19T11:00:00Z", adults: 2, children: 0, status: "confirmed", source: "site" };
   // occupancyForStay exclude din numaratoare chiar rezervarea evaluata
   // (vezi comentariul ei) — ca sa iasa ocupare nenula e nevoie de o alta
   // camera ocupata: 1 din 2 => 50%, adica pragul al doilea (+20%).
+  const res = { id: "a", roomId: "r1", checkin: "2026-08-18T15:00:00Z", checkout: "2026-08-19T11:00:00Z", adults: 2, children: 0, status: "confirmed", source: "site" };
   const alta = { id: "b", roomId: "r2", checkin: "2026-08-18T15:00:00Z", checkout: "2026-08-19T11:00:00Z", status: "confirmed" };
 
-  it("applies the online-pricing tier adjustment for a stay starting today", () => {
-    const acum = new Date("2026-08-18T09:00:00Z"); // 18 aug, 12:00 in Romania
-    expect(liveReservationTotalOnline(res, core, [res, alta], acum)).toBe(360);
+  it("applies the tier increase when the booked night is busy", () => {
+    expect(liveReservationTotalOnline(res, core, [res, alta])).toBe(360);
   });
 
-  it("leaves the price untouched when the stay starts on any later day", () => {
-    // Aceeasi ocupare, aceeasi rezervare — doar ca azi e cu o zi inainte.
-    // Optimizatorul e o parghie de last-minute: fara regula asta, cine
-    // rezerva din timp ar primi ajustarea pe o ocupare inca nestransa.
-    const acum = new Date("2026-08-17T09:00:00Z");
-    expect(liveReservationTotalOnline(res, core, [res, alta], acum)).toBe(300);
+  it("never goes below the base price, however empty the night is", () => {
+    // Fara `alta`, ocuparea e 0% si cade in primul prag, care e -10%.
+    // Ocuparea masoara rezervarile stranse pana acum, nu cererea: o zi
+    // goala inseamna adesea doar ca e devreme, nu ca nu vrea nimeni.
+    expect(liveReservationTotalOnline(res, core, [res])).toBe(300);
   });
 
-  it("treats 'today' in Romanian time, not UTC", () => {
-    // 17 aug 22:00 UTC = 18 aug, ora 1 noaptea in Romania. Cine cere o
-    // camera atunci pentru chiar acea noapte e last-minute; dupa data UTC
-    // ar fi parut ca rezerva pentru maine si ar fi ratat ajustarea.
-    const acum = new Date("2026-08-17T22:00:00Z");
-    expect(liveReservationTotalOnline(res, core, [res, alta], acum)).toBe(360);
+  it("rounds a half-leu the same way SQL does", () => {
+    // 350 × 15% = 402,50 exact. Scris ca `350 * 1.15`, JS da
+    // 402,49999999999997 si coboara la 402, in timp ce SQL, pe numeric
+    // zecimal, urca la 403 — un leu diferenta intre pretul afisat de site
+    // si cel inregistrat in PMS. Verificat pe baza reala inainte de fix.
+    const c = {
+      rooms: [{ id: "r1", type: "loft" }, { id: "r2", type: "loft" }],
+      rates: { base: { loft: 350, adultSupplement: 80, childSupplement: 30 }, seasons: [] },
+      onlinePricing: [{ min: 0, max: 50, adjustmentPct: 0 }, { min: 50, max: 101, adjustmentPct: 15 }],
+    };
+    const r = { id: "a", roomId: "r1", checkin: "2026-08-18T15:00:00Z", checkout: "2026-08-19T11:00:00Z", adults: 2, children: 0, status: "confirmed", source: "site" };
+    const b = { id: "b", roomId: "r2", checkin: "2026-08-18T15:00:00Z", checkout: "2026-08-19T11:00:00Z", status: "confirmed" };
+    expect(liveReservationTotalOnline(r, c, [r, b])).toBe(403);
+  });
+
+  it("prices each night by its own occupancy, not by the stay average", () => {
+    // Doua nopti: 18 aug e plina la 50% (r2 ocupata de altcineva), 19 aug
+    // e goala. Pe noapte: 300×1,20 + 300 = 660.
+    // Pe media sejurului ar fi iesit 25% ocupare, deci pragul de -10% —
+    // adica 540, cu weekendul plin diluat de ziua goala de dupa.
+    const douaNopti = { ...res, checkout: "2026-08-20T11:00:00Z" };
+    expect(liveReservationTotalOnline(douaNopti, core, [douaNopti, alta])).toBe(660);
   });
 });
 
