@@ -9,6 +9,10 @@
  * Totul e prefixat cu .ldv- ca să nu existe coliziune cu stilurile temei
  * atunci când componenta e încorporată.
  */
+/* ATENȚIE: tot ce urmează e un template literal. Fără backticks în
+   comentariile CSS de mai jos — închid șirul și build-ul cade cu un mesaj
+   despre punct și virgulă lipsă, care nu trimite deloc la cauza reală.
+   S-a întâmplat de trei ori; scrie numele proprietăților fără ele. */
 export const STILURI = `
 .ldv{
   --ldv-ink:#1a1d1c;
@@ -61,6 +65,11 @@ export const STILURI = `
   background:var(--ldv-surface);
   border:1px solid var(--ldv-line); border-radius:8px;
   padding:11px 12px; width:100%;
+  /* Fără astea, un control cu lățime intrinsecă mare (câmpul de dată pe
+     iOS) refuză să se strângă în coloana lui și iese din grilă. Nu e
+     suficient singur — vezi media query-ul de la final — dar previne
+     cazul în care textul dinăuntru crește neașteptat. */
+  min-width:0; max-width:100%;
   /* 16px minim pe iOS, altfel Safari face zoom la focus */
   min-height:44px;
   transition:border-color .15s, box-shadow .15s;
@@ -147,8 +156,18 @@ export const STILURI = `
   margin:10px 0 4px; font-variant-numeric:tabular-nums;
 }
 
+/* Rândul de trei (Sosire · Nopți · Plecare) se desface mai devreme decât
+   cel de două, fiindcă doi dintre cei trei sunt câmpuri de tip date.
+   Pe iOS acela e un control nativ cu lățime intrinsecă de ~175px — data
+   plus glifa de calendar — sub care Safari NU coboară, oricât i-ai da
+   width:100% sau min-width:0. La 561px coloanele ies de 154px, deci
+   fiecare câmp împinge pagina în lateral cu ~20px.
+   La 720px coloana ajunge la ~207px, cu marjă confortabilă. */
+@media (max-width:720px){
+  .ldv-rand-3{ grid-template-columns:1fr; }
+}
 @media (max-width:560px){
-  .ldv-rand-2,.ldv-rand-3{ grid-template-columns:1fr; }
+  .ldv-rand-2{ grid-template-columns:1fr; }
   .ldv-card{ padding:16px; }
   .ldv-actiuni .ldv-btn{ width:100%; }
 }
