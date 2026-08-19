@@ -1541,11 +1541,11 @@ begin
     end if;
   end loop;
 
-  -- Varianta amestecată se oferă în două situații: când niciun tip singur
-  -- nu încape grupul, și când ea deschide MAI MULTE camere decât oricare
-  -- tip luat separat. A doua contează pentru grupuri mari: 32 de adulți
-  -- încap în 14 căsuțe Tiny câte 3, dar în toate cele 16 camere câte 2 —
-  -- mai multe camere vândute și mai puțină înghesuială.
+  -- Varianta amestecată se oferă când niciun tip singur nu încape grupul,
+  -- sau când deschide MAI MULTE camere decât oricare tip separat. A doua
+  -- contează pentru grupuri mari: peste 28 de adulți, cele 14 căsuțe Tiny
+  -- ar trebui să primească al treilea adult, în timp ce toate cele 16
+  -- camere îi țin câte doi.
   v_rez := allocate_group(p_checkin, p_checkout, v_ad, v_cop, null);
   if (v_rez->>'ok')::boolean
      and (jsonb_array_length(v_optiuni) = 0
@@ -1555,6 +1555,20 @@ begin
         and jsonb_array_length(v_optiuni) = 0 then
     v_min_camere := least(coalesce(v_min_camere, (v_rez->>'roomsNeeded')::int),
                           (v_rez->>'roomsNeeded')::int);
+  end if;
+
+  -- Dacă vreo variantă reușește cu cel mult doi adulți pe cameră, le
+  -- scoatem pe cele care ar pune un al treilea. Altfel varianta înghesuită
+  -- ar sta alături, mai ieftină, și ar fi aleasă tocmai fiindcă e mai
+  -- ieftină — adică exact ce nu vrem. Al treilea adult e ultima soluție,
+  -- nu o alternativă.
+  if exists (
+    select 1 from jsonb_array_elements(v_optiuni) o
+     where (select max((x->>'adults')::int) from jsonb_array_elements(o->'rooms') x) <= 2)
+  then
+    select coalesce(jsonb_agg(o), '[]'::jsonb) into v_optiuni
+      from jsonb_array_elements(v_optiuni) o
+     where (select max((x->>'adults')::int) from jsonb_array_elements(o->'rooms') x) <= 2;
   end if;
 
   if jsonb_array_length(v_optiuni) = 0 then
