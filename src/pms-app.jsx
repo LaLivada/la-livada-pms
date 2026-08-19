@@ -376,7 +376,10 @@ const STYLES = `
     max-height:calc(100dvh - var(--topbar-h) - 132px);
     -webkit-overflow-scrolling:touch; overscroll-behavior:none; scrollbar-width:thin;
   }
-  .cal-grid{ display:grid; min-width:1060px; }
+  /* Latimea minima se calculeaza din numarul de zile, nu e o cifra fixa:
+     inainte era 1060px, calibrata pentru 14 zile, si ar fi ramas o valoare
+     care minte de indata ce fereastra se schimba. */
+  .cal-grid{ display:grid; min-width:calc(78px + var(--days) * 66px); }
   .cal-row{ display:grid; grid-template-columns:78px repeat(var(--days), minmax(66px, 1fr)); }
   .cal-row + .cal-row{ border-top:1px solid var(--border-soft); }
   /* Separator band marking where one room type ends and the next starts. */
@@ -2810,7 +2813,7 @@ const VIEW_TITLES = {
   reports: ["Rapoarte", "Ocupare, venituri și tarif mediu"],
   log: ["Jurnal de activitate", "Cine ce a modificat"],
   settings: ["Setări", "Configurare și administrare"],
-  calendar: ["Calendar rezervări", "Vizualizare pe camere, următoarele 14 zile"],
+  calendar: ["Calendar rezervări", "Vizualizare pe camere, următoarele 30 de zile"],
   clients: ["Clienți", "Oaspeți și grupuri"],
   housekeeping: ["Status camere", "Curățenie și pregătire pentru sosiri"],
   automation: ["Automatizare pre-sosire", "Boiler · aer condiționat · ventilație"],
@@ -3579,7 +3582,13 @@ function CalendarView({ core, updateCore, reservations, updateReservations, grou
   const [blockInfo, setBlockInfo] = useState(null);
   const [moveId, setMoveId] = useState(null);
   const [dragError, setDragError] = useState("");
-  const DAYS = 14;
+  /* Fereastra vizibila. Latimea unei zile ramane 66px, deci grila creste
+     in lateral si se deruleaza — 30 de zile inseamna ~2060px, adica vreo
+     doua ecrane de laptop. Alegerea e deliberata: mai bine derulezi si
+     citesti numele oaspetilor, decat sa incapa luna intreaga cu bare fara
+     nume. Butoanele de navigare pasesc tot cu DAYS, ca sa nu sara peste
+     zile intre doua ferestre. */
+  const DAYS = 30;
   const [modal, setModal] = useState(null); // { reservation | null, defaultRoomId, defaultDate }
 
   const days = useMemo(() => {
@@ -3763,9 +3772,9 @@ function CalendarView({ core, updateCore, reservations, updateReservations, grou
     <div className="cal-view">
       <div className="toolbar cal-toolbar">
         <div className="week-nav">
-          <button onClick={() => setOffset((o) => o - DAYS)} aria-label="Cele 14 zile anterioare">
+          <button onClick={() => setOffset((o) => o - DAYS)} aria-label={`Cele ${DAYS} zile anterioare`}>
             <ChevronLeft size={15} />
-            <span>14 zile</span>
+            <span>{DAYS} zile</span>
           </button>
           <div className="jump-wrap">
             <button className={offset === 0 ? "on" : ""} onClick={(e) => { e.stopPropagation(); setPickerOpen((v) => !v); }}>
@@ -3790,8 +3799,8 @@ function CalendarView({ core, updateCore, reservations, updateReservations, grou
               </div>
             )}
           </div>
-          <button onClick={() => setOffset((o) => o + DAYS)} aria-label="Următoarele 14 zile">
-            <span>14 zile</span>
+          <button onClick={() => setOffset((o) => o + DAYS)} aria-label={`Următoarele ${DAYS} zile`}>
+            <span>{DAYS} zile</span>
             <ChevronRight size={15} />
           </button>
         </div>
