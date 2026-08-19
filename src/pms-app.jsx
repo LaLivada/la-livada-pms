@@ -6130,11 +6130,10 @@ function FirmsView({ core, updateCore, reservations, modalExtern, inchideModalEx
                   {[c.cui ? `CUI ${c.cui}` : null, c.regCom, [c.city, c.county].filter(Boolean).join(", ")]
                     .filter(Boolean).join(" · ")}
                 </div>
-                {(c.contactName || c.phone || c.email) && (
-                  <div className="secondary">
-                    {[c.contactName, c.phone, c.email].filter(Boolean).join(" · ")}
-                  </div>
-                )}
+                {/* Persoana de contact si datele ei nu se mai afiseaza in
+                    lista — se vad la editare si in istoric. Randul din
+                    lista ramane pe ce identifica firma: denumire, CUI,
+                    oras. */}
                 {rezervari.length > 0 && (
                   <div className="secondary" style={{ marginTop: 3 }}>
                     <strong>{rezervari.length}</strong> {rezervari.length === 1 ? "rezervare" : "rezervări"} facturate către firmă
