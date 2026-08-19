@@ -43,7 +43,7 @@ select
   end                                                   as stare
 from rezultat;
 
--- Detaliul divergențelor, dacă există:
+-- Detaliul divergențelor la tariful pe noapte, dacă există:
 with referinta(tip, adulti, copii, tarif_js) as (values
   ('tiny',1,0,280),('tiny',1,1,330),('tiny',1,2,360),
   ('tiny',2,0,300),('tiny',2,1,330),('tiny',2,2,360),
@@ -60,3 +60,86 @@ select tip, adulti, copii, tarif_js,
 from referinta
 where nightly_rate(tip, date '2026-08-20', adulti, copii) <> tarif_js
 order by abs(nightly_rate(tip, date '2026-08-20', adulti, copii) - tarif_js) desc;
+
+
+-- ====================================================================
+-- AJUSTAREA ONLINE (grad de ocupare)
+-- ====================================================================
+--
+-- Verifică a doua jumătate a contractului:
+--   · online_adjustment_for_occupancy()  ↔  onlineNightAdjustmentPct()
+--   · expresia de preț din stay_total()  ↔  bucla din
+--     liveReservationTotalOnline()
+--
+-- Matricele sunt copiate din src/lib/pricing-matrice.js
+-- (MATRICE_AJUSTARE și MATRICE_ROTUNJIRE). Dacă le modifici acolo,
+-- modifică-le și aici.
+--
+-- ATENȚIE — spre deosebire de secțiunea de mai sus, aceasta NU e
+-- read-only: înlocuiește temporar pragurile din online_pricing_tiers cu
+-- cele de referință, ca testul să verifice formula și nu configurarea
+-- curentă. Totul stă într-o tranzacție care se încheie cu ROLLBACK, deci
+-- pragurile tale rămân neatinse. Rulează blocul ÎNTREG, nu pe bucăți —
+-- altfel tranzacția rămâne deschisă.
+--
+-- Context: pe 19 august 2026, SQL dădea 403 și JS 402 pentru 350 lei la
+-- +15%. `350 * 1.15` în virgulă mobilă e 402,49999999999997, deci JS
+-- cobora, în timp ce `numeric` obținea exact 402,50 și urca. Un leu
+-- diferență între prețul afișat pe site și cel înregistrat în PMS.
+
+begin;
+
+-- Pragurile de referință, nu cele configurate.
+delete from online_pricing_tiers;
+insert into online_pricing_tiers (id, min_occ, max_occ, adjustment_pct, sort_order) values
+  ('ref1',  0,  30,  -5, 0),
+  ('ref2', 30,  50,   0, 1),
+  ('ref3', 50,  70,   5, 2),
+  ('ref4', 70,  90,  10, 3),
+  ('ref5', 90, 100,  15, 4);
+
+-- 1. Pragul aplicat pentru un grad de ocupare dat.
+with referinta(ocupare, pct_js) as (values
+  (0::numeric, 0::numeric), (15, 0), (29.99, 0), (30, 0), (49.99, 0),
+  (50, 5), (69.99, 5), (70, 10), (89.99, 10), (90, 15), (99.99, 15), (100, 15)
+), rezultat as (
+  select r.ocupare, r.pct_js,
+         online_adjustment_for_occupancy(r.ocupare) as pct_sql
+  from referinta r
+)
+select 'ajustare pe praguri'                              as verificare,
+       count(*)                                           as cazuri,
+       count(*) filter (where pct_sql <> pct_js)          as divergente,
+       coalesce(string_agg(
+         format('%s%% → SQL %s vs JS %s', ocupare, pct_sql, pct_js), ' | ')
+         filter (where pct_sql <> pct_js), '—')           as detalii
+from rezultat;
+
+-- 2. Însumarea pe nopți și rotunjirea finală.
+--    Fiecare rând: tarifele și ajustările nopților, plus totalul din JS.
+with referinta(eticheta, tarife, ajustari, total_js) as (values
+  ('350 la +15%',        array[350], array[15], 403),
+  ('350 la +5%',         array[350], array[5],  368),
+  ('330 la +15%',        array[330], array[15], 380),
+  ('410 la +5%',         array[410], array[5],  431),
+  ('350+5% si 350+10%',  array[350,350], array[5,10],  753),
+  ('300+10% si 300+15%', array[300,300], array[10,15], 675),
+  ('300 fara ajustare',  array[300], array[0],  300),
+  ('280 la +5%',         array[280], array[5],  294)
+), rezultat as (
+  select r.eticheta, r.total_js,
+         -- Exact expresia din stay_total.
+         round((select sum(t * (100 + a) / 100.0)
+                  from unnest(r.tarife, r.ajustari) as u(t, a))) as total_sql
+  from referinta r
+)
+select 'insumare si rotunjire'                            as verificare,
+       count(*)                                           as cazuri,
+       count(*) filter (where total_sql <> total_js)      as divergente,
+       coalesce(string_agg(
+         format('%s: SQL %s vs JS %s', eticheta, total_sql, total_js), ' | ')
+         filter (where total_sql <> total_js), '—')       as detalii
+from rezultat;
+
+-- Nimic nu se salvează: pragurile tale rămân cum erau.
+rollback;

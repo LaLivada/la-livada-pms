@@ -7,11 +7,14 @@ import {
 } from "./lib/availability.js";
 import {
   inSeason, nightlyRate, liveReservationTotal,
-  liveReservationTotalOnline, reservationTotal,
+  liveReservationTotalOnline, reservationTotal, onlineNightAdjustmentPct,
 } from "./lib/pricing.js";
 import { calcAmounts, round2, splitEvenly } from "./lib/money.js";
 import { validateCUIFormat } from "./lib/validation.js";
-import { MATRICE_TARIF, TARIFE_REFERINTA } from "./lib/pricing-matrice.js";
+import {
+  MATRICE_TARIF, TARIFE_REFERINTA,
+  PRAGURI_ONLINE_REFERINTA, MATRICE_AJUSTARE, MATRICE_ROTUNJIRE,
+} from "./lib/pricing-matrice.js";
 
 describe("nightsBetween", () => {
   it("counts full nights between two dates, ignoring time-of-day", () => {
@@ -222,6 +225,33 @@ describe("nightlyRate — paritate cu nightly_rate() din SQL", () => {
     // Dacă matricea se subțiază, testul de mai sus rămâne verde degeaba.
     expect(MATRICE_TARIF).toHaveLength(24);
   });
+});
+
+/* Jumătatea JS a contractului pentru ajustarea online. Perechea ei e
+   secțiunea „AJUSTAREA ONLINE" din tests/paritate-pret.sql, care rulează
+   aceleași valori prin implementarea din bază. Dacă modifici matricele,
+   modifică-le în AMBELE locuri. */
+describe("contractul ajustării online — jumătatea JS", () => {
+  it.each(MATRICE_AJUSTARE)(
+    "la %s%% ocupare aplică %s%%",
+    (ocupare, asteptat) => {
+      expect(onlineNightAdjustmentPct(ocupare, PRAGURI_ONLINE_REFERINTA)).toBe(asteptat);
+    });
+
+  it("nu ajustează nimic dacă nu există praguri configurate", () => {
+    expect(onlineNightAdjustmentPct(95, [])).toBe(0);
+    expect(onlineNightAdjustmentPct(95, null)).toBe(0);
+  });
+
+  it.each(MATRICE_ROTUNJIRE)(
+    "însumează %j la %s",
+    (nopti, asteptat) => {
+      // Exact forma folosită de liveReservationTotalOnline și de stay_total:
+      // înmulțire pe întregi, împărțire la final, rotunjire o singură dată
+      // pe total — nu pe fiecare noapte.
+      const total = nopti.reduce((s, [tarif, pct]) => s + tarif * (100 + pct) / 100, 0);
+      expect(Math.round(total)).toBe(asteptat);
+    });
 });
 
 describe("round2", () => {

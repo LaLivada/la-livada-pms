@@ -1000,24 +1000,38 @@ $$;
 -- O zi plină peste trei săptămâni chiar înseamnă cerere și merită tarif
 -- mai mare; o zi goală peste trei săptămâni înseamnă doar că e devreme,
 -- iar o reducere acolo ar fi bani lăsați pe masă.
-create function online_night_adjustment_pct(p_zi date)
+-- Ajustarea aplicată pentru un grad de ocupare dat.
+--
+-- Există ca funcție separată ca să poată fi verificată pe o matrice de
+-- valori: online_night_adjustment_pct() își calculează singură ocuparea
+-- din rezervările reale, deci nu se poate fixa într-un contract.
+-- Perechea JS e onlineNightAdjustmentPct(); matricea comună stă în
+-- src/lib/pricing-matrice.js, verificarea în tests/paritate-pret.sql.
+create function online_adjustment_for_occupancy(p_occ numeric)
 returns numeric language plpgsql stable set search_path = public as $$
-declare v_occ numeric; v_max numeric; v_eff numeric; v_pct numeric;
+declare v_max numeric; v_eff numeric; v_pct numeric;
 begin
   if not exists (select 1 from online_pricing_tiers) then return 0; end if;
-
-  -- Intervalul [p_zi, p_zi+1) are exact o noapte.
-  v_occ := occupancy_for_stay(p_zi::timestamptz, (p_zi + 1)::timestamptz, null);
 
   -- Ultimul prag e inclusiv la capătul de sus, altfel 100% n-ar cădea
   -- în niciun prag.
   select max(max_occ) into v_max from online_pricing_tiers;
-  v_eff := least(v_occ, v_max - 0.0001);
+  v_eff := least(coalesce(p_occ, 0), v_max - 0.0001);
   select t.adjustment_pct into v_pct from online_pricing_tiers t
    where v_eff >= t.min_occ and v_eff < t.max_occ limit 1;
 
   return greatest(0, coalesce(v_pct, 0));
 end; $$;
+
+
+-- Punctul de intrare pentru o zi anume. Calculul pragului trece prin
+-- funcția de mai sus, ca să existe o singură definiție a lui.
+create function online_night_adjustment_pct(p_zi date)
+returns numeric language sql stable set search_path = public as $$
+  -- Intervalul [p_zi, p_zi+1) are exact o noapte.
+  select online_adjustment_for_occupancy(
+           occupancy_for_stay(p_zi::timestamptz, (p_zi + 1)::timestamptz, null));
+$$;
 
 
 -- Totalul unui sejur: suma tarifelor pe nopți.
@@ -1044,9 +1058,13 @@ begin
   -- un sejur care prinde un weekend plin și trei zile goale nu trebuie să
   -- dilueze majorarea weekendului într-o medie.
   -- Aceeași regulă e impusă și în JS, în liveReservationTotalOnline.
+  --
+  -- Scris ca (100 + pct) / 100, aceeași formă ca în JS: acolo e singura
+  -- care păstrează exacte valorile de tip „.5" în virgulă mobilă, iar
+  -- aici e echivalentă — deci cele două implementări se citesc la fel.
   select coalesce(sum(
            nightly_rate(v_tip, d::date, p_adults, p_children)
-             * (1 + online_night_adjustment_pct(d::date) / 100)
+             * (100 + online_night_adjustment_pct(d::date)) / 100
          ), 0)
     into v_online
     from generate_series(p_checkin::date, p_checkout::date - 1, interval '1 day') d;
@@ -1982,6 +2000,7 @@ grant execute on function create_booking(text, timestamptz, timestamptz, text, t
 -- Versiunea anterioară a acestui fișier revoca doar de la `anon`, deci
 -- comentariul de aici („nu e expus public") descria o intenție care nu
 -- era de fapt aplicată. Descoperit de testele din tests/integration.
+revoke execute on function online_adjustment_for_occupancy(numeric) from public, anon;
 revoke execute on function online_night_adjustment_pct(date) from public, anon;
 revoke execute on function stay_total(text, timestamptz, timestamptz, int, int, boolean) from public, anon;
 revoke execute on function nightly_rate(text, date, int, int)                             from public, anon;
@@ -1992,6 +2011,7 @@ revoke execute on function staff_role()                               from publi
 revoke execute on function next_invoice_number(text)                  from public, anon;
 revoke execute on function next_receipt_number(text)                  from public, anon;
 
+grant execute on function online_adjustment_for_occupancy(numeric) to authenticated, service_role;
 grant execute on function online_night_adjustment_pct(date) to authenticated, service_role;
 grant execute on function stay_total(text, timestamptz, timestamptz, int, int, boolean) to authenticated, service_role;
 grant execute on function nightly_rate(text, date, int, int)                             to authenticated, service_role;

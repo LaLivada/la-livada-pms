@@ -70,6 +70,19 @@ export function onlinePriceAdjustmentPct(occPct, tiers) {
   return tier ? Number(tier.adjustmentPct) || 0 : 0;
 }
 
+/* Ajustarea efectiv aplicata unei nopti: pragul, dar fara partea negativa.
+ *
+ * Perechea SQL e online_adjustment_for_occupancy(numeric). Exista ca
+ * functie separata tocmai ca sa poata fi verificata pe o matrice de
+ * ocupari — online_night_adjustment_pct() din SQL calculeaza singura
+ * ocuparea din rezervarile reale, deci nu se poate fixa intr-un contract.
+ *
+ * Reducerile nu se aplica: ocuparea masoara rezervarile stranse pana
+ * acum, nu cererea. Vezi liveReservationTotalOnline pentru motivul lung. */
+export function onlineNightAdjustmentPct(occPct, tiers) {
+  return Math.max(0, onlinePriceAdjustmentPct(occPct, tiers));
+}
+
 /* Varianta de liveReservationTotal care mai aplica, DOAR pentru
    rezervarile facute de oaspete prin site-ul propriu de rezervari
    (source "site"), ajustarea din optimizatorul de pret pe grad de ocupare
@@ -105,7 +118,7 @@ export function liveReservationTotalOnline(res, core, reservations) {
   for (let i = 0; i < n; i++) {
     const urmatoarea = new Date(d); urmatoarea.setDate(urmatoarea.getDate() + 1);
     const occPct = occupancyForStay(d, urmatoarea, reservations, core.rooms.length, res.id);
-    const pct = Math.max(0, onlinePriceAdjustmentPct(occPct, tiers));
+    const pct = onlineNightAdjustmentPct(occPct, tiers);
     /* Inmultim cu (100+pct)/100, nu cu (1 + pct/100). In virgula mobila
        1,15 nu e exact, iar 350 × 1,15 da 402,49999999999997 — deci
        Math.round coboara la 402, in timp ce SQL, care lucreaza pe numeric
