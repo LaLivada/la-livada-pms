@@ -18,7 +18,12 @@
 export function round2(n) {
   const x = Number(n);
   if (!Number.isFinite(x)) return 0;
-  return Math.round((x + Number.EPSILON) * 100) / 100;
+  const rotunjit = Math.round((x + Number.EPSILON) * 100) / 100;
+  /* Inmultirea cu 100 poate depasi limita numerelor pentru valori
+     absurd de mari (peste ~1.79e306) si intoarce Infinity — adica exact
+     ce promite functia ca nu face. Verificam si rezultatul, nu doar
+     intrarea. Gasit de testele de proprietate din invarianti.property.test.js.  */
+  return Number.isFinite(rotunjit) ? rotunjit : 0;
 }
 
 /* Impartirea unei sume la un numar de parti, fara sa se piarda bani:
