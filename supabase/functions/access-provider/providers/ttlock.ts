@@ -150,7 +150,7 @@ async function acces(): Promise<string> {
       throw new EroareTTLock(
         "TTLOCK_CLIENT_SECRET are aceeași valoare ca TTLOCK_CLIENT_ID. "
         + "Sunt două valori diferite, dar arată la fel (32 de caractere hexazecimale). "
-        + "Ia secretul din portal cu butonul „View" și pune-l separat.");
+        + "Ia secretul din portal cu butonul View si pune-l separat.");
     }
 
     /* Cateva caractere din secret, ca sa poata fi comparat cu portalul fara
