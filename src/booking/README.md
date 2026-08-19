@@ -44,9 +44,20 @@ un import ar trage cod de recepție în pachetul public.
 
 | Funcție | Rol |
 |---|---|
-| `public_availability` | tipuri de cameră libere, cu preț |
-| `create_public_booking` | creează rezervarea, atomic, până la 5 camere |
+| `public_capacity` | plafoanele fizice, pentru limitele din formular |
+| `public_availability` | propuneri de cazare pentru tot grupul |
+| `create_public_booking` | creează rezervarea, atomic |
 | `public_booking_by_token` | pagina de confirmare |
+
+**Numărul de persoane e al grupului, nu al unei camere.** Serverul împarte
+grupul pe câte camere sunt necesare și întoarce, pentru fiecare tip care îl
+poate găzdui, o propunere completă; clientul alege una și o trimite înapoi
+ca atare. Se poate rezerva până la capacitatea întregii pensiuni — dacă
+niciun tip singur nu încape grupul, apare o variantă mixtă.
+
+Regulile de împărțire stau în `allocate_group`: cât mai puține camere,
+repartizare echilibrată (4 persoane în două camere de 3 înseamnă 2+2, nu
+3+1), și cel puțin un adult în fiecare cameră.
 
 Aplicația nu are acces la niciun tabel. Cheia folosită e cea publicabilă
 (anon) — nu e un secret: singurul acces pe care îl dă sunt exact aceste

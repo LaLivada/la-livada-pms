@@ -54,8 +54,24 @@ async function rpc(nume, parametri) {
   return date;
 }
 
-/* Disponibilitatea. Întoarce tipuri de cameră, nu camere individuale —
-   alocarea camerei fizice o face serverul la confirmare. */
+/* Capacitatea configurată a pensiunii: cât încape într-o cameră, câte
+   camere se pot lua odată, și cel mai mare grup care poate rezerva online.
+   Se cere o singură dată, la deschiderea paginii, ca selectoarele de
+   persoane să nu ofere valori care n-au cum să reușească.
+
+   Nu spune nimic despre disponibilitate — aceea depinde de perioadă și
+   vine din cautaDisponibilitate(). */
+export function citesteCapacitatea() {
+  return rpc("public_capacity", {});
+}
+
+/* Disponibilitatea pentru un grup întreg.
+ *
+ * `adulti`/`copii` sunt TOTALUL grupului, nu ocuparea unei camere.
+ * Serverul împarte grupul pe câte camere sunt necesare și întoarce, pentru
+ * fiecare tip care îl poate găzdui, o propunere completă: câte camere, cu
+ * ce ocupare fiecare, și totalul. Lista `rooms` dintr-o opțiune se trimite
+ * mai departe, ca atare, la creare — clientul nu inventează nimic. */
 export function cautaDisponibilitate({ checkin, checkout, adulti, copii }) {
   return rpc("public_availability", {
     p_checkin: checkin,

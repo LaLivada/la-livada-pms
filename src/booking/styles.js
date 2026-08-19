@@ -122,6 +122,25 @@ export const STILURI = `
   padding:16px 0; border-bottom:1px solid var(--ldv-line-soft);
 }
 .ldv-tip:last-child{ border-bottom:none; }
+
+/* Variantele de cazare sunt butoane: fiecare e o propunere completa pentru
+   tot grupul, iar alegerea uneia e o actiune, nu o bifa decorativa.
+   Resetam aspectul de buton, pastram doar comportamentul. */
+.ldv-optiune{
+  width:100%; font:inherit; color:inherit; text-align:left;
+  background:transparent; border:none; cursor:pointer;
+  border-bottom:1px solid var(--ldv-line-soft);
+  padding:16px 12px; border-radius:8px;
+  transition:background .15s, box-shadow .15s;
+}
+.ldv-optiune:hover{ background:var(--ldv-surface-2); }
+.ldv-optiune:focus-visible{
+  outline:none; box-shadow:0 0 0 3px var(--ldv-accent-soft);
+}
+.ldv-optiune-aleasa{
+  background:var(--ldv-accent-soft);
+  box-shadow:inset 0 0 0 2px var(--ldv-accent);
+}
 .ldv-tip-info{ flex:1; min-width:180px; }
 .ldv-pret{ font-size:1.18em; font-weight:670; white-space:nowrap; }
 .ldv-pret small{ display:block; font-size:.62em; font-weight:400; color:var(--ldv-faint); }

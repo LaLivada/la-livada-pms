@@ -1319,14 +1319,153 @@ returns text language sql volatile set search_path = public as $$
 $$;
 
 
--- Disponibilitatea, agregată pe TIP de cameră: site-ul vinde "Tiny
--- house", nu camera 1004. Alocarea camerei fizice o face serverul, la
--- creare — clientul nu are ce face cu un room_id.
+-- Alocarea unui grup pe camere libere.
 --
--- Filtrarea pe capacitate se face înainte de agregare, fiindcă la această
--- proprietate capacitatea variază ÎN INTERIORUL aceluiași tip (unele
--- camere tiny au 2 locuri, altele 3). Fără asta, un grup de 3 ar vedea 14
--- camere libere și ar putea rezerva una de 2 locuri.
+-- p_type null înseamnă „orice tip" — varianta amestecată, folosită când
+-- grupul nu încape într-un singur tip. Fără ea, maximul rezervabil ar fi
+-- cel mai mare tip, nu toată pensiunea.
+--
+-- Reguli de împărțire:
+--   · se folosesc cât mai puține camere — se iau întâi cele mari;
+--   · camerele pornesc pline, iar surplusul se scoate din cele mai
+--     aglomerate: 4 persoane în două camere de 3 înseamnă 2+2, nu 3+1;
+--   · fiecare cameră primește cel puțin un adult, altfel ar rămâne copii
+--     singuri într-o cameră;
+--   · restul se repartizează pe rând, câte unul, întâi adulții apoi copiii
+--     — umplerea cameră-cu-cameră ar aduna adulții într-una și ar lăsa
+--     copiii cu unul singur în alta.
+--
+-- Întoarce fie o propunere completă, fie motivul pentru care nu se poate,
+-- ca interfața să poată spune omului ce anume să schimbe.
+create function allocate_group(
+  p_checkin timestamptz, p_checkout timestamptz,
+  p_adults int, p_children int, p_type text default null
+) returns jsonb language plpgsql stable set search_path = public as $$
+declare
+  v_pers int := p_adults + p_children;
+  v_nr int; v_ocupari int[]; v_tipuri text[]; v_id_pret text;
+  v_adulti int[]; v_copii int[];
+  v_i int; v_surplus int; v_pus boolean;
+  v_rest_ad int; v_rest_cop int;
+  v_camere jsonb := '[]'::jsonb;
+  v_total numeric;
+begin
+  with libere as (
+    select r.id, r.type, r.capacity,
+           row_number() over (order by r.capacity desc, r.type, r.sort_order) as rn
+      from rooms r
+     where r.active
+       and (p_type is null or r.type = p_type)
+       and not exists (
+         select 1 from reservations res
+          where res.room_id = r.id
+            and res.status not in ('cancelled','noshow')
+            and (res.status <> 'pending' or res.hold_expires_at > now())
+            and tstzrange(res.checkin, res.checkout, '[)')
+                && tstzrange(p_checkin, p_checkout, '[)')
+       )
+  ), cumul as (
+    select *, sum(capacity) over (order by rn) as cap_cum from libere
+  )
+  select min(rn) filter (where cap_cum >= v_pers),
+         array_agg(capacity order by rn) filter (where cap_cum - capacity < v_pers),
+         array_agg(type     order by rn) filter (where cap_cum - capacity < v_pers),
+         min(id)            filter (where cap_cum - capacity < v_pers)
+    into v_nr, v_ocupari, v_tipuri, v_id_pret
+    from cumul;
+
+  if v_nr is null then
+    return jsonb_build_object('ok', false, 'reason', 'locuri');
+  end if;
+  if p_adults < v_nr then
+    return jsonb_build_object('ok', false, 'reason', 'adulti', 'roomsNeeded', v_nr);
+  end if;
+
+  v_surplus := (select coalesce(sum(x), 0) from unnest(v_ocupari) x) - v_pers;
+  while v_surplus > 0 loop
+    select i into v_i from generate_subscripts(v_ocupari, 1) i
+     where v_ocupari[i] > 1 order by v_ocupari[i] desc, i limit 1;
+    exit when v_i is null;
+    v_ocupari[v_i] := v_ocupari[v_i] - 1;
+    v_surplus := v_surplus - 1;
+  end loop;
+
+  v_adulti := array_fill(0, array[v_nr]);
+  v_copii  := array_fill(0, array[v_nr]);
+  for v_i in 1 .. v_nr loop v_adulti[v_i] := 1; end loop;
+  v_rest_ad := p_adults - v_nr;
+  v_rest_cop := p_children;
+
+  while v_rest_ad > 0 loop
+    v_pus := false;
+    for v_i in 1 .. v_nr loop
+      exit when v_rest_ad = 0;
+      if v_adulti[v_i] + v_copii[v_i] < v_ocupari[v_i] then
+        v_adulti[v_i] := v_adulti[v_i] + 1; v_rest_ad := v_rest_ad - 1; v_pus := true;
+      end if;
+    end loop;
+    exit when not v_pus;
+  end loop;
+
+  while v_rest_cop > 0 loop
+    v_pus := false;
+    for v_i in 1 .. v_nr loop
+      exit when v_rest_cop = 0;
+      if v_adulti[v_i] + v_copii[v_i] < v_ocupari[v_i] then
+        v_copii[v_i] := v_copii[v_i] + 1; v_rest_cop := v_rest_cop - 1; v_pus := true;
+      end if;
+    end loop;
+    exit when not v_pus;
+  end loop;
+
+  for v_i in 1 .. v_nr loop
+    v_camere := v_camere || jsonb_build_object(
+      'roomType', v_tipuri[v_i], 'adults', v_adulti[v_i], 'children', v_copii[v_i]);
+  end loop;
+
+  -- Prețul depinde de tip, dată și ocupare — nu de camera individuală.
+  select coalesce(sum(stay_total(
+           (select id from rooms where active and type = c->>'roomType' limit 1),
+           p_checkin, p_checkout,
+           (c->>'adults')::int, (c->>'children')::int, true)), 0)
+    into v_total
+    from jsonb_array_elements(v_camere) c;
+
+  return jsonb_build_object(
+    'ok', true, 'roomType', coalesce(p_type, 'mixt'),
+    'roomsNeeded', v_nr, 'rooms', v_camere, 'total', v_total);
+end; $$;
+
+
+-- Plafoanele fizice ale pensiunii, pentru limitele din formular.
+--
+-- Formularul trebuie să știe CE poate cere înainte să ceară: până în 19
+-- august 2026 oferea 4 adulți, deși cea mai mare cameră are 3 locuri, deci
+-- căutarea întorcea gol de fiecare dată, pentru orice perioadă.
+--
+-- Nu spune nimic despre disponibilitate — aceea depinde de perioadă și
+-- vine din public_availability.
+create function public_capacity()
+returns jsonb language sql stable security definer set search_path = public as $$
+  select jsonb_build_object(
+    'maxPerRoom', coalesce(max(capacity), 0),
+    'maxRooms',   count(*),
+    'maxGuests',  coalesce(sum(capacity), 0)
+  ) from rooms where active;
+$$;
+
+
+-- Disponibilitatea pentru un grup întreg.
+--
+-- p_adults/p_children sunt TOTALUL grupului, nu ocuparea unei camere.
+-- Serverul împarte grupul pe câte camere sunt necesare și întoarce, pentru
+-- fiecare tip care îl poate găzdui, o propunere completă — exact lista pe
+-- care clientul o trimite înapoi la create_public_booking.
+--
+-- Per tip, nu o singură propunere amestecată: altfel un cuplu ar pierde
+-- alegerea între Tiny house și Loft, iar aceea e o diferență de produs și
+-- de preț, nu un detaliu. Varianta mixtă apare doar când niciun tip singur
+-- nu încape grupul.
 create or replace function public_availability(
   p_checkin timestamptz, p_checkout timestamptz,
   p_adults int default 2, p_children int default 0
@@ -1334,8 +1473,15 @@ create or replace function public_availability(
 declare
   v_ad   int := greatest(coalesce(p_adults, 2), 1);
   v_cop  int := greatest(coalesce(p_children, 0), 0);
-  v_pers int := v_ad + v_cop;
+  v_pers int;
+  v_max_online int;
+  v_tip text;
+  v_rez jsonb;
+  v_optiuni jsonb := '[]'::jsonb;
+  v_min_camere int := null;
 begin
+  v_pers := v_ad + v_cop;
+
   if p_checkin is null or p_checkout is null or p_checkout <= p_checkin then
     return jsonb_build_object('error', 'Perioadă invalidă.');
   end if;
@@ -1348,35 +1494,53 @@ begin
   if p_checkin > now() + interval '400 day' then
     return jsonb_build_object('error', 'Se pot căuta date doar în următoarele 400 de zile.');
   end if;
-  if v_pers > 6 then
-    return jsonb_build_object('error', 'Pentru grupuri mari, contactează recepția.');
+
+  select (public_capacity()->>'maxGuests')::int into v_max_online;
+  if v_pers > v_max_online then
+    return jsonb_build_object('error', format(
+      'Pensiunea are %s locuri în total. Pentru grupuri mai mari, sună-ne.', v_max_online));
+  end if;
+
+  for v_tip in select distinct type from rooms where active order by 1 loop
+    v_rez := allocate_group(p_checkin, p_checkout, v_ad, v_cop, v_tip);
+    if (v_rez->>'ok')::boolean then
+      v_optiuni := v_optiuni || (v_rez - 'ok');
+    elsif v_rez->>'reason' = 'adulti' then
+      v_min_camere := least(coalesce(v_min_camere, (v_rez->>'roomsNeeded')::int),
+                            (v_rez->>'roomsNeeded')::int);
+    end if;
+  end loop;
+
+  if jsonb_array_length(v_optiuni) = 0 then
+    v_rez := allocate_group(p_checkin, p_checkout, v_ad, v_cop, null);
+    if (v_rez->>'ok')::boolean then
+      v_optiuni := v_optiuni || (v_rez - 'ok');
+    elsif v_rez->>'reason' = 'adulti' then
+      v_min_camere := least(coalesce(v_min_camere, (v_rez->>'roomsNeeded')::int),
+                            (v_rez->>'roomsNeeded')::int);
+    end if;
+  end if;
+
+  if jsonb_array_length(v_optiuni) = 0 then
+    return jsonb_build_object(
+      'checkIn', p_checkin, 'checkOut', p_checkout,
+      'nights',  p_checkout::date - p_checkin::date,
+      'guests',  jsonb_build_object('adults', v_ad, 'children', v_cop, 'total', v_pers),
+      'options', v_optiuni,
+      'error',
+        case when v_min_camere is not null then format(
+          'Pentru %s persoane sunt necesare %s camere, iar în fiecare trebuie să fie cel puțin un adult. Ai nevoie de cel puțin %s adulți sau de mai puține persoane.',
+          v_pers, v_min_camere, v_min_camere)
+        else 'Nu mai sunt camere libere pentru perioada și numărul de persoane alese.'
+        end);
   end if;
 
   return jsonb_build_object(
-    'checkIn', p_checkin, 'checkOut', p_checkout,
-    'nights', p_checkout::date - p_checkin::date,
-    'roomTypes', coalesce((
-      select jsonb_agg(x order by x->>'roomType')
-      from (
-        select jsonb_build_object(
-                 'roomType',  r.type,
-                 'available', count(*),
-                 'maxGuests', max(r.capacity),
-                 'price',     min(stay_total(r.id, p_checkin, p_checkout, v_ad, v_cop, true))
-               ) as x
-          from rooms r
-         where r.active and r.capacity >= v_pers
-           and not exists (
-             select 1 from reservations res
-              where res.room_id = r.id
-                and res.status not in ('cancelled','noshow')
-                and (res.status <> 'pending' or res.hold_expires_at > now())
-                and tstzrange(res.checkin, res.checkout, '[)')
-                    && tstzrange(p_checkin, p_checkout, '[)')
-           )
-         group by r.type
-      ) s
-    ), '[]'::jsonb));
+    'checkIn',  p_checkin,
+    'checkOut', p_checkout,
+    'nights',   p_checkout::date - p_checkin::date,
+    'guests',   jsonb_build_object('adults', v_ad, 'children', v_cop, 'total', v_pers),
+    'options',  v_optiuni);
 end; $$;
 
 
@@ -1422,8 +1586,10 @@ begin
   end if;
 
   -- 2. VALIDĂRI ȘI LIMITE
-  if v_nr_camere < 1 or v_nr_camere > 5 then
-    raise exception 'Se pot rezerva între 1 și 5 camere odată.';
+  -- Plafon dinamic: se poate rezerva toata pensiunea. O cifra fixa ar
+  -- ramane in urma daca se mai adauga camere.
+  if v_nr_camere < 1 or v_nr_camere > (select count(*) from rooms where active) then
+    raise exception 'Se pot rezerva între 1 și % camere odată.', (select count(*) from rooms where active);
   end if;
   if p_checkout <= p_checkin then
     raise exception 'Data de plecare trebuie să fie după data sosirii.';
@@ -1964,6 +2130,7 @@ create policy "sterge permisiuni facturare" on billing_permissions for delete to
 -- fiecare cu propriile validări și limite.
 grant execute on function available_rooms(timestamptz, timestamptz, int) to anon;
 grant execute on function public_availability(timestamptz, timestamptz, int, int) to anon;
+grant execute on function public_capacity() to anon, authenticated, service_role;
 grant execute on function create_public_booking(uuid, timestamptz, timestamptz, text, text,
   text, text, text, text, text, jsonb, text) to anon;
 grant execute on function public_booking_by_token(text) to anon;
@@ -2000,6 +2167,8 @@ grant execute on function create_booking(text, timestamptz, timestamptz, text, t
 -- Versiunea anterioară a acestui fișier revoca doar de la `anon`, deci
 -- comentariul de aici („nu e expus public") descria o intenție care nu
 -- era de fapt aplicată. Descoperit de testele din tests/integration.
+revoke execute on function allocate_group(timestamptz, timestamptz, int, int, text) from public, anon;
+revoke execute on function public_capacity() from public;
 revoke execute on function online_adjustment_for_occupancy(numeric) from public, anon;
 revoke execute on function online_night_adjustment_pct(date) from public, anon;
 revoke execute on function stay_total(text, timestamptz, timestamptz, int, int, boolean) from public, anon;
@@ -2011,6 +2180,7 @@ revoke execute on function staff_role()                               from publi
 revoke execute on function next_invoice_number(text)                  from public, anon;
 revoke execute on function next_receipt_number(text)                  from public, anon;
 
+grant execute on function allocate_group(timestamptz, timestamptz, int, int, text) to authenticated, service_role;
 grant execute on function online_adjustment_for_occupancy(numeric) to authenticated, service_role;
 grant execute on function online_night_adjustment_pct(date) to authenticated, service_role;
 grant execute on function stay_total(text, timestamptz, timestamptz, int, int, boolean) to authenticated, service_role;

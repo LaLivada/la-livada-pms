@@ -27,7 +27,7 @@
  */
 import { useEffect, useMemo, useState } from "react";
 import {
-  cautaDisponibilitate, creeazaRezervare, citesteRezervare,
+  cautaDisponibilitate, creeazaRezervare, citesteRezervare, citesteCapacitatea,
   anuleazaRezervare, trimiteEmailConfirmare, COD_INDISPONIBIL,
 } from "./api.js";
 import { STILURI } from "./styles.js";
@@ -35,7 +35,13 @@ import { JUDETE, TARI } from "./nomenclatoare.js";
 
 /* Aceleași denumiri ca în PMS (vezi ROOM_TYPES din pms-app.jsx), ca
    recepția și clientul să vorbească despre același lucru. */
-const ETICHETE_TIP = { tiny: "Tiny house", loft: "Loft" };
+const ETICHETE_TIP = {
+  tiny: "Tiny house",
+  loft: "Loft",
+  /* Serverul intoarce "mixt" cand grupul nu incape intr-un singur tip si
+     foloseste camere din amandoua — cazul grupurilor mari. */
+  mixt: "Camere mixte",
+};
 const numeTip = (t) => ETICHETE_TIP[t] || t;
 
 const azi = () => new Date().toISOString().slice(0, 10);
@@ -83,7 +89,14 @@ export default function App({ valoriInitiale }) {
 
   const [stare, setStare] = useState("cautare");
   const [rezultate, setRezultate] = useState(null);
-  const [selectie, setSelectie] = useState({});
+  /* Tipul de cameră ales dintre propunerile serverului. Nu mai numărăm noi
+     camere: serverul spune de câte e nevoie pentru grup și cu ce ocupare. */
+  const [optiuneAleasa, setOptiuneAleasa] = useState(null);
+  /* Plafoanele fizice ale pensiunii, citite o dată la deschidere. Fără ele
+     formularul ar oferi valori imposibile — până acum oferea 4 adulți, deși
+     cea mai mare cameră are 3 locuri, deci căutarea întorcea gol de fiecare
+     dată. `null` cât timp nu au sosit: selectoarele rămân la minimul sigur. */
+  const [capacitate, setCapacitate] = useState(null);
   const [eroare, setEroare] = useState("");
   const [oaspete, setOaspete] = useState({
     nume: "", prenume: "", telefon: "", email: "",
@@ -131,6 +144,26 @@ export default function App({ valoriInitiale }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  /* Plafoanele se cer o data, la deschidere. Daca apelul esueaza, ramanem
+     pe valori minime sigure — mai bine un formular restrans decat unul care
+     promite ce nu poate livra. */
+  useEffect(() => {
+    citesteCapacitatea()
+      .then((d) => d && setCapacitate(d))
+      .catch(() => { /* selectoarele raman la minimul implicit */ });
+  }, []);
+
+  const maxPers  = Number(capacitate?.maxGuests) || 2;
+  const maxCopii = Math.max(0, maxPers - cautare.adulti);
+
+  /* Adultii si copiii sunt legati: impreuna nu pot depasi grupul maxim.
+     Cand cresc adultii, copiii se strang automat, ca suma sa ramana
+     valida fara ca omul sa fie certat pentru o combinatie pe care i-am
+     lasat-o noi la indemana. */
+  const schimbaAdulti = (n) => setCautare((c) => ({
+    ...c, adulti: n, copii: Math.min(c.copii, Math.max(0, maxPers - n)),
+  }));
+
   const nopti = useMemo(
     () => noptiIntre(cautare.checkin, cautare.checkout),
     [cautare.checkin, cautare.checkout]);
@@ -166,7 +199,7 @@ export default function App({ valoriInitiale }) {
   async function cauta() {
     setEroare("");
     setStare("caut");
-    setSelectie({});
+    setOptiuneAleasa(null);
     setCheie(crypto.randomUUID());   // intenție nouă, cheie nouă
     try {
       const d = await cautaDisponibilitate({
@@ -184,22 +217,13 @@ export default function App({ valoriInitiale }) {
     }
   }
 
-  const camereAlese = useMemo(
-    () => Object.entries(selectie).filter(([, n]) => n > 0),
-    [selectie]);
-  const totalCamere = camereAlese.reduce((s, [, n]) => s + n, 0);
-  const totalEstimat = camereAlese.reduce((s, [tip, n]) => {
-    const t = rezultate?.roomTypes?.find((x) => x.roomType === tip);
-    return s + (t ? Number(t.price) * n : 0);
-  }, 0);
-
-  function schimbaNumar(tip, delta, maxim) {
-    setSelectie((s) => {
-      const acum = s[tip] || 0;
-      const nou = Math.min(Math.max(0, acum + delta), Math.min(maxim, 5));
-      return { ...s, [tip]: nou };
-    });
-  }
+  /* Nu mai numaram noi camere. Serverul intoarce, pentru fiecare tip care
+     poate gazdui grupul, o propunere completa; noi alegem una dintre ele. */
+  const optiune = useMemo(
+    () => rezultate?.options?.find((o) => o.roomType === optiuneAleasa) || null,
+    [rezultate, optiuneAleasa]);
+  const totalCamere  = Number(optiune?.roomsNeeded) || 0;
+  const totalEstimat = Number(optiune?.total) || 0;
 
   const dateValide =
     oaspete.nume.trim() && oaspete.prenume.trim() && oaspete.telefon.trim() &&
@@ -210,10 +234,12 @@ export default function App({ valoriInitiale }) {
     setStare("trimitere");
     /* Fiecare cameră aleasă devine o intrare separată, cu ocuparea cerută.
        Serverul alege camera fizică — noi nu trimitem niciun room_id. */
-    const camere = camereAlese.flatMap(([tip, n]) =>
-      Array.from({ length: n }, () => ({
-        roomType: tip, adults: cautare.adulti, children: cautare.copii,
-      })));
+    /* Exact lista propusa de server, cu ocuparea calculata de el. Nu
+       recompunem nimic aici: orice diferenta ar fi o a doua parere despre
+       cine sta unde. Camera fizica o alege tot serverul, la creare. */
+    const camere = (optiune?.rooms || []).map((r) => ({
+      roomType: r.roomType, adults: r.adults, children: r.children,
+    }));
     try {
       const d = await creeazaRezervare({
         cheieIdempotenta: cheie,
@@ -327,15 +353,17 @@ export default function App({ valoriInitiale }) {
               <label className="ldv-camp">
                 <span>Adulți</span>
                 <select value={cautare.adulti}
-                  onChange={(e) => setCautare((c) => ({ ...c, adulti: Number(e.target.value) }))}>
-                  {[1, 2, 3, 4].map((n) => <option key={n} value={n}>{n}</option>)}
+                  onChange={(e) => schimbaAdulti(Number(e.target.value))}>
+                  {Array.from({ length: maxPers }, (_, i) => i + 1)
+                    .map((n) => <option key={n} value={n}>{n}</option>)}
                 </select>
               </label>
               <label className="ldv-camp">
                 <span>Copii</span>
                 <select value={cautare.copii}
                   onChange={(e) => setCautare((c) => ({ ...c, copii: Number(e.target.value) }))}>
-                  {[0, 1, 2].map((n) => <option key={n} value={n}>{n}</option>)}
+                  {Array.from({ length: maxCopii + 1 }, (_, i) => i)
+                    .map((n) => <option key={n} value={n}>{n}</option>)}
                 </select>
               </label>
             </div>
@@ -359,43 +387,53 @@ export default function App({ valoriInitiale }) {
             {cautare.copii > 0 && ` · ${cautare.copii} ${cautare.copii === 1 ? "copil" : "copii"}`}
           </p>
 
-          {!rezultate.roomTypes?.length ? (
+          {!rezultate.options?.length ? (
             <div className="ldv-gol">
-              <p><strong>Nicio cameră liberă în perioada aleasă.</strong></p>
+              <p><strong>{rezultate.error || "Nicio cameră liberă în perioada aleasă."}</strong></p>
               <p className="ldv-mic">Încearcă alte date sau sună-ne — poate găsim o soluție.</p>
             </div>
           ) : (
             <>
-              {rezultate.roomTypes.map((t) => (
-                <div className="ldv-tip" key={t.roomType}>
-                  <div className="ldv-tip-info">
-                    <h3>{numeTip(t.roomType)}</h3>
-                    <div className="ldv-mic">
-                      {t.available} {t.available === 1 ? "disponibilă" : "disponibile"} ·
-                      până la {t.maxGuests} {t.maxGuests === 1 ? "persoană" : "persoane"}
+              {/* Fiecare opțiune e o cazare completă pentru tot grupul, nu o
+                  cameră singură. Se alege una — repartizarea o face serverul. */}
+              {rezultate.options.map((o) => {
+                const ales = optiuneAleasa === o.roomType;
+                return (
+                  <button type="button" key={o.roomType}
+                    className={`ldv-tip ldv-optiune${ales ? " ldv-optiune-aleasa" : ""}`}
+                    aria-pressed={ales}
+                    onClick={() => setOptiuneAleasa(o.roomType)}>
+                    <div className="ldv-tip-info">
+                      <h3>{numeTip(o.roomType)}</h3>
+                      <div className="ldv-mic">
+                        {o.roomsNeeded} {o.roomsNeeded === 1 ? "cameră" : "camere"}
+                        {o.roomType === "mixt" && " · " + Object.entries(
+                          o.rooms.reduce((a, r) => ({ ...a, [r.roomType]: (a[r.roomType] || 0) + 1 }), {}))
+                          .map(([t, n]) => `${n} × ${numeTip(t)}`).join(" + ")}
+                        {o.roomsNeeded > 1 && " · " + o.rooms
+                          .map((r) => r.adults + r.children)
+                          .join("+") + " persoane"}
+                      </div>
                     </div>
-                  </div>
-                  <div className="ldv-pret">
-                    {fmtBani(t.price)}
-                    <small>{nopti} {nopti === 1 ? "noapte" : "nopți"}, total</small>
-                  </div>
-                  <div className="ldv-numar">
-                    <button type="button" aria-label={`Mai puține camere ${numeTip(t.roomType)}`}
-                      onClick={() => schimbaNumar(t.roomType, -1, t.available)}
-                      disabled={!selectie[t.roomType]}>−</button>
-                    <span>{selectie[t.roomType] || 0}</span>
-                    <button type="button" aria-label={`Mai multe camere ${numeTip(t.roomType)}`}
-                      onClick={() => schimbaNumar(t.roomType, +1, t.available)}
-                      disabled={(selectie[t.roomType] || 0) >= Math.min(t.available, 5)}>+</button>
-                  </div>
-                </div>
-              ))}
+                    <div className="ldv-pret">
+                      {fmtBani(o.total)}
+                      <small>{nopti} {nopti === 1 ? "noapte" : "nopți"}, total</small>
+                    </div>
+                  </button>
+                );
+              })}
 
-              {totalCamere > 0 && (
+              {optiune && (
                 <div className="ldv-sumar" style={{ marginTop: 16 }}>
-                  <div className="ldv-sumar-linie">
-                    <span>{totalCamere} {totalCamere === 1 ? "cameră" : "camere"} · {nopti} {nopti === 1 ? "noapte" : "nopți"}</span>
-                  </div>
+                  {optiune.rooms.map((r, i) => (
+                    <div className="ldv-sumar-linie" key={i}>
+                      <span>{numeTip(r.roomType)} {optiune.roomsNeeded > 1 && `#${i + 1}`}</span>
+                      <span>
+                        {r.adults} {r.adults === 1 ? "adult" : "adulți"}
+                        {r.children > 0 && ` · ${r.children} ${r.children === 1 ? "copil" : "copii"}`}
+                      </span>
+                    </div>
+                  ))}
                   <div className="ldv-sumar-linie ldv-sumar-total">
                     <span>Total estimat</span><span>{fmtBani(totalEstimat)}</span>
                   </div>
@@ -405,8 +443,8 @@ export default function App({ valoriInitiale }) {
               <div className="ldv-actiuni">
                 <button className="ldv-btn ldv-btn-principal ldv-creste"
                   onClick={() => { setEroare(""); setStare("date"); }}
-                  disabled={totalCamere === 0}>
-                  {totalCamere === 0 ? "Alege cel puțin o cameră" : "Continuă"}
+                  disabled={!optiune}>
+                  {!optiune ? "Alege o variantă" : "Continuă"}
                 </button>
               </div>
             </>
@@ -425,12 +463,11 @@ export default function App({ valoriInitiale }) {
               <span>Perioada</span>
               <span>{fmtData(cautare.checkin)} → {fmtData(cautare.checkout)}</span>
             </div>
-            {camereAlese.map(([tip, n]) => (
-              <div className="ldv-sumar-linie" key={tip}>
-                <span>{numeTip(tip)} × {n}</span>
-                <span>{fmtBani((rezultate?.roomTypes?.find((x) => x.roomType === tip)?.price || 0) * n)}</span>
-              </div>
-            ))}
+            <div className="ldv-sumar-linie">
+              <span>{numeTip(optiune?.roomType)} × {totalCamere}</span>
+              <span>{cautare.adulti} {cautare.adulti === 1 ? "adult" : "adulți"}
+                {cautare.copii > 0 && ` · ${cautare.copii} ${cautare.copii === 1 ? "copil" : "copii"}`}</span>
+            </div>
             <div className="ldv-sumar-linie ldv-sumar-total">
               <span>Total estimat</span><span>{fmtBani(totalEstimat)}</span>
             </div>
