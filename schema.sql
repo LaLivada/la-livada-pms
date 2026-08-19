@@ -1248,6 +1248,8 @@ create table public_bookings (
                      check (status in ('confirmed','cancelled')),
   request_ip       text,
   created_at       timestamptz not null default now(),
+  email_sent_at    timestamptz,   -- o singură trimitere per rezervare
+  cancelled_at     timestamptz,
   check (checkout > checkin),
   check (rooms_count > 0)
 );
@@ -1516,10 +1518,82 @@ returns jsonb language sql stable security definer set search_path = public as $
     'status', b.status, 'checkIn', b.checkin, 'checkOut', b.checkout,
     'nights', b.checkout::date - b.checkin::date,
     'rooms', b.rooms_count, 'total', b.total_amount,
-    'guestName', trim(coalesce(g.first_name,'') || ' ' || coalesce(g.last_name,'')))
+    'guestName', trim(coalesce(g.first_name,'') || ' ' || coalesce(g.last_name,'')),
+    -- Interfața are nevoie să știe dacă mai poate arăta butonul de
+    -- anulare; regula reală e impusă oricum în cancel_public_booking.
+    'canCancel', (b.status = 'confirmed' and b.checkin > now()),
+    'cancelledAt', b.cancelled_at)
   from public_bookings b
   left join guests g on g.id = b.guest_id
   where b.public_token = p_token;
+$$;
+
+
+-- ANULAREA DE CĂTRE CLIENT.
+--
+-- Nu șterge nimic: rezervările trec pe 'cancelled', deci camerele redevin
+-- libere (constrângerea de suprapunere le ignoră), dar istoricul rămâne
+-- intact în PMS.
+--
+-- Fereastra e generoasă fiindcă nu există plată în avans: se poate anula
+-- oricând până la ora sosirii. După aceea clientul trebuie să sune — o
+-- rezervare din ziua sosirii poate fi deja pregătită.
+create or replace function cancel_public_booking(p_token text)
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare v_b public_bookings;
+begin
+  select * into v_b from public_bookings where public_token = p_token;
+  if not found then
+    raise exception 'Rezervarea nu a fost găsită.' using errcode = 'P0002';
+  end if;
+
+  if v_b.status = 'cancelled' then
+    -- Idempotent: un link deschis de două ori nu e o eroare.
+    return jsonb_build_object('success', true, 'repeat', true,
+      'status', 'cancelled', 'confirmationNumber', v_b.confirmation_number);
+  end if;
+
+  if v_b.checkin <= now() then
+    raise exception 'Rezervarea nu mai poate fi anulată online — sună recepția.'
+      using errcode = 'P0003';
+  end if;
+
+  update reservations
+     set status = 'cancelled'
+   where id = any(v_b.reservation_ids)
+     and status not in ('checkedin','checkedout');
+
+  update public_bookings
+     set status = 'cancelled', cancelled_at = now()
+   where id = v_b.id;
+
+  return jsonb_build_object('success', true, 'status', 'cancelled',
+    'confirmationNumber', v_b.confirmation_number);
+end; $$;
+
+
+-- Datele pentru emailul de confirmare. Conține adresa clientului, deci NU
+-- e accesibilă anonim: o apelează doar funcția edge booking-email, cu
+-- service_role.
+create or replace function booking_email_payload(p_token text)
+returns jsonb language sql stable security definer set search_path = public as $$
+  select jsonb_build_object(
+    'confirmationNumber', b.confirmation_number,
+    'publicToken', b.public_token,
+    'email', g.email,
+    'guestName', trim(coalesce(g.first_name,'') || ' ' || coalesce(g.last_name,'')),
+    'checkIn', b.checkin, 'checkOut', b.checkout,
+    'nights', b.checkout::date - b.checkin::date,
+    'rooms', b.rooms_count, 'total', b.total_amount, 'status', b.status,
+    'alreadySent', b.email_sent_at is not null)
+  from public_bookings b
+  left join guests g on g.id = b.guest_id
+  where b.public_token = p_token;
+$$;
+
+create or replace function mark_booking_email_sent(p_token text)
+returns void language sql volatile security definer set search_path = public as $$
+  update public_bookings set email_sent_at = now() where public_token = p_token;
 $$;
 
 
@@ -1845,6 +1919,14 @@ grant execute on function public_availability(timestamptz, timestamptz, int, int
 grant execute on function create_public_booking(uuid, timestamptz, timestamptz, text, text,
   text, text, text, text, text, jsonb, text) to anon;
 grant execute on function public_booking_by_token(text) to anon;
+grant execute on function cancel_public_booking(text) to anon;
+
+-- Datele pentru email conțin adresa clientului: doar service_role, adică
+-- doar funcția edge care trimite mesajul.
+revoke execute on function booking_email_payload(text)    from public, anon, authenticated;
+revoke execute on function mark_booking_email_sent(text)  from public, anon, authenticated;
+grant  execute on function booking_email_payload(text)    to service_role;
+grant  execute on function mark_booking_email_sent(text)  to service_role;
 
 -- create_booking (o singură cameră) NU mai e apelabilă public: e complet
 -- acoperită de create_public_booking, iar două drumuri publice de creare

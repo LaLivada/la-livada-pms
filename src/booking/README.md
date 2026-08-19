@@ -103,18 +103,59 @@ Pagina de confirmare se deschide cu `?token=…` — tokenul are 128 de biți,
 deci adresa nu poate fi ghicită, iar id-urile interne nu apar niciodată în
 URL.
 
+## Emailul de confirmare
+
+Trimis de funcția edge `booking-email`, apelată de aplicație **după** ce
+rezervarea a fost creată. Un email eșuat nu afectează rezervarea —
+clientul are numărul pe ecran și linkul de revenire.
+
+Funcția nu primește niciun conținut de la client: cu tokenul, citește
+singură datele din bază. Altfel oricine ar putea trimite mesaje cu text
+arbitrar de pe adresa pensiunii. Se trimite **o singură dată** per
+rezervare (`email_sent_at`).
+
+### Configurare — fără ea, emailul nu pleacă
+
+Funcția e deployată dar inertă până se setează cheia. Fără ea răspunde
+`{"sent": false, "reason": "neconfigurat"}` și scrie un avertisment în
+loguri; rezervarea se face normal.
+
+1. Cont pe [resend.com](https://resend.com), domeniu `lalivada.ro`
+   verificat (DNS: SPF + DKIM). Fără verificare, mesajele ajung în spam.
+2. Secretele, în Dashboard → Edge Functions → Secrets:
+
+```
+RESEND_API_KEY      re_...                          (obligatoriu)
+BOOKING_EMAIL_FROM  La Livada <rezervari@lalivada.ro>
+BOOKING_APP_URL     https://rezervari.lalivada.ro
+PROPERTY_PHONE      +40 7xx xxx xxx                 (opțional, apare în email)
+```
+
+Alt serviciu decât Resend: se schimbă doar apelul `fetch` din funcție.
+
+## Anularea de către client
+
+Emailul conține un buton de anulare. **Nu anulează la click** — deschide
+pagina de confirmare (`?token=…&anulare=1`), unde clientul confirmă.
+
+Asta nu e prudență excesivă: multe clienți de email preîncarcă linkurile
+din mesaj ca să le scaneze. Un link care anulează la simplu GET ar șterge
+rezervări de unul singur.
+
+Regulile, impuse în `cancel_public_booking`:
+
+- se poate anula **până la ora sosirii**; după, clientul sună;
+- nu se șterge nimic — rezervările trec pe `cancelled`, camerele redevin
+  libere imediat, iar istoricul rămâne în PMS;
+- e **idempotentă**: un link deschis de două ori nu dă eroare.
+
 ## Ce nu există încă
 
-- **Email de confirmare.** Nu există infrastructură de trimitere. Clientul
-  vede numărul pe ecran și primește un link de revenire. Când se adaugă,
-  trimiterea trebuie să se facă **după** COMMIT, iar un email eșuat nu
-  trebuie să anuleze rezervarea.
 - **Plată online.** Rezervările intră direct `confirmed`, plata se face la
   sosire. Arhitectura acceptă adăugarea ulterioară fără rescriere: s-ar
   insera între alocarea camerei și confirmare, cu `status='pending'` până
   la încasare.
-- **Anulare de către client.** Deliberat. Dacă se cere, se face prin
-  funcție dedicată care trece rezervarea pe `cancelled` — niciodată
-  `DELETE`.
+- **Notificare către recepție.** Rezervările apar în PMS, dar nimeni nu e
+  anunțat activ. Aceeași funcție edge ar putea trimite un al doilea mesaj.
 - **Fotografii și descrieri de camere.** Nu există în bază; ar trebui
   adăugate în site sau într-un tabel nou.

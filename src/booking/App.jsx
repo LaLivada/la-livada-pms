@@ -26,7 +26,10 @@
  * dintr-un formular scurt aflat pe altă pagină.
  */
 import { useEffect, useMemo, useState } from "react";
-import { cautaDisponibilitate, creeazaRezervare, citesteRezervare, COD_INDISPONIBIL } from "./api.js";
+import {
+  cautaDisponibilitate, creeazaRezervare, citesteRezervare,
+  anuleazaRezervare, trimiteEmailConfirmare, COD_INDISPONIBIL,
+} from "./api.js";
 import { STILURI } from "./styles.js";
 import { JUDETE, TARI } from "./nomenclatoare.js";
 
@@ -71,6 +74,13 @@ export default function App({ valoriInitiale }) {
   });
   const [cerinte, setCerinte] = useState("");
   const [confirmare, setConfirmare] = useState(null);
+  /* Ecranul de anulare se deschide din linkul din email
+     (?token=…&anulare=1). Butonul din email NU anulează — deschide
+     această pagină, unde utilizatorul confirmă. Multe clienți de email
+     preîncarcă linkurile din mesaj; un link care anulează direct ar
+     șterge rezervări de unul singur. */
+  const [cereAnulare, setCereAnulare] = useState(false);
+  const [anuleazaAcum, setAnuleazaAcum] = useState(false);
 
   /* Cheia de idempotență se generează O SINGURĂ DATĂ per intenție de
      rezervare. Dacă s-ar regenera la fiecare click pe „Trimite", un retry
@@ -87,7 +97,8 @@ export default function App({ valoriInitiale }) {
     citesteRezervare(token)
       .then((d) => {
         if (!d) { setEroare("Rezervarea nu a fost găsită."); setStare("cautare"); return; }
-        setConfirmare(d);
+        setConfirmare({ ...d, publicToken: token });
+        setCereAnulare(params.get("anulare") === "1" && d.canCancel);
         setStare("confirmat");
       })
       .catch((e) => { setEroare(e.message); setStare("cautare"); });
@@ -173,8 +184,13 @@ export default function App({ valoriInitiale }) {
         rooms: d.rooms, total: d.total, status: d.status,
         guestName: `${oaspete.prenume} ${oaspete.nume}`.trim(),
         publicToken: d.publicToken,
+        canCancel: true,
       });
       setStare("confirmat");
+      /* Emailul se cere DUPĂ ce rezervarea există. Nu îl așteptăm și nu
+         îi verificăm rezultatul: dacă eșuează, rezervarea rămâne validă,
+         iar clientul are numărul pe ecran. */
+      if (oaspete.email?.trim()) trimiteEmailConfirmare(d.publicToken);
     } catch (e) {
       if (e.cod === COD_INDISPONIBIL) {
         /* Nu e o defecțiune — între căutare și confirmare s-a ocupat
@@ -187,6 +203,20 @@ export default function App({ valoriInitiale }) {
       }
       setEroare(e.message);
       setStare("date");
+    }
+  }
+
+  async function confirmaAnularea() {
+    setEroare("");
+    setAnuleazaAcum(true);
+    try {
+      await anuleazaRezervare(confirmare.publicToken);
+      setConfirmare((c) => ({ ...c, status: "cancelled", canCancel: false }));
+      setCereAnulare(false);
+    } catch (e) {
+      setEroare(e.message);
+    } finally {
+      setAnuleazaAcum(false);
     }
   }
 
@@ -424,7 +454,9 @@ export default function App({ valoriInitiale }) {
       {stare === "confirmat" && confirmare && (
         <div className="ldv-card">
           <div className="ldv-confirmare">
-            <h2>Rezervarea e înregistrată</h2>
+            <h2>{confirmare.status === "cancelled"
+              ? "Rezervarea a fost anulată"
+              : "Rezervarea e înregistrată"}</h2>
             <div className="ldv-numar-confirmare">{confirmare.confirmationNumber}</div>
             <p className="ldv-mic">Notează numărul — îl folosim când ne suni.</p>
           </div>
@@ -445,14 +477,53 @@ export default function App({ valoriInitiale }) {
             </div>
           </div>
 
-          <div className="ldv-alerta ldv-alerta-info" style={{ marginTop: 4 }}>
-            Te contactăm telefonic pentru confirmare. Plata se face la sosire.
-          </div>
+          {confirmare.status === "cancelled" ? (
+            <div className="ldv-alerta ldv-alerta-info" style={{ marginTop: 4 }}>
+              Camerele au fost eliberate. Dacă a fost o greșeală, sună-ne —
+              putem verifica dacă mai sunt disponibile.
+            </div>
+          ) : (
+            <div className="ldv-alerta ldv-alerta-info" style={{ marginTop: 4 }}>
+              Te contactăm telefonic pentru confirmare. Plata se face la sosire.
+            </div>
+          )}
 
-          {confirmare.publicToken && (
+          {/* Pasul de confirmare al anulării. Butonul din email duce aici,
+              nu direct la anulare — vezi comentariul de la `cereAnulare`. */}
+          {cereAnulare && confirmare.status !== "cancelled" && (
+            <div className="ldv-alerta ldv-alerta-eroare" style={{ marginTop: 4 }}>
+              <strong>Sigur anulezi rezervarea?</strong>
+              <p style={{ margin: "6px 0 0" }}>
+                Camerele se eliberează imediat și s-ar putea să nu mai fie
+                disponibile dacă te răzgândești. Anularea e gratuită.
+              </p>
+              <div className="ldv-actiuni">
+                <button className="ldv-btn ldv-btn-simplu"
+                  onClick={() => setCereAnulare(false)} disabled={anuleazaAcum}>
+                  Nu, păstrez rezervarea
+                </button>
+                <button className="ldv-btn ldv-btn-principal"
+                  onClick={confirmaAnularea} disabled={anuleazaAcum}>
+                  {anuleazaAcum ? "Se anulează…" : "Da, anulează"}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {!cereAnulare && confirmare.canCancel && (
+            <div className="ldv-actiuni">
+              <button className="ldv-btn ldv-btn-simplu"
+                onClick={() => setCereAnulare(true)}>
+                Anulează rezervarea
+              </button>
+            </div>
+          )}
+
+          {confirmare.publicToken && confirmare.status !== "cancelled" && (
             <p className="ldv-mic">
-              Poți revedea rezervarea oricând la{" "}
+              Poți revedea sau anula rezervarea oricând la{" "}
               <a href={`?token=${confirmare.publicToken}`}>acest link</a> — păstrează-l.
+              Ți l-am trimis și pe email.
             </p>
           )}
         </div>

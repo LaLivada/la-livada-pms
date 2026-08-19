@@ -98,3 +98,33 @@ export function creeazaRezervare({
 export function citesteRezervare(token) {
   return rpc("public_booking_by_token", { p_token: token });
 }
+
+/* Anularea de către client. Nu șterge nimic: rezervările trec pe
+   „anulată", camerele redevin libere, iar istoricul rămâne în PMS.
+   Idempotentă — un link deschis de două ori nu e o eroare. */
+export function anuleazaRezervare(token) {
+  return rpc("cancel_public_booking", { p_token: token });
+}
+
+/* Emailul de confirmare. Se cere DUPĂ ce rezervarea există, iar un eșec
+   nu o afectează în niciun fel — clientul are numărul pe ecran și linkul
+   de revenire. De aceea nici nu aruncă: raportează doar în consolă.
+   Funcția edge citește singură datele după token; nu-i trimitem niciun
+   conținut, ca să nu se poată trimite text arbitrar de pe adresa
+   pensiunii. */
+export async function trimiteEmailConfirmare(token) {
+  try {
+    const r = await fetch(`${URL_BAZA}/functions/v1/booking-email`, {
+      method: "POST",
+      headers: {
+        apikey: CHEIE,
+        Authorization: `Bearer ${CHEIE}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ token }),
+    });
+    if (!r.ok) console.warn("Emailul de confirmare nu a putut fi trimis.", r.status);
+  } catch {
+    console.warn("Emailul de confirmare nu a putut fi trimis (rețea).");
+  }
+}
