@@ -3716,6 +3716,7 @@ function CalendarView({ core, updateCore, reservations, updateReservations, grou
      zile intre doua ferestre. */
   const DAYS = 30;
   const [modal, setModal] = useState(null); // { reservation | null, defaultRoomId, defaultDate }
+  const [viewModal, setViewModal] = useState(null); // rezervarea afișată doar-vizualizare, sau null
 
   const days = useMemo(() => {
     const start = new Date(); start.setHours(0, 0, 0, 0); start.setDate(start.getDate() + offset);
@@ -4149,9 +4150,21 @@ function CalendarView({ core, updateCore, reservations, updateReservations, grou
           updateReservations={updateReservations}
           housekeeping={housekeeping}
           updateHousekeeping={updateHousekeeping}
-          onOpen={() => { setModal({ reservation: actionRes }); setActionRes(null); }}
+          onOpen={() => { setViewModal(actionRes); setActionRes(null); }}
+          onEdit={() => { setModal({ reservation: actionRes }); setActionRes(null); }}
           onMove={() => { setMoveId(actionRes.id); setActionRes(null); setDragError(""); }}
           onClose={() => setActionRes(null)}
+        />
+      )}
+
+      {viewModal && (
+        <ReservationViewModal
+          reservation={viewModal}
+          core={core}
+          updateCore={updateCore}
+          groups={groups}
+          onClose={() => setViewModal(null)}
+          onEdit={() => { setModal({ reservation: viewModal }); setViewModal(null); }}
         />
       )}
 
@@ -5507,6 +5520,137 @@ Introdu codul pe tastatura yalei și apasă tasta de confirmare #.`;
         </div>
       )}
     </div>
+  );
+}
+
+/* Doar-vizualizare pentru o rezervare existentă: detalii, acces yală și
+   facturare — fără câmpurile de editare (cameră, date, client, status).
+   `SectiuneAcces`/`FolioPanel` sunt aceleași componente folosite și în
+   ReservationModal, nemodificate — doar reasamblate aici. */
+function ReservationViewModal({ reservation, core, updateCore, groups, onClose, onEdit }) {
+  useModalLock();
+  const guest = core.guests.find((g) => g.id === reservation.guestId) || null;
+  const room = core.rooms.find((r) => r.id === reservation.roomId);
+  const editingGroup = reservation.groupId ? groups.find((g) => g.id === reservation.groupId) : null;
+
+  const [billingCustomerId, setBillingCustomerId] = useState(reservation.billingCustomerId || "");
+  const [billingModalOpen, setBillingModalOpen] = useState(false);
+  const [showArrival, setShowArrival] = useState(false);
+
+  const saveNewBillingCustomer = async (customer) => {
+    if ((core.billingCustomers || []).some((c) => c.id === customer.id)) { setBillingCustomerId(customer.id); setBillingModalOpen(false); return; }
+    await updateCore({ ...core, billingCustomers: [...(core.billingCustomers || []), customer] });
+    await audit.push("Client de facturare adăugat", billingCustomerLabel(customer));
+    setBillingCustomerId(customer.id);
+    setBillingModalOpen(false);
+  };
+
+  return (
+    <Dialog onClose={onClose} title="Vezi rezervarea">
+      <div className="action-head">
+        <div style={{ minWidth: 0 }}>
+          <div className="action-guest">{occupantName(reservation, core, groups) || "Fără nume"}</div>
+          {guestFullName(guest) && guestFullName(guest) !== occupantName(reservation, core, groups) && (
+            <div className="action-meta">Rezervat de {guestFullName(guest)}</div>
+          )}
+          <div className="action-meta">
+            <span className="mono">{room?.name}</span> · {fmtDate(reservation.checkin)} → {fmtDate(reservation.checkout)}
+            {" · "}{nightsBetween(reservation.checkin, reservation.checkout)} nopți
+          </div>
+          <div className="action-meta">
+            {reservation.adults ?? 2} adulți{reservation.children ? ` + ${reservation.children} copii` : ""} · {sourceLabel(reservation.source)} · {fmtMoney(reservationTotal(reservation, core))}
+          </div>
+          {reservation.tags?.length > 0 && (
+            <div className="tag-row">
+              {reservation.tags.map((t) => <span className="tag-mini" key={t}>{t}</span>)}
+            </div>
+          )}
+        </div>
+        <span className={"role-tag " + (reservation.status === "checkedin" ? "role-housekeeping"
+          : reservation.status === "cancelled" ? "role-receptionist" : "role-admin")}>
+          <span aria-hidden="true">{STATUS_GLYPH[reservation.status]}</span> {STATUS_LABEL[reservation.status]}
+        </span>
+      </div>
+
+      {editingGroup && (
+        <div className="group-banner">
+          <UsersRound size={15} />
+          <span>Face parte din grupul <strong>{editingGroup.name}</strong></span>
+        </div>
+      )}
+
+      {guest && (
+        <div className="field">
+          <label>Client</label>
+          <div className="guest-chip">
+            <div className="guest-chip-av">{initials(guestFullName(guest))}</div>
+            <div className="guest-chip-body">
+              <div className="gname">{guestFullName(guest)}</div>
+              <div className="gmeta">{[guest.phone, guest.city].filter(Boolean).join(" · ") || "Fără date de contact"}</div>
+            </div>
+            <ContactQuickActions guest={guest} />
+          </div>
+        </div>
+      )}
+
+      {reservation.notes && (
+        <div className="field">
+          <label>Note</label>
+          <div className="ldv-mic">{reservation.notes}</div>
+        </div>
+      )}
+
+      {reservation.messages?.length > 0 && (
+        <div className="field">
+          <label>Mesaje ({reservation.messages.length})</label>
+          <div className="msg-list" style={{ marginTop: 0 }}>
+            {[...reservation.messages].reverse().map((m) => (
+              <div className="msg-item" key={m.id}>
+                <div className="msg-text">{m.text}</div>
+                <div className="msg-meta">{m.author} · {fmtDateTime(m.ts)}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <SectiuneAcces res={reservation} core={core} />
+
+      <FolioPanel reservation={reservation} core={core} updateCore={updateCore}
+        billingCustomerId={billingCustomerId} setBillingCustomerId={setBillingCustomerId}
+        onNewBillingCustomer={() => setBillingModalOpen(true)} />
+
+      <div className="quick-actions" style={{ marginTop: 8 }}>
+        <button className="btn btn-ghost" onClick={() => setShowArrival(true)}>
+          <Printer size={14} /> Fișa de sosire
+        </button>
+      </div>
+
+      <div className="modal-actions">
+        <div className="grow" />
+        <button className="btn btn-ghost" onClick={onClose}>Închide</button>
+        <button className="btn btn-primary" style={{ width: "auto" }} onClick={onEdit}>
+          <Pencil size={14} /> Editează rezervarea
+        </button>
+      </div>
+
+      {showArrival && (
+        <div onClick={(e) => e.stopPropagation()}>
+          <ArrivalForm res={reservation} core={core} groups={groups} onClose={() => setShowArrival(false)} />
+        </div>
+      )}
+
+      {billingModalOpen && (
+        <div onClick={(e) => e.stopPropagation()}>
+          <BillingCustomerModal
+            seedFromGuest={guest}
+            existingCustomers={core.billingCustomers || []}
+            onSave={saveNewBillingCustomer}
+            onClose={() => setBillingModalOpen(false)}
+          />
+        </div>
+      )}
+    </Dialog>
   );
 }
 
@@ -10124,7 +10268,7 @@ function RatesView({ core, updateCore }) {
 /* ---------------------------------------------------------------
    RESERVATION ACTION SHEET
 ----------------------------------------------------------------*/
-function ReservationActions({ res: resSnapshot, core, groups, reservations, updateReservations, housekeeping, updateHousekeeping, onOpen, onMove, onClose }) {
+function ReservationActions({ res: resSnapshot, core, groups, reservations, updateReservations, housekeeping, updateHousekeeping, onOpen, onEdit, onMove, onClose }) {
   useModalLock();
   /* The panel was opened with a snapshot; re-read the reservation from the
      live list each render so actions never apply on top of stale state if
@@ -10218,7 +10362,13 @@ function ReservationActions({ res: resSnapshot, core, groups, reservations, upda
           <button className="action-item" onClick={onOpen}>
             <span className="ai-ico"><Eye size={17} /></span>
             <span className="ai-body"><span className="ai-t">Vezi rezervarea</span>
-              <span className="ai-d">Detalii, preț, note și fișa de sosire</span></span>
+              <span className="ai-d">Detalii, cod acces și facturare</span></span>
+          </button>
+
+          <button className="action-item" onClick={onEdit}>
+            <span className="ai-ico"><Pencil size={17} /></span>
+            <span className="ai-body"><span className="ai-t">Editează rezervarea</span>
+              <span className="ai-d">Cameră, date, client, preț, status</span></span>
           </button>
 
           {mayCheckOut ? (
