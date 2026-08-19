@@ -907,9 +907,17 @@ $$;
 -- Singura funcție de citire pe care o folosește site-ul public.
 -- Rezervările 'pending' blochează camera doar cât timp rezervarea
 -- temporară e validă (relevant doar dacă se adaugă plata online).
+-- security definer: rulează cu drepturile proprietarului, ca să poată citi
+-- rooms/reservations pentru un vizitator nelogat. Fără asta, RLS îi blochează
+-- citirea și funcția întoarce listă goală — adică site-ul public de rezervări
+-- ar arăta "nicio cameră liberă" mereu.
+--
+-- Ce se expune public e exact ce întoarce semnătura: id, denumire, tip,
+-- capacitate și preț total. Datele oaspeților și rezervările rămân
+-- inaccesibile — RLS pe acele tabele nu e atins.
 create or replace function available_rooms(p_checkin timestamptz, p_checkout timestamptz, p_guests int default 1)
 returns table (room_id text, room_name text, room_type text, capacity int, total numeric)
-language sql stable set search_path = public as $$
+language sql stable security definer set search_path = public as $$
   select r.id, r.name, r.type, r.capacity, stay_total(r.id, p_checkin, p_checkout)
   from rooms r
   where r.active
