@@ -29,3 +29,7 @@ supabase/.temp/
 
 # Claude Code local settings (per-machine)
 .claude/settings.local.json
+
+# Playwright
+test-results/
+playwright-report/
