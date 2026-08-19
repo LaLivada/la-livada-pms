@@ -11,6 +11,9 @@ import {
   liveReservationTotalOnline, reservationTotal,
 } from "./lib/pricing.js";
 import { round2, splitEvenly, calcAmounts } from "./lib/money.js";
+/* Regula "cand trebuie resincronizat codul de acces" sta in lib si e
+   testata separat (src/acces.test.js) — nu se rescrie aici. */
+import { decideActiuneAcces } from "./lib/acces.js";
 import { validateCUIFormat } from "./lib/validation.js";
 import { mesajEroare } from "./lib/errors.js";
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
@@ -1919,13 +1922,9 @@ async function reconciliazaAcces(inainte, dupa, core) {
   if (!inainte || !dupa) return;
 
   const camera = core.rooms.find((r) => r.id === dupa.roomId);
-  const anulata = ["cancelled", "noshow"].includes(dupa.status);
-  const schimbatCamera  = inainte.roomId !== dupa.roomId;
-  const schimbatPerioada =
-    new Date(inainte.checkin).getTime()  !== new Date(dupa.checkin).getTime() ||
-    new Date(inainte.checkout).getTime() !== new Date(dupa.checkout).getTime();
-
-  if (!anulata && !schimbatCamera && !schimbatPerioada) return;
+  const actiune = decideActiuneAcces(inainte, dupa);
+  if (!actiune) return;
+  const anulata = actiune === "revoke";
 
   /* Un cod există doar după check-in. Fără el nu e nimic de sincronizat —
      iar la anulare nu vrem să chemăm furnizorul degeaba. */
@@ -1947,7 +1946,7 @@ async function reconciliazaAcces(inainte, dupa, core) {
 
   const r = await cheamaAcces("issue", { reservationId: dupa.id });
   await audit.push(r?.ok ? "Cod acces actualizat" : "Actualizare cod eșuată",
-    `${camera?.name || dupa.roomId}${schimbatCamera ? " · cameră schimbată" : ""}${schimbatPerioada ? " · perioadă schimbată" : ""}`);
+    `${camera?.name || dupa.roomId}${inainte.roomId !== dupa.roomId ? " · cameră schimbată" : " · perioadă schimbată"}`);
   if (r?.ok) {
     toaster.show("Codul de acces a fost actualizat — oaspetele are alt cod.", { tone: "ok" });
   } else {

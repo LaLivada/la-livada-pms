@@ -24,6 +24,10 @@
 // deno-lint-ignore-file no-explicit-any
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import * as ttlock from "./providers/ttlock.ts";
+/* Logica pura (fus orar, sablon) sta in src/lib/acces.js, ca sa aiba o
+   singura copie si sa fie testata cu vitest — vezi src/acces.test.js.
+   Aici nu se rescrie, se importa. */
+import { laOraLocala, expirareCod, randeazaSablon, FUS_HOTEL } from "../../../src/lib/acces.js";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY  = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -39,33 +43,7 @@ const raspuns = (corp: unknown, status = 200) =>
     status, headers: { "Content-Type": "application/json", ...CORS },
   });
 
-const FUS = "Europe/Bucharest";
-
-/* Decalajul fusului la un moment dat, în milisecunde. Calculat, nu presupus:
-   România e +2 iarna și +3 vara, iar un sejur poate traversa schimbarea. */
-function decalaj(d: Date): number {
-  const f = new Intl.DateTimeFormat("en-US", {
-    timeZone: FUS, hour12: false,
-    year: "numeric", month: "2-digit", day: "2-digit",
-    hour: "2-digit", minute: "2-digit", second: "2-digit",
-  });
-  const p: any = Object.fromEntries(f.formatToParts(d).map((x) => [x.type, x.value]));
-  return Date.UTC(+p.year, +p.month - 1, +p.day, +p.hour, +p.minute, +p.second) - d.getTime();
-}
-
-/* Momentul exact al orei locale dintr-o zi dată. Trecem prin decalajul real
-   al zilei respective, nu prin cel de azi — altfel un sejur peste ultimul
-   weekend din octombrie ar primi o oră greșită. */
-function laOraLocala(zi: Date, ore: number, minute: number): Date {
-  const f = new Intl.DateTimeFormat("en-CA", {
-    timeZone: FUS, year: "numeric", month: "2-digit", day: "2-digit",
-  });
-  const ziLocala = f.format(zi);                     // YYYY-MM-DD
-  const hh = String(ore).padStart(2, "0");
-  const mm = String(minute).padStart(2, "0");
-  const estimare = new Date(`${ziLocala}T${hh}:${mm}:00Z`);
-  return new Date(estimare.getTime() - decalaj(estimare));
-}
+const FUS = FUS_HOTEL;
 
 /* Setările de acces. Implicit 11:00 + 30 de minute de grație — ora reală de
    plecare a pensiunii, nu 12:00 cum se presupune adesea. Configurabile din
@@ -104,9 +82,7 @@ const dataRo = (iso: string) =>
     hour: "2-digit", minute: "2-digit",
   });
 
-function randeaza(sablon: string, v: Record<string, string>): string {
-  return sablon.replace(/\{\{\s*(\w+)\s*\}\}/g, (_, cheie) => v[cheie] ?? "");
-}
+// randeazaSablon vine din modulul comun (src/lib/acces.js).
 
 async function jurnal(admin: any, r: Record<string, unknown>) {
   // Auditul nu are voie să răstoarne operațiunea pe care o descrie.
@@ -196,9 +172,7 @@ Deno.serve(async (req) => {
 
       const s = await setari(admin);
       const de = new Date(rez.checkin);
-      const pana = laOraLocala(
-        new Date(rez.checkout), s.oraPlecare,
-        s.minutePlecare + s.grateMinute);
+      const pana = expirareCod(rez.checkout, s);
 
       if (existent) {
         const acelasiInterval =
@@ -306,7 +280,7 @@ Deno.serve(async (req) => {
       }
 
       const s = await setari(admin);
-      const text = randeaza(s.sablon, {
+      const text = randeazaSablon(s.sablon, {
         guest_name:  [oaspete?.first_name, oaspete?.last_name].filter(Boolean).join(" ") || "oaspete",
         hotel_name:  s.numeHotel,
         room_number: cam?.name || cod.room_id,
