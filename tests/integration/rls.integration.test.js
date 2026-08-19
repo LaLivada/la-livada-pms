@@ -86,7 +86,14 @@ describe.skipIf(!auConfig)("RLS — utilizator anonim (nelogat)", () => {
   });
 });
 
-describe.skipIf(!auConfig)("create_booking — RPC publica", () => {
+/* create_booking a fost inchisa pentru vizitatori anonimi in august 2026:
+   e complet acoperita de create_public_booking (care accepta si o singura
+   camera), iar doua drumuri publice de creare a rezervarilor inseamna
+   doua locuri in care se poate strecura o regula diferita.
+
+   Validarile care erau testate aici s-au mutat in
+   tests/integration/booking-public.integration.test.js, pe functia noua. */
+describe.skipIf(!auConfig)("create_booking — drumul vechi, inchis public", () => {
   let anon;
   beforeAll(() => {
     anon = createClient(URL, ANON_KEY, {
@@ -94,45 +101,16 @@ describe.skipIf(!auConfig)("create_booking — RPC publica", () => {
     });
   });
 
-  /* Toate cazurile de mai jos sunt respinse INAINTE de orice insert, deci
-     nu ating baza. Nu testam aici limita de 5/ora: ar insemna sa cream
-     rezervari reale intr-o baza de productie. */
-
-  it("refuza o rezervare fara nume/telefon", async () => {
+  it("nu mai e apelabila de un vizitator anonim", async () => {
     const { error } = await anon.rpc("create_booking", {
       p_room_id: "r1001",
       p_checkin: new Date(Date.now() + 86400000).toISOString(),
       p_checkout: new Date(Date.now() + 172800000).toISOString(),
-      p_last_name: "", p_first_name: "", p_phone: "",
-      p_email: null, p_city: "Cluj", p_county: "Cluj", p_country: "România",
-    });
-    expect(error).not.toBeNull();
-    expect(error.message).toMatch(/obligatorii/i);
-  });
-
-  it("refuza o rezervare in trecut", async () => {
-    const { error } = await anon.rpc("create_booking", {
-      p_room_id: "r1001",
-      p_checkin: new Date(Date.now() - 30 * 86400000).toISOString(),
-      p_checkout: new Date(Date.now() - 29 * 86400000).toISOString(),
       p_last_name: "Test", p_first_name: "Integrare", p_phone: "+40700000001",
       p_email: null, p_city: "Cluj", p_county: "Cluj", p_country: "România",
     });
     expect(error).not.toBeNull();
-    expect(error.message).toMatch(/trecut/i);
-  });
-
-  it("refuza plecarea inaintea sosirii", async () => {
-    const t = Date.now() + 10 * 86400000;
-    const { error } = await anon.rpc("create_booking", {
-      p_room_id: "r1001",
-      p_checkin: new Date(t + 86400000).toISOString(),
-      p_checkout: new Date(t).toISOString(),
-      p_last_name: "Test", p_first_name: "Integrare", p_phone: "+40700000002",
-      p_email: null, p_city: "Cluj", p_county: "Cluj", p_country: "România",
-    });
-    expect(error).not.toBeNull();
-    expect(error.message).toMatch(/plecare|sosir/i);
+    expect(error.message).toMatch(/permission denied/i);
   });
 });
 
