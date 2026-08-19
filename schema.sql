@@ -223,6 +223,56 @@ alter table reservations add constraint fara_suprapunere
   ) where (status not in ('cancelled','noshow'));
 
 create index res_perioada on reservations using gist (tstzrange(checkin, checkout, '[)'));
+
+-- PREȚUL STOCAT E CALCULAT DE SERVER, NU DE CLIENT.
+--
+-- JS-ul își păstrează calculul sincron pentru previzualizare (e apelat în
+-- bucle de randare — calendar, rapoarte, liste — deci nu poate deveni un
+-- apel de rețea), dar ce ajunge în bază trece pe aici. Un preț trimis din
+-- browser nu are nicio putere: se recalculează peste el.
+--
+-- Regula de recalculare o oglindește pe cea din ReservationModal: prețul
+-- înghețat rămâne neatins până se schimbă ceva ce chiar îl afectează —
+-- camera, datele, ocuparea. O editare de notă, sau un tarif modificat
+-- ulterior, nu îl ating; altfel o schimbare de tarife ar rescrie
+-- retroactiv sume deja acceptate de clienți.
+create or replace function pret_server_rezervare()
+returns trigger language plpgsql set search_path = public as $$
+declare v_recalc boolean;
+begin
+  -- Blocajele de mentenanță nu au preț.
+  if new.source = 'blocaj' then
+    return new;
+  end if;
+
+  -- Prețul manual are mereu prioritate; cel calculat se golește, ca să nu
+  -- existe două surse pentru aceeași sumă.
+  if new.price_override is not null then
+    new.booked_price := null;
+    return new;
+  end if;
+
+  v_recalc := (tg_op = 'INSERT')
+    or new.room_id  is distinct from old.room_id
+    or new.checkin  is distinct from old.checkin
+    or new.checkout is distinct from old.checkout
+    or new.adults   is distinct from old.adults
+    or new.children is distinct from old.children
+    or old.booked_price is null;   -- rezervare veche, fără preț înghețat
+
+  if v_recalc then
+    new.booked_price := stay_total(
+      new.room_id, new.checkin, new.checkout,
+      greatest(coalesce(new.adults, 2), 1),
+      greatest(coalesce(new.children, 0), 0),
+      new.source = 'site');        -- ajustarea pe ocupare doar pentru site
+  end if;
+
+  return new;
+end; $$;
+create trigger reservations_pret_server
+  before insert or update on reservations
+  for each row execute function pret_server_rezervare();
 create index res_camera   on reservations (room_id);
 
 
