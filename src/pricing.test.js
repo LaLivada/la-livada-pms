@@ -1,9 +1,16 @@
 import { describe, it, expect } from "vitest";
+/* Logica pura sta acum in ./lib — testele nu mai incarca intreaga
+   aplicatie (si tot lantul ei de dependinte React/Supabase) doar ca sa
+   ajunga la cateva functii de calcul. */
 import {
-  nightsBetween, rangesOverlap, inSeason, nightlyRate, liveReservationTotal,
-  liveReservationTotalOnline, reservationTotal, calcAmounts, validateStay,
-  validateCUIFormat, isLive,
-} from "./pms-app.jsx";
+  nightsBetween, rangesOverlap, validateStay, isLive,
+} from "./lib/availability.js";
+import {
+  inSeason, nightlyRate, liveReservationTotal,
+  liveReservationTotalOnline, reservationTotal,
+} from "./lib/pricing.js";
+import { calcAmounts, round2, splitEvenly } from "./lib/money.js";
+import { validateCUIFormat } from "./lib/validation.js";
 
 describe("nightsBetween", () => {
   it("counts full nights between two dates, ignoring time-of-day", () => {
@@ -160,6 +167,38 @@ describe("calcAmounts", () => {
     const { netAmount, vatAmount } = calcAmounts(100, 1, undefined);
     expect(netAmount).toBe(100);
     expect(vatAmount).toBe(0);
+  });
+});
+
+describe("round2", () => {
+  it("rounds to two decimals", () => {
+    expect(round2(166.66666666666666)).toBe(166.67);
+    expect(round2(100)).toBe(100);
+  });
+  it("handles the classic floating-point rounding trap (1.005 is really 1.00499...)", () => {
+    expect(round2(1.005)).toBe(1.01);
+  });
+  it("returns 0 for non-numeric input rather than NaN, so a bad value can never reach the database", () => {
+    expect(round2("nu-i numar")).toBe(0);
+    expect(round2(undefined)).toBe(0);
+  });
+});
+
+describe("splitEvenly", () => {
+  it("splits a total across parts so the parts sum back to exactly the total", () => {
+    const parts = splitEvenly(100, 3);
+    expect(parts).toHaveLength(3);
+    expect(round2(parts.reduce((a, b) => a + b, 0))).toBe(100);
+  });
+  it("gives the leftover bani to the first parts, not the last", () => {
+    // 100 / 3 = 33.33 each, 1 ban left over -> first part gets it.
+    expect(splitEvenly(100, 3)).toEqual([33.34, 33.33, 33.33]);
+  });
+  it("splits an evenly-divisible total without a remainder", () => {
+    expect(splitEvenly(300, 3)).toEqual([100, 100, 100]);
+  });
+  it("treats 0 or negative part counts as a single part rather than dividing by zero", () => {
+    expect(splitEvenly(50, 0)).toEqual([50]);
   });
 });
 

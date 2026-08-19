@@ -1,8 +1,20 @@
 import { supabase } from "./supabase.js";
+/* Logica pura (preturi, disponibilitate, bani) traieste in ./lib — fara
+   React, fara acces la baza de date, testabila direct. Vezi
+   src/pricing.test.js. */
+import {
+  DEAD_STATUSES, isLive, startOfDay, nightsBetween, rangesOverlap,
+  validateStay, occupancyForStay,
+} from "./lib/availability.js";
+import {
+  inSeason, nightlyRate, liveReservationTotal, onlinePriceAdjustmentPct,
+  liveReservationTotalOnline, reservationTotal,
+} from "./lib/pricing.js";
+import { round2, splitEvenly, calcAmounts } from "./lib/money.js";
+import { validateCUIFormat } from "./lib/validation.js";
+import { mesajEroare } from "./lib/errors.js";
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
-import jsPDF from "jspdf";
-import html2canvas from "html2canvas";
 import {
   CalendarDays, Users, DoorOpen, Zap, UserCog, LogOut,
   Plus, X, Search, ChevronLeft, ChevronRight, Flame, Wind, Snowflake,
@@ -340,6 +352,17 @@ const STYLES = `
   .search-box input{ border:none; outline:none; background:none; font-size:var(--fs-md); width:100%; }
   .grow{ flex:1; }
 
+  /* Bara de filtre a facturilor: cautare + status + buton pe un rand.
+     Pe ecran ingust rândul se rupe controlat — cautarea ocupa toata
+     latimea, iar statusul si butonul raman impreuna dedesubt. */
+  .filtre-facturi .search-box{ max-width:none; flex:1 1 220px; }
+  .filtre-facturi .filtru-status{ flex:0 1 190px; min-width:150px; }
+  @media (max-width:560px){
+    .filtre-facturi .search-box{ flex-basis:100%; }
+    .filtre-facturi .filtru-status{ flex:1 1 auto; }
+    .filtre-facturi .badge-count{ flex-basis:100%; }
+  }
+
   /* ---------- Calendar grid ---------- */
   .cal-scroll{
     overflow:auto; border:1px solid var(--border); border-radius:var(--radius);
@@ -573,9 +596,16 @@ const STYLES = `
   .device-row{ display:flex; align-items:center; gap:6px; font-size:var(--fs-sm); color:var(--text-muted); margin-top:4px; }
 
   /* ---------- Modal ---------- */
+  /* FUNDALUL acopera intotdeauna tot ecranul, fara sa depinda de metrica
+     viewport-ului vizual.
+     Inainte isi lua inaltimea din --vvh (viewport-ul VIZUAL, care se
+     micsoreaza cand apare tastatura), desi position:fixed se raporteaza
+     la viewport-ul de LAYOUT, care pe iOS ramane la fel de inalt. Rezulta
+     un fundal mai scurt decat ecranul si, sub el, se vedea pagina de
+     dedesubt — exact golul din raportul de eroare. */
   .modal-overlay{
-    position:fixed; top:0; left:0; right:0; height:100vh; height:100dvh; height:var(--vvh, 100dvh);
-    top:var(--vvt, 0px);
+    position:fixed; inset:0;
+    height:100vh; height:100dvh;
     background:rgba(20,19,17,0.38); display:flex; align-items:flex-end;
     justify-content:center; z-index:100; backdrop-filter:blur(1px);
     overscroll-behavior:contain; touch-action:manipulation;
@@ -589,10 +619,18 @@ const STYLES = `
        sus indiferent cat de mare/mica iese metrica de inaltime folosita */
     max-height:calc(100vh - 48px); max-height:calc(100dvh - 48px);
     max-height:calc(var(--vvh, 100dvh) - 48px);
+    /* CARDUL, in schimb, chiar trebuie sa se fereasca de tastatura: --vvb
+       e inaltimea zonei acoperite de ea, masurata in measureVisualViewport.
+       Fara asta, campul in care se scrie ramane sub tastatura. */
+    margin-bottom:var(--vvb, 0px);
     overflow-y:auto; overscroll-behavior:contain;
     -webkit-overflow-scrolling:touch;
     padding:22px 22px calc(22px + env(safe-area-inset-bottom));
     animation:slideup .2s cubic-bezier(.2,.8,.2,1); box-shadow:var(--shadow-lg);
+    transition:margin-bottom .15s ease-out;
+  }
+  @media (prefers-reduced-motion: reduce){
+    .modal{ transition:none; animation:none; }
   }
   .modal-head{
     position:sticky; top:-22px; background:var(--surface); z-index:3;
@@ -1456,9 +1494,6 @@ const STATUS_CLASS = {
 const CREATE_STATUSES = ["pending", "confirmed", "protocol"];
 const EDIT_STATUSES = ["confirmed", "checkedin", "checkedout", "noshow", "cancelled"];
 
-/* Statuses that no longer hold the room. */
-const DEAD_STATUSES = ["cancelled", "noshow"];
-export const isLive = (r) => !DEAD_STATUSES.includes(r.status);
 /* Rezervarile "protocol" ocupa camera normal, dar nu se incaseaza bani pe
    ele — nu trebuie sa apara in nicio statistica de venit/ocupare din
    Rapoarte sau din fisele de client; vezi ReportsView (sectiune separata
@@ -1492,7 +1527,6 @@ function isSameDay(a, b) {
   const x = new Date(a), y = new Date(b);
   return x.getFullYear() === y.getFullYear() && x.getMonth() === y.getMonth() && x.getDate() === y.getDate();
 }
-export function startOfDay(d) { const x = new Date(d); x.setHours(0, 0, 0, 0); return x; }
 function isToday(d) { return isSameDay(d, new Date()); }
 
 /* Single source of truth for which transitions are legal.
@@ -1500,14 +1534,6 @@ function isToday(d) { return isSameDay(d, new Date()); }
 const canCheckIn  = (r, now = new Date()) => r.status === "confirmed" && isSameDay(r.checkin, now);
 const canCheckOut = (r) => r.status === "checkedin";
 const canCancel   = (r) => r.status === "confirmed";
-export function validateStay(checkin, checkout) {
-  const ci = new Date(checkin), co = new Date(checkout);
-  if (isNaN(ci.getTime())) return "Data de check-in nu este validă.";
-  if (isNaN(co.getTime())) return "Data de check-out nu este validă.";
-  if (co <= ci) return "Data de check-out trebuie să fie după check-in.";
-  if (nightsBetween(ci, co) > 365) return "Sejurul depășește 365 de nopți — verifică datele.";
-  return null;
-}
 
 function validatePrice(v) {
   if (v === "" || v == null) return null;
@@ -1537,141 +1563,6 @@ const DEFAULT_TAGS = [
   "Pat suplimentar", "Animal de companie", "Necesită factură",
 ];
 const ROLE_LABEL = { admin: "Admin", receptionist: "Recepționer", housekeeping: "Cameristă" };
-
-export function nightsBetween(ci, co) {
-  const a = new Date(ci); a.setHours(0, 0, 0, 0);
-  const b = new Date(co); b.setHours(0, 0, 0, 0);
-  return Math.max(1, Math.round((b - a) / 86400000));
-}
-
-/* Interval pe jumatate deschis [start, end) — o rezervare care se termina
-   exact cand alta incepe NU se suprapune (turnover in aceeasi zi e permis).
-   Single source of truth pentru "camera X e libera in intervalul Y" —
-   folosita atat la rezervari individuale cat si la editorul de grup, ca
-   sa nu existe doua implementari care ar putea diverge. */
-export function rangesOverlap(aStart, aEnd, bStart, bEnd) {
-  return new Date(aStart) < new Date(bEnd) && new Date(aEnd) > new Date(bStart);
-}
-
-export function inSeason(date, season) {
-  const md = `${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
-  if (season.start <= season.end) return md >= season.start && md <= season.end;
-  return md >= season.start || md <= season.end; // wraps across new year
-}
-
-/* occupancy = {adults, children}; implicit 2 adulti/0 copii (ocuparea
-   standard) cand nu se cunoaste rezervarea (ex. rapoarte agregate).
-   Single (tarif redus) se aplica STRICT la 1 adult si 0 copii. Peste
-   ocuparea standard, suplimentul de adult se aplica per adult peste 2,
-   iar suplimentul de copil se aplica pentru fiecare copil, indiferent
-   de ocuparea totala. */
-export function nightlyRate(date, roomType, rates, occupancy) {
-  if (!rates) return 0;
-  const adultsRaw = Number(occupancy?.adults);
-  const adults = Number.isFinite(adultsRaw) ? adultsRaw : 2;
-  const childrenRaw = Number(occupancy?.children);
-  const children = Number.isFinite(childrenRaw) ? childrenRaw : 0;
-  const season = (rates.seasons || []).find((sn) => inSeason(date, sn));
-  const src = season || rates.base;
-  const standard = Number(src?.[roomType] ?? rates.base?.[roomType] ?? 0);
-  if (adults === 1 && children === 0) {
-    const single = Number(rates.base?.[roomType + "Single"]) || 0;
-    if (single > 0) return single;
-  }
-  const adultSupplement = Number(rates.base?.adultSupplement) || 0;
-  const childSupplement = Number(rates.base?.childSupplement) || 0;
-  return standard + Math.max(0, adults - 2) * adultSupplement + children * childSupplement;
-}
-
-/* Calcul LIVE, mereu proaspat din tarifele curente — folosit doar ca sa
-   producem un nou pret inghetat (la creare/editare) sau ca ultim fallback
-   pentru rezervari vechi care inca nu au un snapshot. NU se foloseste
-   direct pentru afisare — vezi reservationTotal mai jos. */
-export function liveReservationTotal(res, core) {
-  const room = core.rooms.find((r) => r.id === res.roomId);
-  if (!room) return 0;
-  const n = nightsBetween(res.checkin, res.checkout);
-  const occupancy = { adults: res.adults ?? 2, children: res.children ?? 0 };
-  let total = 0;
-  const d = new Date(res.checkin); d.setHours(0, 0, 0, 0);
-  for (let i = 0; i < n; i++) {
-    total += nightlyRate(d, room.type, core.rates, occupancy);
-    d.setDate(d.getDate() + 1);
-  }
-  return total;
-}
-
-/* Ocuparea medie a proprietatii (in %) pe toata durata unui sejur —
-   media ocuparii fiecarei nopti din interval, ca sa reflecte cat de
-   "plina" e proprietatea in acea perioada, nu doar o singura zi.
-   `excludeId` scoate rezervarea insasi din calcul (altfel s-ar numara
-   pe sine ca ocupanta a propriilor nopti la o recalculare/editare). */
-export function occupancyForStay(checkin, checkout, reservations, roomCount, excludeId) {
-  if (!roomCount) return 0;
-  const ciDay = startOfDay(checkin);
-  const coDay = startOfDay(checkout);
-  const nights = Math.max(1, Math.round((coDay - ciDay) / 86400000));
-  const live = (reservations || []).filter((r) => r.id !== excludeId && isLive(r));
-  let sumPct = 0;
-  for (let i = 0; i < nights; i++) {
-    const dStart = ciDay.getTime() + i * 86400000;
-    let occ = 0;
-    for (const r of live) {
-      const rCiDay = startOfDay(r.checkin).getTime();
-      const rCoDay = startOfDay(r.checkout).getTime();
-      if (rCiDay <= dStart && rCoDay > dStart) occ++;
-    }
-    sumPct += (occ / roomCount) * 100;
-  }
-  return sumPct / nights;
-}
-
-/* Pragul de ocupare in care se incadreaza occPct. Ultimul prag e tratat
-   inclusiv la capatul de sus (100% trebuie sa cada tot in pragul cel
-   mai ocupat, nu sa ramana neacoperit de niciun prag). */
-export function onlinePriceAdjustmentPct(occPct, tiers) {
-  if (!tiers || !tiers.length) return 0;
-  const maxOverall = Math.max(...tiers.map((t) => Number(t.max) || 0));
-  const eff = Math.min(occPct, maxOverall - 0.0001);
-  const tier = tiers.find((t) => eff >= Number(t.min) && eff < Number(t.max));
-  return tier ? Number(tier.adjustmentPct) || 0 : 0;
-}
-
-/* Varianta de liveReservationTotal care mai aplica, DOAR pentru
-   rezervarile facute de oaspete prin site-ul propriu de rezervari
-   (source "site"), ajustarea procentuala din optimizatorul de pret pe
-   grad de ocupare — vezi OnlinePricingView. NU se aplica rezervarilor
-   introduse manual de receptie (Direct/Telefon/Walk-in etc.), chiar
-   daca sunt fara plata online — doar strict celor prin site. Booking.com/
-   Airbnb nu pot primi preturi prin feedul iCal (doar disponibilitate),
-   asa ca nu sunt incluse aici. */
-export function liveReservationTotalOnline(res, core, reservations) {
-  const base = liveReservationTotal(res, core);
-  if (res.source !== "site") return base;
-  const tiers = core.onlinePricing;
-  if (!tiers || !tiers.length) return base;
-  const occPct = occupancyForStay(res.checkin, res.checkout, reservations, core.rooms.length, res.id);
-  const pct = onlinePriceAdjustmentPct(occPct, tiers);
-  return Math.round(base * (1 + pct / 100));
-}
-
-/* Pretul afisat/facturat: suprascrierea manuala are mereu prioritate;
-   apoi pretul inghetat la creare (sau la ultima modificare de
-   data/ocupare/camera) — asa raman neschimbate rezervarile deja facute
-   cand se modifica doar tarifele, nu si rezervarea insasi. Calculul
-   live e ultim fallback, doar pentru rezervari vechi fara snapshot
-   inca (migrate automat la incarcarea aplicatiei — vezi backfillBookedPrices). */
-export function reservationTotal(res, core) {
-  if (res.priceOverride != null && res.priceOverride !== "") {
-    const n = Number(res.priceOverride);
-    return Number.isFinite(n) && n >= 0 ? n : 0;
-  }
-  if (res.bookedPrice != null && res.bookedPrice !== "") {
-    const n = Number(res.bookedPrice);
-    if (Number.isFinite(n) && n >= 0) return n;
-  }
-  return liveReservationTotal(res, core);
-}
 
 /* Intl formatters are expensive to construct (far more than to use), and
    these run hundreds of times per render in lists, the calendar and
@@ -1734,6 +1625,7 @@ const camelRes = (r) => ({
     [r.occupant_last_name, r.occupant_first_name].filter(Boolean).join(" "),
   messages: r.messages || [], seeded: r.seeded,
   billingCustomerId: r.billing_customer_id || "",
+  updatedAt: r.updated_at || null,
 });
 const snakeRes = (r) => ({
   id: r.id, room_id: r.roomId, guest_id: r.guestId || null, group_id: r.groupId || null,
@@ -1747,6 +1639,11 @@ const snakeRes = (r) => ({
   occupant_phone: r.occupantPhone || null,
   messages: r.messages || [], seeded: !!r.seeded,
   billing_customer_id: r.billingCustomerId || null,
+  /* Stampila citita la incarcare, trimisa inapoi neschimbata. Baza o
+     compara cu a ei si refuza scrierea daca randul s-a schimbat intre
+     timp (vezi triggerul reservations_stamp_updated_at din schema.sql).
+     Pentru randuri noi e null — triggerul o completeaza la inserare. */
+  updated_at: r.updatedAt || null,
 });
 const camelGuest = (g) => ({
   id: g.id, lastName: g.last_name, firstName: g.first_name, name:
@@ -1848,9 +1745,14 @@ async function syncTable(table, before, after, toRow) {
     if (error) throw error;
   }
   if (schimbate.length) {
-    const { error } = await supabase.from(table).upsert(schimbate, { onConflict: "id" });
+    /* .select() ne intoarce randurile asa cum au ramas in baza, cu tot ce
+       a completat serverul (de ex. updated_at pus de trigger) — apelantul
+       le poate folosi ca sa-si actualizeze starea locala. */
+    const { data, error } = await supabase.from(table).upsert(schimbate, { onConflict: "id" }).select();
     if (error) throw error;
+    return data || [];
   }
+  return [];
 }
 
 /* rates/seasons au forma diferita de restul tabelelor (rates: o linie per
@@ -1960,7 +1862,17 @@ const audit = {
     const next = [entry, ...audit.entries].slice(0, 400);
     audit.entries = next;
     if (audit.setEntries) audit.setEntries(next);
-    await saveShared(K.log, next);
+    /* Jurnalul e secundar fata de actiunea in sine: daca scrierea lui
+       esueaza, actiunea utilizatorului (rezervarea, plata) e deja
+       salvata si nu are rost sa fie anulata. Anuntam discret si mergem
+       mai departe — spre deosebire de saveShared, unde acum eroarea
+       chiar trebuie sa opreasca fluxul. */
+    try {
+      await saveShared(K.log, next);
+    } catch (e) {
+      console.error("Jurnalul nu a putut fi salvat", e);
+      toaster.show("Acțiunea a fost salvată, dar nu a putut fi trecută în jurnal.", { tone: "danger" });
+    }
   },
 };
 
@@ -1990,17 +1902,19 @@ async function loadShared(key, fallback) {
     return fallback;
   }
 }
+/* Arunca eroarea mai departe, nu o inghite. Inainte intorcea `false` si
+   fiecare apelant ignora rezultatul: o schimbare de status de curatenie
+   sau o setare putea sa nu se salveze deloc, iar ecranul continua sa
+   arate valoarea noua ca si cum ar fi fost scrisa. */
 async function saveShared(key, value) {
-  try {
-    const { error } = await supabase
-      .from("app_state")
-      .upsert({ key, value, updated_at: new Date().toISOString() }, { onConflict: "key" });
-    if (error) throw error;
-    return true;
-  } catch (e) {
-    console.error("Storage save failed", key, e);
-    return false;
+  const { error } = await supabase
+    .from("app_state")
+    .upsert({ key, value, updated_at: new Date().toISOString() }, { onConflict: "key" });
+  if (error) {
+    console.error("Storage save failed", key, error);
+    throw error;
   }
+  return true;
 }
 
 /* ---------------------------------------------------------------
@@ -2054,6 +1968,14 @@ class ErrorBoundary extends React.Component {
 async function downloadElementAsPDF(el, filename, opts = {}) {
   if (!el) return;
   const { singlePage = false } = opts;
+  /* Incarcare la cerere: cele doua biblioteci inseamna ~180 KB din
+     pachetul principal, dar se folosesc doar cand cineva chiar descarca
+     un PDF — nu la fiecare pornire a aplicatiei. Importul dinamic le
+     scoate intr-un chunk separat, adus abia la primul click. */
+  const [{ default: jsPDF }, { default: html2canvas }] = await Promise.all([
+    import("jspdf"),
+    import("html2canvas"),
+  ]);
   const canvas = await html2canvas(el, {
     scale: 2, backgroundColor: "#ffffff", useCORS: true,
     // .no-print e gandit pentru @media print (window.print()) — aici nu
@@ -2304,6 +2226,16 @@ function measureVisualViewport() {
   const top = vv ? vv.offsetTop : 0;
   document.documentElement.style.setProperty("--vvh", `${h}px`);
   document.documentElement.style.setProperty("--vvt", `${top}px`);
+
+  /* Inaltimea zonei acoperite de tastatura: cat ramane din viewport-ul de
+     LAYOUT (cel la care se raporteaza position:fixed) sub zona vizibila.
+     Cand tastatura e inchisa iese 0, deci nu schimba nimic.
+     Pragul de 24px ignora diferentele mici dintre cele doua metrici
+     (barele de browser care se ascund la derulare), ca sa nu sara cardul
+     cu cativa pixeli fara motiv. */
+  const layout = document.documentElement.clientHeight || h;
+  const jos = Math.max(0, Math.round(layout - (h + top)));
+  document.documentElement.style.setProperty("--vvb", jos > 24 ? `${jos}px` : "0px");
 }
 
 function useVisualViewportHeight() {
@@ -2338,6 +2270,29 @@ function PMSApp() {
   const [authChecked, setAuthChecked] = useState(false);
   const [view, setView] = useState("calendar");
 
+  /* Golirea completa a datelor tinute in memorie. Deconectarea stergea
+     doar sesiunea Supabase: rezervarile, oaspetii si jurnalul ramaneau in
+     starea React si erau inca vizibile pe ecranul urmatorului care se
+     autentifica pe acelasi calculator, pana la prima reincarcare.
+     Folosim doar setterele de stare (identitate stabila) plus cele doua
+     obiecte de la nivel de modul; ref-urile se resincronizeaza singure
+     din useEffect-urile lor. */
+  const resetStareLocala = useCallback(() => {
+    setCore({ rooms: [], guests: [] });
+    setReservations([]);
+    setHousekeeping({});
+    setGroups([]);
+    setLogEntries([]);
+    setBlocks([]);
+    setInitError(null);
+    setView("calendar");
+    audit.entries = [];
+    audit.user = null;
+    audit.setEntries = null;
+    billingPerms.role = null;
+    billingPerms.set = new Set();
+  }, []);
+
   /* La refresh de pagina, Supabase are deja sesiunea in localStorage —
      o refolosim ca sa nu ceara login din nou de fiecare data. */
   useEffect(() => {
@@ -2354,11 +2309,49 @@ function PMSApp() {
         if (alive) setAuthChecked(true);
       }
     })();
+    /* Supabase propaga evenimentele de autentificare intre taburile
+       aceluiasi browser, deci o deconectare intr-un tab goleste datele si
+       in celelalte, nu doar in cel in care s-a apasat butonul. */
     const { data: sub } = supabase.auth.onAuthStateChange((event) => {
-      if (event === "SIGNED_OUT") setCurrentUser(null);
+      if (event === "SIGNED_OUT") { setCurrentUser(null); resetStareLocala(); }
     });
     return () => { alive = false; sub.subscription.unsubscribe(); };
-  }, []);
+  }, [resetStareLocala]);
+
+  /* Rolul se citeste o singura data, la autentificare. Un tab lasat
+     deschis continua altfel sa lucreze cu drepturile vechi dupa ce
+     adminul le-a schimbat — pana la un refresh manual. Reverificam la
+     revenirea pe tab si periodic; daca randul din staff a disparut
+     (acces retras), deconectam. Baza impune oricum regulile prin RLS —
+     asta doar aliniaza interfata la realitate. */
+  useEffect(() => {
+    if (!currentUser) return;
+    let alive = true;
+    const verifica = async () => {
+      const { data: st, error } = await supabase
+        .from("staff").select("name, role").eq("user_id", currentUser.id).maybeSingle();
+      if (!alive || error) return;
+      if (!st) {
+        toaster.show("Contul tău nu mai are acces în aplicație.", { tone: "danger" });
+        await supabase.auth.signOut();
+        return;
+      }
+      if (st.role !== currentUser.role || st.name !== currentUser.name) {
+        setCurrentUser((u) => (u ? { ...u, name: st.name, role: st.role } : u));
+        if (st.role !== currentUser.role) {
+          toaster.show("Drepturile contului tău au fost modificate între timp.", { tone: "danger" });
+        }
+      }
+    };
+    const laFocus = () => verifica();
+    window.addEventListener("focus", laFocus);
+    const cronometru = setInterval(verifica, 5 * 60 * 1000);
+    return () => {
+      alive = false;
+      window.removeEventListener("focus", laFocus);
+      clearInterval(cronometru);
+    };
+  }, [currentUser]);
 
   useEffect(() => {
     if (!authChecked) return;
@@ -2393,6 +2386,16 @@ function PMSApp() {
         const backfilled = r.filter((x, i) => x !== rawRes[i]);
         if (backfilled.length) {
           syncTable("reservations", [], backfilled, snakeRes)
+            /* Backfill-ul avanseaza updated_at in baza; fara preluarea
+               stampilelor noi, prima salvare facuta de utilizator pe una
+               dintre rezervarile astea ar fi respinsa ca modificare
+               concurenta, desi n-a intervenit nimeni. */
+            .then((scrise) => {
+              if (!alive || !scrise.length) return;
+              const stampile = new Map(scrise.map((x) => [x.id, x.updated_at]));
+              setReservations((cur) => cur.map((x) =>
+                stampile.has(x.id) ? { ...x, updatedAt: stampile.get(x.id) } : x));
+            })
             .catch((e) => console.error("Backfill bookedPrice esuat", e));
         }
         const gr = db.groups.filter((g) => r.some((x) => x.groupId === g.id));
@@ -2412,7 +2415,7 @@ function PMSApp() {
         setGroups(gr); setBlocks(bl); setLogEntries(lg);
       } catch (err) {
         console.error("PMS init failed", err);
-        if (alive) setInitError(err?.message || "Eroare necunoscută la pornire.");
+        if (alive) setInitError(mesajEroare(err, "Aplicația nu a putut porni"));
       } finally {
         if (alive) setLoading(false);
       }
@@ -2432,15 +2435,14 @@ function PMSApp() {
   useEffect(() => { grRef.current = groups; }, [groups]);
   const blRef = useRef(blocks);
   useEffect(() => { blRef.current = blocks; }, [blocks]);
+  const housekeepingRef = useRef(housekeeping);
+  useEffect(() => { housekeepingRef.current = housekeeping; }, [housekeeping]);
 
   const raporteazaEroare = useCallback((e) => {
-    const m = e?.message || "";
-    toaster.show(
-      m.includes("fara_suprapunere") || m.includes("exclusion")
-        ? "Camera este deja ocupata in acea perioada."
-        : "Salvarea a esuat: " + m,
-      { tone: "danger" }
-    );
+    /* Traducerea (coduri Postgres -> limbaj de recepție) sta in
+       lib/errors.js, ca sa fie o singura definitie folosita peste tot,
+       nu cate un lant de if-uri in fiecare ecran. */
+    toaster.show(mesajEroare(e, "Salvarea a eșuat"), { tone: "danger" });
     setReloadKey((k) => k + 1);
   }, []);
 
@@ -2474,8 +2476,23 @@ function PMSApp() {
   const updateReservations = useCallback(async (next) => {
     const before = resRef.current;
     setReservations(next);
-    try { await syncTable("reservations", before, next, snakeRes); }
-    catch (e) { raporteazaEroare(e); }
+    /* Ref-ul se actualizeaza si sincron, nu doar prin useEffect: doua
+       salvari rapide una dupa alta ar citi altfel starea veche si ar
+       trimite o stampila deja depasita, respinsa inutil ca si conflict. */
+    resRef.current = next;
+    try {
+      const scrise = await syncTable("reservations", before, next, snakeRes);
+      /* Stampila noua vine de la server; fara pasul asta, urmatoarea
+         salvare a aceluiasi utilizator ar trimite-o pe cea veche si ar fi
+         respinsa ca modificare concurenta, desi e tot el. */
+      if (scrise.length) {
+        const stampile = new Map(scrise.map((r) => [r.id, r.updated_at]));
+        const actualizate = resRef.current.map((r) =>
+          stampile.has(r.id) ? { ...r, updatedAt: stampile.get(r.id) } : r);
+        resRef.current = actualizate;
+        setReservations(actualizate);
+      }
+    } catch (e) { raporteazaEroare(e); }
   }, [raporteazaEroare]);
 
   const updateGroups = useCallback(async (next) => {
@@ -2499,7 +2516,19 @@ function PMSApp() {
   }, [raporteazaEroare]);
 
   const updateHousekeeping = useCallback(async (next) => {
-    setHousekeeping(next); await saveShared(K.hk, next);
+    const before = housekeepingRef.current;
+    setHousekeeping(next);
+    housekeepingRef.current = next;
+    try {
+      await saveShared(K.hk, next);
+    } catch (e) {
+      /* Fara asta, un status de curatenie care nu s-a putut salva ramanea
+         afisat ca si cum ar fi fost scris, pana la urmatoarea reincarcare. */
+      console.error("Salvarea statusului camerelor a esuat", e);
+      setHousekeeping(before);
+      housekeepingRef.current = before;
+      toaster.show(mesajEroare(e, "Statusul camerei nu a putut fi salvat"), { tone: "danger" });
+    }
   }, []);
 
   useEffect(() => { audit.user = currentUser; }, [currentUser]);
@@ -2586,7 +2615,12 @@ function PMSApp() {
         user={currentUser}
         view={view}
         setView={setView}
-        onLogout={async () => { await supabase.auth.signOut(); setCurrentUser(null); }}
+        /* Golim si local, nu doar sesiunea: daca reteaua pica in timpul
+           signOut, evenimentul SIGNED_OUT poate sa nu ajunga, iar datele
+           ar ramane pe ecran. */
+        onLogout={async () => {
+          try { await supabase.auth.signOut(); } finally { setCurrentUser(null); resetStareLocala(); }
+        }}
         core={core}
         updateCore={updateCore}
         reservations={reservations}
@@ -2628,7 +2662,7 @@ function Login({ onLogin }) {
       }
       onLogin({ id: data.user.id, name: st.name, role: st.role });
     } catch (e) {
-      setError(e?.message || "Autentificare esuata.");
+      setError(mesajEroare(e));
       setPassword("");
     } finally {
       setBusy(false);
@@ -3944,17 +3978,48 @@ function OccupantStepper({ label, value, otherValue, capacity, min, onChange }) 
    Nu trece prin core/syncTable (colectie separata, per rezervare) —
    citeste/scrie direct in Supabase, incarcata la deschiderea modalului.
 ----------------------------------------------------------------*/
-export function calcAmounts(unitPrice, quantity, vatRate) {
-  const total = Number(unitPrice) * Number(quantity);
-  const vat = Number(vatRate) || 0;
-  const net = total / (1 + vat / 100);
-  return { totalAmount: total, netAmount: net, vatAmount: total - net };
-}
-
 /* Sincronizeaza linia de "Cazare" din folio cu pretul curent al
    rezervarii (bookedPrice/priceOverride) — dar NICIODATA daca acea
    linie e deja legata de o factura activa (invoiced_status='invoiced'),
    ca sa nu modificam retroactiv ceva deja facturat. */
+/* Emiterea unei facturi — draft -> emisa, cu alocarea numarului.
+ *
+ * Seria NU mai e scrisa in cod. Inainte se cerea "LIV", iar in baza seria
+ * configurata era "LL": next_invoice_number arunca "Serie de facturare
+ * inexistenta sau inactiva", deci emiterea esua de fiecare data. Seria e
+ * oricum configurabila din Setari, deci a o fixa in cod anula acel
+ * setting. Acum se citeste seria activa in momentul emiterii.
+ *
+ * Intoarce randul actualizat, sau null daca ceva a esuat (mesajul e deja
+ * aratat utilizatorului). Folosita si din folio, si din lista de facturi.
+ */
+async function emiteFactura(invoice) {
+  const { data: serii, error: serieErr } = await supabase
+    .from("invoice_series").select("series").eq("active", true).order("series").limit(1);
+  if (serieErr) {
+    toaster.show(mesajEroare(serieErr, "Nu am putut citi seria de facturare"), { tone: "danger" });
+    return null;
+  }
+  const serie = serii?.[0]?.series;
+  if (!serie) {
+    toaster.show("Nu există nicio serie de facturare activă. Configureaz-o în Financiar → Serii.", { tone: "danger" });
+    return null;
+  }
+
+  const { data: numRow, error: numErr } = await supabase.rpc("next_invoice_number", { p_series: serie });
+  if (numErr) { toaster.show(mesajEroare(numErr, "Nu am putut aloca numărul de factură"), { tone: "danger" }); return null; }
+  const { series, number } = Array.isArray(numRow) ? numRow[0] : numRow;
+
+  const { data: updated, error } = await supabase.from("invoices").update({
+    series, number, status: "issued", issue_date: new Date().toISOString(), issued_by: audit.user?.id || null,
+  }).eq("id", invoice.id).select().maybeSingle();
+  if (error) { toaster.show(mesajEroare(error, "Emiterea a eșuat"), { tone: "danger" }); return null; }
+
+  await audit.push("Factură emisă", `${series} ${number} · ${fmtMoney(invoice.total_amount)}`);
+  toaster.show(`Factura ${series} ${number} a fost emisă`, { tone: "ok" });
+  return updated;
+}
+
 async function ensureCazareLine(folio, items, reservation, core) {
   const existing = items.find((i) => i.category === "cazare");
   if (existing && existing.invoiced_status === "invoiced") return existing;
@@ -3965,7 +4030,10 @@ async function ensureCazareLine(folio, items, reservation, core) {
     : 0;
   const nights = nightsBetween(reservation.checkin, reservation.checkout);
   const total = reservationTotal(reservation, core);
-  const unitPrice = nights ? total / nights : total;
+  /* Impartirea la nopti da frecvent zecimale periodice (500/3 =
+     166.6666...). Rotunjim inainte de scriere, altfel in baza ajunge
+     valoarea completa iar pe ecran se vede alta, rotunjita la afisare. */
+  const unitPrice = round2(nights ? total / nights : total);
   const { totalAmount, netAmount, vatAmount } = calcAmounts(unitPrice, nights, vatRate);
 
   const row = {
@@ -3979,7 +4047,13 @@ async function ensureCazareLine(folio, items, reservation, core) {
     return existing;
   }
   const { data, error } = await supabase.from("folio_items").upsert(row).select().maybeSingle();
-  if (error) { console.error("Sincronizare linie cazare eșuată", error); return existing || null; }
+  if (error) {
+    /* Inainte, esecul se pierdea intr-un console.error: folio-ul afisa o
+       linie de cazare care nu ajunsese niciodata in baza, fara niciun
+       semn pentru utilizator. Acum eroarea urca la apelant, care o arata. */
+    console.error("Sincronizare linie cazare eșuată", error);
+    throw error;
+  }
   return data;
 }
 
@@ -4028,7 +4102,7 @@ function FolioPanel({ reservation, core, updateCore, billingCustomerId, setBilli
       if (invErr) throw invErr;
       setInvoices(inv || []);
     } catch (e) {
-      setLoadError(e?.message || "Nu am putut încărca folio-ul.");
+      setLoadError(mesajEroare(e, "Nu am putut încărca folio-ul"));
     } finally {
       setLoading(false);
     }
@@ -4057,7 +4131,7 @@ function FolioPanel({ reservation, core, updateCore, billingCustomerId, setBilli
       created_by: audit.user?.id || null,
     };
     const { data, error } = await supabase.from("folio_items").insert(row).select().maybeSingle();
-    if (error) { toaster.show("Nu am putut adăuga serviciul: " + error.message, { tone: "danger" }); return; }
+    if (error) { toaster.show(mesajEroare(error, "Nu am putut adăuga serviciul"), { tone: "danger" }); return; }
     setItems((prev) => [...prev, data]);
     await audit.push("Poziție folio adăugată", `${product.name} × ${quantity} · ${fmtMoney(totalAmount)}`);
     setAdding(false);
@@ -4069,21 +4143,14 @@ function FolioPanel({ reservation, core, updateCore, billingCustomerId, setBilli
       return;
     }
     const { error } = await supabase.from("folio_items").delete().eq("id", item.id);
-    if (error) { toaster.show("Ștergerea a eșuat: " + error.message, { tone: "danger" }); return; }
+    if (error) { toaster.show(mesajEroare(error, "Ștergerea a eșuat"), { tone: "danger" }); return; }
     setItems((prev) => prev.filter((i) => i.id !== item.id));
     await audit.push("Poziție folio ștearsă", `${item.name} · ${fmtMoney(item.total_amount)}`);
   };
 
   const issueInvoice = async (invoice) => {
-    const { data: numRow, error: numErr } = await supabase.rpc("next_invoice_number", { p_series: "LIV" });
-    if (numErr) { toaster.show("Nu am putut aloca numărul de factură: " + numErr.message, { tone: "danger" }); return; }
-    const { series, number } = Array.isArray(numRow) ? numRow[0] : numRow;
-    const { data: updated, error } = await supabase.from("invoices").update({
-      series, number, status: "issued", issue_date: new Date().toISOString(), issued_by: audit.user?.id || null,
-    }).eq("id", invoice.id).select().maybeSingle();
-    if (error) { toaster.show("Emiterea a eșuat: " + error.message, { tone: "danger" }); return; }
-    setInvoices((prev) => prev.map((x) => (x.id === invoice.id ? updated : x)));
-    await audit.push("Factură emisă", `${series} ${number} · ${fmtMoney(invoice.total_amount)}`);
+    const updated = await emiteFactura(invoice);
+    if (updated) setInvoices((prev) => prev.map((x) => (x.id === invoice.id ? updated : x)));
   };
 
   const activeProducts = (core.products || []).filter((p) => p.active && p.category !== "cazare");
@@ -4350,11 +4417,11 @@ function InvoiceBuilderModal({ reservation, folio, items, core, updateCore, onCr
           // Agregat: se aduna in linia de cazare, TVA recalculat la cota
           // cazarii peste totalul combinat (tratament standard pentru
           // "inclus in pretul camerei").
-          cazareLine.totalAmount += Number(item.total_amount);
+          cazareLine.totalAmount = round2(cazareLine.totalAmount + Number(item.total_amount));
           const recalced = calcAmounts(cazareLine.totalAmount, 1, cazareLine.vatRate);
           cazareLine.netAmount = recalced.netAmount;
           cazareLine.vatAmount = recalced.vatAmount;
-          cazareLine.unitPrice = cazareLine.totalAmount / (cazareLine.quantity || 1);
+          cazareLine.unitPrice = round2(cazareLine.totalAmount / (cazareLine.quantity || 1));
           cazareLine.sourceIds.push(item.id);
         } else {
           lines.push({
@@ -4401,7 +4468,7 @@ function InvoiceBuilderModal({ reservation, folio, items, core, updateCore, onCr
       await audit.push("Factură creată (draft)", `${fmtMoney(totalAmount)} · ${lines.length} poziții`);
       onCreated(finalInvoice);
     } catch (e) {
-      setError(e?.message || "Salvarea facturii a eșuat.");
+      setError(mesajEroare(e, "Salvarea facturii a eșuat"));
     } finally {
       setSaving(false);
     }
@@ -4496,7 +4563,7 @@ function RecordPaymentInline({ invoice, core, onChanged }) {
     if (isCash) {
       const seriesLetters = receiptSeries?.series || "CH";
       const { data: numRow, error: numErr } = await supabase.rpc("next_receipt_number", { p_series: seriesLetters });
-      if (numErr) { toaster.show("Nu am putut aloca numărul de chitanță: " + numErr.message, { tone: "danger" }); setSaving(false); return; }
+      if (numErr) { toaster.show(mesajEroare(numErr, "Nu am putut aloca numărul de chitanță"), { tone: "danger" }); setSaving(false); return; }
       const r = Array.isArray(numRow) ? numRow[0] : numRow;
       receiptSeriesVal = r.series; receiptNumberVal = r.number;
     }
@@ -4507,7 +4574,7 @@ function RecordPaymentInline({ invoice, core, onChanged }) {
       card_receipt_number: isCard ? (cardReceiptNumber.trim() || null) : null,
       card_receipt_date: isCard ? (cardReceiptDate || null) : null,
     });
-    if (error) { toaster.show("Plata a eșuat: " + error.message, { tone: "danger" }); setSaving(false); return; }
+    if (error) { toaster.show(mesajEroare(error, "Plata a eșuat"), { tone: "danger" }); setSaving(false); return; }
     // Trigger-ul recalc_invoice_payment_status ruleaza server-side —
     // reincarcam factura ca sa vedem soldul/statusul actualizat.
     const { data: updated } = await supabase.from("invoices").select("*").eq("id", invoice.id).maybeSingle();
@@ -4582,7 +4649,7 @@ function InvoiceCancelCreditActions({ invoice, onChanged }) {
     const { data, error } = await supabase.from("invoices")
       .update({ status: "cancelled" }).eq("id", invoice.id).select().maybeSingle();
     setBusy(false);
-    if (error) { toaster.show("Anularea a eșuat: " + error.message, { tone: "danger" }); return; }
+    if (error) { toaster.show(mesajEroare(error, "Anularea a eșuat"), { tone: "danger" }); return; }
     await audit.push("Factură anulată", `${invoice.series || "draft"} ${invoice.number || ""}`.trim());
     onChanged(data);
     setConfirm(null);
@@ -4626,7 +4693,7 @@ function InvoiceCancelCreditActions({ invoice, onChanged }) {
       toaster.show(`Stornare emisă: ${series} ${number}`, { tone: "ok" });
       onChanged(original);
     } catch (e) {
-      toaster.show("Stornarea a eșuat: " + (e?.message || ""), { tone: "danger" });
+      toaster.show(mesajEroare(e, "Stornarea a eșuat"), { tone: "danger" });
     } finally {
       setBusy(false);
       setConfirm(null);
@@ -4776,7 +4843,7 @@ function InvoicePrint({ invoiceId, core, onClose, onChanged }) {
     const { totalAmount, netAmount, vatAmount } = calcAmounts(Number(next.unit_price), Number(next.quantity), Number(next.vat_rate));
     const row = { name: next.name, quantity: Number(next.quantity), unit_price: Number(next.unit_price), net_amount: netAmount, vat_amount: vatAmount, total_amount: totalAmount };
     const { error } = await supabase.from("invoice_items").update(row).eq("id", line.id);
-    if (error) { toaster.show("Nu am putut salva linia: " + error.message, { tone: "danger" }); return; }
+    if (error) { toaster.show(mesajEroare(error, "Nu am putut salva linia"), { tone: "danger" }); return; }
     const freshLines = lines.map((l) => (l.id === line.id ? { ...l, ...row } : l));
     const subtotalNet = freshLines.reduce((s, l) => s + Number(l.net_amount), 0);
     const subtotalVat = freshLines.reduce((s, l) => s + Number(l.vat_amount), 0);
@@ -4784,7 +4851,7 @@ function InvoicePrint({ invoiceId, core, onClose, onChanged }) {
     const { data: updatedInvoice, error: invErr } = await supabase.from("invoices")
       .update({ subtotal_net: subtotalNet, subtotal_vat: subtotalVat, total_amount: totalAmountSum })
       .eq("id", invoice.id).select().maybeSingle();
-    if (invErr) { toaster.show("Nu am putut recalcula factura: " + invErr.message, { tone: "danger" }); return; }
+    if (invErr) { toaster.show(mesajEroare(invErr, "Nu am putut recalcula factura"), { tone: "danger" }); return; }
     setLines(freshLines);
     setInvoice(updatedInvoice);
     onChanged?.(updatedInvoice);
@@ -4794,7 +4861,7 @@ function InvoicePrint({ invoiceId, core, onClose, onChanged }) {
   const changeBillingCustomer = async (customerId) => {
     const { data: updatedInvoice, error } = await supabase.from("invoices")
       .update({ billing_customer_id: customerId }).eq("id", invoice.id).select().maybeSingle();
-    if (error) { toaster.show("Nu am putut schimba clientul: " + error.message, { tone: "danger" }); return; }
+    if (error) { toaster.show(mesajEroare(error, "Nu am putut schimba clientul"), { tone: "danger" }); return; }
     const cust = (core.billingCustomers || []).find((c) => c.id === customerId) || null;
     setInvoice(updatedInvoice);
     setCustomer(cust);
@@ -5050,6 +5117,11 @@ function ReservationModal({ data, core, updateCore, reservations, updateReservat
   const [showArrival, setShowArrival] = useState(false);
   const [notes, setNotes] = useState(editing?.notes || "");
   const [error, setError] = useState("");
+  /* Blocheaza butoanele cat timp scrierea e in curs: un dublu-click putea
+     altfel trimite doua scrieri suprapuse (a doua cu o stampila deja
+     depasita) sau sterge de doua ori. Acelasi tipar exista deja la plati
+     si la anulare/stornare. */
+  const [saving, setSaving] = useState(false);
   const guests = core.guests;
 
   const isGroup = !editing && mode === "group";
@@ -5147,7 +5219,9 @@ function ReservationModal({ data, core, updateCore, reservations, updateReservat
 
   const conflictsFor = (ids) => ids.filter((rid) => busyRooms.has(rid));
 
-  const save = async () => {
+  /* Corpul propriu-zis ramane neschimbat; `save`/`remove` de mai jos doar
+     il imbraca in blocajul anti-dublu-click. */
+  const saveInner = async () => {
     if (isBlock) {
       if (roomIds.length < 1) { setError("Selectează cel puțin o cameră de blocat."); return; }
       const dv = validateStay(checkin, checkout);
@@ -5209,13 +5283,12 @@ function ReservationModal({ data, core, updateCore, reservations, updateReservat
         id: groupId, name: groupName.trim(), mainGuestId: guestId,
         createdAt: new Date().toISOString(), notes,
       };
-      // A manual price on a group is the TOTAL for the whole stay, so it's
-      // split evenly across rooms rather than copied onto each one — a
-      // leftover lei from integer division goes to the first rooms so the
-      // per-room amounts still sum exactly to what was typed.
+      /* Pretul manual pe grup e TOTALUL sejurului, deci se imparte intre
+         camere, nu se copiaza pe fiecare. splitEvenly imparte la nivel de
+         ban (nu de leu, ca inainte) si distribuie restul, astfel incat
+         sumele pe camere sa dea exact cat s-a tastat. */
       const groupTotal = priceOverride === "" ? null : Math.max(0, Number(priceOverride) || 0);
-      const baseShare = groupTotal != null ? Math.floor(groupTotal / roomIds.length) : null;
-      const remainder = groupTotal != null ? groupTotal - baseShare * roomIds.length : 0;
+      const coteGrup = groupTotal != null ? splitEvenly(groupTotal, roomIds.length) : null;
       const newRes = roomIds.map((rid, idx) => {
         const base = {
           id: uid(), roomId: rid, guestId, groupId,
@@ -5224,9 +5297,9 @@ function ReservationModal({ data, core, updateCore, reservations, updateReservat
           adults: Number(adults) || 1, children: Number(children) || 0, source,
           tags: [...tags], messages: [], billingCustomerId: billingCustomerId || null,
         };
-        return groupTotal == null
+        return coteGrup == null
           ? { ...base, priceOverride: null, bookedPrice: liveReservationTotalOnline(base, core, reservations) }
-          : { ...base, priceOverride: baseShare + (idx < remainder ? 1 : 0), bookedPrice: null };
+          : { ...base, priceOverride: coteGrup[idx], bookedPrice: null };
       });
       await updateGroups([...groups, group]);
       await updateReservations([...reservations, ...newRes]);
@@ -5272,7 +5345,13 @@ function ReservationModal({ data, core, updateCore, reservations, updateReservat
     onClose();
   };
 
-  const remove = async () => {
+  const save = async () => {
+    if (saving) return;
+    setSaving(true);
+    try { await saveInner(); } finally { setSaving(false); }
+  };
+
+  const removeInner = async () => {
     const nextRes = reservations.filter((r) => r.id !== editing.id);
     await updateReservations(nextRes);
 
@@ -5296,6 +5375,12 @@ function ReservationModal({ data, core, updateCore, reservations, updateReservat
       },
     });
     onClose();
+  };
+
+  const remove = async () => {
+    if (saving) return;
+    setSaving(true);
+    try { await removeInner(); } finally { setSaving(false); }
   };
 
   return (
@@ -5575,7 +5660,7 @@ function ReservationModal({ data, core, updateCore, reservations, updateReservat
 
         <label className="field">
           <span className="fl">Note</span>
-          <textarea rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Observații interne" />
+          <textarea rows={2} maxLength={2000} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Observații interne" />
         </label>
 
         {editing?.messages?.length > 0 && (
@@ -5623,11 +5708,15 @@ function ReservationModal({ data, core, updateCore, reservations, updateReservat
         )}
 
         <div className="modal-actions">
-          {editing && <button className="btn btn-danger" onClick={remove}><Trash2 size={14} /> Șterge</button>}
+          {editing && (
+            <button className="btn btn-danger" onClick={remove} disabled={saving}>
+              <Trash2 size={14} /> Șterge
+            </button>
+          )}
           <div className="grow" />
-          <button className="btn btn-ghost" onClick={onClose}>Anulează</button>
-          <button className="btn btn-primary" style={{ width: "auto" }} onClick={save}>
-            <Check size={15} /> Salvează
+          <button className="btn btn-ghost" onClick={onClose} disabled={saving}>Anulează</button>
+          <button className="btn btn-primary" style={{ width: "auto" }} onClick={save} disabled={saving}>
+            <Check size={15} /> {saving ? "Se salvează..." : "Salvează"}
           </button>
         </div>
 
@@ -5669,6 +5758,9 @@ function ClientsView({ core, updateCore, groups, updateGroups, reservations, upd
   const [tab, setTab] = useState("guests");
   const [q, setQ] = useState("");
   const [modal, setModal] = useState(null); // { guest | null }
+  /* Butonul "Firmă nouă" sta in antetul comun al tab-urilor, dar
+     formularul apartine listei de firme — starea trece de aici acolo. */
+  const [firmModal, setFirmModal] = useState(null);
 
   const filtered = core.guests.filter((g) => {
     const t = q.toLowerCase();
@@ -5707,13 +5799,20 @@ function ClientsView({ core, updateCore, groups, updateGroups, reservations, upd
     });
   };
 
+  const firmCount = (core.billingCustomers || []).filter((c) => c.kind === "company").length;
+
   const header = (
     <div className="tabs-bar">
-      <SubTabs tab={tab} setTab={setTab} groupCount={groups.length} guestCount={core.guests.length} />
+      <SubTabs tab={tab} setTab={setTab} groupCount={groups.length}
+        guestCount={core.guests.length} firmCount={firmCount} />
       <div className="tabs-actions">
         {tab === "groups" ? (
           <button className="btn btn-primary" style={{ width: "auto" }} onClick={onNewGroup}>
             <UsersRound size={15} /> Grup nou
+          </button>
+        ) : tab === "firms" ? (
+          <button className="btn btn-primary" style={{ width: "auto" }} onClick={() => setFirmModal({ customer: null })}>
+            <Plus size={15} /> Firmă nouă
           </button>
         ) : (
           <button className="btn btn-primary" style={{ width: "auto" }} onClick={() => setModal({ guest: null })}>
@@ -5730,6 +5829,16 @@ function ClientsView({ core, updateCore, groups, updateGroups, reservations, upd
         {header}
         <GroupsView core={core} groups={groups} updateGroups={updateGroups}
           reservations={reservations} updateReservations={updateReservations} blocks={blocks} />
+      </div>
+    );
+  }
+
+  if (tab === "firms") {
+    return (
+      <div>
+        {header}
+        <FirmsView core={core} updateCore={updateCore} reservations={reservations}
+          modalExtern={firmModal} inchideModalExtern={() => setFirmModal(null)} />
       </div>
     );
   }
@@ -5787,6 +5896,248 @@ function ClientsView({ core, updateCore, groups, updateGroups, reservations, upd
         <GuestHistory guest={historyGuest} core={core} reservations={reservations} onClose={() => setHistoryGuest(null)} />
       )}
     </div>
+  );
+}
+
+/* ---------------------------------------------------------------
+   FIRME — clientii de facturare de tip companie.
+   Traiesc in `billing_customers`, acelasi tabel cu persoanele fizice
+   catre care se factureaza; aici se vad doar cele cu kind='company'.
+   Se creau pana acum doar din interiorul unei rezervari, deci nu exista
+   niciun loc unde sa fie vazute toate la un loc, editate sau sterse.
+----------------------------------------------------------------*/
+function FirmsView({ core, updateCore, reservations, modalExtern, inchideModalExtern }) {
+  const [q, setQ] = useState("");
+  const [modalIntern, setModalIntern] = useState(null); // { customer } | null
+  const [istoric, setIstoric] = useState(null);         // firma pentru care aratam istoricul
+
+  /* Formularul se poate deschide din doua locuri: butonul "Firmă nouă"
+     din antetul tab-urilor (care traieste in ClientsView) si creionul de
+     pe fiecare rand. */
+  const modal = modalIntern || modalExtern;
+  const setModal = (v) => { setModalIntern(v); if (!v) inchideModalExtern?.(); };
+
+  const firme = (core.billingCustomers || []).filter((c) => c.kind === "company");
+  const filtrate = firme.filter((c) => {
+    const t = q.trim().toLowerCase();
+    if (!t) return true;
+    return [c.companyName, c.cui, c.regCom, c.city, c.contactName, c.email, c.phone]
+      .filter(Boolean).join(" ").toLowerCase().includes(t);
+  });
+
+  const save = async (customer) => {
+    const exista = (core.billingCustomers || []).some((c) => c.id === customer.id);
+    const next = exista
+      ? core.billingCustomers.map((c) => (c.id === customer.id ? customer : c))
+      : [...(core.billingCustomers || []), customer];
+    await updateCore({ ...core, billingCustomers: next });
+    await audit.push(exista ? "Firmă modificată" : "Firmă adăugată", billingCustomerLabel(customer));
+    setModal(null);
+  };
+
+  /* Stergerea e blocata daca firma e folosita undeva. Baza refuza oricum
+     (invoices.billing_customer_id are on delete restrict), dar un mesaj
+     clar e mai util decat o eroare de constrangere. */
+  const remove = async (firma) => {
+    const areRezervari = reservations.some((r) => r.billingCustomerId === firma.id);
+    if (areRezervari) {
+      toaster.show(
+        `${billingCustomerLabel(firma)} e folosită pe rezervări și nu poate fi ștearsă. Schimbă întâi clientul de facturare pe acele rezervări.`,
+        { tone: "danger" });
+      return;
+    }
+    const { count, error } = await supabase
+      .from("invoices").select("id", { count: "exact", head: true }).eq("billing_customer_id", firma.id);
+    if (error) { toaster.show(mesajEroare(error, "Nu am putut verifica facturile firmei"), { tone: "danger" }); return; }
+    if (count > 0) {
+      toaster.show(
+        `${billingCustomerLabel(firma)} are ${count} ${count === 1 ? "factură emisă" : "facturi emise"} și nu poate fi ștearsă — facturile trebuie păstrate.`,
+        { tone: "danger" });
+      return;
+    }
+
+    const before = core.billingCustomers;
+    await updateCore({ ...core, billingCustomers: firme.length
+      ? core.billingCustomers.filter((c) => c.id !== firma.id) : [] });
+    await audit.push("Firmă ștearsă", billingCustomerLabel(firma));
+    toaster.show(`${billingCustomerLabel(firma)} a fost ștearsă`, {
+      tone: "danger",
+      onUndo: async () => {
+        await updateCore({ ...core, billingCustomers: before });
+        await audit.push("Ștergere anulată", billingCustomerLabel(firma));
+      },
+    });
+  };
+
+  return (
+    <div>
+      <div className="toolbar">
+        <div className="search-box">
+          <Search size={15} color="var(--text-muted)" />
+          <input placeholder="Caută după denumire, CUI sau oraș" value={q}
+            onChange={(e) => setQ(e.target.value)} aria-label="Caută firme" />
+        </div>
+        <span className="badge-count">{filtrate.length} {filtrate.length === 1 ? "firmă" : "firme"}</span>
+      </div>
+
+      <div className="panel">
+        {filtrate.length === 0 ? (
+          <div className="empty-state">
+            <Receipt size={26} />
+            <h4>{firme.length ? "Nicio firmă găsită" : "Nicio firmă"}</h4>
+            <p>{firme.length
+              ? "Încearcă alt termen de căutare."
+              : "Firmele se adaugă de aici sau direct dintr-o rezervare, la „Facturare către”."}</p>
+          </div>
+        ) : filtrate.map((c) => {
+          const rezervari = reservations.filter((r) => r.billingCustomerId === c.id);
+          return (
+            <div className="list-row" key={c.id}>
+              <div
+                role="button" tabIndex={0} style={{ cursor: "pointer", minWidth: 0 }}
+                onClick={() => setIstoric(c)}
+                onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setIstoric(c); } }}
+              >
+                <div className="primary">{c.companyName}</div>
+                <div className="secondary">
+                  {[c.cui ? `CUI ${c.cui}` : null, c.regCom, [c.city, c.county].filter(Boolean).join(", ")]
+                    .filter(Boolean).join(" · ")}
+                </div>
+                {(c.contactName || c.phone || c.email) && (
+                  <div className="secondary">
+                    {[c.contactName, c.phone, c.email].filter(Boolean).join(" · ")}
+                  </div>
+                )}
+                {rezervari.length > 0 && (
+                  <div className="secondary" style={{ marginTop: 3 }}>
+                    <strong>{rezervari.length}</strong> {rezervari.length === 1 ? "rezervare" : "rezervări"} facturate către firmă
+                  </div>
+                )}
+              </div>
+              <div className="row-actions">
+                <button className="icon-btn" title="Istoric" aria-label={`Istoric ${billingCustomerLabel(c)}`}
+                  onClick={() => setIstoric(c)}><History size={14} /></button>
+                <button className="icon-btn" aria-label={`Editează ${billingCustomerLabel(c)}`}
+                  onClick={() => setModal({ customer: c })}><Pencil size={14} /></button>
+                <button className="icon-btn" aria-label={`Șterge ${billingCustomerLabel(c)}`}
+                  onClick={() => remove(c)}><Trash2 size={14} /></button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {modal && (
+        <BillingCustomerModal
+          customer={modal.customer}
+          existingCustomers={core.billingCustomers || []}
+          onSave={save}
+          onClose={() => setModal(null)}
+        />
+      )}
+      {istoric && (
+        <FirmHistory firma={istoric} core={core} reservations={reservations} onClose={() => setIstoric(null)} />
+      )}
+    </div>
+  );
+}
+
+/* Istoricul unei firme: rezervarile facturate catre ea si facturile
+   emise pe numele ei. Facturile se citesc la deschidere — nu sunt in
+   `core`, care tine doar ce e nevoie la pornirea aplicatiei. */
+function FirmHistory({ firma, core, reservations, onClose }) {
+  useModalLock();
+  const [facturi, setFacturi] = useState(null);
+  const [eroare, setEroare] = useState("");
+
+  useEffect(() => {
+    let activ = true;
+    (async () => {
+      const { data, error } = await supabase.from("invoices")
+        .select("*").eq("billing_customer_id", firma.id).order("created_at", { ascending: false });
+      if (!activ) return;
+      if (error) { setEroare(mesajEroare(error, "Nu am putut încărca facturile")); return; }
+      setFacturi(data || []);
+    })();
+    return () => { activ = false; };
+  }, [firma.id]);
+
+  const rezervari = reservations
+    .filter((r) => r.billingCustomerId === firma.id)
+    .sort((a, b) => new Date(b.checkin) - new Date(a.checkin));
+
+  const totalFacturat = (facturi || []).reduce((s, f) => s + Number(f.total_amount), 0);
+  const totalIncasat = (facturi || []).reduce((s, f) => s + Number(f.paid_amount), 0);
+
+  return (
+    <Dialog onClose={onClose} title={firma.companyName}>
+      <div className="note" style={{ marginBottom: 14 }}>
+        {[firma.cui ? `CUI ${firma.cui}` : null, firma.regCom,
+          [firma.address, firma.city, firma.county, firma.country].filter(Boolean).join(", ")]
+          .filter(Boolean).join(" · ")}
+      </div>
+
+      {facturi !== null && facturi.length > 0 && (
+        <div className="stat-row" style={{ marginBottom: 14 }}>
+          <Stat label="Facturi" value={facturi.length} />
+          <Stat label="Total facturat" value={fmtMoney(totalFacturat)} />
+          <Stat label="Încasat" value={fmtMoney(totalIncasat)} />
+        </div>
+      )}
+
+      <label className="field"><span className="fl">Rezervări facturate către firmă</span></label>
+      {rezervari.length === 0 ? (
+        <div className="note">Nicio rezervare facturată către această firmă.</div>
+      ) : (
+        <div className="panel" style={{ marginBottom: 16 }}>
+          {rezervari.map((r) => {
+            const camera = core.rooms.find((x) => x.id === r.roomId);
+            return (
+              <div className="list-row" key={r.id}>
+                <div style={{ minWidth: 0 }}>
+                  <div className="primary">{occupantName(r, core, []) || guestFullName(core.guests.find((g) => g.id === r.guestId)) || "Fără nume"}</div>
+                  <div className="secondary">
+                    <span className="mono">{camera?.name || r.roomId}</span> · {fmtDate(r.checkin)} → {fmtDate(r.checkout)}
+                  </div>
+                </div>
+                <span className="mono" style={{ fontWeight: 650 }}>{fmtMoney(reservationTotal(r, core))}</span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      <label className="field"><span className="fl">Facturi emise</span></label>
+      {eroare ? (
+        <div className="note" style={{ color: "var(--danger)" }}>{eroare}</div>
+      ) : facturi === null ? (
+        <div className="note">Se încarcă…</div>
+      ) : facturi.length === 0 ? (
+        <div className="note">Nicio factură emisă pe această firmă.</div>
+      ) : (
+        <div className="panel">
+          {facturi.map((f) => (
+            <div className="list-row" key={f.id}>
+              <div style={{ minWidth: 0 }}>
+                <div className="primary">
+                  {f.series ? `${f.series} ${f.number}` : "Draft"}
+                  <span className={"role-tag " + INVOICE_STATUS_CLASS[f.status]} style={{ marginLeft: 8 }}>
+                    {INVOICE_STATUS_LABEL[f.status]}
+                  </span>
+                </div>
+                <div className="secondary">{f.issue_date ? fmtDateFull(f.issue_date) : "neemisă"}</div>
+              </div>
+              <span className="mono" style={{ fontWeight: 650 }}>{fmtMoney(f.total_amount)}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="modal-actions">
+        <div className="grow" />
+        <button className="btn btn-ghost" onClick={onClose}>Închide</button>
+      </div>
+    </Dialog>
   );
 }
 
@@ -6159,37 +6510,20 @@ function GuestHistory({ guest, core, reservations, onClose }) {
   );
 }
 
-function SubTabs({ tab, setTab, guestCount, groupCount }) {
+function SubTabs({ tab, setTab, guestCount, groupCount, firmCount }) {
   return (
     <div className="sub-tabs">
       <button className={tab === "guests" ? "on" : ""} onClick={() => setTab("guests")}>
         <Users size={14} /> Oaspeți <span className="tab-count">{guestCount}</span>
+      </button>
+      <button className={tab === "firms" ? "on" : ""} onClick={() => setTab("firms")}>
+        <Receipt size={14} /> Firme <span className="tab-count">{firmCount}</span>
       </button>
       <button className={tab === "groups" ? "on" : ""} onClick={() => setTab("groups")}>
         <UsersRound size={14} /> Grupuri <span className="tab-count">{groupCount}</span>
       </button>
     </div>
   );
-}
-
-/* Verifica formatul si cifra de control a unui CUI/CIF romanesc.
-   Algoritmul oficial: ultima cifra e cifra de control, calculata din
-   primele cifre (aduse la 9 cifre prin completare cu 0 la stanga)
-   ponderate cu cheia 7-5-3-2-1-7-5-3-2, mod 11 (10 -> 0). Doar avertizam
-   la esec de control (nu blocam) — blocam doar formatul evident gresit
-   (altceva decat cifre, sau lungime in afara 2-10). */
-export function validateCUIFormat(raw) {
-  const digits = String(raw || "").toUpperCase().replace(/^RO/, "").trim();
-  if (!digits) return { ok: true, warn: false };
-  if (!/^\d{2,10}$/.test(digits)) return { ok: false, warn: false, message: "CUI-ul trebuie să conțină doar cifre (2-10 cifre), opțional cu prefixul RO." };
-  const key = "753217532";
-  const base = digits.slice(0, -1).padStart(9, "0");
-  const control = Number(digits.slice(-1));
-  let sum = 0;
-  for (let i = 0; i < 9; i++) sum += Number(base[i]) * Number(key[i]);
-  let computed = (sum * 10) % 11;
-  if (computed === 10) computed = 0;
-  return { ok: true, warn: computed !== control, message: "Cifra de control nu se potrivește — verifică CUI-ul." };
 }
 
 const emptyBillingCustomer = () => ({
@@ -6557,7 +6891,7 @@ function GuestModal({ guest, onSave, onClose }) {
   return (
     <Dialog onClose={onClose} title={guest?.id ? "Editează client" : "Client nou"}>
         <GuestFields value={g} invalid={invalid} onChange={(v) => { setG(v); setError(""); setInvalid(null); }} />
-        <label className="field"><span className="fl">Note</span><textarea rows={2} value={g.notes} onChange={(e) => setG({ ...g, notes: e.target.value })} /></label>
+        <label className="field"><span className="fl">Note</span><textarea rows={2} maxLength={2000} value={g.notes} onChange={(e) => setG({ ...g, notes: e.target.value })} /></label>
         {error && <div className="error-text" role="alert" style={{ marginBottom: 10 }}>{error}</div>}
         <div className="modal-actions">
           <div className="grow" />
@@ -6884,12 +7218,17 @@ function InvoicesListView({ core }) {
   const [invoices, setInvoices] = useState(null);
   const [loadError, setLoadError] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  /* Doua stari pentru cautare: ce se tasteaza (`search`) si ce s-a cerut
+     efectiv (`searchAplicat`). Filtrarea foloseste a doua, ca lista sa nu
+     se schimbe sub degete la fiecare litera — de aici si butonul. */
   const [search, setSearch] = useState("");
+  const [searchAplicat, setSearchAplicat] = useState("");
   const [printInvoiceId, setPrintInvoiceId] = useState(null);
+  const [emitId, setEmitId] = useState(null);
 
   const load = useCallback(async () => {
     const { data, error } = await supabase.from("invoices").select("*").order("created_at", { ascending: false });
-    if (error) { setLoadError(error.message); return; }
+    if (error) { setLoadError(mesajEroare(error)); return; }
     setInvoices(data || []);
     setLoadError("");
   }, []);
@@ -6902,12 +7241,25 @@ function InvoicesListView({ core }) {
 
   const filtered = (invoices || []).filter((inv) => {
     if (statusFilter !== "all" && inv.status !== statusFilter) return false;
-    if (search) {
+    if (searchAplicat) {
       const hay = `${inv.series || ""} ${inv.number || ""} ${customerLabel(inv.billing_customer_id)}`.toLowerCase();
-      if (!hay.includes(search.toLowerCase())) return false;
+      if (!hay.includes(searchAplicat.toLowerCase())) return false;
     }
     return true;
   });
+
+  /* Emiterea consuma un numar din serie si e ireversibila, deci cerem o
+     confirmare explicita inainte — spre deosebire de folio, unde butonul
+     e in contextul unei singure rezervari pe care tocmai o lucrezi. */
+  const emite = async (inv) => {
+    setEmitId(inv.id);
+    try {
+      const updated = await emiteFactura(inv);
+      if (updated) setInvoices((prev) => prev.map((x) => (x.id === inv.id ? updated : x)));
+    } finally {
+      setEmitId(null);
+    }
+  };
 
   const totals = filtered.reduce((s, inv) => ({
     total: s.total + Number(inv.total_amount), paid: s.paid + Number(inv.paid_amount),
@@ -6915,14 +7267,36 @@ function InvoicesListView({ core }) {
 
   return (
     <div>
-      <div className="toolbar">
-        <input placeholder="Caută serie/număr/client…" value={search} onChange={(e) => setSearch(e.target.value)} style={{ maxWidth: 260 }} />
-        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} style={{ maxWidth: 200 }}>
+      {/* Căutarea, statusul și butonul stau pe un singur rând; pe ecran
+          îngust rândul se rupe controlat, fără să se împrăștie. */}
+      <div className="toolbar filtre-facturi">
+        <div className="search-box">
+          <Search size={15} color="var(--text-muted)" />
+          <input
+            placeholder="Caută serie, număr sau client…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") setSearchAplicat(search.trim()); }}
+            aria-label="Caută facturi"
+          />
+          {search && (
+            <button type="button" className="icon-btn" aria-label="Golește căutarea"
+              onClick={() => { setSearch(""); setSearchAplicat(""); }}>
+              <X size={14} />
+            </button>
+          )}
+        </div>
+        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}
+          aria-label="Filtrează după status" className="filtru-status">
           <option value="all">Toate statusurile</option>
           {Object.keys(INVOICE_STATUS_LABEL).map((s) => (
             <option key={s} value={s}>{INVOICE_STATUS_LABEL[s]}</option>
           ))}
         </select>
+        <button type="button" className="btn btn-primary" style={{ width: "auto" }}
+          onClick={() => setSearchAplicat(search.trim())}>
+          <Search size={15} /> Caută
+        </button>
         <div className="grow" />
         <span className="badge-count">{filtered.length} facturi · {fmtMoney(totals.total)} · încasat {fmtMoney(totals.paid)}</span>
       </div>
@@ -6949,6 +7323,15 @@ function InvoicesListView({ core }) {
               </div>
               <div className="row-actions" style={{ gap: 10 }}>
                 <span className="mono" style={{ fontWeight: 650 }}>{fmtMoney(inv.total_amount)}</span>
+                {/* Transformarea draftului in factura: aloca serie+numar.
+                    Vizibila doar pe draft-uri si doar cu permisiunea
+                    corespunzatoare — RLS o impune oricum si in baza. */}
+                {inv.status === "draft" && canBilling("issue_invoice") && (
+                  <button className="btn btn-primary" style={{ width: "auto", padding: "8px 12px" }}
+                    onClick={() => emite(inv)} disabled={emitId === inv.id}>
+                    <Receipt size={14} /> {emitId === inv.id ? "Se emite…" : "Emite factura"}
+                  </button>
+                )}
                 <button className="icon-btn" onClick={() => setPrintInvoiceId(inv.id)} aria-label="Vezi factura">
                   <Eye size={14} />
                 </button>
@@ -7020,7 +7403,7 @@ function ReceiptSeriesEditor() {
     setSaving(true);
     const { error } = await supabase.from("receipt_series").update({ series: next }).eq("id", "series-ch");
     setSaving(false);
-    if (error) { toaster.show("Nu am putut salva seria: " + error.message, { tone: "danger" }); return; }
+    if (error) { toaster.show(mesajEroare(error, "Nu am putut salva seria"), { tone: "danger" }); return; }
     await audit.push("Serie chitanțe modificată", next);
     await load();
     toaster.show("Serie de chitanțe actualizată.");
@@ -7047,7 +7430,7 @@ function PaymentsListView({ core, updateCore }) {
 
   const load = useCallback(async () => {
     const { data, error } = await supabase.from("payments").select("*").order("paid_at", { ascending: false });
-    if (error) { setLoadError(error.message); return; }
+    if (error) { setLoadError(mesajEroare(error)); return; }
     setPayments(data || []);
     const ids = [...new Set((data || []).map((p) => p.invoice_id))];
     if (ids.length) {
@@ -7120,10 +7503,10 @@ function BillingPermissionsView() {
   const load = useCallback(async () => {
     const { data: staffRows, error: sErr } = await supabase.from("staff").select("user_id, name, role")
       .neq("role", "admin").order("name");
-    if (sErr) { setLoadError(sErr.message); return; }
+    if (sErr) { setLoadError(mesajEroare(sErr)); return; }
     setStaffList(staffRows || []);
     const { data: permRows, error: pErr } = await supabase.from("billing_permissions").select("user_id, permission");
-    if (pErr) { setLoadError(pErr.message); return; }
+    if (pErr) { setLoadError(mesajEroare(pErr)); return; }
     const map = {};
     for (const r of permRows || []) {
       if (!map[r.user_id]) map[r.user_id] = new Set();
@@ -7137,11 +7520,11 @@ function BillingPermissionsView() {
   const toggle = async (userId, perm, has) => {
     if (has) {
       const { error } = await supabase.from("billing_permissions").delete().eq("user_id", userId).eq("permission", perm);
-      if (error) { toaster.show("Nu am putut retrage permisiunea: " + error.message, { tone: "danger" }); return; }
+      if (error) { toaster.show(mesajEroare(error, "Nu am putut retrage permisiunea"), { tone: "danger" }); return; }
     } else {
       const { error } = await supabase.from("billing_permissions")
         .insert({ user_id: userId, permission: perm, granted_by: audit.user?.id || null });
-      if (error) { toaster.show("Nu am putut acorda permisiunea: " + error.message, { tone: "danger" }); return; }
+      if (error) { toaster.show(mesajEroare(error, "Nu am putut acorda permisiunea"), { tone: "danger" }); return; }
     }
     setPerms((prev) => {
       const next = { ...prev, [userId]: new Set(prev[userId] || []) };
@@ -7317,7 +7700,7 @@ function AccountingExportView({ core }) {
     const statuses = Array.from(statusFilter);
     if (statuses.length) q = q.in("status", statuses);
     const { data, error } = await q;
-    if (error) { toaster.show("Nu am putut încărca facturile: " + error.message, { tone: "danger" }); setLoading(false); return; }
+    if (error) { toaster.show(mesajEroare(error, "Nu am putut încărca facturile"), { tone: "danger" }); setLoading(false); return; }
     setInvoices(data || []);
     setSelected(new Set((data || []).map((i) => i.id)));
     const ids = (data || []).map((i) => i.id);
@@ -7389,7 +7772,7 @@ function AccountingExportView({ core }) {
       await search();
       await loadHistory();
     } catch (e) {
-      toaster.show("Exportul a eșuat: " + (e?.message || ""), { tone: "danger" });
+      toaster.show(mesajEroare(e, "Exportul a eșuat"), { tone: "danger" });
     } finally {
       setExporting(false);
     }
@@ -7746,7 +8129,7 @@ function UsersView() {
 
   const load = useCallback(async () => {
     const { data, error } = await supabase.from("staff").select("user_id, name, role").order("name");
-    if (error) { setLoadError(error.message); return; }
+    if (error) { setLoadError(mesajEroare(error)); return; }
     setList(data);
     setLoadError("");
   }, []);
@@ -7755,10 +8138,10 @@ function UsersView() {
   const save = async (user, isNew) => {
     if (isNew) {
       const { error } = await supabase.from("staff").insert({ user_id: user.user_id, name: user.name, role: user.role });
-      if (error) { toaster.show("Nu am putut adăuga userul: " + error.message, { tone: "danger" }); return; }
+      if (error) { toaster.show(mesajEroare(error, "Nu am putut adăuga userul"), { tone: "danger" }); return; }
     } else {
       const { error } = await supabase.from("staff").update({ name: user.name, role: user.role }).eq("user_id", user.user_id);
-      if (error) { toaster.show("Nu am putut salva userul: " + error.message, { tone: "danger" }); return; }
+      if (error) { toaster.show(mesajEroare(error, "Nu am putut salva userul"), { tone: "danger" }); return; }
     }
     await audit.push(isNew ? "User adăugat" : "User modificat", `${user.name} (${ROLE_LABEL[user.role]})`);
     setModal(null);
@@ -7775,7 +8158,7 @@ function UsersView() {
       return;
     }
     const { error } = await supabase.from("staff").delete().eq("user_id", u.user_id);
-    if (error) { toaster.show("Nu am putut șterge userul: " + error.message, { tone: "danger" }); return; }
+    if (error) { toaster.show(mesajEroare(error, "Nu am putut șterge userul"), { tone: "danger" }); return; }
     await audit.push("User șters", u.name);
     toaster.show(`${u.name} a fost șters`, {
       tone: "danger",
@@ -7913,7 +8296,7 @@ function ProfileView({ user, onLogout, onBack }) {
     setBusy(true);
     const { error } = await supabase.auth.updateUser({ password });
     setBusy(false);
-    if (error) { setMsg({ type: "err", text: error.message }); return; }
+    if (error) { setMsg({ type: "err", text: mesajEroare(error) }); return; }
     setPassword(""); setPassword2("");
     setMsg({ type: "ok", text: "Parola a fost schimbată." });
   };
@@ -8268,6 +8651,9 @@ function TodayView({ core, reservations, updateReservations, housekeeping, updat
   const [arrivalRes, setArrivalRes] = useState(null);
   const [checkinError, setCheckinError] = useState("");
   const [todayTab, setTodayTab] = useState("arrivals");
+  /* Rezervarea pe care ruleaza chiar acum un check-in/check-out. Fara ea,
+     un dublu-click trimitea doua scrieri pe acelasi rand. */
+  const [busyId, setBusyId] = useState(null);
 
   /* One pass over the reservation list instead of six, and O(1) room lookups. */
   const roomById = useMemo(
@@ -8396,9 +8782,14 @@ function TodayView({ core, reservations, updateReservations, housekeeping, updat
                   <span className="role-tag role-receptionist">Plecat</span>
                 ) : canCheckIn(r) ? (
                   <button className="btn btn-primary" style={{ width: "auto", padding: "8px 12px" }}
+                    disabled={busyId === r.id}
                     onClick={async () => {
-                      const out = await doCheckIn(r, reservations, updateReservations, core);
-                      if (out && out.error) setCheckinError(out.error);
+                      if (busyId) return;
+                      setBusyId(r.id);
+                      try {
+                        const out = await doCheckIn(r, reservations, updateReservations, core);
+                        if (out && out.error) setCheckinError(out.error);
+                      } finally { setBusyId(null); }
                     }}>
                     <LogIn size={14} /> Check-in
                   </button>
@@ -8426,7 +8817,14 @@ function TodayView({ core, reservations, updateReservations, housekeeping, updat
                   <span className="role-tag role-receptionist">Plecat</span>
                 ) : canCheckOut(r) ? (
                   <button className="btn btn-ghost" style={{ padding: "8px 12px" }}
-                    onClick={() => doCheckOut(r, reservations, updateReservations, core, housekeeping, updateHousekeeping)}>
+                    disabled={busyId === r.id}
+                    onClick={async () => {
+                      if (busyId) return;
+                      setBusyId(r.id);
+                      try {
+                        await doCheckOut(r, reservations, updateReservations, core, housekeeping, updateHousekeeping);
+                      } finally { setBusyId(null); }
+                    }}>
                     Check-out <ArrowRight size={14} />
                   </button>
                 ) : (
@@ -9111,6 +9509,15 @@ function ReservationActions({ res: resSnapshot, core, groups, reservations, upda
   const res = reservations.find((r) => r.id === resSnapshot.id) || resSnapshot;
   const [confirmCancel, setConfirmCancel] = useState(false);
   const [actionError, setActionError] = useState("");
+  /* Cat timp ruleaza o actiune care scrie (check-in/out, no-show,
+     anulare, mesaj), butoanele din panou raman blocate — altfel un
+     dublu-click trimitea doua scrieri pe aceeasi rezervare. */
+  const [busy, setBusy] = useState(false);
+  const ruleaza = async (fn) => {
+    if (busy) return;
+    setBusy(true);
+    try { await fn(); } finally { setBusy(false); }
+  };
   const [msgOpen, setMsgOpen] = useState(false);
   const [msgText, setMsgText] = useState("");
   const messages = res.messages || [];
@@ -9192,20 +9599,20 @@ function ReservationActions({ res: resSnapshot, core, groups, reservations, upda
           </button>
 
           {mayCheckOut ? (
-            <button className="action-item" onClick={async () => {
+            <button className="action-item" disabled={busy} onClick={() => ruleaza(async () => {
               await doCheckOut(res, reservations, updateReservations, core, housekeeping, updateHousekeeping);
               onClose();
-            }}>
+            })}>
               <span className="ai-ico"><ArrowRight size={17} /></span>
               <span className="ai-body"><span className="ai-t">Check-out</span>
                 <span className="ai-d">{departsToday ? "Pleacă astăzi" : "Camera trece pe „murdară”"}</span></span>
             </button>
           ) : (
-            <button className="action-item" disabled={!mayCheckIn} onClick={async () => {
+            <button className="action-item" disabled={!mayCheckIn || busy} onClick={() => ruleaza(async () => {
               const out = await doCheckIn(res, reservations, updateReservations, core);
               if (out && out.error) { setActionError(out.error); return; }
               onClose();
-            }}>
+            })}>
               <span className="ai-ico"><LogIn size={17} /></span>
               <span className="ai-body"><span className="ai-t">Check-in</span>
                 <span className="ai-d">{checkInHint || (res.status === "checkedout" ? "Sejur încheiat" : "Sosire astăzi")}</span></span>
@@ -9214,13 +9621,13 @@ function ReservationActions({ res: resSnapshot, core, groups, reservations, upda
 
           {msgOpen ? (
             <div className="msg-compose">
-              <textarea rows={3} autoFocus value={msgText} placeholder="ex. Sosesc după ora 22 · cerere pat suplimentar"
+              <textarea rows={3} autoFocus maxLength={2000} value={msgText} placeholder="ex. Sosesc după ora 22 · cerere pat suplimentar"
                 onChange={(e) => setMsgText(e.target.value)} />
               <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
                 <button className="btn btn-ghost" style={{ padding: "8px 12px" }}
                   onClick={() => { setMsgOpen(false); setMsgText(""); }}>Renunță</button>
                 <button className="btn btn-primary" style={{ width: "auto", padding: "8px 14px" }}
-                  onClick={addMessage} disabled={!msgText.trim()}>
+                  onClick={() => ruleaza(addMessage)} disabled={!msgText.trim() || busy}>
                   <Check size={14} /> Salvează
                 </button>
               </div>
@@ -9245,12 +9652,12 @@ function ReservationActions({ res: resSnapshot, core, groups, reservations, upda
           )}
 
           {canNoShow(res, now) && (
-            <button className="action-item" onClick={async () => {
+            <button className="action-item" disabled={busy} onClick={() => ruleaza(async () => {
               await updateReservations(reservations.map((r) => (r.id === res.id ? { ...r, status: "noshow" } : r)));
               await audit.push("No-show",
                 `${guestFullName(guest) || "Fără nume"} · ${room?.name} · ${fmtDate(res.checkin)}`);
               onClose();
-            }}>
+            })}>
               <span className="ai-ico"><UserCheck size={17} /></span>
               <span className="ai-body"><span className="ai-t">Marchează no-show</span>
                 <span className="ai-d">Nu s-a prezentat — camera se eliberează</span></span>
@@ -9268,8 +9675,8 @@ function ReservationActions({ res: resSnapshot, core, groups, reservations, upda
               <div className="action-confirm">
                 <span>Anulezi rezervarea?</span>
                 <div style={{ display: "flex", gap: 8 }}>
-                  <button className="btn btn-ghost" style={{ padding: "8px 12px" }} onClick={() => setConfirmCancel(false)}>Nu</button>
-                  <button className="btn btn-danger" style={{ padding: "8px 12px" }} onClick={cancel}>Da, anulează</button>
+                  <button className="btn btn-ghost" style={{ padding: "8px 12px" }} onClick={() => setConfirmCancel(false)} disabled={busy}>Nu</button>
+                  <button className="btn btn-danger" style={{ padding: "8px 12px" }} onClick={() => ruleaza(cancel)} disabled={busy}>Da, anulează</button>
                 </div>
               </div>
             ) : (
