@@ -1011,6 +1011,25 @@ begin
   v_baza := round(v_baza, 2);
 
   if not coalesce(p_online, false) then return v_baza; end if;
+
+  -- Optimizatorul se aplică numai sosirilor de AZI.
+  --
+  -- El citește gradul de ocupare de acum. Pentru o dată peste două luni
+  -- acela e aproape zero indiferent de cerere — rezervările pur și simplu
+  -- nu s-au strâns încă — deci ar cădea mereu în pragul cel mai de jos și
+  -- ar da o reducere nemeritată cuiva care rezervă din timp. E gândit ca
+  -- pârghie de last-minute: cine cere o cameră pentru la noapte plătește
+  -- mai mult sau mai puțin după cât de plină e pensiunea în seara aceea.
+  --
+  -- Ziua se ia în ora României, nu a bazei: baza rulează pe UTC, iar între
+  -- miezul nopții și ora 3 data UTC e încă cea de ieri — o rezervare făcută
+  -- la 1 noaptea pentru chiar acea noapte ar fi ratat regula.
+  -- Aceeași regulă e impusă și în JS, în liveReservationTotalOnline.
+  if (p_checkin at time zone 'Europe/Bucharest')::date
+     <> (now()     at time zone 'Europe/Bucharest')::date then
+    return v_baza;
+  end if;
+
   if not exists (select 1 from online_pricing_tiers) then return v_baza; end if;
 
   v_occ := occupancy_for_stay(p_checkin, p_checkout, null);

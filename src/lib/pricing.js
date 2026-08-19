@@ -70,6 +70,16 @@ export function onlinePriceAdjustmentPct(occPct, tiers) {
   return tier ? Number(tier.adjustmentPct) || 0 : 0;
 }
 
+/* Ziua calendaristica in ora Romaniei, ca "YYYY-MM-DD" (en-CA da exact
+   formatul ISO). Fixam fusul explicit fiindca "azi" trebuie sa insemne
+   acelasi lucru peste tot: in SQL, unde baza ruleaza pe UTC si intre
+   miezul noptii si ora 3 data UTC e inca cea de ieri, si in browser,
+   care ar folosi altfel fusul calculatorului. */
+const ziuaRomania = (d) => new Intl.DateTimeFormat("en-CA", {
+  timeZone: "Europe/Bucharest",
+  year: "numeric", month: "2-digit", day: "2-digit",
+}).format(new Date(d));
+
 /* Varianta de liveReservationTotal care mai aplica, DOAR pentru
    rezervarile facute de oaspete prin site-ul propriu de rezervari
    (source "site"), ajustarea procentuala din optimizatorul de pret pe
@@ -77,10 +87,19 @@ export function onlinePriceAdjustmentPct(occPct, tiers) {
    introduse manual de receptie (Direct/Telefon/Walk-in etc.), chiar
    daca sunt fara plata online — doar strict celor prin site. Booking.com/
    Airbnb nu pot primi preturi prin feedul iCal (doar disponibilitate),
-   asa ca nu sunt incluse aici. */
-export function liveReservationTotalOnline(res, core, reservations) {
+   asa ca nu sunt incluse aici.
+
+   Si numai pentru sosiri CHIAR AZI. Optimizatorul se uita la gradul de
+   ocupare de acum; pentru o data peste doua luni acela e aproape zero
+   indiferent de cerere, fiindca rezervarile nu s-au strans inca, iar
+   pragul cel mai de jos ar da o reducere nemeritata. E gandit ca parghie
+   de last-minute: cine cere o camera pentru la noapte plateste mai mult
+   sau mai putin dupa cat de plina e pensiunea in seara aceea.
+   Aceeasi regula e impusa si in SQL, in stay_total. */
+export function liveReservationTotalOnline(res, core, reservations, acum = new Date()) {
   const base = liveReservationTotal(res, core);
   if (res.source !== "site") return base;
+  if (ziuaRomania(res.checkin) !== ziuaRomania(acum)) return base;
   const tiers = core.onlinePricing;
   if (!tiers || !tiers.length) return base;
   const occPct = occupancyForStay(res.checkin, res.checkout, reservations, core.rooms.length, res.id);

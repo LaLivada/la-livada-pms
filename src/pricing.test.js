@@ -141,14 +141,33 @@ describe("liveReservationTotalOnline", () => {
     const res = { id: "a", roomId: "r1", checkin: "2026-08-18T15:00:00Z", checkout: "2026-08-19T11:00:00Z", adults: 2, children: 0, source: "direct" };
     expect(liveReservationTotalOnline(res, core, [res])).toBe(300);
   });
-  it("applies the online-pricing tier adjustment for source 'site'", () => {
-    const res = { id: "a", roomId: "r1", checkin: "2026-08-18T15:00:00Z", checkout: "2026-08-19T11:00:00Z", adults: 2, children: 0, status: "confirmed", source: "site" };
-    // occupancyForStay excludes the reservation being priced from the
-    // count (see its own comment) — need an *other* room occupied to get
-    // a non-zero occupancy: 1 of 2 rooms taken by someone else => 50%,
-    // which falls in the second tier (+20%).
-    const other = { id: "b", roomId: "r2", checkin: "2026-08-18T15:00:00Z", checkout: "2026-08-19T11:00:00Z", status: "confirmed" };
-    expect(liveReservationTotalOnline(res, core, [res, other])).toBe(360);
+  // Sosirea e 18 august, ora 18:00 in Romania (15:00 UTC). `acum` se da
+  // explicit, ca testele sa nu depinda de ziua in care ruleaza.
+  const res = { id: "a", roomId: "r1", checkin: "2026-08-18T15:00:00Z", checkout: "2026-08-19T11:00:00Z", adults: 2, children: 0, status: "confirmed", source: "site" };
+  // occupancyForStay exclude din numaratoare chiar rezervarea evaluata
+  // (vezi comentariul ei) — ca sa iasa ocupare nenula e nevoie de o alta
+  // camera ocupata: 1 din 2 => 50%, adica pragul al doilea (+20%).
+  const alta = { id: "b", roomId: "r2", checkin: "2026-08-18T15:00:00Z", checkout: "2026-08-19T11:00:00Z", status: "confirmed" };
+
+  it("applies the online-pricing tier adjustment for a stay starting today", () => {
+    const acum = new Date("2026-08-18T09:00:00Z"); // 18 aug, 12:00 in Romania
+    expect(liveReservationTotalOnline(res, core, [res, alta], acum)).toBe(360);
+  });
+
+  it("leaves the price untouched when the stay starts on any later day", () => {
+    // Aceeasi ocupare, aceeasi rezervare — doar ca azi e cu o zi inainte.
+    // Optimizatorul e o parghie de last-minute: fara regula asta, cine
+    // rezerva din timp ar primi ajustarea pe o ocupare inca nestransa.
+    const acum = new Date("2026-08-17T09:00:00Z");
+    expect(liveReservationTotalOnline(res, core, [res, alta], acum)).toBe(300);
+  });
+
+  it("treats 'today' in Romanian time, not UTC", () => {
+    // 17 aug 22:00 UTC = 18 aug, ora 1 noaptea in Romania. Cine cere o
+    // camera atunci pentru chiar acea noapte e last-minute; dupa data UTC
+    // ar fi parut ca rezerva pentru maine si ar fi ratat ajustarea.
+    const acum = new Date("2026-08-17T22:00:00Z");
+    expect(liveReservationTotalOnline(res, core, [res, alta], acum)).toBe(360);
   });
 });
 
