@@ -352,6 +352,17 @@ const STYLES = `
   .search-box input{ border:none; outline:none; background:none; font-size:var(--fs-md); width:100%; }
   .grow{ flex:1; }
 
+  /* Bara de filtre a facturilor: cautare + status + buton pe un rand.
+     Pe ecran ingust rândul se rupe controlat — cautarea ocupa toata
+     latimea, iar statusul si butonul raman impreuna dedesubt. */
+  .filtre-facturi .search-box{ max-width:none; flex:1 1 220px; }
+  .filtre-facturi .filtru-status{ flex:0 1 190px; min-width:150px; }
+  @media (max-width:560px){
+    .filtre-facturi .search-box{ flex-basis:100%; }
+    .filtre-facturi .filtru-status{ flex:1 1 auto; }
+    .filtre-facturi .badge-count{ flex-basis:100%; }
+  }
+
   /* ---------- Calendar grid ---------- */
   .cal-scroll{
     overflow:auto; border:1px solid var(--border); border-radius:var(--radius);
@@ -3971,6 +3982,44 @@ function OccupantStepper({ label, value, otherValue, capacity, min, onChange }) 
    rezervarii (bookedPrice/priceOverride) — dar NICIODATA daca acea
    linie e deja legata de o factura activa (invoiced_status='invoiced'),
    ca sa nu modificam retroactiv ceva deja facturat. */
+/* Emiterea unei facturi — draft -> emisa, cu alocarea numarului.
+ *
+ * Seria NU mai e scrisa in cod. Inainte se cerea "LIV", iar in baza seria
+ * configurata era "LL": next_invoice_number arunca "Serie de facturare
+ * inexistenta sau inactiva", deci emiterea esua de fiecare data. Seria e
+ * oricum configurabila din Setari, deci a o fixa in cod anula acel
+ * setting. Acum se citeste seria activa in momentul emiterii.
+ *
+ * Intoarce randul actualizat, sau null daca ceva a esuat (mesajul e deja
+ * aratat utilizatorului). Folosita si din folio, si din lista de facturi.
+ */
+async function emiteFactura(invoice) {
+  const { data: serii, error: serieErr } = await supabase
+    .from("invoice_series").select("series").eq("active", true).order("series").limit(1);
+  if (serieErr) {
+    toaster.show(mesajEroare(serieErr, "Nu am putut citi seria de facturare"), { tone: "danger" });
+    return null;
+  }
+  const serie = serii?.[0]?.series;
+  if (!serie) {
+    toaster.show("Nu există nicio serie de facturare activă. Configureaz-o în Financiar → Serii.", { tone: "danger" });
+    return null;
+  }
+
+  const { data: numRow, error: numErr } = await supabase.rpc("next_invoice_number", { p_series: serie });
+  if (numErr) { toaster.show(mesajEroare(numErr, "Nu am putut aloca numărul de factură"), { tone: "danger" }); return null; }
+  const { series, number } = Array.isArray(numRow) ? numRow[0] : numRow;
+
+  const { data: updated, error } = await supabase.from("invoices").update({
+    series, number, status: "issued", issue_date: new Date().toISOString(), issued_by: audit.user?.id || null,
+  }).eq("id", invoice.id).select().maybeSingle();
+  if (error) { toaster.show(mesajEroare(error, "Emiterea a eșuat"), { tone: "danger" }); return null; }
+
+  await audit.push("Factură emisă", `${series} ${number} · ${fmtMoney(invoice.total_amount)}`);
+  toaster.show(`Factura ${series} ${number} a fost emisă`, { tone: "ok" });
+  return updated;
+}
+
 async function ensureCazareLine(folio, items, reservation, core) {
   const existing = items.find((i) => i.category === "cazare");
   if (existing && existing.invoiced_status === "invoiced") return existing;
@@ -4100,15 +4149,8 @@ function FolioPanel({ reservation, core, updateCore, billingCustomerId, setBilli
   };
 
   const issueInvoice = async (invoice) => {
-    const { data: numRow, error: numErr } = await supabase.rpc("next_invoice_number", { p_series: "LIV" });
-    if (numErr) { toaster.show(mesajEroare(numErr, "Nu am putut aloca numărul de factură"), { tone: "danger" }); return; }
-    const { series, number } = Array.isArray(numRow) ? numRow[0] : numRow;
-    const { data: updated, error } = await supabase.from("invoices").update({
-      series, number, status: "issued", issue_date: new Date().toISOString(), issued_by: audit.user?.id || null,
-    }).eq("id", invoice.id).select().maybeSingle();
-    if (error) { toaster.show(mesajEroare(error, "Emiterea a eșuat"), { tone: "danger" }); return; }
-    setInvoices((prev) => prev.map((x) => (x.id === invoice.id ? updated : x)));
-    await audit.push("Factură emisă", `${series} ${number} · ${fmtMoney(invoice.total_amount)}`);
+    const updated = await emiteFactura(invoice);
+    if (updated) setInvoices((prev) => prev.map((x) => (x.id === invoice.id ? updated : x)));
   };
 
   const activeProducts = (core.products || []).filter((p) => p.active && p.category !== "cazare");
@@ -5716,6 +5758,9 @@ function ClientsView({ core, updateCore, groups, updateGroups, reservations, upd
   const [tab, setTab] = useState("guests");
   const [q, setQ] = useState("");
   const [modal, setModal] = useState(null); // { guest | null }
+  /* Butonul "Firmă nouă" sta in antetul comun al tab-urilor, dar
+     formularul apartine listei de firme — starea trece de aici acolo. */
+  const [firmModal, setFirmModal] = useState(null);
 
   const filtered = core.guests.filter((g) => {
     const t = q.toLowerCase();
@@ -5754,13 +5799,20 @@ function ClientsView({ core, updateCore, groups, updateGroups, reservations, upd
     });
   };
 
+  const firmCount = (core.billingCustomers || []).filter((c) => c.kind === "company").length;
+
   const header = (
     <div className="tabs-bar">
-      <SubTabs tab={tab} setTab={setTab} groupCount={groups.length} guestCount={core.guests.length} />
+      <SubTabs tab={tab} setTab={setTab} groupCount={groups.length}
+        guestCount={core.guests.length} firmCount={firmCount} />
       <div className="tabs-actions">
         {tab === "groups" ? (
           <button className="btn btn-primary" style={{ width: "auto" }} onClick={onNewGroup}>
             <UsersRound size={15} /> Grup nou
+          </button>
+        ) : tab === "firms" ? (
+          <button className="btn btn-primary" style={{ width: "auto" }} onClick={() => setFirmModal({ customer: null })}>
+            <Plus size={15} /> Firmă nouă
           </button>
         ) : (
           <button className="btn btn-primary" style={{ width: "auto" }} onClick={() => setModal({ guest: null })}>
@@ -5777,6 +5829,16 @@ function ClientsView({ core, updateCore, groups, updateGroups, reservations, upd
         {header}
         <GroupsView core={core} groups={groups} updateGroups={updateGroups}
           reservations={reservations} updateReservations={updateReservations} blocks={blocks} />
+      </div>
+    );
+  }
+
+  if (tab === "firms") {
+    return (
+      <div>
+        {header}
+        <FirmsView core={core} updateCore={updateCore} reservations={reservations}
+          modalExtern={firmModal} inchideModalExtern={() => setFirmModal(null)} />
       </div>
     );
   }
@@ -5834,6 +5896,248 @@ function ClientsView({ core, updateCore, groups, updateGroups, reservations, upd
         <GuestHistory guest={historyGuest} core={core} reservations={reservations} onClose={() => setHistoryGuest(null)} />
       )}
     </div>
+  );
+}
+
+/* ---------------------------------------------------------------
+   FIRME — clientii de facturare de tip companie.
+   Traiesc in `billing_customers`, acelasi tabel cu persoanele fizice
+   catre care se factureaza; aici se vad doar cele cu kind='company'.
+   Se creau pana acum doar din interiorul unei rezervari, deci nu exista
+   niciun loc unde sa fie vazute toate la un loc, editate sau sterse.
+----------------------------------------------------------------*/
+function FirmsView({ core, updateCore, reservations, modalExtern, inchideModalExtern }) {
+  const [q, setQ] = useState("");
+  const [modalIntern, setModalIntern] = useState(null); // { customer } | null
+  const [istoric, setIstoric] = useState(null);         // firma pentru care aratam istoricul
+
+  /* Formularul se poate deschide din doua locuri: butonul "Firmă nouă"
+     din antetul tab-urilor (care traieste in ClientsView) si creionul de
+     pe fiecare rand. */
+  const modal = modalIntern || modalExtern;
+  const setModal = (v) => { setModalIntern(v); if (!v) inchideModalExtern?.(); };
+
+  const firme = (core.billingCustomers || []).filter((c) => c.kind === "company");
+  const filtrate = firme.filter((c) => {
+    const t = q.trim().toLowerCase();
+    if (!t) return true;
+    return [c.companyName, c.cui, c.regCom, c.city, c.contactName, c.email, c.phone]
+      .filter(Boolean).join(" ").toLowerCase().includes(t);
+  });
+
+  const save = async (customer) => {
+    const exista = (core.billingCustomers || []).some((c) => c.id === customer.id);
+    const next = exista
+      ? core.billingCustomers.map((c) => (c.id === customer.id ? customer : c))
+      : [...(core.billingCustomers || []), customer];
+    await updateCore({ ...core, billingCustomers: next });
+    await audit.push(exista ? "Firmă modificată" : "Firmă adăugată", billingCustomerLabel(customer));
+    setModal(null);
+  };
+
+  /* Stergerea e blocata daca firma e folosita undeva. Baza refuza oricum
+     (invoices.billing_customer_id are on delete restrict), dar un mesaj
+     clar e mai util decat o eroare de constrangere. */
+  const remove = async (firma) => {
+    const areRezervari = reservations.some((r) => r.billingCustomerId === firma.id);
+    if (areRezervari) {
+      toaster.show(
+        `${billingCustomerLabel(firma)} e folosită pe rezervări și nu poate fi ștearsă. Schimbă întâi clientul de facturare pe acele rezervări.`,
+        { tone: "danger" });
+      return;
+    }
+    const { count, error } = await supabase
+      .from("invoices").select("id", { count: "exact", head: true }).eq("billing_customer_id", firma.id);
+    if (error) { toaster.show(mesajEroare(error, "Nu am putut verifica facturile firmei"), { tone: "danger" }); return; }
+    if (count > 0) {
+      toaster.show(
+        `${billingCustomerLabel(firma)} are ${count} ${count === 1 ? "factură emisă" : "facturi emise"} și nu poate fi ștearsă — facturile trebuie păstrate.`,
+        { tone: "danger" });
+      return;
+    }
+
+    const before = core.billingCustomers;
+    await updateCore({ ...core, billingCustomers: firme.length
+      ? core.billingCustomers.filter((c) => c.id !== firma.id) : [] });
+    await audit.push("Firmă ștearsă", billingCustomerLabel(firma));
+    toaster.show(`${billingCustomerLabel(firma)} a fost ștearsă`, {
+      tone: "danger",
+      onUndo: async () => {
+        await updateCore({ ...core, billingCustomers: before });
+        await audit.push("Ștergere anulată", billingCustomerLabel(firma));
+      },
+    });
+  };
+
+  return (
+    <div>
+      <div className="toolbar">
+        <div className="search-box">
+          <Search size={15} color="var(--text-muted)" />
+          <input placeholder="Caută după denumire, CUI sau oraș" value={q}
+            onChange={(e) => setQ(e.target.value)} aria-label="Caută firme" />
+        </div>
+        <span className="badge-count">{filtrate.length} {filtrate.length === 1 ? "firmă" : "firme"}</span>
+      </div>
+
+      <div className="panel">
+        {filtrate.length === 0 ? (
+          <div className="empty-state">
+            <Receipt size={26} />
+            <h4>{firme.length ? "Nicio firmă găsită" : "Nicio firmă"}</h4>
+            <p>{firme.length
+              ? "Încearcă alt termen de căutare."
+              : "Firmele se adaugă de aici sau direct dintr-o rezervare, la „Facturare către”."}</p>
+          </div>
+        ) : filtrate.map((c) => {
+          const rezervari = reservations.filter((r) => r.billingCustomerId === c.id);
+          return (
+            <div className="list-row" key={c.id}>
+              <div
+                role="button" tabIndex={0} style={{ cursor: "pointer", minWidth: 0 }}
+                onClick={() => setIstoric(c)}
+                onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setIstoric(c); } }}
+              >
+                <div className="primary">{c.companyName}</div>
+                <div className="secondary">
+                  {[c.cui ? `CUI ${c.cui}` : null, c.regCom, [c.city, c.county].filter(Boolean).join(", ")]
+                    .filter(Boolean).join(" · ")}
+                </div>
+                {(c.contactName || c.phone || c.email) && (
+                  <div className="secondary">
+                    {[c.contactName, c.phone, c.email].filter(Boolean).join(" · ")}
+                  </div>
+                )}
+                {rezervari.length > 0 && (
+                  <div className="secondary" style={{ marginTop: 3 }}>
+                    <strong>{rezervari.length}</strong> {rezervari.length === 1 ? "rezervare" : "rezervări"} facturate către firmă
+                  </div>
+                )}
+              </div>
+              <div className="row-actions">
+                <button className="icon-btn" title="Istoric" aria-label={`Istoric ${billingCustomerLabel(c)}`}
+                  onClick={() => setIstoric(c)}><History size={14} /></button>
+                <button className="icon-btn" aria-label={`Editează ${billingCustomerLabel(c)}`}
+                  onClick={() => setModal({ customer: c })}><Pencil size={14} /></button>
+                <button className="icon-btn" aria-label={`Șterge ${billingCustomerLabel(c)}`}
+                  onClick={() => remove(c)}><Trash2 size={14} /></button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {modal && (
+        <BillingCustomerModal
+          customer={modal.customer}
+          existingCustomers={core.billingCustomers || []}
+          onSave={save}
+          onClose={() => setModal(null)}
+        />
+      )}
+      {istoric && (
+        <FirmHistory firma={istoric} core={core} reservations={reservations} onClose={() => setIstoric(null)} />
+      )}
+    </div>
+  );
+}
+
+/* Istoricul unei firme: rezervarile facturate catre ea si facturile
+   emise pe numele ei. Facturile se citesc la deschidere — nu sunt in
+   `core`, care tine doar ce e nevoie la pornirea aplicatiei. */
+function FirmHistory({ firma, core, reservations, onClose }) {
+  useModalLock();
+  const [facturi, setFacturi] = useState(null);
+  const [eroare, setEroare] = useState("");
+
+  useEffect(() => {
+    let activ = true;
+    (async () => {
+      const { data, error } = await supabase.from("invoices")
+        .select("*").eq("billing_customer_id", firma.id).order("created_at", { ascending: false });
+      if (!activ) return;
+      if (error) { setEroare(mesajEroare(error, "Nu am putut încărca facturile")); return; }
+      setFacturi(data || []);
+    })();
+    return () => { activ = false; };
+  }, [firma.id]);
+
+  const rezervari = reservations
+    .filter((r) => r.billingCustomerId === firma.id)
+    .sort((a, b) => new Date(b.checkin) - new Date(a.checkin));
+
+  const totalFacturat = (facturi || []).reduce((s, f) => s + Number(f.total_amount), 0);
+  const totalIncasat = (facturi || []).reduce((s, f) => s + Number(f.paid_amount), 0);
+
+  return (
+    <Dialog onClose={onClose} title={firma.companyName}>
+      <div className="note" style={{ marginBottom: 14 }}>
+        {[firma.cui ? `CUI ${firma.cui}` : null, firma.regCom,
+          [firma.address, firma.city, firma.county, firma.country].filter(Boolean).join(", ")]
+          .filter(Boolean).join(" · ")}
+      </div>
+
+      {facturi !== null && facturi.length > 0 && (
+        <div className="stat-row" style={{ marginBottom: 14 }}>
+          <Stat label="Facturi" value={facturi.length} />
+          <Stat label="Total facturat" value={fmtMoney(totalFacturat)} />
+          <Stat label="Încasat" value={fmtMoney(totalIncasat)} />
+        </div>
+      )}
+
+      <label className="field"><span className="fl">Rezervări facturate către firmă</span></label>
+      {rezervari.length === 0 ? (
+        <div className="note">Nicio rezervare facturată către această firmă.</div>
+      ) : (
+        <div className="panel" style={{ marginBottom: 16 }}>
+          {rezervari.map((r) => {
+            const camera = core.rooms.find((x) => x.id === r.roomId);
+            return (
+              <div className="list-row" key={r.id}>
+                <div style={{ minWidth: 0 }}>
+                  <div className="primary">{occupantName(r, core, []) || guestFullName(core.guests.find((g) => g.id === r.guestId)) || "Fără nume"}</div>
+                  <div className="secondary">
+                    <span className="mono">{camera?.name || r.roomId}</span> · {fmtDate(r.checkin)} → {fmtDate(r.checkout)}
+                  </div>
+                </div>
+                <span className="mono" style={{ fontWeight: 650 }}>{fmtMoney(reservationTotal(r, core))}</span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      <label className="field"><span className="fl">Facturi emise</span></label>
+      {eroare ? (
+        <div className="note" style={{ color: "var(--danger)" }}>{eroare}</div>
+      ) : facturi === null ? (
+        <div className="note">Se încarcă…</div>
+      ) : facturi.length === 0 ? (
+        <div className="note">Nicio factură emisă pe această firmă.</div>
+      ) : (
+        <div className="panel">
+          {facturi.map((f) => (
+            <div className="list-row" key={f.id}>
+              <div style={{ minWidth: 0 }}>
+                <div className="primary">
+                  {f.series ? `${f.series} ${f.number}` : "Draft"}
+                  <span className={"role-tag " + INVOICE_STATUS_CLASS[f.status]} style={{ marginLeft: 8 }}>
+                    {INVOICE_STATUS_LABEL[f.status]}
+                  </span>
+                </div>
+                <div className="secondary">{f.issue_date ? fmtDateFull(f.issue_date) : "neemisă"}</div>
+              </div>
+              <span className="mono" style={{ fontWeight: 650 }}>{fmtMoney(f.total_amount)}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="modal-actions">
+        <div className="grow" />
+        <button className="btn btn-ghost" onClick={onClose}>Închide</button>
+      </div>
+    </Dialog>
   );
 }
 
@@ -6206,11 +6510,14 @@ function GuestHistory({ guest, core, reservations, onClose }) {
   );
 }
 
-function SubTabs({ tab, setTab, guestCount, groupCount }) {
+function SubTabs({ tab, setTab, guestCount, groupCount, firmCount }) {
   return (
     <div className="sub-tabs">
       <button className={tab === "guests" ? "on" : ""} onClick={() => setTab("guests")}>
         <Users size={14} /> Oaspeți <span className="tab-count">{guestCount}</span>
+      </button>
+      <button className={tab === "firms" ? "on" : ""} onClick={() => setTab("firms")}>
+        <Receipt size={14} /> Firme <span className="tab-count">{firmCount}</span>
       </button>
       <button className={tab === "groups" ? "on" : ""} onClick={() => setTab("groups")}>
         <UsersRound size={14} /> Grupuri <span className="tab-count">{groupCount}</span>
@@ -6911,8 +7218,13 @@ function InvoicesListView({ core }) {
   const [invoices, setInvoices] = useState(null);
   const [loadError, setLoadError] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  /* Doua stari pentru cautare: ce se tasteaza (`search`) si ce s-a cerut
+     efectiv (`searchAplicat`). Filtrarea foloseste a doua, ca lista sa nu
+     se schimbe sub degete la fiecare litera — de aici si butonul. */
   const [search, setSearch] = useState("");
+  const [searchAplicat, setSearchAplicat] = useState("");
   const [printInvoiceId, setPrintInvoiceId] = useState(null);
+  const [emitId, setEmitId] = useState(null);
 
   const load = useCallback(async () => {
     const { data, error } = await supabase.from("invoices").select("*").order("created_at", { ascending: false });
@@ -6929,12 +7241,25 @@ function InvoicesListView({ core }) {
 
   const filtered = (invoices || []).filter((inv) => {
     if (statusFilter !== "all" && inv.status !== statusFilter) return false;
-    if (search) {
+    if (searchAplicat) {
       const hay = `${inv.series || ""} ${inv.number || ""} ${customerLabel(inv.billing_customer_id)}`.toLowerCase();
-      if (!hay.includes(search.toLowerCase())) return false;
+      if (!hay.includes(searchAplicat.toLowerCase())) return false;
     }
     return true;
   });
+
+  /* Emiterea consuma un numar din serie si e ireversibila, deci cerem o
+     confirmare explicita inainte — spre deosebire de folio, unde butonul
+     e in contextul unei singure rezervari pe care tocmai o lucrezi. */
+  const emite = async (inv) => {
+    setEmitId(inv.id);
+    try {
+      const updated = await emiteFactura(inv);
+      if (updated) setInvoices((prev) => prev.map((x) => (x.id === inv.id ? updated : x)));
+    } finally {
+      setEmitId(null);
+    }
+  };
 
   const totals = filtered.reduce((s, inv) => ({
     total: s.total + Number(inv.total_amount), paid: s.paid + Number(inv.paid_amount),
@@ -6942,14 +7267,36 @@ function InvoicesListView({ core }) {
 
   return (
     <div>
-      <div className="toolbar">
-        <input placeholder="Caută serie/număr/client…" value={search} onChange={(e) => setSearch(e.target.value)} style={{ maxWidth: 260 }} />
-        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} style={{ maxWidth: 200 }}>
+      {/* Căutarea, statusul și butonul stau pe un singur rând; pe ecran
+          îngust rândul se rupe controlat, fără să se împrăștie. */}
+      <div className="toolbar filtre-facturi">
+        <div className="search-box">
+          <Search size={15} color="var(--text-muted)" />
+          <input
+            placeholder="Caută serie, număr sau client…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") setSearchAplicat(search.trim()); }}
+            aria-label="Caută facturi"
+          />
+          {search && (
+            <button type="button" className="icon-btn" aria-label="Golește căutarea"
+              onClick={() => { setSearch(""); setSearchAplicat(""); }}>
+              <X size={14} />
+            </button>
+          )}
+        </div>
+        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}
+          aria-label="Filtrează după status" className="filtru-status">
           <option value="all">Toate statusurile</option>
           {Object.keys(INVOICE_STATUS_LABEL).map((s) => (
             <option key={s} value={s}>{INVOICE_STATUS_LABEL[s]}</option>
           ))}
         </select>
+        <button type="button" className="btn btn-primary" style={{ width: "auto" }}
+          onClick={() => setSearchAplicat(search.trim())}>
+          <Search size={15} /> Caută
+        </button>
         <div className="grow" />
         <span className="badge-count">{filtered.length} facturi · {fmtMoney(totals.total)} · încasat {fmtMoney(totals.paid)}</span>
       </div>
@@ -6976,6 +7323,15 @@ function InvoicesListView({ core }) {
               </div>
               <div className="row-actions" style={{ gap: 10 }}>
                 <span className="mono" style={{ fontWeight: 650 }}>{fmtMoney(inv.total_amount)}</span>
+                {/* Transformarea draftului in factura: aloca serie+numar.
+                    Vizibila doar pe draft-uri si doar cu permisiunea
+                    corespunzatoare — RLS o impune oricum si in baza. */}
+                {inv.status === "draft" && canBilling("issue_invoice") && (
+                  <button className="btn btn-primary" style={{ width: "auto", padding: "8px 12px" }}
+                    onClick={() => emite(inv)} disabled={emitId === inv.id}>
+                    <Receipt size={14} /> {emitId === inv.id ? "Se emite…" : "Emite factura"}
+                  </button>
+                )}
                 <button className="icon-btn" onClick={() => setPrintInvoiceId(inv.id)} aria-label="Vezi factura">
                   <Eye size={14} />
                 </button>
