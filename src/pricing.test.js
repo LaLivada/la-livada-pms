@@ -236,6 +236,17 @@ describe("round2", () => {
     expect(round2("nu-i numar")).toBe(0);
     expect(round2(undefined)).toBe(0);
   });
+  it("survives an object that cannot be converted to a primitive at all", () => {
+    // `Number({toString: null})` arunca TypeError: obiectul nu are nici
+    // valueOf nici toString apelabile. Contraexemplu gasit de testele de
+    // proprietate, dar doar in CI — fast-check schimba seed-ul la fiecare
+    // rulare, deci local trecuse de zeci de ori. Fixat aici determinist,
+    // ca sa nu mai depinda de noroc.
+    const otrava = { toString: null };
+    expect(round2(otrava)).toBe(0);
+    expect(splitEvenly(100, otrava)).toEqual([100]);
+    expect(calcAmounts(otrava, 1, 21)).toEqual({ totalAmount: 0, netAmount: 0, vatAmount: 0 });
+  });
 });
 
 describe("splitEvenly", () => {
