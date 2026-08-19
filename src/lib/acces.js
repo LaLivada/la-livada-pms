@@ -83,3 +83,42 @@ export function decideActiuneAcces(inainte, dupa) {
 
   return (altaCamera || altaPerioada) ? "reissue" : null;
 }
+
+/* Genereaza un cod PIN.
+ *
+ * LUNGIMEA E O SETARE, nu o constanta: documentatia oficiala TTLock nu
+ * impune nicio lungime pentru `keyboardPwd`, iar sursele neoficiale se
+ * contrazic (unele spun 4-9 cifre, altele ca un cod ales de tine trebuie sa
+ * aiba 6-9). Nici lock/detail nu raporteaza lungimea acceptata — singurul
+ * camp inrudit, `specialValue`, e o masca de functii nedocumentata.
+ * Deci adevarul se afla doar incercand pe o yala reala; pana atunci nu
+ * hardcodam nimic si lasam yala sa refuze, cu eroarea ei cu tot.
+ *
+ * De retinut la 4 cifre: 10.000 de combinatii, fata de 1.000.000 la 6.
+ * Pentru un cod valabil cateva zile pe o usa, diferenta e reala.
+ *
+ * `aleator` se poate inlocui in teste; implicit e generatorul criptografic.
+ * Math.random n-are ce cauta intr-un cod care deschide o usa. */
+export function genereazaCodPin(lungime = 6, aleator = globalThis.crypto) {
+  if (!Number.isInteger(lungime) || lungime < 4 || lungime > 9) {
+    throw new Error("Lungimea codului trebuie să fie un întreg între 4 și 9 cifre.");
+  }
+  const cifre = [];
+  const octet = new Uint8Array(1);
+  while (cifre.length < lungime) {
+    aleator.getRandomValues(octet);
+    /* Respingem 250-255. Fara asta, `octet % 10` ar face cifrele 0-5 sa
+       apara mai des decat 6-9 — o partinire mica, dar gratuita intr-un cod
+       de acces. 250 e multiplu de 10, deci restul e uniform. */
+    if (octet[0] >= 250) continue;
+    cifre.push(octet[0] % 10);
+  }
+  return cifre.join("");
+}
+
+/* Lungimea configurata, curatata: orice valoare aiurea din setari cade
+   inapoi pe 6, nu arunca in mijlocul unui check-in. */
+export function lungimeCod(setari) {
+  const n = Number(setari?.codeLength);
+  return Number.isInteger(n) && n >= 4 && n <= 9 ? n : 6;
+}

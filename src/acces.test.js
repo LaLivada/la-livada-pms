@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   laOraLocala, expirareCod, randeazaSablon, decideActiuneAcces, decalajFus,
+  genereazaCodPin, lungimeCod,
 } from "./lib/acces.js";
 
 /* Ora locala se citeste inapoi in fusul hotelului, nu in cel al masinii pe
@@ -127,5 +128,66 @@ describe("cand trebuie resincronizat codul", () => {
   it("nu decide nimic fara ambele stari", () => {
     expect(decideActiuneAcces(null, baza)).toBe(null);
     expect(decideActiuneAcces(baza, null)).toBe(null);
+  });
+});
+
+describe("generarea codului PIN", () => {
+  it("respectă lungimea cerută", () => {
+    for (const n of [4, 5, 6, 8, 9]) {
+      expect(genereazaCodPin(n)).toHaveLength(n);
+    }
+  });
+
+  it("întoarce doar cifre, inclusiv cu zerouri în față", () => {
+    for (let i = 0; i < 200; i++) {
+      expect(genereazaCodPin(4)).toMatch(/^\d{4}$/);
+    }
+  });
+
+  it("refuză lungimi imposibile în loc să producă un cod slab", () => {
+    // Un cod de 3 cifre ar avea 1000 de combinații. Mai bine o eroare
+    // clară decât o ușă care se deschide din a treia încercare.
+    expect(() => genereazaCodPin(3)).toThrow();
+    expect(() => genereazaCodPin(10)).toThrow();
+    expect(() => genereazaCodPin(4.5)).toThrow();
+  });
+
+  it("nu favorizează cifrele mici — respinge octeții de peste 249", () => {
+    /* Generator fals care întoarce 250: dacă respingerea n-ar exista,
+       250 % 10 = 0 ar produce un cod din zerouri. Trebuie să continue
+       până primește un octet valid. */
+    let apeluri = 0;
+    const fals = {
+      getRandomValues(buf) {
+        apeluri++;
+        buf[0] = apeluri <= 3 ? 250 : 7;   // trei respinse, apoi cifra 7
+        return buf;
+      },
+    };
+    expect(genereazaCodPin(4, fals)).toBe("7777");
+    expect(apeluri).toBe(7);               // 3 respinse + 4 acceptate
+  });
+
+  it("toate cifrele apar, pe un eșantion mare", () => {
+    // Verificare grosieră că nu s-a blocat pe o submulțime de cifre.
+    const vazute = new Set();
+    for (let i = 0; i < 500; i++) {
+      for (const c of genereazaCodPin(6)) vazute.add(c);
+    }
+    expect(vazute.size).toBe(10);
+  });
+});
+
+describe("lungimea codului din setări", () => {
+  it("ia valoarea configurată când e validă", () => {
+    expect(lungimeCod({ codeLength: 4 })).toBe(4);
+    expect(lungimeCod({ codeLength: 9 })).toBe(9);
+  });
+  it("cade pe 6 pentru orice altceva, fără să arunce", () => {
+    // Un check-in nu are voie să cadă fiindcă cineva a scris prostii în setări.
+    for (const v of [undefined, null, 0, 3, 10, "patru", NaN, 6.5, {}]) {
+      expect(lungimeCod({ codeLength: v })).toBe(6);
+    }
+    expect(lungimeCod(undefined)).toBe(6);
   });
 });

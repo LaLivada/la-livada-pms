@@ -27,7 +27,8 @@ import * as ttlock from "./providers/ttlock.ts";
 /* Logica pura (fus orar, sablon) sta in src/lib/acces.js, ca sa aiba o
    singura copie si sa fie testata cu vitest — vezi src/acces.test.js.
    Aici nu se rescrie, se importa. */
-import { laOraLocala, expirareCod, randeazaSablon, FUS_HOTEL } from "../../../src/lib/acces.js";
+import { laOraLocala, expirareCod, randeazaSablon, genereazaCodPin, lungimeCod, FUS_HOTEL }
+  from "../../../src/lib/acces.js";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY  = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -56,6 +57,7 @@ async function setari(admin: any) {
     oraPlecare:    Number.isFinite(s.checkoutHour)    ? s.checkoutHour    : 11,
     minutePlecare: Number.isFinite(s.checkoutMinute)  ? s.checkoutMinute  : 0,
     grateMinute:   Number.isFinite(s.graceMinutes)    ? s.graceMinutes    : 30,
+    codeLength:    s.codeLength,
     numeHotel:     s.hotelName || "Complex La Livada",
     sablon:        s.messageTemplate || SABLON_IMPLICIT,
   };
@@ -199,7 +201,12 @@ Deno.serve(async (req) => {
           .eq("id", existent.id);
       }
 
-      const nou = await ttlock.creeazaCod(cam.access_lock_id, de, pana, `Rezervare ${rez.id}`);
+      /* Lungimea vine din setari (implicit 6). TTLock nu documenteaza ce
+         lungimi accepta o yala, deci nu presupunem: daca refuza, eroarea ei
+         ajunge la receptie asa cum e. */
+      const nou = await ttlock.creeazaCod(
+        cam.access_lock_id, de, pana, `Rezervare ${rez.id}`,
+        genereazaCodPin(lungimeCod(s)));
 
       const rand = {
         id: `ac-${crypto.randomUUID().slice(0, 12)}`,

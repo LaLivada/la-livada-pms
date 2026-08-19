@@ -131,17 +131,17 @@ export interface CodNou { code: string; externalId: string }
 
 /* Creează un cod valabil într-un interval.
  *
- * Codul îl alegem noi — de aceea `add` și nu `get`. Îl generăm criptografic,
- * nu cu Math.random: un cod care deschide o ușă nu se ia dintr-un generator
- * previzibil. Șase cifre e formatul obișnuit al tastaturilor TTLock. */
+ * Codul vine de la apelant — de aceea `add` și nu `get`. Generarea și
+ * lungimea lui stau în src/lib/acces.js, unde sunt testate; adaptorul doar
+ * îl trimite mai departe.
+ *
+ * Documentația TTLock NU spune ce lungimi acceptă o yală, iar lock/detail
+ * nu raportează asta. Dacă yala refuză lungimea aleasă, eroarea ei ajunge
+ * nemodificată la recepție: adevărul se află doar încercând. */
 export async function creeazaCod(
-  lockId: string, de: Date, pana: Date, nume: string,
+  lockId: string, de: Date, pana: Date, nume: string, cod: string,
 ): Promise<CodNou> {
   const accessToken = await acces();
-
-  const octeti = new Uint32Array(1);
-  crypto.getRandomValues(octeti);
-  const cod = String(octeti[0] % 1_000_000).padStart(6, "0");
 
   const d = await cere("/v3/keyboardPwd/add", {
     clientId: CLIENT_ID, accessToken,
