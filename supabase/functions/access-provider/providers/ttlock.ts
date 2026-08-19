@@ -107,6 +107,32 @@ async function acces(): Promise<string> {
        mesajul lor nu spune asta — de aici pierdem altfel o ora. */
     const pareRegiune = /invalid[ _]?client|client.*(not exist|invalid)/i.test(brut);
 
+    /* Inainte de regiuni: incercam cu client_id si client_secret inversate.
+       Ambele au 32 de caractere hexazecimale si arata identic, deci e o
+       greseala usor de facut si imposibil de vazut din digestul afisat de
+       Supabase. Daca asa merge, o spunem raspicat — e mult mai probabil
+       decat o problema de regiune. */
+    if (pareRegiune && CLIENT_ID && CLIENT_SECRET) {
+      try {
+        const t = await fetch(`${BAZA}/oauth2/token`, {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body: new URLSearchParams({
+            client_id: CLIENT_SECRET, client_secret: CLIENT_ID,
+            username: USERNAME, password: PASSWORD_MD5,
+          }),
+        });
+        const d = await t.json().catch(() => null);
+        if (d?.access_token) {
+          throw new EroareTTLock(
+            "Valorile sunt inversate: ce e pus in TTLOCK_CLIENT_ID e de fapt "
+            + "secretul, si invers. Schimba-le intre ele in Edge Functions Secrets.");
+        }
+      } catch (e) {
+        if (e instanceof EroareTTLock) throw e;
+      }
+    }
+
     /* Nu-l punem pe om sa ghiceasca regiunea: avem credentialele, deci
        incercam si celelalte gazde si ii spunem exact care raspunde. Se
        intampla DOAR pe esec, deci nu incetineste cazul normal. */
@@ -160,9 +186,13 @@ async function acces(): Promise<string> {
       ? `${CLIENT_SECRET.slice(0, 3)}…${CLIENT_SECRET.slice(-3)}`
       : "(prea scurt)";
 
+    const formaSecret = /^[0-9a-f]{32}$/.test(CLIENT_SECRET) ? "32 hex mici"
+      : /^[0-9a-fA-F]{32}$/.test(CLIENT_SECRET) ? "32 hex DAR CU MAJUSCULE"
+      : `${CLIENT_SECRET.length} caractere, nu 32 hexazecimale`;
+
     const amprenta =
       `client_id=${CLIENT_ID || "(gol)"}, `
-      + `client_secret=${masca} (${CLIENT_SECRET.length} caractere), `
+      + `client_secret=${masca} (${formaSecret}), `
       + `user=${USERNAME || "(gol)"}, `
       + `parolă md5 ${md5Valid ? "în formatul corect" : `NEVALIDĂ (${PASSWORD_MD5.length} caractere, trebuie 32 hexazecimale mici)`}`;
 
