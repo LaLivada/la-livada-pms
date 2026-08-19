@@ -618,24 +618,31 @@ const STYLES = `
     padding-top:max(24px, env(safe-area-inset-top));
     box-sizing:border-box;
   }
+  /* CARDUL umple ecranul pana jos, inclusiv zona de sub tastatura.
+     Incercarea anterioara — sa-l ridicam exact deasupra tastaturii,
+     folosind o inaltime calculata in JS — lasa mereu o banda in care se
+     vedea pagina, fiindca metrica din JS si cea folosita de CSS pentru
+     position:fixed nu coincid pe iOS (bara flotanta de adresa a lui
+     Safari intra la mijloc). Nu mai calculam nimic: cardul coboara pana
+     la marginea ecranului, deci nu mai exista banda.
+     Partea de jos ramane sub tastatura, dar nu deranjeaza: campul in
+     care se scrie e derulat automat deasupra ei (vezi scroll-padding-
+     bottom mai jos si handler-ul de focus din Dialog). */
   .modal{
     background:var(--surface); width:100%; max-width:500px; border-radius:var(--r-xl) 20px 0 0;
     /* scadem un spatiu fix, nu doar un procent — garanteaza un gol vizibil
        sus indiferent cat de mare/mica iese metrica de inaltime folosita */
     max-height:calc(100vh - 48px); max-height:calc(100dvh - 48px);
-    max-height:calc(var(--vvh, 100dvh) - 48px);
-    /* CARDUL, in schimb, chiar trebuie sa se fereasca de tastatura: --vvb
-       e inaltimea zonei acoperite de ea, masurata in measureVisualViewport.
-       Fara asta, campul in care se scrie ramane sub tastatura. */
-    margin-bottom:var(--vvb, 0px);
     overflow-y:auto; overscroll-behavior:contain;
     -webkit-overflow-scrolling:touch;
+    /* Rezerva de jos la derulare: cand ceva e adus in vizor, browserul
+       lasa liber cat ocupa tastatura, deci elementul nu ajunge sub ea. */
+    scroll-padding-bottom:calc(var(--vvb, 0px) + 24px);
     padding:22px 22px calc(22px + env(safe-area-inset-bottom));
     animation:slideup .2s cubic-bezier(.2,.8,.2,1); box-shadow:var(--shadow-lg);
-    transition:margin-bottom .15s ease-out;
   }
   @media (prefers-reduced-motion: reduce){
-    .modal{ transition:none; animation:none; }
+    .modal{ animation:none; }
   }
   .modal-head{
     position:sticky; top:-22px; background:var(--surface); z-index:3;
@@ -2099,6 +2106,20 @@ function Dialog({ title, onClose, children, className = "", overlayClassName = "
     };
   }, []);
 
+  /* Cardul coboara pana la marginea ecranului, deci partea lui de jos sta
+     sub tastatura. Ca sa nu scrii "orbeste", campul care primeste focus e
+     adus in vizor; `scroll-padding-bottom` de pe .modal (calculat din
+     --vvb) face ca browserul sa lase liber exact cat ocupa tastatura.
+     Intarzierea asteapta animatia de deschidere a tastaturii — fara ea,
+     derularea se calculeaza pe inaltimea de dinainte si ramane scurta. */
+  const laFocus = (e) => {
+    const camp = e.target;
+    if (!camp?.matches?.("input, textarea, select")) return;
+    setTimeout(() => {
+      camp.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    }, 250);
+  };
+
   const onKeyDown = (e) => {
     if (e.key === "Escape") { e.stopPropagation(); onClose?.(); return; }
     if (e.key !== "Tab") return;
@@ -2122,6 +2143,7 @@ function Dialog({ title, onClose, children, className = "", overlayClassName = "
         className={"modal " + className}
         onClick={(e) => e.stopPropagation()}
         onKeyDown={onKeyDown}
+        onFocus={laFocus}
       >
         {title !== undefined && (
           <div className="modal-head">
