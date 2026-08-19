@@ -1381,10 +1381,33 @@ grant execute on function available_rooms(timestamptz, timestamptz, int) to anon
 grant execute on function create_booking(text, timestamptz, timestamptz, text, text,
   text, text, text, text, text, int, int, text) to anon;
 
--- Calculul de preț NU e expus public — se apelează doar din interiorul
--- funcțiilor de mai sus.
-revoke execute on function stay_total(text, timestamptz, timestamptz) from anon;
-revoke execute on function nightly_rate(text, date) from anon;
+-- Restul funcțiilor NU sunt expuse public.
+--
+-- ATENȚIE la felul în care se revocă: Postgres acordă implicit EXECUTE
+-- către PUBLIC pentru orice funcție nouă, iar Supabase mai adaugă și un
+-- grant nominal către `anon`. Un simplu `revoke ... from anon` nu are
+-- niciun efect cât timp grantul către PUBLIC rămâne — rolul îl
+-- moștenește pe acolo. Trebuie revocate amândouă, apoi acordat explicit
+-- rolurilor care chiar au nevoie.
+--
+-- Versiunea anterioară a acestui fișier revoca doar de la `anon`, deci
+-- comentariul de aici („nu e expus public") descria o intenție care nu
+-- era de fapt aplicată. Descoperit de testele din tests/integration.
+revoke execute on function stay_total(text, timestamptz, timestamptz) from public, anon;
+revoke execute on function nightly_rate(text, date)                   from public, anon;
+revoke execute on function is_admin()                                 from public, anon;
+revoke execute on function has_billing_permission(text)               from public, anon;
+revoke execute on function staff_role()                               from public, anon;
+revoke execute on function next_invoice_number(text)                  from public, anon;
+revoke execute on function next_receipt_number(text)                  from public, anon;
+
+grant execute on function stay_total(text, timestamptz, timestamptz) to authenticated, service_role;
+grant execute on function nightly_rate(text, date)                   to authenticated, service_role;
+grant execute on function is_admin()                                 to authenticated, service_role;
+grant execute on function has_billing_permission(text)               to authenticated, service_role;
+grant execute on function staff_role()                               to authenticated, service_role;
+grant execute on function next_invoice_number(text)                  to authenticated, service_role;
+grant execute on function next_receipt_number(text)                  to authenticated, service_role;
 
 -- Implicit, Supabase acordă rolului `anon` drepturi complete de tabel
 -- (INSERT/SELECT/UPDATE/DELETE) pe tot ce se creează în `public`. Azi
