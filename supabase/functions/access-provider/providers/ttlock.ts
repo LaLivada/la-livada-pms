@@ -30,10 +30,14 @@
    regiuni să nu ceară recompilare. */
 const BAZA = Deno.env.get("TTLOCK_API_BASE") || "https://euapi.ttlock.com";
 
-const CLIENT_ID     = Deno.env.get("TTLOCK_CLIENT_ID") || "";
-const CLIENT_SECRET = Deno.env.get("TTLOCK_CLIENT_SECRET") || "";
-const USERNAME      = Deno.env.get("TTLOCK_USERNAME") || "";
-const PASSWORD_MD5  = Deno.env.get("TTLOCK_PASSWORD_MD5") || "";
+/* `.trim()` peste tot: un spatiu sau un newline lipit la copiere e una
+   dintre cele mai frecvente cauze de "invalid client", si e o problema pe
+   care o putem rezolva, nu doar raporta. Parola md5 se si normalizeaza la
+   litere mici, cum cere documentatia. */
+const CLIENT_ID     = (Deno.env.get("TTLOCK_CLIENT_ID") || "").trim();
+const CLIENT_SECRET = (Deno.env.get("TTLOCK_CLIENT_SECRET") || "").trim();
+const USERNAME      = (Deno.env.get("TTLOCK_USERNAME") || "").trim();
+const PASSWORD_MD5  = (Deno.env.get("TTLOCK_PASSWORD_MD5") || "").trim().toLowerCase();
 
 export const configurat = () =>
   Boolean(CLIENT_ID && CLIENT_SECRET && USERNAME && PASSWORD_MD5);
@@ -99,12 +103,41 @@ async function acces(): Promise<string> {
        mesajul lor nu spune asta — de aici pierdem altfel o ora. */
     const pareRegiune = /invalid[ _]?client|client.*(not exist|invalid)/i.test(brut);
 
+    /* Nu-l punem pe om sa ghiceasca regiunea: avem credentialele, deci
+       incercam si celelalte gazde si ii spunem exact care raspunde. Se
+       intampla DOAR pe esec, deci nu incetineste cazul normal. */
+    if (pareRegiune) {
+      const alternative = ["https://euapi.ttlock.com", "https://api.ttlock.com",
+                           "https://api.sciener.com"].filter((h) => h !== BAZA);
+      for (const gazda of alternative) {
+        try {
+          const t = await fetch(`${gazda}/oauth2/token`, {
+            method: "POST",
+            headers: { "Content-Type": "application/x-www-form-urlencoded" },
+            body: new URLSearchParams({
+              client_id: CLIENT_ID, client_secret: CLIENT_SECRET,
+              username: USERNAME, password: PASSWORD_MD5,
+            }),
+          });
+          const d = await t.json().catch(() => null);
+          if (d?.access_token) {
+            throw new EroareTTLock(
+              `Datele sunt corecte, dar aplicația e pe altă regiune. `
+              + `Adaugă secretul TTLOCK_API_BASE = ${gazda} și încearcă din nou.`);
+          }
+        } catch (e) {
+          if (e instanceof EroareTTLock) throw e;   // gasit; il propagam
+          /* gazda nu raspunde — trecem la urmatoarea */
+        }
+      }
+    }
+
     throw new EroareTTLock(
       pareRegiune
-        ? `TTLock: „${brut}". De obicei înseamnă una din trei: aplicația e creată `
-          + `pe altă regiune decât ${BAZA} (setează TTLOCK_API_BASE), `
-          + `client_id/client_secret au un spațiu în plus la copiere, `
-          + `sau aplicația nu e încă aprobată pe portalul TTLock.`
+        ? `TTLock: „${brut}". Am încercat și celelalte regiuni, niciuna nu acceptă `
+          + `aceste date. Rămân două cauze: aplicația nu e încă aprobată pe portalul `
+          + `TTLock, sau client_id/client_secret nu sunt cele ale aplicației `
+          + `(verifică-le în portal, nu din notițe).`
         : (brut || "Autentificarea la TTLock a eșuat. Verifică datele contului."),
       date?.errcode);
   }

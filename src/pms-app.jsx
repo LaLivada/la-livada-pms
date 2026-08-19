@@ -8578,6 +8578,24 @@ function RoomModal({ room, onSave, onClose }) {
                 }}>
                 {yaleStare === "caut" ? "Citesc yalele…" : "Sincronizează yale"}
               </button>
+
+              {/* Raspunde la "contul are drepturi pe yala asta?" fara sa
+                  astepte un check-in real — necesar cand lista de yale e
+                  goala, dar yala poate fi totusi operabila.
+                  Codul de test e valabil abia peste o ora, deci nu deschide
+                  usa nimanui, si se sterge imediat. */}
+              {accessLockId.trim() && (
+                <button type="button" className="btn btn-ghost" disabled={yaleStare === "test"}
+                  onClick={async () => {
+                    setYaleStare("test");
+                    const r = await cheamaAcces("test-lock", { lockId: accessLockId.trim() });
+                    setYaleStare(r?.ok
+                      ? `Yala răspunde. Creare: ${r.creare}, ștergere: ${r.stergere}.${r.atentie ? " " + r.atentie : ""}`
+                      : (r?.error || "Testul a eșuat."));
+                  }}>
+                  {yaleStare === "test" ? "Testez…" : "Testează yala"}
+                </button>
+              )}
             </div>
 
             {typeof yaleStare === "string" && yaleStare !== "caut" && (
@@ -8586,7 +8604,10 @@ function RoomModal({ room, onSave, onClose }) {
 
             {yale && yale.length === 0 && (
               <div className="ldv-mic" style={{ marginTop: 8 }}>
-                Contul nu are nicio yală. Verifică în TTHOTEL că yalele sunt pe contul configurat.
+                Contul nu are nicio yală în lista TTLock. Se întâmplă când yalele
+                sunt administrate din TTHOTEL. Scrie Lock ID-ul manual (îl vezi
+                în TTHOTEL, după MAC) și apasă „Testează yala" — dacă răspunde,
+                integrarea merge chiar dacă lista e goală.
               </div>
             )}
 

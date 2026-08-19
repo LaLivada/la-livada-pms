@@ -173,6 +173,55 @@ Deno.serve(async (req) => {
       return raspuns({ ok: true, locks: yale });
     }
 
+    // ---------------- TEST PE O YALA ----------------
+    //
+    // Raspunde la intrebarea "contul are drepturi pe yala asta?" fara sa
+    // astepte un check-in real. Necesar fiindca `lock/list` poate fi goala
+    // (yale administrate din TTHOTEL) desi contul poate opera yala.
+    //
+    // Codul de test e valabil peste O ORA, timp de 5 minute, si se sterge
+    // imediat: nu deschide usa nimanui in timpul testului, iar daca
+    // stergerea esueaza expira oricum singur. Nu scriem nimic in
+    // access_codes — nu e un cod de oaspete.
+    if (actiune === "test-lock") {
+      const lockId = String(cerere?.lockId || "").trim();
+      if (!lockId) return raspuns({ error: "Lipsește Lock ID-ul." }, 400);
+
+      const de = new Date(Date.now() + 3600_000);
+      const pana = new Date(de.getTime() + 300_000);
+      let creat = null, eroareStergere = null;
+
+      try {
+        creat = await ttlock.creeazaCod(lockId, de, pana, "Test PMS", genereazaCodPin(4));
+      } catch (e) {
+        await jurnal(admin, {
+          actor, action: "test yală", result: "error", provider: "ttlock",
+          lock_id: lockId, detail: String((e as Error).message).slice(0, 300),
+        });
+        return raspuns({ ok: false, error: String((e as Error).message) }, 502);
+      }
+
+      try { await ttlock.stergeCod(lockId, creat.externalId); }
+      catch (e) { eroareStergere = String((e as Error).message); }
+
+      await jurnal(admin, {
+        actor, action: "test yală", result: eroareStergere ? "error" : "ok",
+        provider: "ttlock", lock_id: lockId, external_ref: creat.externalId,
+        detail: eroareStergere?.slice(0, 300),
+      });
+
+      return raspuns({
+        ok: true,
+        creare: "reușită",
+        stergere: eroareStergere ? `eșuată: ${eroareStergere}` : "reușită",
+        /* Daca stergerea a esuat, codul expira singur peste o ora si cinci
+           minute — dar spunem, ca omul sa stie ce a ramas in urma. */
+        atentie: eroareStergere
+          ? `Codul de test nu a putut fi șters; expiră singur la ${pana.toLocaleString("ro-RO", { timeZone: FUS })}.`
+          : null,
+      });
+    }
+
     // ---------------- GENERARE COD ----------------
     if (actiune === "issue") {
       const rezervareId = String(cerere?.reservationId || "");
