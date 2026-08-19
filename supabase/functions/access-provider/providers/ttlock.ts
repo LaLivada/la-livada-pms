@@ -142,9 +142,27 @@ async function acces(): Promise<string> {
        lungimile, si daca md5-ul are forma ceruta. De cele mai multe ori
        diferenta sare in ochi din atat. */
     const md5Valid = /^[0-9a-f]{32}$/.test(PASSWORD_MD5);
+
+    /* Greseala cea mai probabila cand ambele au 32 de caractere
+       hexazecimale si arata la fel: acelasi sir pus in ambele campuri.
+       Verificam explicit, ca sa nu se mai caute in alta parte. */
+    if (CLIENT_SECRET && CLIENT_SECRET === CLIENT_ID) {
+      throw new EroareTTLock(
+        "TTLOCK_CLIENT_SECRET are aceeași valoare ca TTLOCK_CLIENT_ID. "
+        + "Sunt două valori diferite, dar arată la fel (32 de caractere hexazecimale). "
+        + "Ia secretul din portal cu butonul „View" și pune-l separat.");
+    }
+
+    /* Cateva caractere din secret, ca sa poata fi comparat cu portalul fara
+       sa fie scris nicaieri intreg. Patru din treizeci si doua nu ajuta pe
+       nimeni sa-l ghiceasca, dar arata instant daca e alt sir. */
+    const masca = CLIENT_SECRET.length >= 8
+      ? `${CLIENT_SECRET.slice(0, 3)}…${CLIENT_SECRET.slice(-3)}`
+      : "(prea scurt)";
+
     const amprenta =
       `client_id=${CLIENT_ID || "(gol)"}, `
-      + `client_secret=${CLIENT_SECRET.length} caractere, `
+      + `client_secret=${masca} (${CLIENT_SECRET.length} caractere), `
       + `user=${USERNAME || "(gol)"}, `
       + `parolă md5 ${md5Valid ? "în formatul corect" : `NEVALIDĂ (${PASSWORD_MD5.length} caractere, trebuie 32 hexazecimale mici)`}`;
 
