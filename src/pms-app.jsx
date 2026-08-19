@@ -8402,6 +8402,47 @@ const PERMISSIONS = {
 };
 const ALL_PERMS = PERMISSIONS.admin;
 
+/* Verifică dacă parola apare în scurgerile publice de date (HaveIBeenPwned).
+ *
+ * Supabase are asta încorporat, dar doar pe planul Pro. Verificarea în sine
+ * e un API public și gratuit, așa că o facem noi. O parolă apărută într-o
+ * scurgere e prima încercată de orice atac automat, indiferent cât de
+ * complicată pare după regulile obișnuite: „Parola123" trece de „minim 8
+ * caractere, o cifră", dar apare în scurgeri de peste 233.000 de ori.
+ *
+ * Parola NU pleacă din browser. Se trimit primele 5 caractere din hash-ul
+ * SHA-1; serverul întoarce toate hash-urile care încep așa (câteva sute),
+ * iar potrivirea se face local. Metoda se numește k-anonymity și e exact
+ * ce face Supabase pe Pro.
+ *
+ * Întoarce numărul de apariții, 0 dacă e curată, sau null dacă verificarea
+ * n-a putut fi făcută. La null lăsăm parola să treacă: un serviciu extern
+ * picat nu trebuie să blocheze pe cineva care își schimbă parola.
+ */
+async function aparitiiInScurgeri(parola) {
+  try {
+    const octeti = new TextEncoder().encode(parola);
+    const hash = await crypto.subtle.digest("SHA-1", octeti);
+    const hex = [...new Uint8Array(hash)]
+      .map((b) => b.toString(16).padStart(2, "0")).join("").toUpperCase();
+
+    const raspuns = await fetch(`https://api.pwnedpasswords.com/range/${hex.slice(0, 5)}`, {
+      // Adaugă rânduri false în răspuns, ca mărimea lui să nu spună nimic.
+      headers: { "Add-Padding": "true" },
+    });
+    if (!raspuns.ok) return null;
+
+    const restul = hex.slice(5);
+    for (const linie of (await raspuns.text()).split("\n")) {
+      const [sufix, numar] = linie.trim().split(":");
+      if (sufix === restul) return Number(numar) || 0;
+    }
+    return 0;
+  } catch {
+    return null;
+  }
+}
+
 function ProfileView({ user, onLogout, onBack }) {
   const [password, setPassword] = useState("");
   const [password2, setPassword2] = useState("");
@@ -8413,6 +8454,18 @@ function ProfileView({ user, onLogout, onBack }) {
     if (password.length < 8) { setMsg({ type: "err", text: "Parola trebuie să aibă cel puțin 8 caractere." }); return; }
     if (password !== password2) { setMsg({ type: "err", text: "Cele două parole nu coincid." }); return; }
     setBusy(true);
+
+    const aparitii = await aparitiiInScurgeri(password);
+    if (aparitii) {
+      setBusy(false);
+      setMsg({
+        type: "err",
+        text: `Parola asta apare în scurgeri publice de date (de ${aparitii.toLocaleString("ro-RO")} ori). `
+            + `Atacurile automate o încearcă prima. Alege alta.`,
+      });
+      return;
+    }
+
     const { error } = await supabase.auth.updateUser({ password });
     setBusy(false);
     if (error) { setMsg({ type: "err", text: mesajEroare(error) }); return; }
