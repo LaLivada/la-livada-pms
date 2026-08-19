@@ -78,7 +78,34 @@ async function setari(admin: any) {
     oraPlecare:    Number.isFinite(s.checkoutHour)    ? s.checkoutHour    : 11,
     minutePlecare: Number.isFinite(s.checkoutMinute)  ? s.checkoutMinute  : 0,
     grateMinute:   Number.isFinite(s.graceMinutes)    ? s.graceMinutes    : 30,
+    numeHotel:     s.hotelName || "Complex La Livada",
+    sablon:        s.messageTemplate || SABLON_IMPLICIT,
   };
+}
+
+/* Șablonul mesajului. Configurabil din PMS; ăsta e doar punctul de pornire.
+   Randarea se face AICI, pe server, nu în browser: altfel textul trimis de
+   pe adresa pensiunii ar putea fi rescris din DevTools. */
+const SABLON_IMPLICIT = `Bună {{guest_name}},
+
+Bine ai venit la {{hotel_name}}!
+
+Camera ta este {{room_number}}.
+Codul de acces este: {{access_code}}
+
+Valabil de la {{valid_from}} până la {{valid_until}}.
+
+Introdu codul pe tastatura yalei și apasă tasta de confirmare.
+Dacă ai nevoie de ajutor, contactează recepția.`;
+
+const dataRo = (iso: string) =>
+  new Date(iso).toLocaleString("ro-RO", {
+    timeZone: FUS, day: "numeric", month: "long", year: "numeric",
+    hour: "2-digit", minute: "2-digit",
+  });
+
+function randeaza(sablon: string, v: Record<string, string>): string {
+  return sablon.replace(/\{\{\s*(\w+)\s*\}\}/g, (_, cheie) => v[cheie] ?? "");
 }
 
 async function jurnal(admin: any, r: Record<string, unknown>) {
@@ -110,9 +137,12 @@ Deno.serve(async (req) => {
 
   const actiune = String(cerere?.action || "");
 
-  if (!ttlock.configurat()) {
-    /* Neconfigurat nu e o eroare de program: funcția e deployată înaintea
-       credențialelor, deliberat. Spunem limpede ce lipsește. */
+  /* Garda de configurare se aplică DOAR acțiunilor care chiar vorbesc cu
+     yala. Trimiterea unui email nu are nevoie de TTLock, iar dacă garda ar
+     sta înaintea dispecerizării, un cod deja generat n-ar mai putea fi
+     trimis oaspetelui doar fiindcă lipsesc credențialele. */
+  const cereYala = ["sync-locks", "issue", "revoke"].includes(actiune);
+  if (cereYala && !ttlock.configurat()) {
     return raspuns({
       ok: false, reason: "neconfigurat",
       error: "Integrarea TTLock nu e configurată. Lipsesc secretele TTLOCK_* din Edge Functions.",
@@ -253,6 +283,103 @@ Deno.serve(async (req) => {
       return eroare
         ? raspuns({ ok: false, reason: "revocare-esuata", error: eroare }, 502)
         : raspuns({ ok: true });
+    }
+
+    // ---------------- TRIMITERE PE EMAIL ----------------
+    if (actiune === "send-email") {
+      const rezervareId = String(cerere?.reservationId || "");
+      const { data: cod } = await admin.from("access_codes")
+        .select("*").eq("reservation_id", rezervareId).eq("status", "active").maybeSingle();
+      if (!cod) return raspuns({ ok: false, error: "Nu există un cod activ de trimis." }, 409);
+
+      const { data: rez } = await admin.from("reservations")
+        .select("guest_id, room_id").eq("id", rezervareId).maybeSingle();
+      const { data: oaspete } = await admin.from("guests")
+        .select("first_name, last_name, email").eq("id", rez?.guest_id).maybeSingle();
+      const { data: cam } = await admin.from("rooms")
+        .select("name").eq("id", cod.room_id).maybeSingle();
+
+      const adresa = (oaspete?.email || "").trim();
+      if (!adresa) {
+        return raspuns({ ok: false, reason: "fara-email",
+          error: "Oaspetele nu are o adresă de email salvată." }, 409);
+      }
+
+      const s = await setari(admin);
+      const text = randeaza(s.sablon, {
+        guest_name:  [oaspete?.first_name, oaspete?.last_name].filter(Boolean).join(" ") || "oaspete",
+        hotel_name:  s.numeHotel,
+        room_number: cam?.name || cod.room_id,
+        access_code: cod.code,
+        valid_from:  dataRo(cod.valid_from),
+        valid_until: dataRo(cod.valid_until),
+      });
+
+      const CHEIE = Deno.env.get("RESEND_API_KEY");
+      if (!CHEIE) {
+        /* Infrastructura e gata, serviciul de email nu. Nu scriem o
+           notificare „trimisă" care n-a plecat nicăieri. */
+        return raspuns({ ok: false, reason: "neconfigurat",
+          error: "Trimiterea pe email nu e configurată (lipsește RESEND_API_KEY)." }, 503);
+      }
+
+      let eroare: string | null = null;
+      try {
+        const t = await fetch("https://api.resend.com/emails", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${CHEIE}`, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            from: Deno.env.get("BOOKING_EMAIL_FROM") || "La Livada <rezervari@lalivada.ro>",
+            to: [adresa],
+            subject: `Codul de acces pentru camera ${cam?.name || ""} · ${s.numeHotel}`,
+            text,
+          }),
+        });
+        if (!t.ok) eroare = `Serviciul de email a răspuns ${t.status}.`;
+      } catch (e) {
+        eroare = String((e as Error).message);
+      }
+
+      await admin.from("access_notifications").insert({
+        id: `an-${crypto.randomUUID().slice(0, 12)}`,
+        access_code_id: cod.id, channel: "email", recipient: adresa,
+        status: eroare ? "failed" : "sent",
+        sent_at: eroare ? null : new Date().toISOString(),
+        sent_by: actor, error_message: eroare,
+      });
+
+      await jurnal(admin, {
+        actor, action: "trimitere email", result: eroare ? "error" : "ok",
+        reservation_id: rezervareId, room_id: cod.room_id,
+        detail: eroare?.slice(0, 300) || adresa,
+      });
+
+      return eroare
+        ? raspuns({ ok: false, error: eroare }, 502)
+        : raspuns({ ok: true, recipient: adresa });
+    }
+
+    // ---------------- WHATSAPP: DOAR ÎNREGISTRAREA ----------------
+    //
+    // Trimiterea propriu-zisă se face din browser, prin linkul wa.me —
+    // PMS-ul nu are API oficial WhatsApp. Aici doar consemnăm că mesajul a
+    // fost pregătit și deschis, ca să existe o urmă în rezervare.
+    if (actiune === "log-whatsapp") {
+      const rezervareId = String(cerere?.reservationId || "");
+      const { data: cod } = await admin.from("access_codes")
+        .select("id, room_id").eq("reservation_id", rezervareId).eq("status", "active").maybeSingle();
+      if (!cod) return raspuns({ ok: false, error: "Nu există un cod activ." }, 409);
+
+      await admin.from("access_notifications").insert({
+        id: `an-${crypto.randomUUID().slice(0, 12)}`,
+        access_code_id: cod.id, channel: "whatsapp",
+        recipient: String(cerere?.recipient || "").slice(0, 40),
+        status: "sent", sent_at: new Date().toISOString(), sent_by: actor,
+      });
+      await jurnal(admin, {
+        actor, action: "trimitere whatsapp", reservation_id: rezervareId, room_id: cod.room_id,
+      });
+      return raspuns({ ok: true });
     }
 
     return raspuns({ error: `Acțiune necunoscută: ${actiune}` }, 400);

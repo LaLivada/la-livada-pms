@@ -5331,6 +5331,7 @@ function SectiuneAcces({ res, core }) {
   /* undefined = încă se încarcă, null = nu există cod. Distincția
      contează: altfel s-ar vedea „fără cod" o clipă la fiecare deschidere. */
   const [cod, setCod] = useState(undefined);
+  const [trimiteri, setTrimiteri] = useState([]);
   const [lucrez, setLucrez] = useState(false);
   const [eroare, setEroare] = useState("");
 
@@ -5338,6 +5339,13 @@ function SectiuneAcces({ res, core }) {
     const { data } = await supabase.from("access_codes")
       .select("*").eq("reservation_id", res.id).eq("status", "active").maybeSingle();
     setCod(data || null);
+    if (data) {
+      const { data: n } = await supabase.from("access_notifications")
+        .select("*").eq("access_code_id", data.id).order("created_at", { ascending: false });
+      setTrimiteri(n || []);
+    } else {
+      setTrimiteri([]);
+    }
   }, [res.id]);
 
   useEffect(() => { incarca(); }, [incarca]);
@@ -5403,11 +5411,71 @@ function SectiuneAcces({ res, core }) {
         </div>
       )}
 
+      {cod && trimiteri.length > 0 && (
+        <div className="ldv-mic" style={{ marginTop: 8 }}>
+          {trimiteri.slice(0, 4).map((t) => (
+            <div key={t.id}>
+              {t.channel === "email" ? "Email" : "WhatsApp"}:{" "}
+              {t.status === "sent" ? "✓ trimis" : "✗ eșuat"}
+              {t.sent_at ? ` · ${fmtDateTime(t.sent_at)}` : ""}
+              {t.error_message ? ` · ${t.error_message}` : ""}
+            </div>
+          ))}
+        </div>
+      )}
+
       {(facutCheckIn || cod) && (
         <div className="quick-actions" style={{ marginTop: 8 }}>
           <button className="btn btn-ghost" onClick={genereaza} disabled={lucrez}>
             {lucrez ? "Lucrez…" : cod ? "Regenerează codul" : "Generează codul"}
           </button>
+
+          {cod && (
+            <button className="btn btn-ghost" disabled={lucrez} onClick={async () => {
+              setEroare("");
+              setLucrez(true);
+              const r = await cheamaAcces("send-email", { reservationId: res.id });
+              setLucrez(false);
+              await incarca();
+              if (r?.ok) toaster.show(`Cod trimis pe email · ${r.recipient}`, { tone: "ok" });
+              else setEroare(r?.error || "Emailul nu a putut fi trimis.");
+            }}>
+              Trimite pe email
+            </button>
+          )}
+
+          {cod && (() => {
+            /* WhatsApp merge prin linkul wa.me: nu avem API oficial, iar o
+               automatizare pe WhatsApp Web ar fi fragilă și împotriva
+               regulilor lor. Recepționerul apasă trimite în aplicație.
+               Consemnăm doar că mesajul a fost pregătit — nu putem confirma
+               livrarea, și nu pretindem că o facem. */
+            const oaspete = core.guests.find((g) => g.id === res.guestId);
+            const cifre = String(oaspete?.phone || "").replace(/[^\d]/g, "");
+            if (!cifre) {
+              return <span className="ldv-mic" style={{ alignSelf: "center" }}>
+                Numărul de WhatsApp nu este disponibil.
+              </span>;
+            }
+            const text = `Bună ${guestFullName(oaspete) || ""},
+
+Camera ta este ${camera.name}.
+Codul de acces este: ${cod.code}
+
+Valabil de la ${fmtDateTime(cod.valid_from)} până la ${fmtDateTime(cod.valid_until)}.
+
+Introdu codul pe tastatura yalei și apasă tasta de confirmare.`;
+            return (
+              <a className="btn btn-ghost" href={`https://wa.me/${cifre}?text=${encodeURIComponent(text)}`}
+                target="_blank" rel="noopener noreferrer"
+                onClick={() => {
+                  cheamaAcces("log-whatsapp", { reservationId: res.id, recipient: cifre })
+                    .then(() => incarca());
+                }}>
+                Trimite pe WhatsApp
+              </a>
+            );
+          })()}
         </div>
       )}
     </div>
