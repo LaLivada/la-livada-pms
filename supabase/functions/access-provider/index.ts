@@ -127,12 +127,20 @@ Deno.serve(async (req) => {
   const { data: auth } = await admin.auth.getUser(jwt);
   if (!auth?.user) return raspuns({ error: "Neautentificat." }, 401);
 
+  /* Legatura cu contul de autentificare se face pe `user_id`, nu pe `id`:
+     tabelul `staff` nu are coloana `id`. Prima versiune o presupunea, gasea
+     zero randuri si refuza accesul chiar si adminului — o presupunere care
+     ar fi trebuit verificata in schema, nu ghicita. */
   const { data: staff } = await admin.from("staff")
-    .select("id, name, role").eq("id", auth.user.id).maybeSingle();
+    .select("user_id, name, role").eq("user_id", auth.user.id).maybeSingle();
   if (!staff || !["admin", "receptionist"].includes(staff.role)) {
-    return raspuns({ error: "Nu ai dreptul să administrezi accesul la camere." }, 403);
+    return raspuns({
+      error: staff
+        ? `Rolul „${staff.role}" nu poate administra accesul la camere.`
+        : "Contul tău nu e înregistrat ca membru al personalului.",
+    }, 403);
   }
-  const actor = `${staff.name || staff.id} (${staff.role})`;
+  const actor = `${staff.name || staff.user_id} (${staff.role})`;
 
   let cerere: any;
   try { cerere = await req.json(); }
