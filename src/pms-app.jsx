@@ -348,6 +348,11 @@ const STYLES = `
     border-radius:var(--r-sm); padding:10px 13px; flex:1; min-width:180px; max-width:340px;
     transition:border-color .15s, box-shadow .15s;
   }
+  .paginare{
+    display:flex; align-items:center; justify-content:center; gap:14px;
+    padding:12px 4px 2px; flex-wrap:wrap;
+  }
+  .paginare-info{ font-size:var(--fs-sm); color:var(--text-muted); font-variant-numeric:tabular-nums; }
   .search-box:focus-within{ border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-soft); }
   .search-box input{ border:none; outline:none; background:none; font-size:var(--fs-md); width:100%; }
   .grow{ flex:1; }
@@ -2135,6 +2140,68 @@ function Dialog({ title, onClose, children, className = "", overlayClassName = "
 /* Locks the page behind an open dialog: without this the calendar
    underneath still pans sideways while you type. */
 let modalLockCount = 0;
+/* Aduce in vizor un element care tocmai a aparut — tipic: lista de
+   rezultate a unei cautari dintr-un modal cu derulare.
+   Pe telefon, cu tastatura deschisa, inaltimea utila a modalului scade
+   la jumatate, iar rezultatele cad sub marginea de jos: utilizatorul
+   scrie si nu vede ce a gasit. `block:"nearest"` deruleaza doar cat e
+   nevoie, deci nu smuceste ecranul cand rezultatele erau oricum vizibile.
+   Intarzierea lasa layout-ul sa se aseze dupa animatia tastaturii. */
+function useAduInVizor(vizibil) {
+  const ref = useRef(null);
+  useEffect(() => {
+    if (!vizibil) return;
+    const t = setTimeout(() => {
+      ref.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    }, 80);
+    return () => clearTimeout(t);
+  }, [vizibil]);
+  return ref;
+}
+
+/* Paginare simpla peste o lista deja filtrata. Tine pagina curenta si o
+   reseteaza cand se schimba filtrul — altfel ramai pe pagina 3 a unei
+   liste care intre timp are un singur rezultat. */
+function usePaginare(items, pePagina = 20) {
+  const [pagina, setPagina] = useState(1);
+  const total = Math.max(1, Math.ceil(items.length / pePagina));
+  useEffect(() => { setPagina(1); }, [items.length]);
+  const p = Math.min(pagina, total);
+  return {
+    pagina: p,
+    totalPagini: total,
+    setPagina,
+    feliate: items.slice((p - 1) * pePagina, p * pePagina),
+    arataPaginarea: items.length > pePagina,
+    pePagina,
+    totalItems: items.length,
+  };
+}
+
+function Paginare({ stare, eticheta = "rezultate" }) {
+  if (!stare.arataPaginarea) return null;
+  const { pagina, totalPagini, setPagina, pePagina, totalItems } = stare;
+  const primul = (pagina - 1) * pePagina + 1;
+  const ultimul = Math.min(pagina * pePagina, totalItems);
+  return (
+    <div className="paginare">
+      <button className="btn btn-ghost" style={{ width: "auto" }}
+        onClick={() => setPagina(pagina - 1)} disabled={pagina <= 1}
+        aria-label="Pagina anterioară">
+        <ChevronLeft size={15} />
+      </button>
+      <span className="paginare-info">
+        {primul}–{ultimul} din {totalItems} {eticheta}
+      </span>
+      <button className="btn btn-ghost" style={{ width: "auto" }}
+        onClick={() => setPagina(pagina + 1)} disabled={pagina >= totalPagini}
+        aria-label="Pagina următoare">
+        <ChevronRight size={15} />
+      </button>
+    </div>
+  );
+}
+
 function useModalLock() {
   useEffect(() => {
     measureVisualViewport();
@@ -4771,6 +4838,21 @@ function InvoicePrint({ invoiceId, core, onClose, onChanged }) {
   const fisaRef = useRef(null);
   const scalerRef = useRef(null);
   const [downloading, setDownloading] = useState(false);
+  const [emitere, setEmitere] = useState(false);
+
+  const emite = async () => {
+    if (emitere) return;
+    setEmitere(true);
+    try {
+      const actualizata = await emiteFactura(invoice);
+      if (actualizata) {
+        setInvoice(actualizata);
+        onChanged?.(actualizata);
+      }
+    } finally {
+      setEmitere(false);
+    }
+  };
   const download = async () => {
     setDownloading(true);
     // getBoundingClientRect (folosit de html2canvas ca sa stie ce dimensiune
@@ -4890,13 +4972,28 @@ function InvoicePrint({ invoiceId, core, onClose, onChanged }) {
 
   return createPortal(
     <Dialog onClose={onClose} title={invoice.series ? `Factură ${invoice.series} ${invoice.number}` : "Factură (draft)"} className="arrival-modal invoice-modal" overlayClassName="arrival-overlay">
-      <div className="no-print" style={{ display: "flex", gap: 8, marginBottom: 14 }}>
+      <div className="no-print" style={{ display: "flex", gap: 8, marginBottom: 14, flexWrap: "wrap" }}>
         <span className={"role-tag " + INVOICE_STATUS_CLASS[invoice.status]}>{INVOICE_STATUS_LABEL[invoice.status]}</span>
         <div className="grow" />
+        {/* Emiterea sta aici, in fereastra draftului: se vede intai ce
+            contine factura si abia apoi se aloca numarul — spre deosebire
+            de un buton in lista, unde se apasa fara sa vezi documentul. */}
+        {invoice.status === "draft" && canBilling("issue_invoice") && (
+          <button className="btn btn-primary" style={{ width: "auto" }}
+            onClick={emite} disabled={emitere}>
+            <Receipt size={15} /> {emitere ? "Se emite…" : "Emite factura"}
+          </button>
+        )}
         <button className="btn btn-ghost" style={{ width: "auto" }} onClick={download} disabled={downloading}>
           <Printer size={15} /> {downloading ? "Se generează…" : "Descarcă PDF"}
         </button>
       </div>
+      {invoice.status === "draft" && canBilling("issue_invoice") && (
+        <div className="note no-print" style={{ marginTop: -6, marginBottom: 14 }}>
+          La emitere se alocă serie și număr, iar factura nu mai poate fi modificată —
+          orice corecție ulterioară se face doar prin stornare.
+        </div>
+      )}
 
       <div className="inv-sheet-wrap" ref={scaleWrapRef} style={{ height: sheetH * scale }}>
       <div ref={scalerRef} style={{ transform: `scale(${scale})`, transformOrigin: "top left" }}>
@@ -5123,6 +5220,9 @@ function ReservationModal({ data, core, updateCore, reservations, updateReservat
      si la anulare/stornare. */
   const [saving, setSaving] = useState(false);
   const guests = core.guests;
+  /* Cu tastatura deschisa pe telefon, lista de rezultate cadea sub
+     marginea modalului: scriai si nu vedeai ce a gasit. */
+  const refRezultateClient = useAduInVizor(Boolean(guestQuery.trim()));
 
   const isGroup = !editing && mode === "group";
   const isBlock = !editing && mode === "block";
@@ -5510,7 +5610,7 @@ function ReservationModal({ data, core, updateCore, reservations, updateReservat
               </div>
               {guestQuery.trim() && (
                 matchingGuests.length > 0 ? (
-                  <div className="guest-results">
+                  <div className="guest-results" ref={refRezultateClient}>
                     {matchingGuests.slice(0, 6).map((g) => (
                       <button key={g.id} className="guest-result" onClick={() => { setGuestId(g.id); setGuestQuery(""); }}>
                         <div className="guest-chip-av">{initials(guestFullName(g))}</div>
@@ -5522,7 +5622,7 @@ function ReservationModal({ data, core, updateCore, reservations, updateReservat
                     ))}
                   </div>
                 ) : (
-                  <div className="guest-none">
+                  <div className="guest-none" ref={refRezultateClient}>
                     <div>Niciun client cu „{guestQuery.trim()}”.</div>
                     <button className="btn btn-primary" style={{ width: "auto", marginTop: 10 }} onClick={startAddGuest}>
                       <Plus size={15} /> Adaugă client nou
@@ -5799,6 +5899,7 @@ function ClientsView({ core, updateCore, groups, updateGroups, reservations, upd
     });
   };
 
+  const paginare = usePaginare(filtered);
   const firmCount = (core.billingCustomers || []).filter((c) => c.kind === "company").length;
 
   const header = (
@@ -5857,7 +5958,7 @@ function ClientsView({ core, updateCore, groups, updateGroups, reservations, upd
       <div className="panel">
         {filtered.length === 0 ? (
           <div className="empty-state"><Users size={26} /><h4>Niciun client</h4><p>Adaugă primul client.</p></div>
-        ) : filtered.map((g) => (
+        ) : paginare.feliate.map((g) => (
           <div className="list-row" key={g.id}>
             <div
               role="button" tabIndex={0} style={{ cursor: "pointer" }}
@@ -5890,6 +5991,8 @@ function ClientsView({ core, updateCore, groups, updateGroups, reservations, upd
           </div>
         ))}
       </div>
+
+      <Paginare stare={paginare} eticheta="clienți" />
 
       {modal && <GuestModal guest={modal.guest} onSave={save} onClose={() => setModal(null)} />}
       {historyGuest && (
@@ -5924,6 +6027,8 @@ function FirmsView({ core, updateCore, reservations, modalExtern, inchideModalEx
     return [c.companyName, c.cui, c.regCom, c.city, c.contactName, c.email, c.phone]
       .filter(Boolean).join(" ").toLowerCase().includes(t);
   });
+
+  const paginare = usePaginare(filtrate);
 
   const save = async (customer) => {
     const exista = (core.billingCustomers || []).some((c) => c.id === customer.id);
@@ -5989,7 +6094,7 @@ function FirmsView({ core, updateCore, reservations, modalExtern, inchideModalEx
               ? "Încearcă alt termen de căutare."
               : "Firmele se adaugă de aici sau direct dintr-o rezervare, la „Facturare către”."}</p>
           </div>
-        ) : filtrate.map((c) => {
+        ) : paginare.feliate.map((c) => {
           const rezervari = reservations.filter((r) => r.billingCustomerId === c.id);
           return (
             <div className="list-row" key={c.id}>
@@ -6026,6 +6131,8 @@ function FirmsView({ core, updateCore, reservations, modalExtern, inchideModalEx
           );
         })}
       </div>
+
+      <Paginare stare={paginare} eticheta={paginare.totalItems === 1 ? "firmă" : "firme"} />
 
       {modal && (
         <BillingCustomerModal
@@ -6541,6 +6648,9 @@ const emptyBillingCustomer = () => ({
 function BillingCustomerPicker({ value, customers, defaultLabel, onChange, onNewBillingCustomer }) {
   const [query, setQuery] = useState("");
   const [pending, setPending] = useState(null);
+  /* Ca la cautarea de oaspete: cu tastatura deschisa, rezultatele cadeau
+     sub marginea de jos a modalului. */
+  const refRezultate = useAduInVizor(Boolean(query.trim()));
   const selected = customers.find((c) => c.id === value) || null;
 
   const matches = (() => {
@@ -6587,7 +6697,7 @@ function BillingCustomerPicker({ value, customers, defaultLabel, onChange, onNew
           </div>
           {query.trim() ? (
             matches.length > 0 ? (
-              <div className="guest-results">
+              <div className="guest-results" ref={refRezultate}>
                 {matches.slice(0, 8).map((c) => (
                   <button type="button" key={c.id} className="guest-result" onClick={() => setPending(c)}>
                     <div className="guest-chip-av">{initials(billingCustomerLabel(c))}</div>
@@ -6599,7 +6709,7 @@ function BillingCustomerPicker({ value, customers, defaultLabel, onChange, onNew
                 ))}
               </div>
             ) : (
-              <div className="guest-none">
+              <div className="guest-none" ref={refRezultate}>
                 <div>Niciun client cu „{query.trim()}”.</div>
                 {onNewBillingCustomer && (
                   <button type="button" className="btn btn-primary" style={{ width: "auto", marginTop: 10 }} onClick={onNewBillingCustomer}>
@@ -7224,7 +7334,6 @@ function InvoicesListView({ core }) {
   const [search, setSearch] = useState("");
   const [searchAplicat, setSearchAplicat] = useState("");
   const [printInvoiceId, setPrintInvoiceId] = useState(null);
-  const [emitId, setEmitId] = useState(null);
 
   const load = useCallback(async () => {
     const { data, error } = await supabase.from("invoices").select("*").order("created_at", { ascending: false });
@@ -7248,17 +7357,11 @@ function InvoicesListView({ core }) {
     return true;
   });
 
-  /* Emiterea consuma un numar din serie si e ireversibila, deci cerem o
-     confirmare explicita inainte — spre deosebire de folio, unde butonul
-     e in contextul unei singure rezervari pe care tocmai o lucrezi. */
-  const emite = async (inv) => {
-    setEmitId(inv.id);
-    try {
-      const updated = await emiteFactura(inv);
-      if (updated) setInvoices((prev) => prev.map((x) => (x.id === inv.id ? updated : x)));
-    } finally {
-      setEmitId(null);
-    }
+  /* Cand factura se emite din fereastra ei, lista trebuie sa reflecte
+     noul serie+numar fara o reincarcare completa. */
+  const dupaModificare = (actualizata) => {
+    if (!actualizata) return;
+    setInvoices((prev) => (prev || []).map((x) => (x.id === actualizata.id ? actualizata : x)));
   };
 
   const totals = filtered.reduce((s, inv) => ({
@@ -7323,16 +7426,11 @@ function InvoicesListView({ core }) {
               </div>
               <div className="row-actions" style={{ gap: 10 }}>
                 <span className="mono" style={{ fontWeight: 650 }}>{fmtMoney(inv.total_amount)}</span>
-                {/* Transformarea draftului in factura: aloca serie+numar.
-                    Vizibila doar pe draft-uri si doar cu permisiunea
-                    corespunzatoare — RLS o impune oricum si in baza. */}
-                {inv.status === "draft" && canBilling("issue_invoice") && (
-                  <button className="btn btn-primary" style={{ width: "auto", padding: "8px 12px" }}
-                    onClick={() => emite(inv)} disabled={emitId === inv.id}>
-                    <Receipt size={14} /> {emitId === inv.id ? "Se emite…" : "Emite factura"}
-                  </button>
-                )}
-                <button className="icon-btn" onClick={() => setPrintInvoiceId(inv.id)} aria-label="Vezi factura">
+                {/* Emiterea se face din fereastra facturii (ochiul de
+                    alaturi), nu de aici: se vede intai ce contine
+                    documentul si abia apoi se aloca numarul. */}
+                <button className="icon-btn" onClick={() => setPrintInvoiceId(inv.id)}
+                  aria-label={inv.status === "draft" ? "Deschide draftul" : "Vezi factura"}>
                   <Eye size={14} />
                 </button>
               </div>
@@ -7341,7 +7439,7 @@ function InvoicesListView({ core }) {
         </div>
       )}
       {printInvoiceId && (
-        <InvoicePrint invoiceId={printInvoiceId} core={core} onClose={() => setPrintInvoiceId(null)} onChanged={() => load()} />
+        <InvoicePrint invoiceId={printInvoiceId} core={core} onClose={() => setPrintInvoiceId(null)} onChanged={dupaModificare} />
       )}
     </div>
   );
@@ -8376,16 +8474,6 @@ function GroupsView({ core, groups, updateGroups, reservations, updateReservatio
 
   const sorted = [...groups].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
-  if (!sorted.length) {
-    return (
-      <div className="empty-state">
-        <UsersRound size={26} />
-        <h4>Niciun grup</h4>
-        <p>Creezi un grup din Calendar → Rezervare nouă → Grup.</p>
-      </div>
-    );
-  }
-
   const rows = sorted.map((g) => {
     const res = reservations.filter((r) => r.groupId === g.id);
     const main = core.guests.find((x) => x.id === g.mainGuestId);
@@ -8398,6 +8486,20 @@ function GroupsView({ core, groups, updateGroups, reservations, updateReservatio
   const t = q.trim().toLowerCase();
   const filtered = !t ? rows : rows.filter(({ g, main }) =>
     g.name.toLowerCase().includes(t) || (main && guestFullName(main).toLowerCase().includes(t)));
+  /* Verificarea de lista goala vine dupa hook-uri: React cere ca ele sa
+     fie apelate in aceeasi ordine la fiecare randare, deci nu pot sta
+     dupa un return conditionat. */
+  const paginare = usePaginare(filtered);
+
+  if (!sorted.length) {
+    return (
+      <div className="empty-state">
+        <UsersRound size={26} />
+        <h4>Niciun grup</h4>
+        <p>Creezi un grup din Calendar → Rezervare nouă → Grup.</p>
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -8420,7 +8522,7 @@ function GroupsView({ core, groups, updateGroups, reservations, updateReservatio
 
         {filtered.length === 0 ? (
           <div className="section-empty">Niciun grup nu corespunde căutării.</div>
-        ) : filtered.map(({ g, main, rooms, ci, co }) => {
+        ) : paginare.feliate.map(({ g, main, rooms, ci, co }) => {
           const visibleRooms = rooms.slice(0, 4);
           const extra = rooms.length - visibleRooms.length;
           return (
@@ -8474,6 +8576,8 @@ function GroupsView({ core, groups, updateGroups, reservations, updateReservatio
           );
         })}
       </div>
+
+      <Paginare stare={paginare} eticheta={paginare.totalItems === 1 ? "grup" : "grupuri"} />
 
       {printId && (
         <GroupPrint
