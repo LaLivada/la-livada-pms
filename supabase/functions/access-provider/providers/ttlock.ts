@@ -91,8 +91,21 @@ async function acces(): Promise<string> {
 
   const date = await r.json().catch(() => null);
   if (!r.ok || !date?.access_token) {
+    const brut = String(date?.errmsg || date?.error || "").trim();
+
+    /* „invalid client" nu inseamna neaparat ca datele sunt gresite: cel mai
+       des inseamna ca aplicatia a fost creata pe ALTA regiune decat cea pe
+       care o interogam. Creditalele TTLock sunt legate de regiune, iar
+       mesajul lor nu spune asta — de aici pierdem altfel o ora. */
+    const pareRegiune = /invalid[ _]?client|client.*(not exist|invalid)/i.test(brut);
+
     throw new EroareTTLock(
-      date?.errmsg || "Autentificarea la TTLock a eșuat. Verifică datele contului.",
+      pareRegiune
+        ? `TTLock: „${brut}". De obicei înseamnă una din trei: aplicația e creată `
+          + `pe altă regiune decât ${BAZA} (setează TTLOCK_API_BASE), `
+          + `client_id/client_secret au un spațiu în plus la copiere, `
+          + `sau aplicația nu e încă aprobată pe portalul TTLock.`
+        : (brut || "Autentificarea la TTLock a eșuat. Verifică datele contului."),
       date?.errcode);
   }
 
