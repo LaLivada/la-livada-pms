@@ -1891,9 +1891,21 @@ async function cheamaAcces(action, payload = {}) {
     if (error) {
       /* invoke() marcheaza ca eroare orice status non-2xx, dar corpul are
          mesajul nostru — il preferam celui generic al bibliotecii. */
-      let detaliu = error.message;
-      try { detaliu = (await error.context?.json())?.error || detaliu; } catch { /* ramane */ }
-      return { ok: false, error: detaliu };
+      let detaliu = null;
+      try { detaliu = (await error.context?.json())?.error; } catch { /* ramane null */ }
+      if (detaliu) return { ok: false, error: detaliu };
+
+      /* Fara corp de raspuns inseamna ca cererea nu a ajuns deloc: retea
+         cazuta, extensie de browser care blocheaza, sau functia in curs de
+         redeploy. Mesajul bibliotecii ("Failed to send a request to the Edge
+         Function") nu spune nimanui ce sa faca, asa ca il traducem. */
+      const retea = /failed to send|fetch/i.test(error.message || "");
+      return {
+        ok: false,
+        error: retea
+          ? "Nu am putut contacta serviciul de acces. Verifică conexiunea și încearcă din nou; dacă persistă, reîncarcă pagina."
+          : (error.message || "Serviciul de acces a răspuns cu eroare."),
+      };
     }
     return data || { ok: false, error: "Raspuns gol de la serviciul de acces." };
   } catch (e) {
