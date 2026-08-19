@@ -1321,19 +1321,32 @@ $$;
 
 -- Alocarea unui grup pe camere libere.
 --
--- p_type null înseamnă „orice tip" — varianta amestecată, folosită când
--- grupul nu încape într-un singur tip. Fără ea, maximul rezervabil ar fi
--- cel mai mare tip, nu toată pensiunea.
+-- STRATEGIA: câte DOI adulți pe cameră, răspândiți pe cât mai multe
+-- camere. Al treilea adult apare abia când nu mai sunt camere — adică
+-- peste de două ori numărul de camere libere. Al treilea loc e ținut
+-- pentru copii.
 --
--- Reguli de împărțire:
---   · se folosesc cât mai puține camere — se iau întâi cele mari;
---   · camerele pornesc pline, iar surplusul se scoate din cele mai
---     aglomerate: 4 persoane în două camere de 3 înseamnă 2+2, nu 3+1;
+-- Nu e doar preferință de confort, e și mai bine vândut: șase adulți în
+-- trei camere de doi fac 900 lei/noapte, iar împachetați în două camere
+-- de trei doar 760. Suplimentul de adult (80) nu acoperă niciodată
+-- tariful unei camere în plus (300).
+--
+-- p_type null înseamnă „orice tip" — varianta amestecată, folosită când
+-- grupul nu încape într-un singur tip SAU când amestecul deschide mai
+-- multe camere decât oricare tip separat.
+--
+-- Alegerea camerelor:
+--   · fără copii — întâi cele mici, fiindcă o cameră de 2 e exact o
+--     pereche de adulți, iar cele de 3 rămân libere pentru familii;
+--   · cu copii — întâi cele mari, ca al treilea loc să fie disponibil.
+--
+-- Restul regulilor:
 --   · fiecare cameră primește cel puțin un adult, altfel ar rămâne copii
 --     singuri într-o cameră;
---   · restul se repartizează pe rând, câte unul, întâi adulții apoi copiii
---     — umplerea cameră-cu-cameră ar aduna adulții într-una și ar lăsa
---     copiii cu unul singur în alta.
+--   · adulții și copiii se așază pe rând, câte unul în fiecare cameră —
+--     așa toate camerele ajung la doi adulți înainte ca vreuna să
+--     primească al treilea, și nu se adună adulții într-o cameră și
+--     copiii în alta.
 --
 -- Întoarce fie o propunere completă, fie motivul pentru care nu se poate,
 -- ca interfața să poată spune omului ce anume să schimbe.
@@ -1343,16 +1356,26 @@ create function allocate_group(
 ) returns jsonb language plpgsql stable set search_path = public as $$
 declare
   v_pers int := p_adults + p_children;
-  v_nr int; v_ocupari int[]; v_tipuri text[]; v_id_pret text;
+  v_cap_toate int[]; v_tip_toate text[];
+  v_n_libere int; v_k_min int := null; v_cum int := 0;
+  v_nr int; v_cap_alese int;
   v_adulti int[]; v_copii int[];
-  v_i int; v_surplus int; v_pus boolean;
+  v_i int; v_pus boolean;
   v_rest_ad int; v_rest_cop int;
   v_camere jsonb := '[]'::jsonb;
   v_total numeric;
 begin
-  with libere as (
-    select r.id, r.type, r.capacity,
-           row_number() over (order by r.capacity desc, r.type, r.sort_order) as rn
+  if p_adults < 1 then
+    return jsonb_build_object('ok', false, 'reason', 'adulti', 'roomsNeeded', 1);
+  end if;
+
+  select array_agg(capacity order by rn), array_agg(type order by rn), count(*)
+    into v_cap_toate, v_tip_toate, v_n_libere
+  from (
+    select r.type, r.capacity,
+           row_number() over (
+             order by case when p_children > 0 then -r.capacity else r.capacity end,
+                      r.type, r.sort_order) as rn
       from rooms r
      where r.active
        and (p_type is null or r.type = p_type)
@@ -1364,43 +1387,44 @@ begin
             and tstzrange(res.checkin, res.checkout, '[)')
                 && tstzrange(p_checkin, p_checkout, '[)')
        )
-  ), cumul as (
-    select *, sum(capacity) over (order by rn) as cap_cum from libere
-  )
-  select min(rn) filter (where cap_cum >= v_pers),
-         array_agg(capacity order by rn) filter (where cap_cum - capacity < v_pers),
-         array_agg(type     order by rn) filter (where cap_cum - capacity < v_pers),
-         min(id)            filter (where cap_cum - capacity < v_pers)
-    into v_nr, v_ocupari, v_tipuri, v_id_pret
-    from cumul;
+  ) l;
 
-  if v_nr is null then
+  if coalesce(v_n_libere, 0) = 0 then
     return jsonb_build_object('ok', false, 'reason', 'locuri');
   end if;
-  if p_adults < v_nr then
-    return jsonb_build_object('ok', false, 'reason', 'adulti', 'roomsNeeded', v_nr);
+
+  -- Câte camere sunt strict necesare ca să încapă toată lumea.
+  for v_i in 1 .. v_n_libere loop
+    v_cum := v_cum + v_cap_toate[v_i];
+    if v_cum >= v_pers then v_k_min := v_i; exit; end if;
+  end loop;
+  if v_k_min is null then
+    return jsonb_build_object('ok', false, 'reason', 'locuri');
   end if;
 
-  v_surplus := (select coalesce(sum(x), 0) from unnest(v_ocupari) x) - v_pers;
-  while v_surplus > 0 loop
-    select i into v_i from generate_subscripts(v_ocupari, 1) i
-     where v_ocupari[i] > 1 order by v_ocupari[i] desc, i limit 1;
-    exit when v_i is null;
-    v_ocupari[v_i] := v_ocupari[v_i] - 1;
-    v_surplus := v_surplus - 1;
-  end loop;
+  -- Câte camere vindem: una la fiecare doi adulți, dar cel puțin cât cere
+  -- capacitatea, și niciodată mai multe decât camerele libere sau decât
+  -- numărul de adulți.
+  v_nr := greatest(ceil(p_adults / 2.0)::int, v_k_min);
+  v_nr := least(v_nr, v_n_libere, p_adults);
+
+  select coalesce(sum(v_cap_toate[i]), 0) into v_cap_alese
+    from generate_series(1, v_nr) i;
+  if v_cap_alese < v_pers then
+    -- Locuri ar fi, dar nu și adulți câți camere ar trebui deschise.
+    return jsonb_build_object('ok', false, 'reason', 'adulti', 'roomsNeeded', v_k_min);
+  end if;
 
   v_adulti := array_fill(0, array[v_nr]);
   v_copii  := array_fill(0, array[v_nr]);
-  for v_i in 1 .. v_nr loop v_adulti[v_i] := 1; end loop;
-  v_rest_ad := p_adults - v_nr;
+  v_rest_ad := p_adults;
   v_rest_cop := p_children;
 
   while v_rest_ad > 0 loop
     v_pus := false;
     for v_i in 1 .. v_nr loop
       exit when v_rest_ad = 0;
-      if v_adulti[v_i] + v_copii[v_i] < v_ocupari[v_i] then
+      if v_adulti[v_i] + v_copii[v_i] < v_cap_toate[v_i] then
         v_adulti[v_i] := v_adulti[v_i] + 1; v_rest_ad := v_rest_ad - 1; v_pus := true;
       end if;
     end loop;
@@ -1411,16 +1435,20 @@ begin
     v_pus := false;
     for v_i in 1 .. v_nr loop
       exit when v_rest_cop = 0;
-      if v_adulti[v_i] + v_copii[v_i] < v_ocupari[v_i] then
+      if v_adulti[v_i] + v_copii[v_i] < v_cap_toate[v_i] then
         v_copii[v_i] := v_copii[v_i] + 1; v_rest_cop := v_rest_cop - 1; v_pus := true;
       end if;
     end loop;
     exit when not v_pus;
   end loop;
 
+  if v_rest_ad > 0 or v_rest_cop > 0 then
+    return jsonb_build_object('ok', false, 'reason', 'locuri');
+  end if;
+
   for v_i in 1 .. v_nr loop
     v_camere := v_camere || jsonb_build_object(
-      'roomType', v_tipuri[v_i], 'adults', v_adulti[v_i], 'children', v_copii[v_i]);
+      'roomType', v_tip_toate[v_i], 'adults', v_adulti[v_i], 'children', v_copii[v_i]);
   end loop;
 
   -- Prețul depinde de tip, dată și ocupare — nu de camera individuală.
@@ -1479,6 +1507,7 @@ declare
   v_rez jsonb;
   v_optiuni jsonb := '[]'::jsonb;
   v_min_camere int := null;
+  v_max_camere_tip int := 0;
 begin
   v_pers := v_ad + v_cop;
 
@@ -1505,20 +1534,27 @@ begin
     v_rez := allocate_group(p_checkin, p_checkout, v_ad, v_cop, v_tip);
     if (v_rez->>'ok')::boolean then
       v_optiuni := v_optiuni || (v_rez - 'ok');
+      v_max_camere_tip := greatest(v_max_camere_tip, (v_rez->>'roomsNeeded')::int);
     elsif v_rez->>'reason' = 'adulti' then
       v_min_camere := least(coalesce(v_min_camere, (v_rez->>'roomsNeeded')::int),
                             (v_rez->>'roomsNeeded')::int);
     end if;
   end loop;
 
-  if jsonb_array_length(v_optiuni) = 0 then
-    v_rez := allocate_group(p_checkin, p_checkout, v_ad, v_cop, null);
-    if (v_rez->>'ok')::boolean then
-      v_optiuni := v_optiuni || (v_rez - 'ok');
-    elsif v_rez->>'reason' = 'adulti' then
-      v_min_camere := least(coalesce(v_min_camere, (v_rez->>'roomsNeeded')::int),
-                            (v_rez->>'roomsNeeded')::int);
-    end if;
+  -- Varianta amestecată se oferă în două situații: când niciun tip singur
+  -- nu încape grupul, și când ea deschide MAI MULTE camere decât oricare
+  -- tip luat separat. A doua contează pentru grupuri mari: 32 de adulți
+  -- încap în 14 căsuțe Tiny câte 3, dar în toate cele 16 camere câte 2 —
+  -- mai multe camere vândute și mai puțină înghesuială.
+  v_rez := allocate_group(p_checkin, p_checkout, v_ad, v_cop, null);
+  if (v_rez->>'ok')::boolean
+     and (jsonb_array_length(v_optiuni) = 0
+          or (v_rez->>'roomsNeeded')::int > v_max_camere_tip) then
+    v_optiuni := v_optiuni || (v_rez - 'ok');
+  elsif not (v_rez->>'ok')::boolean and v_rez->>'reason' = 'adulti'
+        and jsonb_array_length(v_optiuni) = 0 then
+    v_min_camere := least(coalesce(v_min_camere, (v_rez->>'roomsNeeded')::int),
+                          (v_rez->>'roomsNeeded')::int);
   end if;
 
   if jsonb_array_length(v_optiuni) = 0 then
