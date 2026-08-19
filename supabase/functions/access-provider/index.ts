@@ -33,15 +33,39 @@ import { laOraLocala, expirareCod, randeazaSablon, genereazaCodPin, lungimeCod, 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY  = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-const CORS = {
+/* Anteturile permise se OGLINDESC din cerere, nu se enumera.
+ *
+ * supabase-js nu trimite doar authorization si content-type: adauga si
+ * x-client-info, iar dupa versiune si x-region. Cu o lista fixa, browserul
+ * vedea un antet necerut in raspunsul la preflight si refuza cererea
+ * INAINTE sa plece — iar biblioteca raporta "Failed to send a request to
+ * the Edge Function", care nu trimite deloc catre cauza reala.
+ *
+ * Oglindirea nu slabeste nimic: `Access-Control-Allow-Headers` spune doar
+ * ce anteturi are voie sa trimita browserul, nu cine are voie sa cheme.
+ * Autorizarea se face inauntru, pe JWT si pe rolul din `staff`. */
+const corsPentru = (req: Request) => ({
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, apikey, content-type",
+  "Access-Control-Allow-Headers":
+    req.headers.get("Access-Control-Request-Headers") ||
+    "authorization, apikey, content-type, x-client-info, x-region",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Max-Age": "86400",
+});
+
+/* `raspuns` e apelat din zeci de locuri; pastram semnatura si punem
+   anteturile de la cererea curenta printr-o variabila de modul, setata la
+   inceputul fiecarei invocari. Deno ruleaza o cerere per instanta de
+   handler, deci nu se amesteca intre ele. */
+let corsCurent: Record<string, string> = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, apikey, content-type, x-client-info, x-region",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
 const raspuns = (corp: unknown, status = 200) =>
   new Response(JSON.stringify(corp), {
-    status, headers: { "Content-Type": "application/json", ...CORS },
+    status, headers: { "Content-Type": "application/json", ...corsCurent },
   });
 
 const FUS = FUS_HOTEL;
@@ -92,7 +116,8 @@ async function jurnal(admin: any, r: Record<string, unknown>) {
 }
 
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
+  corsCurent = corsPentru(req);
+  if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: corsCurent });
   if (req.method !== "POST") return raspuns({ error: "Metodă nepermisă." }, 405);
 
   const admin = createClient(SUPABASE_URL, SERVICE_KEY);

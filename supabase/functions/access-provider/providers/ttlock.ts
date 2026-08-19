@@ -18,10 +18,12 @@
 // care întoarce keyboardPwdId. `add` cere gateway (addType=2) — pensiunea
 // are, altfel această alegere ar fi fost greșită.
 //
-// Pentru schimbarea perioadei există și /v3/keyboardPwd/change, dar nu i-am
-// verificat parametrii, așa că nu îl folosim: ștergem și creăm din nou, cu
-// endpoint-uri verificate. Efectul secundar e că oaspetele primește alt cod
-// când i se schimbă perioada — de aceea PMS-ul îl anunță.
+// Pentru schimbarea perioadei există și /v3/keyboardPwd/change, cu
+// changeType=2 prin gateway — confirmat de ghidul oficial. Deocamdată tot
+// ștergem și creăm din nou, fiindcă parametrii lui exacți nu sunt verificați;
+// efectul secundar e că oaspetele primește alt cod când i se schimbă
+// perioada. Trecerea la `change` ar păstra codul și merită făcută, dar
+// numai după ce îi citim semnătura, nu ghicind-o.
 
 /* Regiunea contului. EU pentru pensiunea asta; documentația arată și
    api.sciener.com pentru contul global. Configurabil, ca mutarea între
@@ -135,9 +137,9 @@ export interface CodNou { code: string; externalId: string }
  * lungimea lui stau în src/lib/acces.js, unde sunt testate; adaptorul doar
  * îl trimite mai departe.
  *
- * Documentația TTLock NU spune ce lungimi acceptă o yală, iar lock/detail
- * nu raportează asta. Dacă yala refuză lungimea aleasă, eroarea ei ajunge
- * nemodificată la recepție: adevărul se află doar încercând. */
+ * Lungimea: ghidul oficial de integrare spune 4-9 cifre pentru codurile
+ * alese de noi (cele generate de sistem sunt 6-9) — încă un motiv pentru
+ * `add` în locul lui `get`, dacă se vor coduri scurte. */
 export async function creeazaCod(
   lockId: string, de: Date, pana: Date, nume: string, cod: string,
 ): Promise<CodNou> {

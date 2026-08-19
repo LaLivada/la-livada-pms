@@ -86,13 +86,14 @@ export function decideActiuneAcces(inainte, dupa) {
 
 /* Genereaza un cod PIN.
  *
- * LUNGIMEA E O SETARE, nu o constanta: documentatia oficiala TTLock nu
- * impune nicio lungime pentru `keyboardPwd`, iar sursele neoficiale se
- * contrazic (unele spun 4-9 cifre, altele ca un cod ales de tine trebuie sa
- * aiba 6-9). Nici lock/detail nu raporteaza lungimea acceptata — singurul
- * camp inrudit, `specialValue`, e o masca de functii nedocumentata.
- * Deci adevarul se afla doar incercand pe o yala reala; pana atunci nu
- * hardcodam nimic si lasam yala sa refuze, cu eroarea ei cu tot.
+ * LUNGIMEA E O SETARE, nu o constanta. Ghidul oficial de integrare
+ * (userGuide/passcodeEn) spune limpede: codurile ALESE DE TINE au 4-9
+ * cifre, cele generate de sistem 6-9. Noi alegem codul (keyboardPwd/add),
+ * deci 4 cifre sunt permise — pagina de referinta a endpoint-ului nu
+ * mentioneaza nicio limita, ghidul da.
+ *
+ * Ramane setare fiindca alegerea e a hotelului, nu a codului: 4 cifre sunt
+ * mai comode la tastat, 6 mai greu de ghicit.
  *
  * De retinut la 4 cifre: 10.000 de combinatii, fata de 1.000.000 la 6.
  * Pentru un cod valabil cateva zile pe o usa, diferenta e reala.
