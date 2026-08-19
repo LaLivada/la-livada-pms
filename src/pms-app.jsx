@@ -5240,6 +5240,103 @@ function InvoicePrint({ invoiceId, core, onClose, onChanged }) {
   );
 }
 
+/* ACCES LA CAMERĂ — codul yalei electronice.
+ *
+ * Citește direct din access_codes: RLS lasă adminul și recepția să vadă
+ * codurile, dar NU să le scrie. Orice generare trece prin funcția edge, ca
+ * un cod să nu poată exista în PMS fără să existe și pe yală.
+ *
+ * Codul se generează la check-in. Butonul de aici acoperă cazurile în care
+ * asta n-a mers: yala n-a răspuns atunci, rezervarea era deja făcută
+ * check-in înainte de integrare, sau perioada s-a schimbat între timp. */
+function SectiuneAcces({ res, core }) {
+  const camera = core.rooms.find((r) => r.id === res.roomId);
+  /* undefined = încă se încarcă, null = nu există cod. Distincția
+     contează: altfel s-ar vedea „fără cod" o clipă la fiecare deschidere. */
+  const [cod, setCod] = useState(undefined);
+  const [lucrez, setLucrez] = useState(false);
+  const [eroare, setEroare] = useState("");
+
+  const incarca = useCallback(async () => {
+    const { data } = await supabase.from("access_codes")
+      .select("*").eq("reservation_id", res.id).eq("status", "active").maybeSingle();
+    setCod(data || null);
+  }, [res.id]);
+
+  useEffect(() => { incarca(); }, [incarca]);
+
+  const genereaza = async () => {
+    setEroare("");
+    setLucrez(true);
+    const r = await cheamaAcces("issue", { reservationId: res.id });
+    setLucrez(false);
+    if (r?.ok) {
+      await incarca();
+      await audit.push(r.reused ? "Cod acces refolosit" : "Cod acces generat",
+        `${camera?.name || res.roomId}`);
+      toaster.show(r.reused ? "Codul exista deja." : "Cod de acces generat.", { tone: "ok" });
+    } else {
+      setEroare(r?.error || "Codul nu a putut fi generat.");
+    }
+  };
+
+  if (!camera?.accessLockId) {
+    return (
+      <div className="field">
+        <label>Acces cameră</label>
+        <div className="ldv-mic" style={{ color: "var(--muted)" }}>
+          Camera {camera?.name || res.roomId} nu are o yală asociată.
+          Se configurează în Setări → Camere.
+        </div>
+      </div>
+    );
+  }
+
+  const facutCheckIn = res.status === "checkedin" || res.status === "checkedout";
+
+  return (
+    <div className="field">
+      <label>Acces cameră · {camera.name}</label>
+
+      {cod === undefined && <div className="ldv-mic">Se încarcă…</div>}
+
+      {cod === null && (
+        <div className="ldv-mic" style={{ color: "var(--muted)" }}>
+          {facutCheckIn
+            ? "Codul de acces nu a fost generat."
+            : "Codul de acces se generează automat la check-in."}
+        </div>
+      )}
+
+      {cod && (
+        <div className="sumar-acces">
+          <div className="mono" style={{ fontSize: 26, fontWeight: 700, letterSpacing: ".12em" }}>
+            {cod.code}
+          </div>
+          <div className="ldv-mic" style={{ color: "var(--muted)" }}>
+            Valabil de la {fmtDateTime(cod.valid_from)}<br />
+            până la {fmtDateTime(cod.valid_until)}
+          </div>
+        </div>
+      )}
+
+      {eroare && (
+        <div className="error-text" role="alert" style={{ marginTop: 8 }}>
+          {eroare}
+        </div>
+      )}
+
+      {(facutCheckIn || cod) && (
+        <div className="quick-actions" style={{ marginTop: 8 }}>
+          <button className="btn btn-ghost" onClick={genereaza} disabled={lucrez}>
+            {lucrez ? "Lucrez…" : cod ? "Regenerează codul" : "Generează codul"}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ReservationModal({ data, core, updateCore, reservations, updateReservations, groups, updateGroups, blocks, updateBlocks, onClose }) {
   useModalLock();
   const editing = data.reservation;
@@ -5841,6 +5938,8 @@ function ReservationModal({ data, core, updateCore, reservations, updateReservat
             </div>
           </div>
         )}
+
+        {editing && !isBlock && <SectiuneAcces res={editing} core={core} />}
 
         {error && <div className="error-text" role="alert" style={{ marginBottom: 10 }}>{error}</div>}
 
@@ -8811,6 +8910,30 @@ async function doCheckIn(res, reservations, updateReservations, core) {
   const room = core.rooms.find((x) => x.id === res.roomId);
   await audit.push("Check-in", `${room?.name || res.roomId} · ${guestFullName(core.guests.find((g) => g.id === res.guestId))}`);
   toaster.show(`Check-in făcut · ${room?.name || ""}`, { tone: "ok" });
+
+  /* Codul de acces se cere DUPĂ ce check-in-ul e salvat, și nu are voie
+     să-l răstoarne.
+     Un oaspete stă la recepție: dacă yala nu răspunde, operațiunea
+     hotelieră trebuie să meargă mai departe, iar codul se poate genera
+     din rezervare, cu butonul de acolo. De aceea nu se face `await` pe
+     rezultat înainte de a raporta succesul, iar eșecul e doar un
+     avertisment — nu o eroare care anulează sosirea.
+     `cheamaAcces` nu aruncă niciodată, dar păstrăm și catch-ul: o
+     promisiune respinsă aici ar lăsa check-in-ul raportat ca eșuat. */
+  if (room?.accessLockId) {
+    cheamaAcces("issue", { reservationId: res.id })
+      .then((r) => {
+        if (r?.ok) {
+          toaster.show(`Cod de acces generat · ${room.name || ""}`, { tone: "ok" });
+        } else {
+          toaster.show(
+            `Check-in făcut, dar codul de acces nu a putut fi generat. Îl poți genera din rezervare.`,
+            { tone: "danger" });
+        }
+      })
+      .catch(() => { /* check-in-ul e deja făcut; nu-l stricăm */ });
+  }
+
   return true;
 }
 
