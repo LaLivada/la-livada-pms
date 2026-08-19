@@ -5572,6 +5572,12 @@ function ReservationViewModal({ reservation, core, updateCore, groups, onClose, 
         </span>
       </div>
 
+      <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 8 }}>
+        <button className="btn btn-ghost" style={{ width: "auto", padding: "8px 12px" }} onClick={() => setShowArrival(true)}>
+          <Printer size={14} /> Fișa de sosire
+        </button>
+      </div>
+
       {editingGroup && (
         <div className="group-banner">
           <UsersRound size={15} />
@@ -5619,12 +5625,6 @@ function ReservationViewModal({ reservation, core, updateCore, groups, onClose, 
       <FolioPanel reservation={reservation} core={core} updateCore={updateCore}
         billingCustomerId={billingCustomerId} setBillingCustomerId={setBillingCustomerId}
         onNewBillingCustomer={() => setBillingModalOpen(true)} />
-
-      <div className="quick-actions" style={{ marginTop: 8 }}>
-        <button className="btn btn-ghost" onClick={() => setShowArrival(true)}>
-          <Printer size={14} /> Fișa de sosire
-        </button>
-      </div>
 
       <div className="modal-actions">
         <div className="grow" />
