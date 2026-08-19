@@ -25,7 +25,7 @@ import {
   BarChart3, History, LogIn, Printer, Banknote, ArrowRight,
   Settings, Eye, XCircle, MoveRight, Tag as TagIcon, Rows2, Rows3, MessageSquare, Wrench, UserCheck,
   AlertTriangle, RefreshCw, Undo2, Copy, Info, Cpu, TrendingUp, Phone, MessageCircle,
-  Package, Receipt, CreditCard, FileDown
+  Package, Receipt, CreditCard, FileDown, Mail
 } from "lucide-react";
 
 /* ---------------------------------------------------------------
@@ -1002,6 +1002,10 @@ const STYLES = `
 
   .quick-actions{ display:flex; flex-wrap:wrap; gap:8px; margin-top:4px; }
   .quick-actions .btn{ font-size:12.5px; padding:9px 13px; }
+  /* Rând fix de 3 pentru acțiunile de acces: nu se rup pe rânduri separate
+     nici pe mobil, fiindcă etichetele scurte + iconițele încap. */
+  .acces-actions{ flex-wrap:nowrap; }
+  .acces-actions .btn{ flex:1; min-width:0; padding:9px 8px; }
   .quick-hint{
     display:inline-flex; align-items:center; font-size:12px; color:var(--text-muted);
     background:var(--surface-2); border-radius:var(--r-sm); padding:9px 12px; line-height:1.3;
@@ -5446,9 +5450,10 @@ function SectiuneAcces({ res, core }) {
       )}
 
       {(facutCheckIn || cod) && (
-        <div className="quick-actions" style={{ marginTop: 8 }}>
+        <div className="quick-actions acces-actions" style={{ marginTop: 8 }}>
           <button className="btn btn-ghost" onClick={genereaza} disabled={lucrez}>
-            {lucrez ? "Lucrez…" : cod ? "Regenerează codul" : "Generează codul"}
+            <RefreshCw size={14} color="var(--accent)" />
+            {lucrez ? "Lucrez…" : cod ? "Regenerează" : "Generează"}
           </button>
 
           {cod && cod.provider !== "simulare" && (
@@ -5461,7 +5466,8 @@ function SectiuneAcces({ res, core }) {
               if (r?.ok) toaster.show(`Cod trimis pe email · ${r.recipient}`, { tone: "ok" });
               else setEroare(r?.error || "Emailul nu a putut fi trimis.");
             }}>
-              Trimite pe email
+              <Mail size={14} color="#2563eb" />
+              Email
             </button>
           )}
 
@@ -5493,7 +5499,8 @@ Introdu codul pe tastatura yalei și apasă tasta de confirmare #.`;
                   cheamaAcces("log-whatsapp", { reservationId: res.id, recipient: cifre })
                     .then(() => incarca());
                 }}>
-                Trimite pe WhatsApp
+                <MessageCircle size={14} color="#25D366" />
+                WhatsApp
               </a>
             );
           })()}
