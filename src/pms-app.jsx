@@ -5364,7 +5364,10 @@ function SectiuneAcces({ res, core }) {
   const genereaza = async () => {
     setEroare("");
     setLucrez(true);
-    const r = await cheamaAcces("issue", { reservationId: res.id });
+    /* Dacă există deja un cod, butonul zice "Regenerează" — și chiar
+       trebuie să dea unul nou, nu să întoarcă tot codul vechi doar fiindcă
+       perioada n-a fost atinsă. */
+    const r = await cheamaAcces("issue", { reservationId: res.id, force: Boolean(cod) });
     setLucrez(false);
     if (r?.ok) {
       await incarca();
@@ -5482,7 +5485,7 @@ Codul de acces este: ${cod.code}
 
 Valabil de la ${fmtDateTime(cod.valid_from)} până la ${fmtDateTime(cod.valid_until)}.
 
-Introdu codul pe tastatura yalei și apasă tasta de confirmare.`;
+Introdu codul pe tastatura yalei și apasă tasta de confirmare #.`;
             return (
               <a className="btn btn-ghost" href={`https://wa.me/${cifre}?text=${encodeURIComponent(text)}`}
                 target="_blank" rel="noopener noreferrer"

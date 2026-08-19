@@ -239,6 +239,11 @@ Deno.serve(async (req) => {
     if (actiune === "issue") {
       const rezervareId = String(cerere?.reservationId || "");
       if (!rezervareId) return raspuns({ error: "Lipsește rezervarea." }, 400);
+      /* Cerută explicit de la buton ("Regenerează codul"): oaspetele
+         primește un cod NOU chiar dacă perioada n-a fost atinsă — de
+         exemplu fiindcă cel vechi a ajuns la altcineva. Fără flag-ul asta,
+         verificarea de mai jos ar întoarce tot codul vechi. */
+      const fortat = Boolean(cerere?.force);
 
       const { data: rez } = await admin.from("reservations")
         .select("id, room_id, checkin, checkout, status, guest_id")
@@ -275,7 +280,7 @@ Deno.serve(async (req) => {
         const acelasiInterval =
           Math.abs(new Date(existent.valid_from).getTime() - de.getTime()) < 60_000 &&
           Math.abs(new Date(existent.valid_until).getTime() - pana.getTime()) < 60_000;
-        if (acelasiInterval && existent.lock_id === cam.access_lock_id) {
+        if (!fortat && acelasiInterval && existent.lock_id === cam.access_lock_id) {
           return raspuns({ ok: true, reused: true, code: existent });
         }
         /* Perioada sau camera s-au schimbat: codul vechi nu mai are voie să
