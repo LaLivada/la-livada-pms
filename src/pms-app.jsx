@@ -25,7 +25,7 @@ import {
   BarChart3, History, LogIn, Printer, Banknote, ArrowRight,
   Settings, Eye, XCircle, MoveRight, Tag as TagIcon, Rows2, Rows3, MessageSquare, Wrench, UserCheck,
   AlertTriangle, RefreshCw, Undo2, Copy, Info, Cpu, TrendingUp, Phone, MessageCircle,
-  Package, Receipt, CreditCard, FileDown, Mail
+  Package, Receipt, CreditCard, FileDown, Mail, KeyRound
 } from "lucide-react";
 
 /* ---------------------------------------------------------------
@@ -8642,6 +8642,8 @@ function RoomModal({ room, onSave, onClose }) {
      [] = s-a cerut si nu a venit niciuna. Distinctia conteaza pentru mesaj. */
   const [yale, setYale] = useState(null);
   const [yaleStare, setYaleStare] = useState(null);
+  const [confirmUnlock, setConfirmUnlock] = useState(false);
+  const [unlockStare, setUnlockStare] = useState(null);
   const [error, setError] = useState("");
 
   const icalUrl = room?.icalToken
@@ -8672,6 +8674,9 @@ function RoomModal({ room, onSave, onClose }) {
         <div className="sub-tabs" style={{ marginBottom: 16 }}>
           <button className={tab === "info" ? "on" : ""} onClick={() => setTab("info")}>
             <Info size={14} /> Informații cameră
+          </button>
+          <button className={tab === "acces" ? "on" : ""} onClick={() => setTab("acces")}>
+            <KeyRound size={14} /> Yală
           </button>
           <button className={tab === "senzori" ? "on" : ""} onClick={() => setTab("senzori")}>
             <Cpu size={14} /> Senzori
@@ -8705,17 +8710,12 @@ function RoomModal({ room, onSave, onClose }) {
               <input type="number" min="1" max="20" value={capacity} onChange={(e) => setCapacity(e.target.value)} />
             </label>
           </>
-        ) : (
+        ) : tab === "acces" ? (
           <>
-            <label className="field"><span className="fl">ID releu Shelly — boiler</span><input className="mono" value={boilerId} onChange={(e) => setBoilerId(e.target.value)} placeholder="shelly-boiler-1015" /></label>
-            <label className="field"><span className="fl">ID releu Shelly — ventilație</span><input className="mono" value={ventId} onChange={(e) => setVentId(e.target.value)} placeholder="shelly-vent-1015" /></label>
-            <label className="field"><span className="fl">ID dispozitiv Sensibo — AC</span><input className="mono" value={sensiboId} onChange={(e) => setSensiboId(e.target.value)} placeholder="sensibo-1015" /></label>
-
             {/* Yala electronica. Id-ul se poate scrie de mana (din TTHOTEL)
                 sau ales din lista adusa de la furnizor. Potrivirea NU se face
                 automat dupa nume: numele yalei nu e o dovada ca e camera
                 potrivita, iar o asociere gresita deschide alta usa. */}
-            <div className="field-sep" style={{ margin: "18px 0 10px", borderTop: "1px solid var(--line)" }} />
             <label className="field">
               <span className="fl">Yală electronică — Lock ID</span>
               <input className="mono" value={accessLockId}
@@ -8789,6 +8789,51 @@ function RoomModal({ room, onSave, onClose }) {
                 </select>
               </label>
             )}
+
+            {/* Deschidere manuala, la distanta — gandita pentru manager, nu
+                pentru uz curent de receptie. De-aia cere confirmare explicita:
+                o usa deschisa din greseala nu se poate anula. */}
+            {accessLockId.trim() && (
+              <div className="field" style={{ marginTop: 18 }}>
+                <span className="fl">Deschidere la distanță</span>
+                {confirmUnlock ? (
+                  <div className="action-confirm">
+                    <span>Deschizi ușa acum?</span>
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <button className="btn btn-ghost" style={{ padding: "8px 12px" }}
+                        onClick={() => setConfirmUnlock(false)} disabled={unlockStare === "deschid"}>Nu</button>
+                      <button className="btn btn-danger" style={{ padding: "8px 12px" }}
+                        disabled={unlockStare === "deschid"}
+                        onClick={async () => {
+                          setUnlockStare("deschid");
+                          const r = await cheamaAcces("unlock", { lockId: accessLockId.trim() });
+                          setUnlockStare(r?.ok ? "Ușa a fost deschisă." : (r?.error || "Deschiderea a eșuat."));
+                          setConfirmUnlock(false);
+                        }}>
+                        Da, deschide
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <button type="button" className="btn btn-ghost"
+                    onClick={() => { setConfirmUnlock(true); setUnlockStare(null); }}>
+                    <DoorOpen size={14} /> Deschide ușa
+                  </button>
+                )}
+                {typeof unlockStare === "string" && unlockStare !== "deschid" && (
+                  <div className={unlockStare === "Ușa a fost deschisă." ? "ldv-mic" : "error-text"}
+                    role={unlockStare === "Ușa a fost deschisă." ? undefined : "alert"} style={{ marginTop: 8 }}>
+                    {unlockStare}
+                  </div>
+                )}
+              </div>
+            )}
+          </>
+        ) : (
+          <>
+            <label className="field"><span className="fl">ID releu Shelly — boiler</span><input className="mono" value={boilerId} onChange={(e) => setBoilerId(e.target.value)} placeholder="shelly-boiler-1015" /></label>
+            <label className="field"><span className="fl">ID releu Shelly — ventilație</span><input className="mono" value={ventId} onChange={(e) => setVentId(e.target.value)} placeholder="shelly-vent-1015" /></label>
+            <label className="field"><span className="fl">ID dispozitiv Sensibo — AC</span><input className="mono" value={sensiboId} onChange={(e) => setSensiboId(e.target.value)} placeholder="sensibo-1015" /></label>
           </>
         )}
         {error && <div className="error-text" role="alert" style={{ marginBottom: 10 }}>{error}</div>}

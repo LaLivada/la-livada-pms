@@ -159,13 +159,21 @@ Deno.serve(async (req) => {
 
   const actiune = String(cerere?.action || "");
 
+  /* Deschiderea la distanță nu e o operațiune de recepție: spre deosebire
+     de un cod cu interval, deschide ușa PE LOC, cui e în fața ei atunci.
+     Garda generală de mai sus acceptă admin+recepționer — asta o
+     restrânge suplimentar, doar pentru acțiunea asta. */
+  if (actiune === "unlock" && staff.role !== "admin") {
+    return raspuns({ error: "Deschiderea la distanță e permisă doar administratorilor." }, 403);
+  }
+
   /* Garda de configurare se aplică DOAR acțiunilor care chiar vorbesc cu
      yala. Trimiterea unui email nu are nevoie de TTLock, iar dacă garda ar
      sta înaintea dispecerizării, un cod deja generat n-ar mai putea fi
      trimis oaspetelui doar fiindcă lipsesc credențialele. */
   const setariAcum = await setari(admin);
   const f = furnizor(setariAcum);
-  const cereYala = ["sync-locks", "issue", "revoke", "test-lock"].includes(actiune);
+  const cereYala = ["sync-locks", "issue", "revoke", "test-lock", "unlock"].includes(actiune);
   if (cereYala && !f.api.configurat()) {
     return raspuns({
       ok: false, reason: "neconfigurat",
@@ -233,6 +241,33 @@ Deno.serve(async (req) => {
           ? `Codul de test nu a putut fi șters; expiră singur la ${pana.toLocaleString("ro-RO", { timeZone: FUS })}.`
           : null,
       });
+    }
+
+    // ---------------- DESCHIDERE LA DISTANȚĂ ----------------
+    //
+    // Deschide ușa direct, fără cod — pentru manager, nu pentru fluxul
+    // curent de recepție (de-aia garda de rol de mai sus e mai strictă
+    // decât la restul acțiunilor). Nu scrie nimic în access_codes: nu e
+    // un cod emis, e o acțiune punctuală, consemnată doar în audit.
+    if (actiune === "unlock") {
+      const lockId = String(cerere?.lockId || "").trim();
+      if (!lockId) return raspuns({ error: "Lipsește Lock ID-ul." }, 400);
+
+      try {
+        await f.api.deschideUsa(lockId);
+      } catch (e) {
+        await jurnal(admin, {
+          actor, action: "deschidere manuală yală", result: "error",
+          provider: f.nume, lock_id: lockId, detail: String((e as Error).message).slice(0, 300),
+        });
+        return raspuns({ ok: false, error: String((e as Error).message) }, 502);
+      }
+
+      await jurnal(admin, {
+        actor, action: "deschidere manuală yală", result: "ok",
+        provider: f.nume, lock_id: lockId,
+      });
+      return raspuns({ ok: true });
     }
 
     // ---------------- GENERARE COD ----------------

@@ -292,3 +292,15 @@ export async function stergeCod(lockId: string, externalId: string): Promise<voi
     date: Date.now(),
   });
 }
+
+/* Deschidere la distanță, prin gateway — fără cod, fără Bluetooth. Gândită
+   pentru manager: spre deosebire de creeazaCod/stergeCod, care lasă o urmă
+   controlată (cod cu interval), asta deschide ușa PE LOC, cui e în fața ei
+   în momentul ăla. Aceleași client_id/accessToken ca restul adaptorului. */
+export async function deschideUsa(lockId: string): Promise<void> {
+  const accessToken = await acces();
+  await cere("/v3/lock/unlock", {
+    clientId: CLIENT_ID, accessToken,
+    lockId, date: Date.now(),
+  });
+}

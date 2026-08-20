@@ -55,3 +55,10 @@ export function stergeCod(_lockId: string, externalId: string): Promise<void> {
   }
   return Promise.resolve();
 }
+
+/* Nimic fizic de deschis în modul simulat — doar paritate de interfață cu
+   adaptorul real, ca access-provider/index.ts să nu aibă nevoie de o
+   ramură separată pentru "furnizorul nu suportă deschiderea". */
+export function deschideUsa(_lockId: string): Promise<void> {
+  return Promise.resolve();
+}
