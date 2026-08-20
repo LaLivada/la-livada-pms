@@ -27,6 +27,8 @@ import { validateCUIFormat, validatePhone, validateEmail } from "./lib/validatio
    Se migreaza domeniu cu domeniu; deocamdata contabilitatea. */
 import { camelBillingCustomer, snakeBillingCustomer } from "./data/mapari.js";
 import * as dateContabilitate from "./data/contabilitate.js";
+import * as dateFacturare from "./data/facturare.js";
+import { uid } from "./lib/uid.js";
 import { mesajEroare } from "./lib/errors.js";
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
@@ -52,7 +54,8 @@ import {
 /* ---------------------------------------------------------------
    DATA HELPERS
 ----------------------------------------------------------------*/
-const uid = () => Math.random().toString(36).slice(2, 10);
+/* uid s-a mutat in src/lib/uid.js — il foloseste si stratul de date, care
+   n-are voie sa importe din interfata. Se importa mai sus. */
 
 function seedCore() {
   const rooms = [];
@@ -3030,29 +3033,38 @@ function OccupantStepper({ label, value, otherValue, capacity, min, onChange }) 
  * aratat utilizatorului). Folosita si din folio, si din lista de facturi.
  */
 async function emiteFactura(invoice) {
-  const { data: serii, error: serieErr } = await supabase
-    .from("invoice_series").select("series").eq("active", true).order("series").limit(1);
-  if (serieErr) {
-    toaster.show(mesajEroare(serieErr, "Nu am putut citi seria de facturare"), { tone: "danger" });
+  let serie;
+  try {
+    serie = await dateFacturare.serieActiva();
+  } catch (e) {
+    toaster.show(mesajEroare(e, "Nu am putut citi seria de facturare"), { tone: "danger" });
     return null;
   }
-  const serie = serii?.[0]?.series;
   if (!serie) {
     toaster.show("Nu există nicio serie de facturare activă. Configureaz-o în Financiar → Serii.", { tone: "danger" });
     return null;
   }
 
-  const { data: numRow, error: numErr } = await supabase.rpc("next_invoice_number", { p_series: serie });
-  if (numErr) { toaster.show(mesajEroare(numErr, "Nu am putut aloca numărul de factură"), { tone: "danger" }); return null; }
-  const { series, number } = Array.isArray(numRow) ? numRow[0] : numRow;
+  let serieNoua, numar;
+  try {
+    ({ serie: serieNoua, numar } = await dateFacturare.alocaNumarFactura(serie));
+  } catch (e) {
+    toaster.show(mesajEroare(e, "Nu am putut aloca numărul de factură"), { tone: "danger" });
+    return null;
+  }
 
-  const { data: updated, error } = await supabase.from("invoices").update({
-    series, number, status: "issued", issue_date: new Date().toISOString(), issued_by: audit.user?.id || null,
-  }).eq("id", invoice.id).select().maybeSingle();
-  if (error) { toaster.show(mesajEroare(error, "Emiterea a eșuat"), { tone: "danger" }); return null; }
+  let updated;
+  try {
+    updated = await dateFacturare.marcheazaEmisa(invoice.id, {
+      serie: serieNoua, numar, emisDe: audit.user?.id || null,
+    });
+  } catch (e) {
+    toaster.show(mesajEroare(e, "Emiterea a eșuat"), { tone: "danger" });
+    return null;
+  }
 
-  await audit.push("Factură emisă", `${series} ${number} · ${fmtMoney(invoice.total_amount)}`);
-  toaster.show(`Factura ${series} ${number} a fost emisă`, { tone: "ok" });
+  await audit.push("Factură emisă", `${serieNoua} ${numar} · ${fmtMoney(invoice.total_amount)}`);
+  toaster.show(`Factura ${serieNoua} ${numar} a fost emisă`, { tone: "ok" });
   return updated;
 }
 
@@ -3682,51 +3694,35 @@ function InvoiceCancelCreditActions({ invoice, onChanged }) {
 
   const cancelInvoice = async () => {
     setBusy(true);
-    const { data, error } = await supabase.from("invoices")
-      .update({ status: "cancelled" }).eq("id", invoice.id).select().maybeSingle();
-    setBusy(false);
-    if (error) { toaster.show(mesajEroare(error, "Anularea a eșuat"), { tone: "danger" }); return; }
-    await audit.push("Factură anulată", `${invoice.series || "draft"} ${invoice.number || ""}`.trim());
-    onChanged(data);
-    setConfirm(null);
+    try {
+      const data = await dateFacturare.anuleazaFactura(invoice.id);
+      await audit.push("Factură anulată", `${invoice.series || "draft"} ${invoice.number || ""}`.trim());
+      onChanged(data);
+      setConfirm(null);
+    } catch (e) {
+      toaster.show(mesajEroare(e, "Anularea a eșuat"), { tone: "danger" });
+    } finally {
+      setBusy(false);
+    }
   };
 
   const creditInvoice = async () => {
     setBusy(true);
     try {
-      const { data: srcItems, error: itemsFetchErr } = await supabase
-        .from("invoice_items").select("*").eq("invoice_id", invoice.id);
-      if (itemsFetchErr) throw itemsFetchErr;
-
-      const { data: numRow, error: numErr } = await supabase.rpc("next_invoice_number", { p_series: "LIV" });
-      if (numErr) throw numErr;
-      const { series, number } = Array.isArray(numRow) ? numRow[0] : numRow;
-
-      const { data: credit, error: credErr } = await supabase.from("invoices").insert({
-        id: uid(), series, number, folio_id: invoice.folio_id, billing_customer_id: invoice.billing_customer_id,
-        status: "issued", issue_date: new Date().toISOString(),
-        subtotal_net: -invoice.subtotal_net, subtotal_vat: -invoice.subtotal_vat, total_amount: -invoice.total_amount,
-        credit_note_of: invoice.id, created_by: audit.user?.id || null, issued_by: audit.user?.id || null,
-      }).select().maybeSingle();
-      if (credErr) throw credErr;
-
-      const creditItems = (srcItems || []).map((l, idx) => ({
-        id: uid(), invoice_id: credit.id, product_id: l.product_id, name: l.name, quantity: -l.quantity,
-        unit_price: l.unit_price, vat_rate: l.vat_rate, net_amount: -l.net_amount, vat_amount: -l.vat_amount,
-        total_amount: -l.total_amount, sort_order: idx,
-      }));
-      if (creditItems.length) {
-        const { error: itemsErr } = await supabase.from("invoice_items").insert(creditItems);
-        if (itemsErr) throw itemsErr;
-      }
-
-      const { data: original, error: origErr } = await supabase.from("invoices")
-        .update({ status: "credited" }).eq("id", invoice.id).select().maybeSingle();
-      if (origErr) throw origErr;
-
+      /* ATENTIE: seria "LIV" e scrisa aici de la bun inceput, dar singura
+         serie configurata in baza e "LL" — deci next_invoice_number arunca
+         "Serie de facturare inexistenta sau inactiva: LIV" si stornarea
+         esueaza. Nu s-a observat fiindca nu s-a stornat nimic pana acum
+         (zero note de credit in baza, verificat pe 21 august 2026).
+         Pastrat neschimbat aici DELIBERAT: alegerea seriei pentru stornari
+         e o decizie fiscala (pot avea legal serie proprie), nu una tehnica
+         de rezolvat intr-o mutare de cod. */
+      const { original, serie, numar } = await dateFacturare.storneazaFactura(invoice, {
+        serie: "LIV", creatDe: audit.user?.id || null,
+      });
       await audit.push("Factură stornată",
-        `${series} ${number} stornează ${invoice.series || ""} ${invoice.number || ""}`.trim());
-      toaster.show(`Stornare emisă: ${series} ${number}`, { tone: "ok" });
+        `${serie} ${numar} stornează ${invoice.series || ""} ${invoice.number || ""}`.trim());
+      toaster.show(`Stornare emisă: ${serie} ${numar}`, { tone: "ok" });
       onChanged(original);
     } catch (e) {
       toaster.show(mesajEroare(e, "Stornarea a eșuat"), { tone: "danger" });
