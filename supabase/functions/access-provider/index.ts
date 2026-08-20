@@ -288,11 +288,20 @@ Deno.serve(async (req) => {
       /* Numele afișat pe yală (in aplicatia TTLock/TTHotel): numele
          oaspetelui, nu id-ul rezervării — id-ul e opac pentru oricine se
          uită acolo la o listă de coduri. Fallback pe id doar dacă oaspetele
-         n-are nume salvat. */
+         n-are nume salvat.
+         TTLock n-are camp de "operator" pe /keyboardPwd/add (verificat in
+         documentatia oficiala) — senderUsername din raspunsul lor reflecta
+         doar contul comun cu care se autentifica toata integrarea, nu
+         recepționerul care a apasat butonul. Ca sa se vada totusi cine a
+         generat codul, il adaugam in numele codului: recepționerul e primul
+         (nume scurt, aproape sigur nu se pierde la limita de 40 de
+         caractere a lui TTLock), apoi numele oaspetelui. */
       const { data: oaspeteCod } = rez.guest_id
         ? await admin.from("guests").select("first_name, last_name").eq("id", rez.guest_id).maybeSingle()
         : { data: null };
       const numeOaspete = [oaspeteCod?.first_name, oaspeteCod?.last_name].filter(Boolean).join(" ").trim();
+      const numeOperator = String(staff.name || staff.user_id || "").trim();
+      const numeCod = [numeOperator, numeOaspete || `Rezervare ${rez.id}`].filter(Boolean).join(" · ");
 
       const { data: cam } = await admin.from("rooms")
         .select("id, name, access_provider, access_lock_id")
@@ -349,7 +358,7 @@ Deno.serve(async (req) => {
          lungimi accepta o yala, deci nu presupunem: daca refuza, eroarea ei
          ajunge la receptie asa cum e. */
       const nou = await f.api.creeazaCod(
-        cam.access_lock_id, de, pana, numeOaspete || `Rezervare ${rez.id}`,
+        cam.access_lock_id, de, pana, numeCod,
         genereazaCodPin(lungimeCod(s)));
 
       const rand = {
