@@ -3292,9 +3292,10 @@ function Shell({ user, view, setView, onLogout, core, updateCore, reservations, 
           )}
           {safeView === "settings" && <SettingsView setView={setView} items={settingsItems} />}
           {safeView === "today" && (
-            <TodayView core={core} reservations={reservations}
+            <TodayView core={core} updateCore={updateCore} reservations={reservations}
               updateReservations={updateReservations} housekeeping={housekeeping}
-              updateHousekeeping={updateHousekeeping} setView={setView} groups={groups} />
+              updateHousekeeping={updateHousekeeping} setView={setView} groups={groups}
+              updateGroups={updateGroups} blocks={blocks} updateBlocks={updateBlocks} />
           )}
           {safeView === "reports" && <ReportsView core={core} reservations={reservations} />}
           {safeView === "log" && <LogView entries={logEntries} />}
@@ -9770,8 +9771,10 @@ function ArrivalForm({ res, core, groups, onClose }) {
 /* ---------------------------------------------------------------
    TODAY VIEW
 ----------------------------------------------------------------*/
-function TodayView({ core, reservations, updateReservations, housekeeping, updateHousekeeping, setView, groups }) {
+function TodayView({ core, updateCore, reservations, updateReservations, housekeeping, updateHousekeeping, setView, groups, updateGroups, blocks, updateBlocks }) {
   const [arrivalRes, setArrivalRes] = useState(null);
+  const [viewRes, setViewRes] = useState(null);
+  const [editRes, setEditRes] = useState(null);
   const [checkinError, setCheckinError] = useState("");
   const [todayTab, setTodayTab] = useState("arrivals");
   /* Rezervarea pe care ruleaza chiar acum un check-in/check-out. Fara ea,
@@ -9889,7 +9892,11 @@ function TodayView({ core, reservations, updateReservations, housekeeping, updat
         <Section title="Sosiri" items={arrivals} empty="Nicio sosire astăzi."
           renderItem={(r) => (
             <div className="list-row" key={r.id}>
-              <div style={{ minWidth: 0 }}>
+              <div style={{ minWidth: 0, cursor: "pointer" }}
+                role="button" tabIndex={0}
+                onClick={() => setViewRes(r)}
+                onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setViewRes(r); } }}
+              >
                 <div className="primary">{guestName(r)}</div>
                 <div className="secondary">
                   <span className="mono">{roomName(r.roomId)}</span> · {FMT_TIME.format(new Date(r.checkin))} · {fmtMoney(reservationTotal(r, core))}
@@ -9929,7 +9936,11 @@ function TodayView({ core, reservations, updateReservations, housekeeping, updat
         <Section title="Plecări" items={departures} empty="Nicio plecare astăzi."
           renderItem={(r) => (
             <div className="list-row" key={r.id}>
-              <div style={{ minWidth: 0 }}>
+              <div style={{ minWidth: 0, cursor: "pointer" }}
+                role="button" tabIndex={0}
+                onClick={() => setViewRes(r)}
+                onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setViewRes(r); } }}
+              >
                 <div className="primary">{guestName(r)}</div>
                 <div className="secondary">
                   <span className="mono">{roomName(r.roomId)}</span> · până la {FMT_TIME.format(new Date(r.checkout))}
@@ -9963,7 +9974,11 @@ function TodayView({ core, reservations, updateReservations, housekeeping, updat
         <Section title="In house" items={inHouse} empty="Nicio cameră ocupată."
           renderItem={(r) => (
             <div className="list-row" key={r.id}>
-              <div>
+              <div style={{ cursor: "pointer" }}
+                role="button" tabIndex={0}
+                onClick={() => setViewRes(r)}
+                onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setViewRes(r); } }}
+              >
                 <div className="primary">{guestName(r)}</div>
                 <div className="secondary"><span className="mono">{roomName(r.roomId)}</span> · pleacă {fmtDate(r.checkout)}</div>
               </div>
@@ -9989,6 +10004,32 @@ function TodayView({ core, reservations, updateReservations, housekeeping, updat
       )}
 
       {arrivalRes && <ArrivalForm res={arrivalRes} core={core} groups={groups} onClose={() => setArrivalRes(null)} />}
+
+      {viewRes && (
+        <ReservationViewModal
+          reservation={viewRes}
+          core={core}
+          updateCore={updateCore}
+          groups={groups}
+          onClose={() => setViewRes(null)}
+          onEdit={() => { setEditRes(viewRes); setViewRes(null); }}
+        />
+      )}
+
+      {editRes && (
+        <ReservationModal
+          data={{ reservation: editRes }}
+          core={core}
+          updateCore={updateCore}
+          reservations={reservations}
+          updateReservations={updateReservations}
+          groups={groups}
+          updateGroups={updateGroups}
+          blocks={blocks}
+          updateBlocks={updateBlocks}
+          onClose={() => setEditRes(null)}
+        />
+      )}
     </div>
   );
 }
