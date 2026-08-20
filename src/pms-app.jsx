@@ -25,7 +25,13 @@ import { validateCUIFormat, validatePhone, validateEmail } from "./lib/validatio
 /* Stratul de acces la date — cererile catre Supabase, grupate pe domenii,
    ca sa se poata audita intr-un loc ce citeste si ce scrie aplicatia.
    Se migreaza domeniu cu domeniu; deocamdata contabilitatea. */
-import { camelBillingCustomer, snakeBillingCustomer } from "./data/mapari.js";
+import {
+  camelRes, snakeRes, camelGuest, snakeGuest, camelRoom, snakeRoom,
+  camelGroup, snakeGroup, snakeTier, camelVatRate, snakeVatRate,
+  camelPaymentMethod, snakePaymentMethod, camelProduct, snakeProduct,
+  camelBillingCustomer, snakeBillingCustomer,
+} from "./data/mapari.js";
+import { syncTable, saveRatesAndSeasons, loadAll } from "./data/nucleu.js";
 import * as dateContabilitate from "./data/contabilitate.js";
 import * as dateFacturare from "./data/facturare.js";
 import * as datePlati from "./data/plati.js";
@@ -269,218 +275,12 @@ function withNewDate(iso, dateStr) {
    cu cea noua si trimit DOAR randurile schimbate, ca doua persoane
    care lucreaza simultan sa nu se suprascrie reciproc.
 ----------------------------------------------------------------*/
-const camelRes = (r) => ({
-  id: r.id, roomId: r.room_id, guestId: r.guest_id, groupId: r.group_id,
-  checkin: r.checkin, checkout: r.checkout, status: r.status,
-  adults: r.adults, children: r.children, priceOverride: r.price_override,
-  bookedPrice: r.booked_price,
-  source: r.source, tags: r.tags || [], notes: r.notes || "",
-  occupantLastName: r.occupant_last_name || "", occupantFirstName: r.occupant_first_name || "",
-  occupantPhone: r.occupant_phone || "", occupantName:
-    [r.occupant_last_name, r.occupant_first_name].filter(Boolean).join(" "),
-  messages: r.messages || [], seeded: r.seeded,
-  billingCustomerId: r.billing_customer_id || "",
-  updatedAt: r.updated_at || null,
-});
-const snakeRes = (r) => ({
-  id: r.id, room_id: r.roomId, guest_id: r.guestId || null, group_id: r.groupId || null,
-  checkin: new Date(r.checkin).toISOString(), checkout: new Date(r.checkout).toISOString(),
-  status: r.status, adults: r.adults ?? 2, children: r.children ?? 0,
-  price_override: r.priceOverride ?? null, booked_price: r.bookedPrice ?? null,
-  source: r.source || "direct",
-  tags: r.tags || [], notes: r.notes || null,
-  occupant_last_name: r.occupantLastName || null,
-  occupant_first_name: r.occupantFirstName || null,
-  occupant_phone: r.occupantPhone || null,
-  messages: r.messages || [], seeded: !!r.seeded,
-  billing_customer_id: r.billingCustomerId || null,
-  /* Stampila citita la incarcare, trimisa inapoi neschimbata. Baza o
-     compara cu a ei si refuza scrierea daca randul s-a schimbat intre
-     timp (vezi triggerul reservations_stamp_updated_at din schema.sql).
-     Pentru randuri noi e null — triggerul o completeaza la inserare. */
-  updated_at: r.updatedAt || null,
-});
-const camelGuest = (g) => ({
-  id: g.id, lastName: g.last_name, firstName: g.first_name, name:
-    [g.last_name, g.first_name].filter(Boolean).join(" "),
-  phone: g.phone, email: g.email || "", address: g.address || "",
-  city: g.city, county: g.county, country: g.country, notes: g.notes || "",
-  salutation: g.salutation || "", seeded: g.seeded,
-});
-const snakeGuest = (g) => ({
-  id: g.id, last_name: g.lastName || "-", first_name: g.firstName || "-",
-  phone: g.phone || "-", email: g.email || null, address: g.address || null,
-  city: g.city || "-", county: g.county || "-", country: g.country || "România",
-  notes: g.notes || null, salutation: g.salutation || null, seeded: !!g.seeded,
-});
-const camelRoom = (r) => ({
-  id: r.id, name: r.name, type: r.type, capacity: r.capacity,
-  boilerId: r.shelly_id || "", ventId: r.vent_id || "", sensiboId: r.sensibo_id || "",
-  icalToken: r.ical_token, sortOrder: r.sort_order,
-  /* Yala electronica a camerei. Trebuie sa treaca prin AMBELE mappere:
-     un camp prezent doar in formular, dar absent din snakeRoom, s-ar
-     pierde tacut la salvare — exact ce s-a intamplat cu tarifele. */
-  accessProvider: r.access_provider || "",
-  accessLockId: r.access_lock_id || "",
-  accessLockName: r.access_lock_name || "",
-});
-const snakeRoom = (r, idx) => ({
-  id: r.id, name: r.name, type: r.type, capacity: r.capacity ?? 2,
-  shelly_id: r.boilerId || null, vent_id: r.ventId || null, sensibo_id: r.sensiboId || null,
-  sort_order: r.sortOrder ?? idx,
-  access_provider: r.accessLockId ? (r.accessProvider || "ttlock") : null,
-  access_lock_id: r.accessLockId || null,
-  access_lock_name: r.accessLockName || null,
-});
-const camelGroup = (g) => ({
-  id: g.id, name: g.name, mainGuestId: g.main_guest_id,
-  notes: g.notes || "", createdAt: g.created_at, seeded: g.seeded,
-});
-const snakeGroup = (g) => ({
-  id: g.id, name: g.name, main_guest_id: g.mainGuestId || null,
-  notes: g.notes || null, seeded: !!g.seeded,
-});
-const snakeTier = (t, idx) => ({
-  id: t.id, min_occ: Math.max(0, Math.min(100, Number(t.min) || 0)),
-  max_occ: Math.max(0, Math.min(100, Number(t.max) || 0)),
-  adjustment_pct: Number(t.adjustmentPct) || 0, sort_order: idx,
-});
+/* Maparile rand <-> obiect s-au mutat in src/data/mapari.js — sunt granita
+   cu baza de date, nu interfata. Se importa mai sus. */
 
-/* --- FACTURARE: client de facturare, TVA, produse ----------------
-   camelBillingCustomer/snakeBillingCustomer s-au mutat in src/data/mapari.js,
-   langa stratul de acces la date — sunt traducere de randuri, nu interfata.
-   Se importa mai sus, impreuna cu restul. */
-
-const camelVatRate = (v) => ({ id: v.id, label: v.label, rate: Number(v.rate), active: v.active });
-const snakeVatRate = (v) => ({ id: v.id, label: v.label, rate: Number(v.rate) || 0, active: !!v.active });
-
-const camelPaymentMethod = (m) => ({ id: m.id, label: m.label, active: m.active, sortOrder: m.sort_order || 0 });
-const snakePaymentMethod = (m) => ({ id: m.id, label: m.label, active: !!m.active, sort_order: m.sortOrder || 0 });
-
-const camelProduct = (p) => ({
-  id: p.id, name: p.name, internalCode: p.internal_code || "", accountingCode: p.accounting_code || "",
-  category: p.category, unit: p.unit, vatRateId: p.vat_rate_id,
-  defaultPrice: Number(p.default_price) || 0, active: p.active,
-  billingMode: p.billing_mode, sortOrder: p.sort_order,
-});
-const snakeProduct = (p, idx) => ({
-  id: p.id, name: p.name, internal_code: p.internalCode || null, accounting_code: p.accountingCode || null,
-  category: p.category, unit: p.unit || "buc", vat_rate_id: p.vatRateId,
-  default_price: Number(p.defaultPrice) || 0, active: !!p.active,
-  billing_mode: p.billingMode || "separate", sort_order: p.sortOrder ?? idx,
-});
-
-/* Trimite doar diferentele: randuri noi/modificate prin upsert,
-   randuri disparute prin delete. */
-async function syncTable(table, before, after, toRow) {
-  const prevById = new Map((before || []).map((x) => [x.id, x]));
-  const nextById = new Map((after || []).map((x) => [x.id, x]));
-  const schimbate = (after || [])
-    .map((x, idx) => [x, idx])
-    .filter(([x]) => {
-      const old = prevById.get(x.id);
-      return !old || JSON.stringify(x) !== JSON.stringify(old);
-    })
-    .map(([x, idx]) => toRow(x, idx));
-  const sterse = (before || []).filter((x) => !nextById.has(x.id)).map((x) => x.id);
-
-  if (sterse.length) {
-    const { error } = await supabase.from(table).delete().in("id", sterse);
-    if (error) throw error;
-  }
-  if (schimbate.length) {
-    /* .select() ne intoarce randurile asa cum au ramas in baza, cu tot ce
-       a completat serverul (de ex. updated_at pus de trigger) — apelantul
-       le poate folosi ca sa-si actualizeze starea locala. */
-    const { data, error } = await supabase.from(table).upsert(schimbate, { onConflict: "id" }).select();
-    if (error) throw error;
-    return data || [];
-  }
-  return [];
-}
-
-/* rates/seasons au forma diferita de restul tabelelor (rates: o linie per
-   tip de camera; seasons: cheie compusa id+room_type, o "linie logica" din
-   JS devine 2 randuri, cate unul per tip) — nu se potrivesc cu syncTable,
-   asa ca le sincronizam separat. Suplimentele sunt globale, nu per tip de
-   camera, dar se scriu pe ambele randuri din rates ca sa ramana totul
-   intr-un singur tabel. */
-async function saveRatesAndSeasons(beforeRates, afterRates) {
-  const base = afterRates.base || {};
-  const rateRows = ["tiny", "loft"].map((t) => ({
-    room_type: t,
-    base_price: Number(base[t]) || 0,
-    single_price: base[t + "Single"] ? Number(base[t + "Single"]) : null,
-    adult_supplement: Number(base.adultSupplement) || 0,
-    child_supplement: Number(base.childSupplement) || 0,
-  }));
-  const { error: rateErr } = await supabase.from("rates").upsert(rateRows, { onConflict: "room_type" });
-  if (rateErr) throw rateErr;
-
-  const beforeIds = new Set((beforeRates.seasons || []).map((s) => s.id));
-  const afterIds = new Set((afterRates.seasons || []).map((s) => s.id));
-  const removedIds = [...beforeIds].filter((id) => !afterIds.has(id));
-  if (removedIds.length) {
-    const { error } = await supabase.from("seasons").delete().in("id", removedIds);
-    if (error) throw error;
-  }
-  const seasonRows = (afterRates.seasons || []).flatMap((s) => ["tiny", "loft"].map((t) => ({
-    id: s.id, name: s.name, start_md: s.start, end_md: s.end,
-    room_type: t, price: Number(s[t]) || 0, priority: 0,
-  })));
-  if (seasonRows.length) {
-    const { error } = await supabase.from("seasons").upsert(seasonRows, { onConflict: "id,room_type" });
-    if (error) throw error;
-  }
-}
-
-async function loadAll() {
-  const [rooms, guests, groups, res, rates, seasons, onlineTiers, billingCustomers, vatRates, products, paymentMethods] = await Promise.all([
-    supabase.from("rooms").select("*").order("sort_order"),
-    supabase.from("guests").select("*"),
-    supabase.from("res_groups").select("*"),
-    supabase.from("reservations").select("*"),
-    supabase.from("rates").select("*").order("room_type"),
-    supabase.from("seasons").select("*"),
-    supabase.from("online_pricing_tiers").select("*").order("sort_order"),
-    supabase.from("billing_customers").select("*"),
-    supabase.from("vat_rates").select("*"),
-    supabase.from("products").select("*").order("sort_order"),
-    supabase.from("payment_methods").select("*").order("sort_order"),
-  ]);
-  for (const r of [rooms, guests, groups, res, rates, seasons, onlineTiers, billingCustomers, vatRates, products, paymentMethods]) if (r.error) throw r.error;
-
-  const base = {};
-  rates.data.forEach((r) => {
-    base[r.room_type] = Number(r.base_price);
-    base[r.room_type + "Single"] = r.single_price != null ? Number(r.single_price) : 0;
-    base.adultSupplement = Number(r.adult_supplement) || 0;
-    base.childSupplement = Number(r.child_supplement) || 0;
-  });
-  const sez = {};
-  seasons.data.forEach((s) => {
-    sez[s.id] = sez[s.id] || { id: s.id, name: s.name, start: s.start_md, end: s.end_md };
-    sez[s.id][s.room_type] = Number(s.price);
-  });
-
-  return {
-    rooms: rooms.data.map(camelRoom),
-    guests: guests.data.map(camelGuest),
-    groups: groups.data.map(camelGroup),
-    reservations: res.data.filter((r) => r.source !== "blocaj").map(camelRes),
-    blocks: res.data.filter((r) => r.source === "blocaj").map((b) => ({
-      id: b.id, roomId: b.room_id, start: b.checkin, end: b.checkout, reason: b.notes || "",
-    })),
-    rates: { base, seasons: Object.values(sez) },
-    onlinePricing: onlineTiers.data.map((t) => ({
-      id: t.id, min: t.min_occ, max: t.max_occ, adjustmentPct: Number(t.adjustment_pct),
-    })),
-    billingCustomers: billingCustomers.data.map(camelBillingCustomer),
-    vatRates: vatRates.data.map(camelVatRate),
-    products: products.data.map(camelProduct),
-    paymentMethods: paymentMethods.data.map(camelPaymentMethod),
-  };
-}
+/* syncTable, saveRatesAndSeasons si loadAll s-au mutat in src/data/nucleu.js
+   — sunt calea prin care aplicatia isi ia si isi salveaza datele de baza.
+   Se importa mai sus. */
 
 const K = {
   core: "pms:core:v3",
