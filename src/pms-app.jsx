@@ -2086,11 +2086,27 @@ async function downloadElementAsPDF(el, filename, opts = {}) {
   /* Incarcare la cerere: cele doua biblioteci inseamna ~180 KB din
      pachetul principal, dar se folosesc doar cand cineva chiar descarca
      un PDF — nu la fiecare pornire a aplicatiei. Importul dinamic le
-     scoate intr-un chunk separat, adus abia la primul click. */
-  const [{ default: jsPDF }, { default: html2canvas }] = await Promise.all([
-    import("jspdf"),
-    import("html2canvas"),
-  ]);
+     scoate intr-un chunk separat, adus abia la primul click.
+
+     Pretul ascuns al importului dinamic: numele fisierelor contin un hash
+     care se schimba la fiecare build. Daca a aparut intre timp un deploy
+     nou, chunk-ul cerut aici NU MAI EXISTA pe server — 404, iar importul
+     arunca. S-a intamplat pe 20 august 2026: descarcarea facturii "nu
+     facea nimic" pe o fila lasata deschisa peste patru deploy-uri.
+     Traducem esecul intr-un mesaj care spune ce trebuie facut. */
+  let jsPDF, html2canvas;
+  try {
+    [{ default: jsPDF }, { default: html2canvas }] = await Promise.all([
+      import("jspdf"),
+      import("html2canvas"),
+    ]);
+  } catch (e) {
+    /* Textul pentru utilizator sta in lib/errors.js, ca toate celelalte —
+       aici doar marcam despre ce fel de esec e vorba. */
+    const eroare = new Error(`Import dinamic eșuat: ${e?.message || e}`);
+    eroare.code = "APP_VERSIUNE";
+    throw eroare;
+  }
   const canvas = await html2canvas(el, {
     scale: 2, backgroundColor: "#ffffff", useCORS: true,
     // .no-print e gandit pentru @media print (window.print()) — aici nu
@@ -3195,7 +3211,11 @@ function GroupPrint({ group, core, reservations, onClose }) {
   const [downloading, setDownloading] = useState(false);
   const download = async () => {
     setDownloading(true);
+    /* Fara `catch`, un esec de generare trecea complet neobservat: butonul
+       clipea „Se generează…", revenea, si nu aparea niciun fisier si niciun
+       mesaj. Mai bine o eroare vizibila decat o tacere. */
     try { await downloadElementAsPDF(sheetRef.current, `Cazare-grup-${group.id}.pdf`); }
+    catch (e) { toaster.show(mesajEroare(e, "PDF-ul nu a putut fi generat"), { tone: "danger" }); }
     finally { setDownloading(false); }
   };
   const rows = reservations
@@ -5142,6 +5162,8 @@ function InvoicePrint({ invoiceId, core, onClose, onChanged }) {
     if (wrap) wrap.style.height = "auto";
     try {
       await downloadElementAsPDF(fisaRef.current, `Factura-${invoice?.series || "draft"}-${invoice?.number || ""}.pdf`, { singlePage: true });
+    } catch (e) {
+      toaster.show(mesajEroare(e, "PDF-ul nu a putut fi generat"), { tone: "danger" });
     } finally {
       if (scaler) scaler.style.transform = prevTransform;
       if (wrap) wrap.style.height = prevHeight;
@@ -9556,6 +9578,7 @@ function ArrivalForm({ res, core, groups, onClose }) {
   const download = async () => {
     setDownloading(true);
     try { await downloadElementAsPDF(sheetRef.current, `Fisa-anuntare-${res.id}.pdf`); }
+    catch (e) { toaster.show(mesajEroare(e, "PDF-ul nu a putut fi generat"), { tone: "danger" }); }
     finally { setDownloading(false); }
   };
   return (

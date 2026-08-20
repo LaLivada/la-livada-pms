@@ -24,6 +24,11 @@ const DUPA_COD = {
   "42501": "Nu ai dreptul să faci această modificare.",
   "P0001": null,   // raise exception din funcțiile noastre — mesajul e deja scris pentru utilizator
   "PGRST301": "Sesiunea a expirat. Autentifică-te din nou.",
+  /* Nu vine de la Postgres: îl ridicăm noi când un import dinamic eșuează.
+     Fișierele încărcate la cerere (bibliotecile de PDF) au un hash în nume
+     care se schimbă la fiecare build, deci o filă lăsată deschisă peste un
+     deploy cere un fișier care nu mai există. */
+  "APP_VERSIUNE": "A apărut o versiune nouă a aplicației. Reîncarcă pagina (Ctrl+Shift+R) și încearcă din nou.",
 };
 
 /* Fragmente recunoscute din textul erorii, pentru cazurile fără cod util.
