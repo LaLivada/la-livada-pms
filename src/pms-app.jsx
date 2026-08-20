@@ -14,6 +14,13 @@ import { round2, splitEvenly, calcAmounts } from "./lib/money.js";
 /* Regula "cand trebuie resincronizat codul de acces" sta in lib si e
    testata separat (src/acces.test.js) — nu se rescrie aici. */
 import { decideActiuneAcces } from "./lib/acces.js";
+/* Regulile de tranzitie (check-in/out, anulare, no-show) si night audit-ul
+   stau in lib ca sa existe o singura definitie, testata — vezi
+   src/tranzitii.test.js. */
+import {
+  isSameDay, isToday, canCheckIn, canCheckOut, canCancel, canNoShow,
+  checkouturiRestante, zileIntarziere, ORE_CHECKIN_DEVREME,
+} from "./lib/tranzitii.js";
 import { validateCUIFormat } from "./lib/validation.js";
 import { mesajEroare } from "./lib/errors.js";
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
@@ -1545,18 +1552,6 @@ const BILLING_PERMISSION_LABEL = {
 };
 const BILLING_PERMISSION_KEYS = Object.keys(BILLING_PERMISSION_LABEL);
 
-function isSameDay(a, b) {
-  const x = new Date(a), y = new Date(b);
-  return x.getFullYear() === y.getFullYear() && x.getMonth() === y.getMonth() && x.getDate() === y.getDate();
-}
-function isToday(d) { return isSameDay(d, new Date()); }
-
-/* Single source of truth for which transitions are legal.
-   Guards both the buttons and the actions they call. */
-const canCheckIn  = (r, now = new Date()) => r.status === "confirmed" && isSameDay(r.checkin, now);
-const canCheckOut = (r) => r.status === "checkedin";
-const canCancel   = (r) => r.status === "confirmed";
-
 function validatePrice(v) {
   if (v === "" || v == null) return null;
   const n = Number(v);
@@ -1565,9 +1560,6 @@ function validatePrice(v) {
   if (n > 1000000) return "Prețul manual pare eronat.";
   return null;
 }
-
-const canNoShow   = (r, now = new Date()) =>
-  r.status === "confirmed" && startOfDay(r.checkin) < startOfDay(now);
 
 const SOURCES = [
   { key: "direct", label: "Direct" },
@@ -2755,6 +2747,21 @@ function PMSApp() {
     }
   }, [currentUser]);
 
+  /* Ceas propriu pentru night audit. Aplicatia nu are realtime si nici
+     polling pe rezervari, deci o fila lasata deschisa peste noapte n-ar
+     observa singura ca plecarile de ieri au devenit restante — blocajul ar
+     aparea abia la urmatorul refresh. Un tick pe minut e destul: pragul e
+     ziua, nu ora. */
+  const [tickAudit, setTickAudit] = useState(() => Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setTickAudit(Date.now()), 60_000);
+    return () => clearInterval(t);
+  }, []);
+
+  const restanteAudit = useMemo(
+    () => checkouturiRestante(reservations, new Date(tickAudit)),
+    [reservations, tickAudit]);
+
   if (loading) {
     return (
       <div className="pms">
@@ -2807,6 +2814,36 @@ function PMSApp() {
     );
   }
 
+  /* NIGHT AUDIT — blocaj pana se inchide ziua.
+   *
+   * Nu are buton de ocolire: decizia e ca disciplina de inchidere sa fie
+   * obligatorie. Nu se poate ajunge la un blocaj permanent, fiindca fiecare
+   * rezervare din lista e "checked-in", iar canCheckOut cere exact atat —
+   * deci fiecare rand poate fi rezolvat pe loc, din ecranul asta.
+   *
+   * Housekeeping nu e blocat: nu poate face check-out, deci blocarea lui ar
+   * opri curatenia fara sa deblocheze nimic. */
+  if (restanteAudit.length > 0 && ["admin", "receptionist"].includes(currentUser.role)) {
+    return (
+      <div className="pms">
+        <style>{STYLES}</style>
+        <ToastHost />
+        <NightAuditGate
+          restante={restanteAudit}
+          core={core}
+          groups={groups}
+          reservations={reservations}
+          updateReservations={updateReservations}
+          housekeeping={housekeeping}
+          updateHousekeeping={updateHousekeeping}
+          onLogout={async () => {
+            try { await supabase.auth.signOut(); } finally { setCurrentUser(null); resetStareLocala(); }
+          }}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="pms">
       <style>{STYLES}</style>
@@ -2833,6 +2870,71 @@ function PMSApp() {
         updateBlocks={updateBlocks}
         logEntries={logEntries}
       />
+    </div>
+  );
+}
+
+/* ---------------------------------------------------------------
+   NIGHT AUDIT — inchiderea zilei
+----------------------------------------------------------------*/
+/* Ecran de blocaj: cat timp exista camere care trebuiau eliberate in zilele
+   trecute dar au ramas "checked-in", nu se poate lucra in aplicatie.
+   Fara buton de ocolire — dar cu check-out direct de aici, deci blocajul e
+   intotdeauna rezolvabil din ecranul insusi. */
+function NightAuditGate({ restante, core, groups, reservations, updateReservations, housekeeping, updateHousekeeping, onLogout }) {
+  const [busyId, setBusyId] = useState(null);
+
+  return (
+    <div className="login-wrap">
+      <div className="boot boot-error" style={{ maxWidth: 560, alignItems: "stretch", textAlign: "left" }}>
+        <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
+          <AlertTriangle size={24} style={{ flexShrink: 0 }} />
+          <div>
+            <strong>Închide ziua</strong>
+            <p>
+              {restante.length === 1
+                ? "O cameră a rămas ocupată după data plecării."
+                : `${restante.length} camere au rămas ocupate după data plecării.`}
+              {" "}Fă check-out ca să poți folosi mai departe aplicația.
+            </p>
+          </div>
+        </div>
+
+        <div className="panel" style={{ marginTop: 4 }}>
+          {restante.map((r) => {
+            const camera = core.rooms.find((x) => x.id === r.roomId);
+            const zile = zileIntarziere(r);
+            return (
+              <div className="list-row" key={r.id}>
+                <div style={{ minWidth: 0 }}>
+                  <div className="primary">
+                    <span className="mono">{camera?.name || r.roomId}</span>
+                    {" · "}{occupantName(r, core, groups) || "Fără nume"}
+                  </div>
+                  <div className="secondary">
+                    Plecare {fmtDate(r.checkout)} · {zile === 1 ? "o zi" : `${zile} zile`} întârziere
+                  </div>
+                </div>
+                <button className="btn btn-primary" style={{ width: "auto", padding: "8px 14px" }}
+                  disabled={busyId === r.id}
+                  onClick={async () => {
+                    if (busyId) return;
+                    setBusyId(r.id);
+                    try {
+                      await doCheckOut(r, reservations, updateReservations, core, housekeeping, updateHousekeeping);
+                    } finally { setBusyId(null); }
+                  }}>
+                  {busyId === r.id ? "…" : <><ArrowRight size={14} /> Check-out</>}
+                </button>
+              </div>
+            );
+          })}
+        </div>
+
+        <button className="btn btn-ghost" style={{ width: "100%", marginTop: 4 }} onClick={onLogout}>
+          <LogOut size={15} /> Delogare
+        </button>
+      </div>
     </div>
   );
 }
@@ -5802,7 +5904,10 @@ function ReservationModal({ data, core, updateCore, reservations, updateReservat
 
   /* Corpul propriu-zis ramane neschimbat; `save`/`remove` de mai jos doar
      il imbraca in blocajul anti-dublu-click. */
-  const saveInner = async () => {
+  const saveInner = async (statusNou) => {
+    /* Statusul efectiv al acestei salvari. Butoanele de check-in/out il dau
+       explicit, ca sa nu depinda de un setState care nu s-a aplicat inca. */
+    const statusFinal = statusNou || status;
     if (isBlock) {
       if (roomIds.length < 1) { setError("Selectează cel puțin o cameră de blocat."); return; }
       const dv = validateStay(checkin, checkout);
@@ -5842,12 +5947,17 @@ function ReservationModal({ data, core, updateCore, reservations, updateReservat
       return;
     }
 
-    /* The status dropdown could otherwise set "checkedin" on any date,
-       going around the same-day rule the buttons enforce. Only block the
-       transition into checked-in — a stay already checked in stays valid. */
-    if (status === "checkedin" && editing?.status !== "checkedin"
-      && !isSameDay(checkin, new Date())) {
-      setError("Check-in-ul se poate face doar în ziua sosirii.");
+    /* Fara asta, dropdownul de status ar putea trece rezervarea in
+       "checked-in" la orice data, ocolind regula pe care butoanele o
+       respecta. Se blocheaza doar TRECEREA in checked-in — un sejur deja
+       inceput ramane valid.
+       Regula vine din canCheckIn (lib/tranzitii.js), nu e rescrisa aici:
+       verificam data din FORMULAR (posibil modificata acum), cu statusul
+       "confirmed" pe care rezervarea trebuie sa-l aiba ca sa poata fi
+       cazata. */
+    if (statusFinal === "checkedin" && editing?.status !== "checkedin"
+      && !canCheckIn({ status: "confirmed", checkin })) {
+      setError(`Check-in-ul se poate face cu cel mult ${ORE_CHECKIN_DEVREME}h înainte de sosire.`);
       return;
     }
 
@@ -5874,7 +5984,7 @@ function ReservationModal({ data, core, updateCore, reservations, updateReservat
         const base = {
           id: uid(), roomId: rid, guestId, groupId,
           checkin: new Date(checkin).toISOString(), checkout: new Date(checkout).toISOString(),
-          status, notes,
+          status: statusFinal, notes,
           adults: Number(adults) || 1, children: Number(children) || 0, source,
           tags: [...tags], messages: [], billingCustomerId: billingCustomerId || null,
         };
@@ -5899,7 +6009,7 @@ function ReservationModal({ data, core, updateCore, reservations, updateReservat
       ...(editing || {}),
       id: editing?.id || uid(), roomId, guestId, groupId: editing?.groupId || null,
       checkin: new Date(checkin).toISOString(), checkout: new Date(checkout).toISOString(),
-      status, notes,
+      status: statusFinal, notes,
       adults: Number(adults) || 1, children: Number(children) || 0, source, tags: [...tags],
       messages: editing?.messages || [], billingCustomerId: billingCustomerId || null,
     };
@@ -5932,10 +6042,15 @@ function ReservationModal({ data, core, updateCore, reservations, updateReservat
     onClose();
   };
 
-  const save = async () => {
+  /* `statusNou` vine de la butoanele "Marchează check-in/out", care salveaza
+     pe loc. Nu ne putem baza pe setStatus + save in aceeasi apasare: setarea
+     de state nu se vede in `status` decat la urmatorul render, deci salvarea
+     ar folosi valoarea veche. */
+  const save = async (statusNou) => {
     if (saving) return;
     setSaving(true);
-    try { await saveInner(); } finally { setSaving(false); }
+    try { await saveInner(typeof statusNou === "string" ? statusNou : undefined); }
+    finally { setSaving(false); }
   };
 
   const removeInner = async () => {
@@ -6287,23 +6402,27 @@ function ReservationModal({ data, core, updateCore, reservations, updateReservat
             <button className="btn btn-ghost" onClick={() => setShowArrival(true)}>
               <Printer size={14} /> Fișa de sosire
             </button>
-            {/* Uses the same canCheckIn rule as the calendar action panel:
-                check-in is only offered on the day of arrival, so this
-                button no longer appears on future or past reservations. */}
+            {/* Aceeasi regula canCheckIn ca in panoul din calendar: cu pana
+                la 48h inainte de sosire.
+                Butonul SALVEAZA pe loc, nu doar schimba dropdownul de status:
+                inainte apela setStatus si atat, iar dropdownul fiind derulat
+                sus, in afara ecranului, parea ca apasarea nu face nimic. */}
             {canCheckIn(editing) && (
-              <button className="btn btn-ghost" onClick={() => { setStatus("checkedin"); }}>
+              <button className="btn btn-ghost" disabled={saving}
+                onClick={() => { setStatus("checkedin"); save("checkedin"); }}>
                 <LogIn size={14} /> Marchează check-in
               </button>
             )}
             {editing.status === "confirmed" && !canCheckIn(editing) && (
               <span className="quick-hint">
                 {new Date(editing.checkin) > new Date()
-                  ? `Check-in disponibil în ziua sosirii (${fmtDate(editing.checkin)})`
+                  ? `Check-in disponibil cu ${ORE_CHECKIN_DEVREME}h înainte de sosire (${fmtDate(editing.checkin)})`
                   : "Sosirea era într-o zi trecută — corectează data de check-in."}
               </span>
             )}
             {canCheckOut(editing) && (
-              <button className="btn btn-ghost" onClick={() => { setStatus("checkedout"); }}>
+              <button className="btn btn-ghost" disabled={saving}
+                onClick={() => { setStatus("checkedout"); save("checkedout"); }}>
                 Marchează check-out <ArrowRight size={14} />
               </button>
             )}
@@ -6318,7 +6437,9 @@ function ReservationModal({ data, core, updateCore, reservations, updateReservat
           )}
           <div className="grow" />
           <button className="btn btn-ghost" onClick={onClose} disabled={saving}>Anulează</button>
-          <button className="btn btn-primary" style={{ width: "auto" }} onClick={save} disabled={saving}>
+          {/* `() => save()`, nu `save`: altfel React ar trimite evenimentul de
+              click drept prim argument, adica drept status. */}
+          <button className="btn btn-primary" style={{ width: "auto" }} onClick={() => save()} disabled={saving}>
             <Check size={15} /> {saving ? "Se salvează..." : "Salvează"}
           </button>
         </div>
@@ -10344,11 +10465,12 @@ function ReservationActions({ res: resSnapshot, core, groups, reservations, upda
   const mayCheckIn = canCheckIn(res, now);
   const mayCheckOut = canCheckOut(res);
 
-  const checkInHint = res.status !== "confirmed"
+  /* Explicatia apare doar cand check-in-ul chiar NU e posibil: cu fereastra
+     de 48h, o sosire de maine e deja cazabila, deci n-are ce explica. */
+  const checkInHint = res.status !== "confirmed" || mayCheckIn
     ? null
-    : arrivesToday ? null
     : new Date(res.checkin) > now
-      ? `Check-in disponibil în ziua sosirii (${fmtDate(res.checkin)})`
+      ? `Check-in disponibil cu ${ORE_CHECKIN_DEVREME}h înainte de sosire (${fmtDate(res.checkin)})`
       : "Sosirea era într-o zi trecută — deschide rezervarea ca să corectezi data.";
 
   const addMessage = async () => {
@@ -10435,7 +10557,9 @@ function ReservationActions({ res: resSnapshot, core, groups, reservations, upda
             })}>
               <span className="ai-ico"><LogIn size={17} /></span>
               <span className="ai-body"><span className="ai-t">Check-in</span>
-                <span className="ai-d">{checkInHint || (res.status === "checkedout" ? "Sejur încheiat" : "Sosire astăzi")}</span></span>
+                <span className="ai-d">{checkInHint
+                  || (res.status === "checkedout" ? "Sejur încheiat"
+                    : arrivesToday ? "Sosire astăzi" : `Sosire ${fmtDate(res.checkin)}`)}</span></span>
             </button>
           )}
 
