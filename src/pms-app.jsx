@@ -5547,23 +5547,27 @@ function ReservationViewModal({ reservation, core, updateCore, groups, onClose, 
 
   return (
     <Dialog onClose={onClose} title="Vezi rezervarea">
-      <div className="action-head">
-        <div style={{ minWidth: 0 }}>
+      {/* `flexDirection: row` explicit: .action-head trece pe coloană sub
+          640px, iar aici vrem butonul chiar în dreapta rândurilor, și pe
+          telefon. Rândurile din stânga stau strânse (margin-top mic). */}
+      <div className="action-head" style={{ flexDirection: "row", alignItems: "flex-start", flexWrap: "nowrap", gap: 10 }}>
+        <div style={{ minWidth: 0, flex: 1 }}>
           <div className="action-guest">{occupantName(reservation, core, groups) || "Fără nume"}</div>
           {guestFullName(guest) && guestFullName(guest) !== occupantName(reservation, core, groups) && (
-            <div className="action-meta">Rezervat de {guestFullName(guest)}</div>
+            <div className="action-meta" style={{ marginTop: 1 }}>Rezervat de {guestFullName(guest)}</div>
           )}
-          <div className="action-meta" style={{ display: "flex", alignItems: "center", flexWrap: "wrap", justifyContent: "space-between", gap: 8 }}>
-            <span>
-              <span className="mono">{room?.name}</span> · {fmtDate(reservation.checkin)} → {fmtDate(reservation.checkout)}
-              {" · "}{nightsBetween(reservation.checkin, reservation.checkout)} nopți
-            </span>
-            <button className="btn btn-ghost" style={{ width: "auto", padding: "6px 10px", flexShrink: 0 }} onClick={() => setShowArrival(true)}>
-              <Printer size={14} /> Fișa de sosire
-            </button>
+          <div className="action-meta" style={{ marginTop: 1 }}>
+            <span className="mono">{room?.name}</span> · {fmtDate(reservation.checkin)} → {fmtDate(reservation.checkout)}
+            {" · "}{nightsBetween(reservation.checkin, reservation.checkout)} nopți
           </div>
-          <div className="action-meta">
+          <div className="action-meta" style={{ marginTop: 1 }}>
             {reservation.adults ?? 2} adulți{reservation.children ? ` + ${reservation.children} copii` : ""} · {sourceLabel(reservation.source)} · {fmtMoney(reservationTotal(reservation, core))}
+          </div>
+          <div style={{ marginTop: 6 }}>
+            <span className={"role-tag " + (reservation.status === "checkedin" ? "role-housekeeping"
+              : reservation.status === "cancelled" ? "role-receptionist" : "role-admin")}>
+              <span aria-hidden="true">{STATUS_GLYPH[reservation.status]}</span> {STATUS_LABEL[reservation.status]}
+            </span>
           </div>
           {reservation.tags?.length > 0 && (
             <div className="tag-row">
@@ -5571,10 +5575,9 @@ function ReservationViewModal({ reservation, core, updateCore, groups, onClose, 
             </div>
           )}
         </div>
-        <span className={"role-tag " + (reservation.status === "checkedin" ? "role-housekeeping"
-          : reservation.status === "cancelled" ? "role-receptionist" : "role-admin")}>
-          <span aria-hidden="true">{STATUS_GLYPH[reservation.status]}</span> {STATUS_LABEL[reservation.status]}
-        </span>
+        <button className="btn btn-ghost" style={{ width: "auto", padding: "8px 12px", flexShrink: 0 }} onClick={() => setShowArrival(true)}>
+          <Printer size={14} /> Fișa de sosire
+        </button>
       </div>
 
       {editingGroup && (
