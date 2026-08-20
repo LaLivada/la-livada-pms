@@ -1019,10 +1019,18 @@ const STYLES = `
     body{ background:#fff; }
     /* #root (index.css) si .pms/.shell/.content raman cu min-height:100vh
        (sau 100svh) chiar si golite de continut (regula de mai jos ascunde
-       doar copiii lor) — fara asta, ramane o pagina 1 complet goala
-       inaintea facturii, care e randata printr-un portal in <body>, deci
-       vine dupa #root in DOM. */
-    #root, .pms, .shell, .content{ min-height:0 !important; height:auto !important; }
+       doar copiii lor) — fara asta, ramane o pagina 1 aproape goala inaintea
+       documentului, care e randat printr-un portal in <body>, deci vine dupa
+       #root in DOM. Confirmat live pe 20 august 2026: chiar si dupa ce
+       min-height a fost resetat, a ramas o banda gri pe prima pagina — nu
+       de la Safari, ci de la PADDING-ul propriu al .content (16px sus, 40px
+       jos), care nu dispare doar prin resetarea inaltimii. Aceeasi problema
+       putea impinge tot documentul pe pagina 2, deci resetam si padding/
+       border/margin, nu doar inaltimea. */
+    #root, .pms, .shell, .content{
+      min-height:0 !important; height:auto !important;
+      padding:0 !important; border:0 !important; margin:0 !important;
+    }
     .pms .topbar, .pms .content > *:not(.arrival-overlay){ display:none !important; }
     /* Fara ".pms " in fata — InvoicePrint e randat printr-un portal direct
        in <body>, deci elementele lui .no-print nu mai sunt descendente ale
