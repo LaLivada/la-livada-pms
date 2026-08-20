@@ -1059,25 +1059,34 @@ const STYLES = `
       margin:0 !important; height:0 !important; min-height:0 !important;
       padding:0 !important; overflow:hidden !important;
     }
-    /* La print nu exista scalarea de ecran si nici dreptunghiul fix de
-       794x1123px: pagina e deja A4, deci lasam continutul sa curga natural.
-       Fara asta, coala fixata in pixeli ar fi ramas scalata si taiata. */
-    .arrival-scaler{ transform:none !important; }
-    .arrival-sheet-wrap{ height:auto !important; overflow:visible !important; }
-    .fisa-duo{ width:auto !important; height:auto !important; }
-    /* Acelasi tipar de scalare exista si la factura (InvoicePrint), sub alte
-       nume de clasa — .inv-scaler in loc de .arrival-scaler, etc. */
+    /* Fisa e randata la dimensiunea fixa 794x1123px (=exact 210x297mm), fara
+       nicio marja proprie. La primul test live (20 august 2026, iPhone) tot
+       s-a revarsat un rand-doua pe o a doua pagina chiar si cu @page
+       margin:0 — pagina web nu e singura care ocupa spatiu tiparibil:
+       Safari/AirPrint isi adauga PROPRIUL antet (URL) si subsol (data, "Pagina
+       X din Y"), pe care CSS-ul unei pagini nu il poate opri sau masura.
+       Solutia nu e sa nimerim exact marginea lor (nu e stabila, nu e
+       documentata) — e sa micsoram coala cu o rezerva reala de sub 297mm, cat
+       sa incapa oricum ar arata acel antet/subsol. Acelasi tipar de scalare
+       ca pe ecran (transform pe .arrival-scaler + inaltime potrivita pe
+       wrapper), doar ca aici factorul e fix, nu calculat din latimea
+       containerului. */
+    .arrival-scaler{ transform:scale(0.9) !important; transform-origin:top left !important; }
+    .arrival-sheet-wrap{ height:267mm !important; overflow:hidden !important; }
+    /* Factura NU are o inaltime fixa ca fisa: numarul de linii variaza, iar
+       o factura cu multe linii TREBUIE sa curga pe mai multe pagini — asta
+       nu e o eroare. Problema era alta: .inv-sheet are min-height:1123px (ca
+       previzualizarea de pe ecran sa arate mereu o coala A4 intreaga, chiar
+       si pentru o factura cu o singura linie) — la print, acel min-height
+       ramane activ si dupa ce am resetat height la auto, deci o factura
+       scurta era oricum impinsa sa ocupe toata pagina, fara nicio rezerva
+       pentru antetul/subsolul Safari. Scotem si min-height: o factura scurta
+       isi ia doar inaltimea reala, cu loc de rezerva; una lunga tot curge pe
+       cate pagini are nevoie. */
     .inv-scaler{ transform:none !important; }
     .inv-sheet-wrap{ height:auto !important; overflow:visible !important; }
-    .inv-sheet{ width:auto !important; height:auto !important; }
+    .inv-sheet{ width:auto !important; height:auto !important; min-height:0 !important; }
     * { -webkit-print-color-adjust:exact; print-color-adjust:exact; }
-    /* Fisa si factura sunt randate deja la dimensiunea exacta a unei pagini
-       A4 (794x1123px = 210x297mm). O margine de pagina aici scade zona
-       tiparibila SUB acea dimensiune, iar diferenta impinge un rest din josul
-       colii pe o a doua pagina — exact ce s-a intamplat la primul test live
-       pe 20 august 2026 (o pagina goala cu doar 2-3 randuri, la ambele
-       documente). Fara margine, coala de 297mm incape exact intr-o pagina A4
-       de 297mm. */
     @page{ size:A4; margin:0; }
   }
 
