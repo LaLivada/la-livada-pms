@@ -815,8 +815,8 @@ const STYLES = `
   .pdf-frame{ width:100%; height:100%; border:0; display:block; }
 
   .arrival-sheet-wrap{ overflow:hidden; }
-  /* IMPORTANT: regulile de mai jos sunt scopate pe `.fisa-duo`, NU pe
-     `.arrival-sheet` — aceeasi clasa `.arrival-sheet` e folosita si de
+  /* IMPORTANT: regulile de mai jos sunt scopate pe .fisa-duo, NU pe
+     .arrival-sheet — aceeasi clasa .arrival-sheet e folosita si de
      lista de cazare pe grup (GroupPrint), care are un singur document, de
      inaltime variabila, si ar fi fost strivita intr-un dreptunghi fix. */
   .fisa-duo{
