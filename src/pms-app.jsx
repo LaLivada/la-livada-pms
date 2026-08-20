@@ -1061,18 +1061,22 @@ const STYLES = `
     }
     /* Fisa e randata la dimensiunea fixa 794x1123px (=exact 210x297mm), fara
        nicio marja proprie. La primul test live (20 august 2026, iPhone) tot
-       s-a revarsat un rand-doua pe o a doua pagina chiar si cu @page
-       margin:0 — pagina web nu e singura care ocupa spatiu tiparibil:
-       Safari/AirPrint isi adauga PROPRIUL antet (URL) si subsol (data, "Pagina
-       X din Y"), pe care CSS-ul unei pagini nu il poate opri sau masura.
-       Solutia nu e sa nimerim exact marginea lor (nu e stabila, nu e
-       documentata) — e sa micsoram coala cu o rezerva reala de sub 297mm, cat
-       sa incapa oricum ar arata acel antet/subsol. Acelasi tipar de scalare
-       ca pe ecran (transform pe .arrival-scaler + inaltime potrivita pe
-       wrapper), doar ca aici factorul e fix, nu calculat din latimea
-       containerului. */
-    .arrival-scaler{ transform:scale(0.9) !important; transform-origin:top left !important; }
-    .arrival-sheet-wrap{ height:267mm !important; overflow:hidden !important; }
+       s-a revarsat un rand-doua pe o a doua pagina — atat cu @page margin:0,
+       cat si dupa un prim transform:scale(0.9), care nu a schimbat nimic:
+       WebKit/Safari e cunoscut ca IGNORA transform la tiparire, deci coala
+       tot iesea la marimea ei naturala. zoom (proprietate non-standard,
+       dar veche in WebKit) chiar modifica dimensiunea folosita la layout —
+       de-aia se foloseste aici in loc de transform, ca sa se vada efectiv
+       si la print, nu doar pe ecran.
+       Pe langa asta, Safari/AirPrint isi adauga PROPRIUL antet (titlul
+       paginii) si subsol (URL, data, "Pagina X din Y"), pe un fundal gri,
+       peste care CSS-ul unei pagini nu are control — nu poate fi masurat
+       sau oprit. Rezerva de mai jos (25%) nu tinteste o cifra exacta a
+       acelui antet/subsol (nedocumentata si posibil diferita intre
+       versiuni de iOS): e deliberat generoasa, ca fisa sa incapa oricum
+       ar arata el. */
+    .arrival-scaler{ transform:none !important; zoom:0.75 !important; }
+    .arrival-sheet-wrap{ height:auto !important; overflow:visible !important; }
     /* Factura NU are o inaltime fixa ca fisa: numarul de linii variaza, iar
        o factura cu multe linii TREBUIE sa curga pe mai multe pagini — asta
        nu e o eroare. Problema era alta: .inv-sheet are min-height:1123px (ca
