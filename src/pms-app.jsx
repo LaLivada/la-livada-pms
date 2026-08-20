@@ -1065,6 +1065,11 @@ const STYLES = `
     .arrival-scaler{ transform:none !important; }
     .arrival-sheet-wrap{ height:auto !important; overflow:visible !important; }
     .fisa-duo{ width:auto !important; height:auto !important; }
+    /* Acelasi tipar de scalare exista si la factura (InvoicePrint), sub alte
+       nume de clasa — .inv-scaler in loc de .arrival-scaler, etc. */
+    .inv-scaler{ transform:none !important; }
+    .inv-sheet-wrap{ height:auto !important; overflow:visible !important; }
+    .inv-sheet{ width:auto !important; height:auto !important; }
     * { -webkit-print-color-adjust:exact; print-color-adjust:exact; }
     @page{ margin:10mm; }
   }
@@ -5258,9 +5263,6 @@ function InvoicePrint({ invoiceId, core, onClose, onChanged }) {
   const [payments, setPayments] = useState([]);
   const [loading, setLoading] = useState(true);
   const fisaRef = useRef(null);
-  const scalerRef = useRef(null);
-  const [downloading, setDownloading] = useState(false);
-  const [pdf, setPdf] = useState(null);
   const [emitere, setEmitere] = useState(false);
 
   const emite = async () => {
@@ -5276,37 +5278,11 @@ function InvoicePrint({ invoiceId, core, onClose, onChanged }) {
       setEmitere(false);
     }
   };
-  const download = async () => {
-    setDownloading(true);
-    // getBoundingClientRect (folosit de html2canvas ca sa stie ce dimensiune
-    // are elementul) e afectat de transform-ul de scalare al parintelui —
-    // il dam deoparte cat timp capturam, altfel PDF-ul iese comprimat/
-    // suprapus pe telefon (unde scale e mult sub 1). Wrapper-ul de-asupra
-    // are si el o inaltime fixata la marimea scalata + overflow:hidden, care
-    // ar decupa coala redevenita nativa cat timp scalarea e scoasa — o dam
-    // deoparte si pe aceasta, apoi restauram ambele dupa capturare.
-    const scaler = scalerRef.current;
-    const wrap = scaleWrapRef.current;
-    const prevTransform = scaler?.style.transform;
-    const prevHeight = wrap?.style.height;
-    if (scaler) scaler.style.transform = "none";
-    if (wrap) wrap.style.height = "auto";
-    try {
-      const blob = await generatePdfBlob(fisaRef.current, { singlePage: true });
-      setPdf({ blob, filename: `Factura-${invoice?.series || "draft"}-${invoice?.number || ""}.pdf` });
-    } catch (e) {
-      toaster.show(mesajEroare(e, "PDF-ul nu a putut fi generat"), { tone: "danger" });
-    } finally {
-      if (scaler) scaler.style.transform = prevTransform;
-      if (wrap) wrap.style.height = prevHeight;
-      setDownloading(false);
-    }
-  };
 
-  // Coala e fixata la 794px (latimea A4) ca sa iasa PDF-ul corect (vezi
-  // downloadElementAsPDF), dar pe ecran trebuie sa incapa in modal/telefon —
-  // o scalam vizual cu transform pe un wrapper din JURUL .fisa (resetat
-  // temporar in download(), vezi mai sus).
+  // Coala e fixata la 794px (latimea A4); pe ecran trebuie sa incapa in
+  // modal/telefon, deci o scalam vizual cu transform pe un wrapper din
+  // JURUL .fisa. La print, regulile din STYLES (.inv-scaler, .inv-sheet-wrap,
+  // .inv-sheet) reseteaza scalarea si lasa coala sa curga la marimea A4.
   const scaleWrapRef = useRef(null);
   const [scale, setScale] = useState(1);
   const [sheetH, setSheetH] = useState(1123);
@@ -5410,8 +5386,8 @@ function InvoicePrint({ invoiceId, core, onClose, onChanged }) {
             <Receipt size={15} /> {emitere ? "Se emite…" : "Emite factura"}
           </button>
         )}
-        <button className="btn btn-ghost" style={{ width: "auto" }} onClick={download} disabled={downloading}>
-          <Printer size={15} /> {downloading ? "Se generează…" : "Vezi PDF"}
+        <button className="btn btn-ghost" style={{ width: "auto" }} onClick={() => window.print()}>
+          <Printer size={15} /> Printează
         </button>
       </div>
       {invoice.status === "draft" && canBilling("issue_invoice") && (
@@ -5421,14 +5397,8 @@ function InvoicePrint({ invoiceId, core, onClose, onChanged }) {
         </div>
       )}
 
-      {pdf && (
-        <div onClick={(e) => e.stopPropagation()}>
-          <PdfPreview blob={pdf.blob} filename={pdf.filename} onClose={() => setPdf(null)} />
-        </div>
-      )}
-
       <div className="inv-sheet-wrap" ref={scaleWrapRef} style={{ height: sheetH * scale }}>
-      <div ref={scalerRef} style={{ transform: `scale(${scale})`, transformOrigin: "top left" }}>
+      <div className="inv-scaler" style={{ transform: `scale(${scale})`, transformOrigin: "top left" }}>
       <div className="fisa inv-sheet" ref={fisaRef}>
         {/* Filigran. Primul copil, ca elementele de continut (pozitionate
             prin regula din STYLES) sa se picteze peste el. Daca fisierul
@@ -9717,14 +9687,12 @@ function ArrivalSheet({ res, core, groups }) {
 
 function ArrivalForm({ res, core, groups, onClose }) {
   useModalLock();
-  const sheetRef = useRef(null);
-  const scalerRef = useRef(null);
   const scaleWrapRef = useRef(null);
-  const [downloading, setDownloading] = useState(false);
 
-  /* Coala e fixata la 794x1123px (proportia A4) ca sa iasa un PDF de o
-     singura pagina; pe ecran o scalam vizual, ca sa incapa in modal si pe
-     telefon. Acelasi tipar ca la factura (InvoicePrint). */
+  /* Coala e fixata la 794x1123px (proportia A4); pe ecran o scalam vizual,
+     ca sa incapa in modal si pe telefon. La print, regulile din STYLES
+     resetează scalarea (.arrival-scaler, .arrival-sheet-wrap, .fisa-duo)
+     si lasă coala să curgă la mărimea ei naturală A4. */
   const [scale, setScale] = useState(1);
   useEffect(() => {
     const wrap = scaleWrapRef.current;
@@ -9739,59 +9707,35 @@ function ArrivalForm({ res, core, groups, onClose }) {
     return () => ro.disconnect();
   }, []);
 
-  const [pdf, setPdf] = useState(null);
-  const download = async () => {
-    setDownloading(true);
-    /* Scalarea de pe ecran ar ajunge si in captura (html2canvas citeste
-       getBoundingClientRect), deci o scoatem cat timp capturam si o punem
-       la loc dupa — la fel ca la factura. */
-    const scaler = scalerRef.current;
-    const wrap = scaleWrapRef.current;
-    const prevTransform = scaler?.style.transform;
-    const prevHeight = wrap?.style.height;
-    if (scaler) scaler.style.transform = "none";
-    if (wrap) wrap.style.height = "auto";
-    try {
-      const blob = await generatePdfBlob(sheetRef.current, { singlePage: true });
-      setPdf({ blob, filename: `Fisa-anuntare-${res.id}.pdf` });
-    } catch (e) {
-      toaster.show(mesajEroare(e, "PDF-ul nu a putut fi generat"), { tone: "danger" });
-    } finally {
-      if (scaler) scaler.style.transform = prevTransform;
-      if (wrap) wrap.style.height = prevHeight;
-      setDownloading(false);
-    }
-  };
-
-  return (
+  /* Randat prin portal, ca la factura (InvoicePrint): fereastra se deschide
+     din interiorul TodayView/CalendarView, deci fara portal ar ramane
+     descendenta a .content, ingropata sub un div fara clasa arrival-overlay
+     — regula de print care ascunde tot din .content in afara de
+     .arrival-overlay ar ascunde-o si pe ea odata cu acel div. */
+  return createPortal(
     <Dialog onClose={onClose} className="arrival-modal" overlayClassName="arrival-overlay" title={undefined}>
         <div className="modal-head no-print">
           <h3 id="arrival-title">Fișă de anunțare</h3>
           <div style={{ display: "flex", gap: 8 }}>
-            <button className="btn btn-primary" style={{ width: "auto" }} onClick={download} disabled={downloading}>
-              <Printer size={15} /> {downloading ? "Se generează…" : "Vezi PDF"}
+            <button className="btn btn-primary" style={{ width: "auto" }} onClick={() => window.print()}>
+              <Printer size={15} /> Printează
             </button>
             <button className="icon-btn" onClick={onClose} aria-label="Închide fereastra"><X size={16} /></button>
           </div>
         </div>
 
-        {pdf && (
-          <div onClick={(e) => e.stopPropagation()}>
-            <PdfPreview blob={pdf.blob} filename={pdf.filename} onClose={() => setPdf(null)} />
-          </div>
-        )}
-
         <div className="arrival-sheet-wrap" ref={scaleWrapRef} style={{ height: 1123 * scale }}>
-          <div className="arrival-scaler" ref={scalerRef}
+          <div className="arrival-scaler"
             style={{ transform: `scale(${scale})`, transformOrigin: "top left" }}>
-            <div className="arrival-sheet fisa-duo" ref={sheetRef}>
+            <div className="arrival-sheet fisa-duo">
               <ArrivalSheet res={res} core={core} groups={groups} />
               <div className="fisa-sep" />
               <ArrivalSheet res={res} core={core} groups={groups} />
             </div>
           </div>
         </div>
-    </Dialog>
+    </Dialog>,
+    document.body
   );
 }
 
