@@ -7,6 +7,17 @@
     <link rel="icon" type="image/png" href="/background.png" />
     <link rel="apple-touch-icon" href="/background.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- Fonturile stateau intr-un @import in capul stilurilor. Un @import
+         trebuie sa fie prima regula a fisierului CSS, ceea ce nu se poate
+         garanta cand bundler-ul concateneaza mai multe fisiere — ar fi
+         devenit invalid, iar fonturile ar fi cazut tacut pe system-ui.
+         Aici pornesc descarcarea imediat, in paralel cu CSS-ul, in loc sa
+         astepte parsarea lui (un @import de font e o cascada: descarca
+         CSS-ul, abia apoi afla ca mai are de descarcat fonturi). -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" />
     <title>la-livada-pms</title>
   </head>
   <body>
