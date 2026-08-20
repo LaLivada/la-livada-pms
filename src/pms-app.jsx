@@ -22,6 +22,11 @@ import {
   checkouturiRestante, zileIntarziere, ORE_CHECKIN_DEVREME,
 } from "./lib/tranzitii.js";
 import { validateCUIFormat, validatePhone, validateEmail } from "./lib/validation.js";
+/* Stratul de acces la date — cererile catre Supabase, grupate pe domenii,
+   ca sa se poata audita intr-un loc ce citeste si ce scrie aplicatia.
+   Se migreaza domeniu cu domeniu; deocamdata contabilitatea. */
+import { camelBillingCustomer, snakeBillingCustomer } from "./data/mapari.js";
+import * as dateContabilitate from "./data/contabilitate.js";
 import { mesajEroare } from "./lib/errors.js";
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
@@ -334,30 +339,10 @@ const snakeTier = (t, idx) => ({
   adjustment_pct: Number(t.adjustmentPct) || 0, sort_order: idx,
 });
 
-/* --- FACTURARE: client de facturare, TVA, produse ---------------- */
-const camelBillingCustomer = (c) => ({
-  id: c.id, kind: c.kind,
-  lastName: c.last_name || "", firstName: c.first_name || "", cnp: c.cnp || "",
-  companyName: c.company_name || "", cui: c.cui || "", regCom: c.reg_com || "",
-  contactName: c.contact_name || "",
-  address: c.address || "", city: c.city || "", county: c.county || "",
-  postalCode: c.postal_code || "", country: c.country || "România",
-  email: c.email || "", phone: c.phone || "", guestId: c.guest_id || "",
-  createdAt: c.created_at,
-});
-const snakeBillingCustomer = (c) => ({
-  id: c.id, kind: c.kind,
-  last_name: c.kind === "person" ? (c.lastName || null) : null,
-  first_name: c.kind === "person" ? (c.firstName || null) : null,
-  cnp: c.kind === "person" ? (c.cnp || null) : null,
-  company_name: c.kind === "company" ? (c.companyName || null) : null,
-  cui: c.kind === "company" ? (c.cui || null) : null,
-  reg_com: c.kind === "company" ? (c.regCom || null) : null,
-  contact_name: c.kind === "company" ? (c.contactName || null) : null,
-  address: c.address || "", city: c.city || "", county: c.county || "",
-  postal_code: c.postalCode || null, country: c.country || "România",
-  email: c.email || null, phone: c.phone || null, guest_id: c.guestId || null,
-});
+/* --- FACTURARE: client de facturare, TVA, produse ----------------
+   camelBillingCustomer/snakeBillingCustomer s-au mutat in src/data/mapari.js,
+   langa stratul de acces la date — sunt traducere de randuri, nu interfata.
+   Se importa mai sus, impreuna cu restul. */
 
 const camelVatRate = (v) => ({ id: v.id, label: v.label, rate: Number(v.rate), active: v.active });
 const snakeVatRate = (v) => ({ id: v.id, label: v.label, rate: Number(v.rate) || 0, active: !!v.active });
@@ -7154,32 +7139,27 @@ function AccountingExportView({ core }) {
 
   const search = useCallback(async () => {
     setLoading(true);
-    let q = supabase.from("invoices").select("*")
-      .gte("issue_date", periodStart).lte("issue_date", `${periodEnd}T23:59:59`)
-      .order("issue_date");
-    if (seriesFilter.trim()) q = q.eq("series", seriesFilter.trim());
-    const statuses = Array.from(statusFilter);
-    if (statuses.length) q = q.in("status", statuses);
-    const { data, error } = await q;
-    if (error) { toaster.show(mesajEroare(error, "Nu am putut încărca facturile"), { tone: "danger" }); setLoading(false); return; }
-    setInvoices(data || []);
-    setSelected(new Set((data || []).map((i) => i.id)));
-    const ids = (data || []).map((i) => i.id);
-    if (ids.length) {
-      const { data: exp } = await supabase.from("accounting_export_items").select("invoice_id").in("invoice_id", ids);
-      const already = {};
-      (exp || []).forEach((e) => { already[e.invoice_id] = true; });
-      setAlreadyExported(already);
-    } else {
-      setAlreadyExported({});
+    try {
+      const facturi = await dateContabilitate.cautaFacturiDeExportat({
+        deLa: periodStart, panaLa: periodEnd, serie: seriesFilter, statusuri: statusFilter,
+      });
+      setInvoices(facturi);
+      setSelected(new Set(facturi.map((i) => i.id)));
+      setAlreadyExported(await dateContabilitate.facturiDejaExportate(facturi.map((i) => i.id)));
+    } catch (e) {
+      toaster.show(mesajEroare(e, "Nu am putut încărca facturile"), { tone: "danger" });
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }, [periodStart, periodEnd, seriesFilter, statusFilter]);
   useEffect(() => { search(); }, [search]);
 
   const loadHistory = useCallback(async () => {
-    const { data } = await supabase.from("accounting_exports").select("*").order("created_at", { ascending: false }).limit(20);
-    setHistory(data || []);
+    /* Istoricul e informativ: daca nu se poate citi, ecranul de export
+       ramane folosibil. Inainte, eroarea era ignorata tacit prin
+       destructurare; acum e macar vizibila in consola. */
+    try { setHistory(await dateContabilitate.istoricExporturi()); }
+    catch (e) { console.error("istoric exporturi", e); setHistory([]); }
   }, []);
   useEffect(() => { loadHistory(); }, [loadHistory]);
 
@@ -7202,31 +7182,19 @@ function AccountingExportView({ core }) {
     try {
       const models = [];
       for (const inv of selectedInvoices) {
-        const { data: lines } = await supabase.from("invoice_items").select("*").eq("invoice_id", inv.id).order("sort_order");
-        const { data: payments } = await supabase.from("payments").select("*").eq("invoice_id", inv.id).order("paid_at");
-        let customer = null;
-        if (inv.billing_customer_id) {
-          const { data: c } = await supabase.from("billing_customers").select("*").eq("id", inv.billing_customer_id).maybeSingle();
-          customer = c ? camelBillingCustomer(c) : null;
-        }
-        models.push(buildAccountingExportModel(inv, lines || [], payments || [], customer, core.invoiceIssuer || {}));
+        const { linii, plati, client } = await dateContabilitate.detaliiFacturaPentruExport(inv);
+        models.push(buildAccountingExportModel(inv, linii, plati, client, core.invoiceIssuer || {}));
       }
       const xml = genericXmlAdapter(models);
       const fileName = `export-contabilitate-${periodStart}_${periodEnd}.xml`;
       downloadTextFile(xml, fileName, "application/xml");
 
-      const exportId = uid();
-      const { error: expErr } = await supabase.from("accounting_exports").insert({
-        id: exportId, period_start: periodStart, period_end: periodEnd,
-        status_filter: Array.from(statusFilter), series_filter: seriesFilter.trim() || null,
-        format: "generic_v1", file_name: fileName, created_by: audit.user?.id || null,
+      await dateContabilitate.consemneazaExport({
+        id: uid(), deLa: periodStart, panaLa: periodEnd,
+        statusuri: statusFilter, serie: seriesFilter,
+        numeFisier: fileName, creatDe: audit.user?.id || null,
+        facturi: selectedInvoices.map((inv) => ({ id: inv.id, esteReexport: !!alreadyExported[inv.id] })),
       });
-      if (expErr) throw expErr;
-      const itemRows = selectedInvoices.map((inv) => ({
-        export_id: exportId, invoice_id: inv.id, is_reexport: !!alreadyExported[inv.id],
-      }));
-      const { error: itemsErr } = await supabase.from("accounting_export_items").insert(itemRows);
-      if (itemsErr) throw itemsErr;
 
       await audit.push("Export contabilitate generat", `${selectedInvoices.length} facturi · ${periodStart} → ${periodEnd}`);
       toaster.show(`Export generat: ${selectedInvoices.length} facturi.`);
