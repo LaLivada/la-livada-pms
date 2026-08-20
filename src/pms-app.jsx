@@ -29,6 +29,9 @@ import { camelBillingCustomer, snakeBillingCustomer } from "./data/mapari.js";
 import * as dateContabilitate from "./data/contabilitate.js";
 import * as dateFacturare from "./data/facturare.js";
 import * as datePlati from "./data/plati.js";
+import * as dateFolio from "./data/folio.js";
+import * as datePersonal from "./data/personal.js";
+import * as dateAcces from "./data/acces.js";
 import { uid } from "./lib/uid.js";
 import { mesajEroare } from "./lib/errors.js";
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
@@ -554,9 +557,10 @@ async function reconciliazaAcces(inainte, dupa, core) {
 
   /* Un cod există doar după check-in. Fără el nu e nimic de sincronizat —
      iar la anulare nu vrem să chemăm furnizorul degeaba. */
-  const { data: cod } = await supabase.from("access_codes")
-    .select("id").eq("reservation_id", dupa.id).eq("status", "active").maybeSingle();
-  if (!cod) return;
+  let areCod = false;
+  try { areCod = await dateAcces.existaCodActiv(dupa.id); }
+  catch (e) { console.error("verificare cod acces", e); return; }
+  if (!areCod) return;
 
   if (anulata) {
     const r = await cheamaAcces("revoke", { reservationId: dupa.id });
@@ -1182,10 +1186,9 @@ function PMSApp() {
     let alive = true;
     (async () => {
       try {
-        const { data: { session } } = await supabase.auth.getSession();
+        const session = await datePersonal.sesiuneCurenta();
         if (session?.user) {
-          const { data: st } = await supabase
-            .from("staff").select("name, role").eq("user_id", session.user.id).maybeSingle();
+          const st = await datePersonal.membruPersonal(session.user.id);
           if (alive && st) setCurrentUser({ id: session.user.id, name: st.name, role: st.role });
         }
       } finally {
@@ -1195,10 +1198,10 @@ function PMSApp() {
     /* Supabase propaga evenimentele de autentificare intre taburile
        aceluiasi browser, deci o deconectare intr-un tab goleste datele si
        in celelalte, nu doar in cel in care s-a apasat butonul. */
-    const { data: sub } = supabase.auth.onAuthStateChange((event) => {
-      if (event === "SIGNED_OUT") { setCurrentUser(null); resetStareLocala(); }
+    const dezaboneaza = datePersonal.laSchimbareSesiune((eveniment) => {
+      if (eveniment === "SIGNED_OUT") { setCurrentUser(null); resetStareLocala(); }
     });
-    return () => { alive = false; sub.subscription.unsubscribe(); };
+    return () => { alive = false; dezaboneaza(); };
   }, [resetStareLocala]);
 
   /* Rolul se citeste o singura data, la autentificare. Un tab lasat
@@ -1216,7 +1219,7 @@ function PMSApp() {
       if (!alive || error) return;
       if (!st) {
         toaster.show("Contul tău nu mai are acces în aplicație.", { tone: "danger" });
-        await supabase.auth.signOut();
+        await datePersonal.deconecteaza();
         return;
       }
       if (st.role !== currentUser.role || st.name !== currentUser.name) {
@@ -1423,11 +1426,9 @@ function PMSApp() {
     billingPerms.role = currentUser?.role || null;
     billingPerms.set = new Set();
     if (currentUser && currentUser.role !== "admin") {
-      supabase.from("billing_permissions").select("permission").eq("user_id", currentUser.id)
-        .then(({ data, error }) => {
-          if (!alive || error) return;
-          billingPerms.set = new Set((data || []).map((r) => r.permission));
-        });
+      datePersonal.permisiunileMele(currentUser.id)
+        .then((lista) => { if (alive) billingPerms.set = new Set(lista); })
+        .catch((e) => console.error("citire permisiuni", e));
     }
     return () => { alive = false; };
   }, [currentUser]);
@@ -1524,7 +1525,7 @@ function PMSApp() {
           housekeeping={housekeeping}
           updateHousekeeping={updateHousekeeping}
           onLogout={async () => {
-            try { await supabase.auth.signOut(); } finally { setCurrentUser(null); resetStareLocala(); }
+            try { await datePersonal.deconecteaza(); } finally { setCurrentUser(null); resetStareLocala(); }
           }}
         />
       </div>
@@ -1542,7 +1543,7 @@ function PMSApp() {
            signOut, evenimentul SIGNED_OUT poate sa nu ajunga, iar datele
            ar ramane pe ecran. */
         onLogout={async () => {
-          try { await supabase.auth.signOut(); } finally { setCurrentUser(null); resetStareLocala(); }
+          try { await datePersonal.deconecteaza(); } finally { setCurrentUser(null); resetStareLocala(); }
         }}
         core={core}
         updateCore={updateCore}
@@ -1637,15 +1638,10 @@ function Login({ onLogin }) {
   const submit = async () => {
     setBusy(true); setError("");
     try {
-      const { data, error: authErr } = await supabase.auth.signInWithPassword({
-        email: email.trim(), password,
-      });
-      if (authErr) throw authErr;
-      const { data: st, error: stErr } = await supabase
-        .from("staff").select("name, role").eq("user_id", data.user.id).maybeSingle();
-      if (stErr) throw stErr;
+      const data = await datePersonal.autentifica(email.trim(), password);
+      const st = await datePersonal.membruPersonal(data.user.id);
       if (!st) {
-        await supabase.auth.signOut();
+        await datePersonal.deconecteaza();
         throw new Error("Contul nu are drepturi in aplicatie.");
       }
       onLogin({ id: data.user.id, name: st.name, role: st.role });
@@ -3095,8 +3091,9 @@ async function ensureCazareLine(folio, items, reservation, core) {
   if (existing && Math.abs(existing.total_amount - totalAmount) < 0.01 && existing.quantity === nights) {
     return existing;
   }
-  const { data, error } = await supabase.from("folio_items").upsert(row).select().maybeSingle();
-  if (error) {
+  let data;
+  try { data = await dateFolio.salveazaLinieCazare(row); }
+  catch (error) {
     /* Inainte, esecul se pierdea intr-un console.error: folio-ul afisa o
        linie de cazare care nu ajunsese niciodata in baza, fara niciun
        semn pentru utilizator. Acum eroarea urca la apelant, care o arata. */
@@ -3179,8 +3176,9 @@ function FolioPanel({ reservation, core, updateCore, billingCustomerId, setBilli
       total_amount: totalAmount, occurred_at: new Date(dateStr).toISOString(),
       created_by: audit.user?.id || null,
     };
-    const { data, error } = await supabase.from("folio_items").insert(row).select().maybeSingle();
-    if (error) { toaster.show(mesajEroare(error, "Nu am putut adăuga serviciul"), { tone: "danger" }); return; }
+    let data;
+    try { data = await dateFolio.adaugaPozitie(row); }
+    catch (e) { toaster.show(mesajEroare(e, "Nu am putut adăuga serviciul"), { tone: "danger" }); return; }
     setItems((prev) => [...prev, data]);
     await audit.push("Poziție folio adăugată", `${product.name} × ${quantity} · ${fmtMoney(totalAmount)}`);
     setAdding(false);
@@ -3191,8 +3189,8 @@ function FolioPanel({ reservation, core, updateCore, billingCustomerId, setBilli
       toaster.show("Poziția e deja facturată — nu poate fi ștearsă.", { tone: "danger" });
       return;
     }
-    const { error } = await supabase.from("folio_items").delete().eq("id", item.id);
-    if (error) { toaster.show(mesajEroare(error, "Ștergerea a eșuat"), { tone: "danger" }); return; }
+    try { await dateFolio.stergePozitie(item.id); }
+    catch (e) { toaster.show(mesajEroare(e, "Ștergerea a eșuat"), { tone: "danger" }); return; }
     setItems((prev) => prev.filter((i) => i.id !== item.id));
     await audit.push("Poziție folio ștearsă", `${item.name} · ${fmtMoney(item.total_amount)}`);
   };
@@ -3438,12 +3436,6 @@ function InvoiceBuilderModal({ reservation, folio, items, core, updateCore, onCr
         await updateCore({ ...core, billingCustomers: [...(core.billingCustomers || []), camelBillingCustomer(createdCust)] });
       }
 
-      const { data: invoice, error: invErr } = await supabase.from("invoices").insert({
-        id: uid(), folio_id: folio.id, billing_customer_id: custId, status: "draft",
-        service_date_start: reservation.checkin, service_date_end: reservation.checkout,
-      }).select().maybeSingle();
-      if (invErr) throw invErr;
-
       // Construim liniile facturii: cazarea (daca selectata) primeste si
       // valoarea extra-urilor agregate in ea; restul extra-urilor
       // neagregate devin linii proprii. invoice_item_links tine minte,
@@ -3482,39 +3474,13 @@ function InvoiceBuilderModal({ reservation, folio, items, core, updateCore, onCr
         }
       }
 
-      const itemRows = lines.map((l, idx) => ({
-        id: uid(), invoice_id: invoice.id, name: l.name, quantity: l.quantity,
-        unit_price: l.unitPrice, vat_rate: l.vatRate, net_amount: l.netAmount,
-        vat_amount: l.vatAmount, total_amount: l.totalAmount, sort_order: idx,
-      }));
-      if (itemRows.length) {
-        const { error: itemsErr } = await supabase.from("invoice_items").insert(itemRows);
-        if (itemsErr) throw itemsErr;
-      }
-      const linkRows = lines.flatMap((l, idx) =>
-        l.sourceIds.map((folioItemId) => ({ invoice_item_id: itemRows[idx].id, folio_item_id: folioItemId })));
-      if (linkRows.length) {
-        const { error: linksErr } = await supabase.from("invoice_item_links").insert(linkRows);
-        if (linksErr) throw linksErr;
-      }
+      const { factura: finalInvoice, total, nrLinii } = await dateFacturare.creeazaFacturaDinFolio({
+        idFolio: folio.id, idClient: custId,
+        deLa: reservation.checkin, panaLa: reservation.checkout,
+        linii: lines, creatDe: audit.user?.id || null,
+      });
 
-      const allSourceIds = lines.flatMap((l) => l.sourceIds);
-      if (allSourceIds.length) {
-        const { error: markErr } = await supabase
-          .from("folio_items").update({ invoiced_status: "invoiced" }).in("id", allSourceIds);
-        if (markErr) throw markErr;
-      }
-
-      const subtotalNet = lines.reduce((s, l) => s + l.netAmount, 0);
-      const subtotalVat = lines.reduce((s, l) => s + l.vatAmount, 0);
-      const totalAmount = lines.reduce((s, l) => s + l.totalAmount, 0);
-      const { data: finalInvoice, error: updErr } = await supabase.from("invoices").update({
-        subtotal_net: subtotalNet, subtotal_vat: subtotalVat, total_amount: totalAmount,
-        created_by: audit.user?.id || null,
-      }).eq("id", invoice.id).select().maybeSingle();
-      if (updErr) throw updErr;
-
-      await audit.push("Factură creată (draft)", `${fmtMoney(totalAmount)} · ${lines.length} poziții`);
+      await audit.push("Factură creată (draft)", `${fmtMoney(total)} · ${nrLinii} poziții`);
       onCreated(finalInvoice);
     } catch (e) {
       setError(mesajEroare(e, "Salvarea facturii a eșuat"));
@@ -3854,17 +3820,17 @@ function InvoicePrint({ invoiceId, core, onClose, onChanged }) {
   }, [invoice, lines]);
 
   const load = useCallback(async () => {
-    const { data: inv } = await supabase.from("invoices").select("*").eq("id", invoiceId).maybeSingle();
-    const { data: li } = await supabase.from("invoice_items").select("*").eq("invoice_id", invoiceId).order("sort_order");
-    const { data: pay } = await supabase.from("payments").select("*").eq("invoice_id", invoiceId).order("paid_at");
-    let cust = null;
-    if (inv?.billing_customer_id) {
-      const { data: c } = await supabase.from("billing_customers").select("*").eq("id", inv.billing_customer_id).maybeSingle();
-      cust = c ? camelBillingCustomer(c) : null;
-    }
-    setInvoice(inv); setLines(li || []); setCustomer(cust); setPayments(pay || []);
+    /* Inainte, orice esec de citire era inghitit tacit (se destructura doar
+       `data`): factura aparea goala, fara nicio explicatie. Acum se vede. */
+    let det = null;
+    try { det = await dateFacturare.detaliiFactura(invoiceId); }
+    catch (e) { toaster.show(mesajEroare(e, "Nu am putut încărca factura"), { tone: "danger" }); }
+    setInvoice(det?.factura ?? null);
+    setLines(det?.linii ?? []);
+    setCustomer(det?.client ?? null);
+    setPayments(det?.plati ?? []);
     setLoading(false);
-    return inv;
+    return det?.factura ?? null;
   }, [invoiceId]);
 
   useEffect(() => { load(); }, [load]);
@@ -3877,16 +3843,17 @@ function InvoicePrint({ invoiceId, core, onClose, onChanged }) {
     const next = { ...line, ...patch };
     const { totalAmount, netAmount, vatAmount } = calcAmounts(Number(next.unit_price), Number(next.quantity), Number(next.vat_rate));
     const row = { name: next.name, quantity: Number(next.quantity), unit_price: Number(next.unit_price), net_amount: netAmount, vat_amount: vatAmount, total_amount: totalAmount };
-    const { error } = await supabase.from("invoice_items").update(row).eq("id", line.id);
-    if (error) { toaster.show(mesajEroare(error, "Nu am putut salva linia"), { tone: "danger" }); return; }
+    try { await dateFacturare.salveazaLinieFactura(line.id, row); }
+    catch (e) { toaster.show(mesajEroare(e, "Nu am putut salva linia"), { tone: "danger" }); return; }
     const freshLines = lines.map((l) => (l.id === line.id ? { ...l, ...row } : l));
-    const subtotalNet = freshLines.reduce((s, l) => s + Number(l.net_amount), 0);
-    const subtotalVat = freshLines.reduce((s, l) => s + Number(l.vat_amount), 0);
-    const totalAmountSum = freshLines.reduce((s, l) => s + Number(l.total_amount), 0);
-    const { data: updatedInvoice, error: invErr } = await supabase.from("invoices")
-      .update({ subtotal_net: subtotalNet, subtotal_vat: subtotalVat, total_amount: totalAmountSum })
-      .eq("id", invoice.id).select().maybeSingle();
-    if (invErr) { toaster.show(mesajEroare(invErr, "Nu am putut recalcula factura"), { tone: "danger" }); return; }
+    let updatedInvoice;
+    try {
+      updatedInvoice = await dateFacturare.actualizeazaTotaluri(invoice.id, {
+        net: freshLines.reduce((s, l) => s + Number(l.net_amount), 0),
+        tva: freshLines.reduce((s, l) => s + Number(l.vat_amount), 0),
+        total: freshLines.reduce((s, l) => s + Number(l.total_amount), 0),
+      });
+    } catch (e) { toaster.show(mesajEroare(e, "Nu am putut recalcula factura"), { tone: "danger" }); return; }
     setLines(freshLines);
     setInvoice(updatedInvoice);
     onChanged?.(updatedInvoice);
@@ -3894,9 +3861,9 @@ function InvoicePrint({ invoiceId, core, onClose, onChanged }) {
   };
 
   const changeBillingCustomer = async (customerId) => {
-    const { data: updatedInvoice, error } = await supabase.from("invoices")
-      .update({ billing_customer_id: customerId }).eq("id", invoice.id).select().maybeSingle();
-    if (error) { toaster.show(mesajEroare(error, "Nu am putut schimba clientul"), { tone: "danger" }); return; }
+    let updatedInvoice;
+    try { updatedInvoice = await dateFacturare.schimbaClientFactura(invoice.id, customerId); }
+    catch (e) { toaster.show(mesajEroare(e, "Nu am putut schimba clientul"), { tone: "danger" }); return; }
     const cust = (core.billingCustomers || []).find((c) => c.id === customerId) || null;
     setInvoice(updatedInvoice);
     setCustomer(cust);
@@ -4153,15 +4120,14 @@ function SectiuneAcces({ res, core }) {
   const [eroare, setEroare] = useState("");
 
   const incarca = useCallback(async () => {
-    const { data } = await supabase.from("access_codes")
-      .select("*").eq("reservation_id", res.id).eq("status", "active").maybeSingle();
-    setCod(data || null);
-    if (data) {
-      const { data: n } = await supabase.from("access_notifications")
-        .select("*").eq("access_code_id", data.id).order("created_at", { ascending: false });
-      setTrimiteri(n || []);
-    } else {
-      setTrimiteri([]);
+    try {
+      const { cod: c, trimiteri: t } = await dateAcces.codActivCuTrimiteri(res.id);
+      setCod(c); setTrimiteri(t);
+    } catch (e) {
+      /* Inainte, esecul se pierdea tacit prin destructurare si sectiunea
+         ramanea la nesfarsit pe "Se incarca...". */
+      console.error("citire cod acces", e);
+      setCod(null); setTrimiteri([]);
     }
   }, [res.id]);
 
@@ -5470,11 +5436,14 @@ function FirmHistory({ firma, core, reservations, onClose }) {
   useEffect(() => {
     let activ = true;
     (async () => {
-      const { data, error } = await supabase.from("invoices")
-        .select("*").eq("billing_customer_id", firma.id).order("created_at", { ascending: false });
-      if (!activ) return;
-      if (error) { setEroare(mesajEroare(error, "Nu am putut încărca facturile")); return; }
-      setFacturi(data || []);
+      try {
+        const data = await dateFacturare.facturiAleClientului(firma.id);
+        if (!activ) return;
+        setFacturi(data);
+      } catch (e) {
+        if (!activ) return;
+        setEroare(mesajEroare(e, "Nu am putut încărca facturile"));
+      }
     })();
     return () => { activ = false; };
   }, [firma.id]);
@@ -6693,7 +6662,7 @@ function InvoicesListView({ core }) {
   const [printInvoiceId, setPrintInvoiceId] = useState(null);
 
   const load = useCallback(async () => {
-    const { data, error } = await supabase.from("invoices").select("*").order("created_at", { ascending: false });
+    const { data, error } = await dateFacturare.listeazaFacturi().then((d) => ({ data: d, error: null }), (e) => ({ data: null, error: e }));
     if (error) { setLoadError(mesajEroare(error)); return; }
     setInvoices(data || []);
     setLoadError("");
@@ -6964,30 +6933,23 @@ function BillingPermissionsView() {
   const [loadError, setLoadError] = useState("");
 
   const load = useCallback(async () => {
-    const { data: staffRows, error: sErr } = await supabase.from("staff").select("user_id, name, role")
-      .neq("role", "admin").order("name");
-    if (sErr) { setLoadError(mesajEroare(sErr)); return; }
-    setStaffList(staffRows || []);
-    const { data: permRows, error: pErr } = await supabase.from("billing_permissions").select("user_id, permission");
-    if (pErr) { setLoadError(mesajEroare(pErr)); return; }
-    const map = {};
-    for (const r of permRows || []) {
-      if (!map[r.user_id]) map[r.user_id] = new Set();
-      map[r.user_id].add(r.permission);
-    }
-    setPerms(map);
-    setLoadError("");
+    try {
+      const { personal, permisiuniDupaUtilizator } = await datePersonal.personalCuPermisiuni();
+      /* Adminii nu apar in ecran: au oricum tot, prin has_billing_permission. */
+      setStaffList(personal.filter((u) => u.role !== "admin"));
+      setPerms(permisiuniDupaUtilizator);
+      setLoadError("");
+    } catch (e) { setLoadError(mesajEroare(e)); }
   }, []);
   useEffect(() => { load(); }, [load]);
 
   const toggle = async (userId, perm, has) => {
-    if (has) {
-      const { error } = await supabase.from("billing_permissions").delete().eq("user_id", userId).eq("permission", perm);
-      if (error) { toaster.show(mesajEroare(error, "Nu am putut retrage permisiunea"), { tone: "danger" }); return; }
-    } else {
-      const { error } = await supabase.from("billing_permissions")
-        .insert({ user_id: userId, permission: perm, granted_by: audit.user?.id || null });
-      if (error) { toaster.show(mesajEroare(error, "Nu am putut acorda permisiunea"), { tone: "danger" }); return; }
+    try {
+      if (has) await datePersonal.retragePermisiune(userId, perm);
+      else await datePersonal.acordaPermisiune(userId, perm);
+    } catch (e) {
+      toaster.show(mesajEroare(e, has ? "Nu am putut retrage permisiunea" : "Nu am putut acorda permisiunea"), { tone: "danger" });
+      return;
     }
     setPerms((prev) => {
       const next = { ...prev, [userId]: new Set(prev[userId] || []) };
@@ -7705,20 +7667,19 @@ function UsersView() {
   const adminCount = (list || []).filter((u) => u.role === "admin").length;
 
   const load = useCallback(async () => {
-    const { data, error } = await supabase.from("staff").select("user_id, name, role").order("name");
-    if (error) { setLoadError(mesajEroare(error)); return; }
-    setList(data);
-    setLoadError("");
+    try { setList(await datePersonal.listeazaPersonal()); setLoadError(""); }
+    catch (e) { setLoadError(mesajEroare(e)); }
   }, []);
   useEffect(() => { load(); }, [load]);
 
   const save = async (user, isNew) => {
-    if (isNew) {
-      const { error } = await supabase.from("staff").insert({ user_id: user.user_id, name: user.name, role: user.role });
-      if (error) { toaster.show(mesajEroare(error, "Nu am putut adăuga userul"), { tone: "danger" }); return; }
-    } else {
-      const { error } = await supabase.from("staff").update({ name: user.name, role: user.role }).eq("user_id", user.user_id);
-      if (error) { toaster.show(mesajEroare(error, "Nu am putut salva userul"), { tone: "danger" }); return; }
+    const camp = { idUtilizator: user.user_id, nume: user.name, rol: user.role };
+    try {
+      if (isNew) await datePersonal.adaugaMembru(camp);
+      else await datePersonal.actualizeazaMembru(camp);
+    } catch (e) {
+      toaster.show(mesajEroare(e, isNew ? "Nu am putut adăuga userul" : "Nu am putut salva userul"), { tone: "danger" });
+      return;
     }
     await audit.push(isNew ? "User adăugat" : "User modificat", `${user.name} (${ROLE_LABEL[user.role]})`);
     setModal(null);
@@ -7734,13 +7695,13 @@ function UsersView() {
       toaster.show("Nu poți șterge singurul admin. Numește întâi alt user admin.", { tone: "danger" });
       return;
     }
-    const { error } = await supabase.from("staff").delete().eq("user_id", u.user_id);
-    if (error) { toaster.show(mesajEroare(error, "Nu am putut șterge userul"), { tone: "danger" }); return; }
+    try { await datePersonal.stergeMembru(u.user_id); }
+    catch (e) { toaster.show(mesajEroare(e, "Nu am putut șterge userul"), { tone: "danger" }); return; }
     await audit.push("User șters", u.name);
     toaster.show(`${u.name} a fost șters`, {
       tone: "danger",
       onUndo: async () => {
-        await supabase.from("staff").insert({ user_id: u.user_id, name: u.name, role: u.role });
+        await datePersonal.adaugaMembru({ idUtilizator: u.user_id, nume: u.name, rol: u.role });
         await audit.push("Ștergere anulată", u.name);
         load();
       },
@@ -7924,7 +7885,7 @@ function ProfileView({ user, onLogout, onBack }) {
       return;
     }
 
-    const { error } = await supabase.auth.updateUser({ password });
+    const { error } = await datePersonal.schimbaParola(password).then(() => ({ error: null }), (e) => ({ error: e }));
     setBusy(false);
     if (error) { setMsg({ type: "err", text: mesajEroare(error) }); return; }
     setPassword(""); setPassword2("");
