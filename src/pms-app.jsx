@@ -859,6 +859,16 @@ const STYLES = `
      factura are putine linii; scroll orizontal doar pe ecrane inguste. */
   .inv-sheet-wrap{ overflow:hidden; }
   .inv-sheet{ width:794px; min-height:1123px; display:flex; flex-direction:column; position:relative; transform-origin:top left; }
+  /* Filigranul din mijlocul facturii: 70% din latimea colii, opacitate 60%.
+     Continutul trece PESTE el fara z-index: elementele pozitionate se
+     picteaza in ordinea din DOM, iar filigranul e primul copil. Stampila de
+     anulare e exclusa ca sa-si pastreze pozitionarea proprie (z-index:5,
+     deasupra a tot). */
+  .inv-watermark{
+    position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+    width:70%; height:auto; opacity:.6; pointer-events:none; user-select:none;
+  }
+  .inv-sheet > *:not(.inv-watermark):not(.inv-cancelled-stamp){ position:relative; }
   .inv-cancelled-stamp{
     position:absolute; top:50%; left:50%; z-index:5; pointer-events:none; white-space:nowrap;
     transform:translate(-50%,-50%) rotate(-18deg);
@@ -5420,6 +5430,12 @@ function InvoicePrint({ invoiceId, core, onClose, onChanged }) {
       <div className="inv-sheet-wrap" ref={scaleWrapRef} style={{ height: sheetH * scale }}>
       <div ref={scalerRef} style={{ transform: `scale(${scale})`, transformOrigin: "top left" }}>
       <div className="fisa inv-sheet" ref={fisaRef}>
+        {/* Filigran. Primul copil, ca elementele de continut (pozitionate
+            prin regula din STYLES) sa se picteze peste el. Daca fisierul
+            lipseste, se ascunde singur — o factura fara filigran e mult mai
+            buna decat una cu o iconita de imagine rupta in mijloc. */}
+        <img src="/emblema.png" alt="" aria-hidden="true" className="inv-watermark"
+          onError={(e) => { e.currentTarget.style.display = "none"; }} />
         {invoice.status === "cancelled" && <div className="inv-cancelled-stamp">ANULATĂ</div>}
         <div className="inv-top">
           <div>
