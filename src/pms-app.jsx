@@ -808,35 +808,43 @@ const STYLES = `
      exemplar se rupea pe pagina urmatoare.
      Cele doua exemplare impart inaltimea in mod egal (flex:1 fiecare), iar
      spatiul liber de semnaturi absoarbe diferenta. */
+  /* Vizualizatorul de PDF: cadrul ocupa tot spatiul disponibil din modal,
+     ca documentul sa se vada cat mai mare. */
+  .pdf-modal{ max-width:900px; }
+  .pdf-frame-wrap{ height:min(72vh, 900px); background:var(--surface-2); border-radius:var(--r-sm); overflow:hidden; }
+  .pdf-frame{ width:100%; height:100%; border:0; display:block; }
+
   .arrival-sheet-wrap{ overflow:hidden; }
-  .arrival-sheet{
+  /* IMPORTANT: regulile de mai jos sunt scopate pe `.fisa-duo`, NU pe
+     `.arrival-sheet` — aceeasi clasa `.arrival-sheet` e folosita si de
+     lista de cazare pe grup (GroupPrint), care are un singur document, de
+     inaltime variabila, si ar fi fost strivita intr-un dreptunghi fix. */
+  .fisa-duo{
     width:794px; height:1123px; display:flex; flex-direction:column;
     transform-origin:top left; background:#fff;
   }
-  .arrival-sheet .fisa{ flex:1; display:flex; flex-direction:column; min-height:0; }
-  .arrival-sheet .fisa-space{ flex:1; height:auto; min-height:0; }
+  .fisa-duo .fisa{ flex:1; display:flex; flex-direction:column; min-height:0; }
+  .fisa-duo .fisa-space{ flex:1; height:auto; min-height:0; }
   /* Linia de taiere, centrata vertical in spatiul dintre exemplare. */
-  .arrival-sheet .fisa-sep{
+  .fisa-duo .fisa-sep{
     flex:0 0 18px; height:auto; display:flex; align-items:center;
   }
-  .arrival-sheet .fisa-sep::before{
+  .fisa-duo .fisa-sep::before{
     content:""; flex:1; border-top:1px dashed #9a9a95;
   }
   /* Compactare, ca un exemplar sa incapa in jumatatea lui de pagina.
      Masurat: la dimensiunile initiale un exemplar cerea 603px in 552
      disponibili — se taia footerul. Valorile de mai jos lasa ~39px liberi
-     pentru spatiul de semnaturi. Sunt scopate la .arrival-sheet fiindca
-     .fisa/.fisa-foot/.fisa-logo-img sunt folosite si de factura si de
-     rooming list, care au alte constrangeri. */
-  .arrival-sheet .fisa-top{ padding:7px 14px; }
-  .arrival-sheet .fisa-logo-img{ height:26px; }
-  .arrival-sheet .fisa-title{ font-size:14px; padding:6px 8px 1px; }
-  .arrival-sheet .fisa-sub{ font-size:10px; padding-bottom:5px; }
-  .arrival-sheet .fc{ padding:4px 8px 5px; min-height:38px; }
-  .arrival-sheet .fc-lab .ro{ font-size:10px; line-height:1.25; }
-  .arrival-sheet .fc-lab .en{ font-size:9.5px; line-height:1.25; }
-  .arrival-sheet .fc-val{ font-size:12px; margin-top:3px; min-height:15px; }
-  .arrival-sheet .fisa-foot{ padding:6px 14px; font-size:10px; }
+     pentru spatiul de semnaturi. */
+  .fisa-duo .fisa-top{ padding:7px 14px; }
+  .fisa-duo .fisa-logo-img{ height:26px; }
+  .fisa-duo .fisa-title{ font-size:14px; padding:6px 8px 1px; }
+  .fisa-duo .fisa-sub{ font-size:10px; padding-bottom:5px; }
+  .fisa-duo .fc{ padding:4px 8px 5px; min-height:38px; }
+  .fisa-duo .fc-lab .ro{ font-size:10px; line-height:1.25; }
+  .fisa-duo .fc-lab .en{ font-size:9.5px; line-height:1.25; }
+  .fisa-duo .fc-val{ font-size:12px; margin-top:3px; min-height:15px; }
+  .fisa-duo .fisa-foot{ padding:6px 14px; font-size:10px; }
   .sheet-sign{ display:flex; justify-content:space-between; gap:24px; }
   .sheet-sign > div{
     flex:1; border-top:1px solid #333; padding-top:7px; text-align:center;
@@ -1046,7 +1054,7 @@ const STYLES = `
        Fara asta, coala fixata in pixeli ar fi ramas scalata si taiata. */
     .arrival-scaler{ transform:none !important; }
     .arrival-sheet-wrap{ height:auto !important; overflow:visible !important; }
-    .arrival-sheet{ width:auto !important; height:auto !important; }
+    .fisa-duo{ width:auto !important; height:auto !important; }
     * { -webkit-print-color-adjust:exact; print-color-adjust:exact; }
     @page{ margin:10mm; }
   }
@@ -2117,15 +2125,20 @@ class ErrorBoundary extends React.Component {
 }
 
 /* ---------------------------------------------------------------
-   DESCARCARE PDF — generare directa din DOM (html2canvas + jsPDF), nu
-   window.print(). Safari/WebKit are mai multe bug-uri cunoscute la
-   randarea print-ului (fantome de position:sticky, pagini goale) care
-   nu apar deloc pe Chrome — html2canvas rastrizeaza elementul o singura
-   data intr-un canvas, deci rezultatul e identic pe orice browser si nu
-   mai depinde deloc de motorul de print/paginare al fiecaruia.
+   GENERARE PDF — direct din DOM (html2canvas + jsPDF), nu window.print().
+   Safari/WebKit are mai multe bug-uri cunoscute la randarea print-ului
+   (fantome de position:sticky, pagini goale) care nu apar deloc pe Chrome
+   — html2canvas rastrizeaza elementul o singura data intr-un canvas, deci
+   rezultatul e identic pe orice browser si nu mai depinde deloc de motorul
+   de print/paginare al fiecaruia.
+
+   Intoarce un Blob, nu descarca. Fisierele aterizau inainte direct in
+   Downloads, ceea ce pe telefon insemna ca trebuia sa iesi din aplicatie
+   ca sa vezi ce ai generat; acum se deschid intr-un vizualizator in
+   aplicatie (PdfPreview), de unde pot fi si salvate daca chiar e nevoie.
 ----------------------------------------------------------------*/
-async function downloadElementAsPDF(el, filename, opts = {}) {
-  if (!el) return;
+async function generatePdfBlob(el, opts = {}) {
+  if (!el) return null;
   const { singlePage = false } = opts;
   /* Incarcare la cerere: cele doua biblioteci inseamna ~180 KB din
      pachetul principal, dar se folosesc doar cand cineva chiar descarca
@@ -2161,40 +2174,56 @@ async function downloadElementAsPDF(el, filename, opts = {}) {
   });
   const imgData = canvas.toDataURL("image/png");
 
+  /* `compress: true` la fiecare jsPDF de mai jos NU e optional. Fara el,
+     jsPDF scrie bitmapul BRUT in fisier: 1588x2246 pixeli x 3 octeti =
+     ~10,7 MB pentru o singura fisa de anuntare — exact cat masura fisierul
+     descarcat pe 20 august 2026. Cu compresie, acelasi document are 219 KB,
+     de cincizeci de ori mai putin.
+     Masurat atunci si varianta JPEG 0.85: 224 KB, deci PNG comprimat e chiar
+     mai mic — si in plus fara pierderi, ceea ce conteaza pentru un document
+     numai text. */
+
+  /* Marginea paginii. Fara ea imaginea se aseaza de la muchie la muchie, iar
+     imprimantele — care nu pot tipari pana in marginea hartiei — decaleaza
+     sau taie rezultatul: pe foaia tiparita pe 20 august 2026 continutul
+     iesea pana in muchia din stanga, in timp ce in dreapta ramanea alb. */
+  const MARGINE_MM = 8;
+
   if (singlePage) {
-    // O factura trebuie sa ramana mereu pe o singura pagina SI sa umple
-    // toata latimea — o pagina A4 fixa nu garanteaza asta (proportia
-    // continutului rareori se potriveste exact cu proportia A4: fie se
-    // rupe pe pagina 2, fie, daca micsoram sa incapa pe inaltime, ramane
-    // ingusta cu marginile goale). In loc sa fortam continutul intr-o
-    // forma A4, facem pagina exact de dimensiunea continutului — latime
-    // fixa (echivalentul unei coli A4 pe latime), inaltime calculata din
-    // raportul real al imaginii, fara nicio scalare/taiere.
-    const widthMM = 210;
-    const heightMM = (canvas.height * widthMM) / canvas.width;
-    const pdf = new jsPDF({ unit: "mm", format: [widthMM, heightMM] });
-    pdf.addImage(imgData, "PNG", 0, 0, widthMM, heightMM);
-    pdf.save(filename);
-    return;
+    /* Documentul sta pe o singura pagina A4, incadrat in interiorul
+       marginilor si centrat. Pastram proportia continutului: alegem
+       factorul care incape si pe latime si pe inaltime. */
+    const pdf = new jsPDF({ unit: "mm", format: "a4", compress: true });
+    const pageW = pdf.internal.pageSize.getWidth();
+    const pageH = pdf.internal.pageSize.getHeight();
+    const dispW = pageW - 2 * MARGINE_MM;
+    const dispH = pageH - 2 * MARGINE_MM;
+    const factor = Math.min(dispW / canvas.width, dispH / canvas.height);
+    const w = canvas.width * factor;
+    const h = canvas.height * factor;
+    pdf.addImage(imgData, "PNG", (pageW - w) / 2, (pageH - h) / 2, w, h);
+    return pdf.output("blob");
   }
 
-  const pdf = new jsPDF({ unit: "mm", format: "a4" });
+  const pdf = new jsPDF({ unit: "mm", format: "a4", compress: true });
   const pageWidth = pdf.internal.pageSize.getWidth();
   const pageHeight = pdf.internal.pageSize.getHeight();
-  const imgWidth = pageWidth;
+  const imgWidth = pageWidth - 2 * MARGINE_MM;
   const imgHeight = (canvas.height * imgWidth) / canvas.width;
+  /* Inaltimea utila a unei pagini, fara marginile de sus si de jos. */
+  const utilH = pageHeight - 2 * MARGINE_MM;
 
   let heightLeft = imgHeight;
-  let position = 0;
-  pdf.addImage(imgData, "PNG", 0, position, imgWidth, imgHeight);
-  heightLeft -= pageHeight;
+  let position = MARGINE_MM;
+  pdf.addImage(imgData, "PNG", MARGINE_MM, position, imgWidth, imgHeight);
+  heightLeft -= utilH;
   while (heightLeft > 0) {
-    position = heightLeft - imgHeight;
+    position = MARGINE_MM + heightLeft - imgHeight;
     pdf.addPage();
-    pdf.addImage(imgData, "PNG", 0, position, imgWidth, imgHeight);
-    heightLeft -= pageHeight;
+    pdf.addImage(imgData, "PNG", MARGINE_MM, position, imgWidth, imgHeight);
+    heightLeft -= utilH;
   }
-  pdf.save(filename);
+  return pdf.output("blob");
 }
 
 /* ---------------------------------------------------------------
@@ -2202,6 +2231,43 @@ async function downloadElementAsPDF(el, filename, opts = {}) {
    Destructive actions are reversible for a few seconds instead of
    being guarded by another confirmation prompt.
 ----------------------------------------------------------------*/
+/* ---------------------------------------------------------------
+   VIZUALIZATOR PDF — afiseaza documentul in aplicatie, nu il descarca.
+   Blob-ul e tinut intr-un obiect URL, revocat la inchidere ca sa nu ramana
+   in memorie. Link-ul "Deschide in filă nouă" e plasa de siguranta pentru
+   iOS, unde randarea PDF-urilor in iframe e capricioasa; fiind un click
+   direct al utilizatorului, nu il opreste blocarea de ferestre.
+----------------------------------------------------------------*/
+function PdfPreview({ blob, filename, onClose }) {
+  const [url, setUrl] = useState(null);
+  useEffect(() => {
+    if (!blob) return;
+    const u = URL.createObjectURL(blob);
+    setUrl(u);
+    return () => URL.revokeObjectURL(u);
+  }, [blob]);
+
+  const marime = blob ? `${Math.round(blob.size / 1024)} KB` : "";
+
+  return (
+    <Dialog onClose={onClose} className="pdf-modal" title={filename}>
+      <div className="pdf-frame-wrap">
+        {url && <iframe src={url} title={filename} className="pdf-frame" />}
+      </div>
+      <div className="modal-actions">
+        <span className="ldv-mic" style={{ alignSelf: "center" }}>{marime}</span>
+        <div className="grow" />
+        {url && (
+          <a className="btn btn-ghost" href={url} target="_blank" rel="noopener noreferrer">
+            <Eye size={15} /> Deschide în filă nouă
+          </a>
+        )}
+        <button className="btn btn-primary" style={{ width: "auto" }} onClick={onClose}>Închide</button>
+      </div>
+    </Dialog>
+  );
+}
+
 const toaster = {
   push: null,
   show(message, opts = {}) {
@@ -3253,12 +3319,16 @@ function triggerLabel(diffMin) {
 function GroupPrint({ group, core, reservations, onClose }) {
   const sheetRef = useRef(null);
   const [downloading, setDownloading] = useState(false);
+  const [pdf, setPdf] = useState(null);
   const download = async () => {
     setDownloading(true);
     /* Fara `catch`, un esec de generare trecea complet neobservat: butonul
        clipea „Se generează…", revenea, si nu aparea niciun fisier si niciun
        mesaj. Mai bine o eroare vizibila decat o tacere. */
-    try { await downloadElementAsPDF(sheetRef.current, `Cazare-grup-${group.id}.pdf`); }
+    try {
+      const blob = await generatePdfBlob(sheetRef.current);
+      setPdf({ blob, filename: `Cazare-grup-${group.id}.pdf` });
+    }
     catch (e) { toaster.show(mesajEroare(e, "PDF-ul nu a putut fi generat"), { tone: "danger" }); }
     finally { setDownloading(false); }
   };
@@ -3289,11 +3359,17 @@ function GroupPrint({ group, core, reservations, onClose }) {
         <h3>Listă cazare grup</h3>
         <div style={{ display: "flex", gap: 8 }}>
           <button className="btn btn-primary" style={{ width: "auto" }} onClick={download} disabled={downloading}>
-            <Printer size={15} /> {downloading ? "Se generează…" : "Descarcă PDF"}
+            <Printer size={15} /> {downloading ? "Se generează…" : "Vezi PDF"}
           </button>
           <button className="icon-btn" onClick={onClose} aria-label="Închide fereastra"><X size={16} /></button>
         </div>
       </div>
+
+      {pdf && (
+        <div onClick={(e) => e.stopPropagation()}>
+          <PdfPreview blob={pdf.blob} filename={pdf.filename} onClose={() => setPdf(null)} />
+        </div>
+      )}
 
       <div className="arrival-sheet" ref={sheetRef}>
         <div className="fisa rooming-sheet">
@@ -5174,6 +5250,7 @@ function InvoicePrint({ invoiceId, core, onClose, onChanged }) {
   const fisaRef = useRef(null);
   const scalerRef = useRef(null);
   const [downloading, setDownloading] = useState(false);
+  const [pdf, setPdf] = useState(null);
   const [emitere, setEmitere] = useState(false);
 
   const emite = async () => {
@@ -5205,7 +5282,8 @@ function InvoicePrint({ invoiceId, core, onClose, onChanged }) {
     if (scaler) scaler.style.transform = "none";
     if (wrap) wrap.style.height = "auto";
     try {
-      await downloadElementAsPDF(fisaRef.current, `Factura-${invoice?.series || "draft"}-${invoice?.number || ""}.pdf`, { singlePage: true });
+      const blob = await generatePdfBlob(fisaRef.current, { singlePage: true });
+      setPdf({ blob, filename: `Factura-${invoice?.series || "draft"}-${invoice?.number || ""}.pdf` });
     } catch (e) {
       toaster.show(mesajEroare(e, "PDF-ul nu a putut fi generat"), { tone: "danger" });
     } finally {
@@ -5323,13 +5401,19 @@ function InvoicePrint({ invoiceId, core, onClose, onChanged }) {
           </button>
         )}
         <button className="btn btn-ghost" style={{ width: "auto" }} onClick={download} disabled={downloading}>
-          <Printer size={15} /> {downloading ? "Se generează…" : "Descarcă PDF"}
+          <Printer size={15} /> {downloading ? "Se generează…" : "Vezi PDF"}
         </button>
       </div>
       {invoice.status === "draft" && canBilling("issue_invoice") && (
         <div className="note no-print" style={{ marginTop: -6, marginBottom: 14 }}>
           La emitere se alocă serie și număr, iar factura nu mai poate fi modificată —
           orice corecție ulterioară se face doar prin stornare.
+        </div>
+      )}
+
+      {pdf && (
+        <div onClick={(e) => e.stopPropagation()}>
+          <PdfPreview blob={pdf.blob} filename={pdf.filename} onClose={() => setPdf(null)} />
         </div>
       )}
 
@@ -9639,6 +9723,7 @@ function ArrivalForm({ res, core, groups, onClose }) {
     return () => ro.disconnect();
   }, []);
 
+  const [pdf, setPdf] = useState(null);
   const download = async () => {
     setDownloading(true);
     /* Scalarea de pe ecran ar ajunge si in captura (html2canvas citeste
@@ -9651,7 +9736,8 @@ function ArrivalForm({ res, core, groups, onClose }) {
     if (scaler) scaler.style.transform = "none";
     if (wrap) wrap.style.height = "auto";
     try {
-      await downloadElementAsPDF(sheetRef.current, `Fisa-anuntare-${res.id}.pdf`, { singlePage: true });
+      const blob = await generatePdfBlob(sheetRef.current, { singlePage: true });
+      setPdf({ blob, filename: `Fisa-anuntare-${res.id}.pdf` });
     } catch (e) {
       toaster.show(mesajEroare(e, "PDF-ul nu a putut fi generat"), { tone: "danger" });
     } finally {
@@ -9667,16 +9753,22 @@ function ArrivalForm({ res, core, groups, onClose }) {
           <h3 id="arrival-title">Fișă de anunțare</h3>
           <div style={{ display: "flex", gap: 8 }}>
             <button className="btn btn-primary" style={{ width: "auto" }} onClick={download} disabled={downloading}>
-              <Printer size={15} /> {downloading ? "Se generează…" : "Descarcă PDF"}
+              <Printer size={15} /> {downloading ? "Se generează…" : "Vezi PDF"}
             </button>
             <button className="icon-btn" onClick={onClose} aria-label="Închide fereastra"><X size={16} /></button>
           </div>
         </div>
 
+        {pdf && (
+          <div onClick={(e) => e.stopPropagation()}>
+            <PdfPreview blob={pdf.blob} filename={pdf.filename} onClose={() => setPdf(null)} />
+          </div>
+        )}
+
         <div className="arrival-sheet-wrap" ref={scaleWrapRef} style={{ height: 1123 * scale }}>
           <div className="arrival-scaler" ref={scalerRef}
             style={{ transform: `scale(${scale})`, transformOrigin: "top left" }}>
-            <div className="arrival-sheet" ref={sheetRef}>
+            <div className="arrival-sheet fisa-duo" ref={sheetRef}>
               <ArrivalSheet res={res} core={core} groups={groups} />
               <div className="fisa-sep" />
               <ArrivalSheet res={res} core={core} groups={groups} />
