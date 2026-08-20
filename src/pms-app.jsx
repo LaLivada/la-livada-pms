@@ -3709,16 +3709,21 @@ function InvoiceCancelCreditActions({ invoice, onChanged }) {
   const creditInvoice = async () => {
     setBusy(true);
     try {
-      /* ATENTIE: seria "LIV" e scrisa aici de la bun inceput, dar singura
-         serie configurata in baza e "LL" — deci next_invoice_number arunca
-         "Serie de facturare inexistenta sau inactiva: LIV" si stornarea
-         esueaza. Nu s-a observat fiindca nu s-a stornat nimic pana acum
-         (zero note de credit in baza, verificat pe 21 august 2026).
-         Pastrat neschimbat aici DELIBERAT: alegerea seriei pentru stornari
-         e o decizie fiscala (pot avea legal serie proprie), nu una tehnica
-         de rezolvat intr-o mutare de cod. */
+      /* Stornarea foloseste ACEEASI serie activa ca facturile obisnuite.
+         Pana pe 21 august 2026 aici era scris "LIV", o serie care nu exista
+         in baza — next_invoice_number arunca "Serie de facturare inexistenta
+         sau inactiva", deci stornarea esua de fiecare data. Nu s-a observat
+         fiindca nu se stornase nimic vreodata.
+         Alternativa (serie proprie pentru stornari) e permisa legal, dar ar
+         cere o serie configurata explicit in Financiar → Serii; alegerea a
+         fost numerotarea continua. */
+      const serieStorno = await dateFacturare.serieActiva();
+      if (!serieStorno) {
+        toaster.show("Nu există nicio serie de facturare activă. Configureaz-o în Financiar → Serii.", { tone: "danger" });
+        return;
+      }
       const { original, serie, numar } = await dateFacturare.storneazaFactura(invoice, {
-        serie: "LIV", creatDe: audit.user?.id || null,
+        serie: serieStorno, creatDe: audit.user?.id || null,
       });
       await audit.push("Factură stornată",
         `${serie} ${numar} stornează ${invoice.series || ""} ${invoice.number || ""}`.trim());

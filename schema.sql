@@ -2141,6 +2141,21 @@ create policy "citeste facturi" on invoices for select to authenticated
   using (has_billing_permission('view_invoices'));
 create policy "creeaza draft factura" on invoices for insert to authenticated
   with check (has_billing_permission('create_invoice') and status = 'draft');
+-- O nota de credit NU e un draft care se emite ulterior: se naste direct
+-- 'issued', fiindca e documentul care anuleaza altul. Fara politica asta,
+-- politica de mai sus (care cere status = 'draft') respingea fiecare
+-- stornare cu "Nu ai dreptul sa faci aceasta modificare" — defect
+-- descoperit abia pe 21 august 2026, ascuns sub un al doilea care oprea
+-- fluxul mai devreme (seria ceruta, "LIV", nu exista).
+-- Deliberat ingusta: doar randuri care chiar SUNT note de credit
+-- (credit_note_of not null), deci nu poate fi folosita ca sa se strecoare o
+-- factura obisnuita direct in 'issued', ocolind fluxul draft -> emitere.
+create policy "creeaza nota de credit" on invoices for insert to authenticated
+  with check (
+    has_billing_permission('create_credit_note')
+    and credit_note_of is not null
+    and status = 'issued'
+  );
 create policy "modifica factura" on invoices for update to authenticated
   using (
     (status = 'draft' and has_billing_permission('create_invoice'))
