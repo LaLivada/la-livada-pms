@@ -326,7 +326,15 @@ Deno.serve(async (req) => {
         .select("*").eq("reservation_id", rez.id).eq("status", "active").maybeSingle();
 
       const s = setariAcum;
-      const de = new Date(rez.checkin);
+      /* Valabil de ACUM, nu de la ora programata de sosire (rez.checkin).
+         Actiunea asta se cere doar dupa check-in real (butonul e ascuns pana
+         atunci — vezi SectiuneAcces) sau la o schimbare reala de cameră/
+         perioadă pe o rezervare deja cazată, deci "acum" e mereu momentul
+         potrivit: un check-in mai devreme decat ora programata (fereastra de
+         48h) nu trebuie sa lase oaspetele blocat pe hol pana la ora din
+         rezervare — codul trebuie sa mearga chiar din clipa in care
+         recepția l-a generat. */
+      const de = new Date();
       const pana = expirareCod(rez.checkout, s);
 
       if (existent) {
