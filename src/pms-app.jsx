@@ -5553,9 +5553,14 @@ function ReservationViewModal({ reservation, core, updateCore, groups, onClose, 
           {guestFullName(guest) && guestFullName(guest) !== occupantName(reservation, core, groups) && (
             <div className="action-meta">Rezervat de {guestFullName(guest)}</div>
           )}
-          <div className="action-meta">
-            <span className="mono">{room?.name}</span> · {fmtDate(reservation.checkin)} → {fmtDate(reservation.checkout)}
-            {" · "}{nightsBetween(reservation.checkin, reservation.checkout)} nopți
+          <div className="action-meta" style={{ display: "flex", alignItems: "center", flexWrap: "wrap", justifyContent: "space-between", gap: 8 }}>
+            <span>
+              <span className="mono">{room?.name}</span> · {fmtDate(reservation.checkin)} → {fmtDate(reservation.checkout)}
+              {" · "}{nightsBetween(reservation.checkin, reservation.checkout)} nopți
+            </span>
+            <button className="btn btn-ghost" style={{ width: "auto", padding: "6px 10px", flexShrink: 0 }} onClick={() => setShowArrival(true)}>
+              <Printer size={14} /> Fișa de sosire
+            </button>
           </div>
           <div className="action-meta">
             {reservation.adults ?? 2} adulți{reservation.children ? ` + ${reservation.children} copii` : ""} · {sourceLabel(reservation.source)} · {fmtMoney(reservationTotal(reservation, core))}
@@ -5570,12 +5575,6 @@ function ReservationViewModal({ reservation, core, updateCore, groups, onClose, 
           : reservation.status === "cancelled" ? "role-receptionist" : "role-admin")}>
           <span aria-hidden="true">{STATUS_GLYPH[reservation.status]}</span> {STATUS_LABEL[reservation.status]}
         </span>
-      </div>
-
-      <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 8 }}>
-        <button className="btn btn-ghost" style={{ width: "auto", padding: "8px 12px" }} onClick={() => setShowArrival(true)}>
-          <Printer size={14} /> Fișa de sosire
-        </button>
       </div>
 
       {editingGroup && (
