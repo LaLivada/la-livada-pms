@@ -798,6 +798,45 @@ const STYLES = `
   }
   .fisa-foot strong{ color:#111; }
   .fisa-sep{ height:14px; }
+
+  /* ---------- Fisa de anuntare — doua exemplare pe o singura pagina A4 ----------
+     Coala e fixata exact la proportia A4 (794x1123px la ~96dpi), la fel ca
+     factura: exportul cu singlePage scaleaza acest dreptunghi la 210mm, iar
+     raportul fiind deja cel al lui A4, inaltimea iese fix 297mm — o pagina,
+     niciodata doua. Inainte, coala lua latimea modalului (~660px) la aceeasi
+     inaltime, deci raportul era 1.70 fata de 1.414 cat are A4, si al doilea
+     exemplar se rupea pe pagina urmatoare.
+     Cele doua exemplare impart inaltimea in mod egal (flex:1 fiecare), iar
+     spatiul liber de semnaturi absoarbe diferenta. */
+  .arrival-sheet-wrap{ overflow:hidden; }
+  .arrival-sheet{
+    width:794px; height:1123px; display:flex; flex-direction:column;
+    transform-origin:top left; background:#fff;
+  }
+  .arrival-sheet .fisa{ flex:1; display:flex; flex-direction:column; min-height:0; }
+  .arrival-sheet .fisa-space{ flex:1; height:auto; min-height:0; }
+  /* Linia de taiere, centrata vertical in spatiul dintre exemplare. */
+  .arrival-sheet .fisa-sep{
+    flex:0 0 18px; height:auto; display:flex; align-items:center;
+  }
+  .arrival-sheet .fisa-sep::before{
+    content:""; flex:1; border-top:1px dashed #9a9a95;
+  }
+  /* Compactare, ca un exemplar sa incapa in jumatatea lui de pagina.
+     Masurat: la dimensiunile initiale un exemplar cerea 603px in 552
+     disponibili — se taia footerul. Valorile de mai jos lasa ~39px liberi
+     pentru spatiul de semnaturi. Sunt scopate la .arrival-sheet fiindca
+     .fisa/.fisa-foot/.fisa-logo-img sunt folosite si de factura si de
+     rooming list, care au alte constrangeri. */
+  .arrival-sheet .fisa-top{ padding:7px 14px; }
+  .arrival-sheet .fisa-logo-img{ height:26px; }
+  .arrival-sheet .fisa-title{ font-size:14px; padding:6px 8px 1px; }
+  .arrival-sheet .fisa-sub{ font-size:10px; padding-bottom:5px; }
+  .arrival-sheet .fc{ padding:4px 8px 5px; min-height:38px; }
+  .arrival-sheet .fc-lab .ro{ font-size:10px; line-height:1.25; }
+  .arrival-sheet .fc-lab .en{ font-size:9.5px; line-height:1.25; }
+  .arrival-sheet .fc-val{ font-size:12px; margin-top:3px; min-height:15px; }
+  .arrival-sheet .fisa-foot{ padding:6px 14px; font-size:10px; }
   .sheet-sign{ display:flex; justify-content:space-between; gap:24px; }
   .sheet-sign > div{
     flex:1; border-top:1px solid #333; padding-top:7px; text-align:center;
@@ -1002,7 +1041,12 @@ const STYLES = `
       margin:0 !important; height:0 !important; min-height:0 !important;
       padding:0 !important; overflow:hidden !important;
     }
-    .arrival-sheet{ display:block !important; }
+    /* La print nu exista scalarea de ecran si nici dreptunghiul fix de
+       794x1123px: pagina e deja A4, deci lasam continutul sa curga natural.
+       Fara asta, coala fixata in pixeli ar fi ramas scalata si taiata. */
+    .arrival-scaler{ transform:none !important; }
+    .arrival-sheet-wrap{ height:auto !important; overflow:visible !important; }
+    .arrival-sheet{ width:auto !important; height:auto !important; }
     * { -webkit-print-color-adjust:exact; print-color-adjust:exact; }
     @page{ margin:10mm; }
   }
@@ -9574,13 +9618,49 @@ function ArrivalSheet({ res, core, groups }) {
 function ArrivalForm({ res, core, groups, onClose }) {
   useModalLock();
   const sheetRef = useRef(null);
+  const scalerRef = useRef(null);
+  const scaleWrapRef = useRef(null);
   const [downloading, setDownloading] = useState(false);
+
+  /* Coala e fixata la 794x1123px (proportia A4) ca sa iasa un PDF de o
+     singura pagina; pe ecran o scalam vizual, ca sa incapa in modal si pe
+     telefon. Acelasi tipar ca la factura (InvoicePrint). */
+  const [scale, setScale] = useState(1);
+  useEffect(() => {
+    const wrap = scaleWrapRef.current;
+    if (!wrap) return;
+    const update = () => {
+      const w = wrap.clientWidth;
+      setScale(w > 0 ? Math.min(1, w / 794) : 1);
+    };
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(wrap);
+    return () => ro.disconnect();
+  }, []);
+
   const download = async () => {
     setDownloading(true);
-    try { await downloadElementAsPDF(sheetRef.current, `Fisa-anuntare-${res.id}.pdf`); }
-    catch (e) { toaster.show(mesajEroare(e, "PDF-ul nu a putut fi generat"), { tone: "danger" }); }
-    finally { setDownloading(false); }
+    /* Scalarea de pe ecran ar ajunge si in captura (html2canvas citeste
+       getBoundingClientRect), deci o scoatem cat timp capturam si o punem
+       la loc dupa — la fel ca la factura. */
+    const scaler = scalerRef.current;
+    const wrap = scaleWrapRef.current;
+    const prevTransform = scaler?.style.transform;
+    const prevHeight = wrap?.style.height;
+    if (scaler) scaler.style.transform = "none";
+    if (wrap) wrap.style.height = "auto";
+    try {
+      await downloadElementAsPDF(sheetRef.current, `Fisa-anuntare-${res.id}.pdf`, { singlePage: true });
+    } catch (e) {
+      toaster.show(mesajEroare(e, "PDF-ul nu a putut fi generat"), { tone: "danger" });
+    } finally {
+      if (scaler) scaler.style.transform = prevTransform;
+      if (wrap) wrap.style.height = prevHeight;
+      setDownloading(false);
+    }
   };
+
   return (
     <Dialog onClose={onClose} className="arrival-modal" overlayClassName="arrival-overlay" title={undefined}>
         <div className="modal-head no-print">
@@ -9593,10 +9673,15 @@ function ArrivalForm({ res, core, groups, onClose }) {
           </div>
         </div>
 
-        <div className="arrival-sheet" ref={sheetRef}>
-          <ArrivalSheet res={res} core={core} groups={groups} />
-          <div className="fisa-sep" />
-          <ArrivalSheet res={res} core={core} groups={groups} />
+        <div className="arrival-sheet-wrap" ref={scaleWrapRef} style={{ height: 1123 * scale }}>
+          <div className="arrival-scaler" ref={scalerRef}
+            style={{ transform: `scale(${scale})`, transformOrigin: "top left" }}>
+            <div className="arrival-sheet" ref={sheetRef}>
+              <ArrivalSheet res={res} core={core} groups={groups} />
+              <div className="fisa-sep" />
+              <ArrivalSheet res={res} core={core} groups={groups} />
+            </div>
+          </div>
         </div>
     </Dialog>
   );
