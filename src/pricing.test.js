@@ -10,7 +10,7 @@ import {
   liveReservationTotalOnline, reservationTotal, onlineNightAdjustmentPct,
 } from "./lib/pricing.js";
 import { calcAmounts, round2, splitEvenly } from "./lib/money.js";
-import { validateCUIFormat } from "./lib/validation.js";
+import { validateCUIFormat, validatePhone, validateEmail } from "./lib/validation.js";
 import {
   MATRICE_TARIF, TARIFE_REFERINTA,
   PRAGURI_ONLINE_REFERINTA, MATRICE_AJUSTARE, MATRICE_ROTUNJIRE,
@@ -331,5 +331,49 @@ describe("validateCUIFormat", () => {
     const result = validateCUIFormat("RO12345678");
     expect(result.ok).toBe(true);
     expect(result.warn).toBe(true);
+  });
+});
+
+describe("validatePhone", () => {
+  it("accepts an empty number as optional", () => {
+    expect(validatePhone("")).toEqual({ ok: true, warn: false });
+  });
+  it("accepts a normal local number, with or without a dial prefix known", () => {
+    expect(validatePhone("722 111 222", "+40").ok).toBe(true);
+    expect(validatePhone("722111222").ok).toBe(true);
+  });
+  it("rejects letters or other non-digit characters", () => {
+    expect(validatePhone("722 ABC 222", "+40").ok).toBe(false);
+  });
+  // Bug real gasit in productie pe 20 august 2026: prefixul de tara ales
+  // din PhoneDialPicker (+40), apoi numarul tastat cu 0 in fata, ca la un
+  // numar local — rezultatul salvat ("+40 0733715111") nu suna niciodata.
+  it("rejects a leading 0 when a dial prefix is already chosen", () => {
+    const r = validatePhone("0733715111", "+40");
+    expect(r.ok).toBe(false);
+    expect(r.message).toMatch(/0/);
+  });
+  it("accepts a leading 0 when there's no separate dial prefix (free-text phone fields)", () => {
+    expect(validatePhone("0733715111").ok).toBe(true);
+  });
+  it("rejects numbers that are unreasonably short or long", () => {
+    expect(validatePhone("123", "+40").ok).toBe(false);
+    expect(validatePhone("1".repeat(20), "+40").ok).toBe(false);
+  });
+});
+
+describe("validateEmail", () => {
+  it("accepts an empty email as optional", () => {
+    expect(validateEmail("")).toEqual({ ok: true, warn: false });
+  });
+  it("accepts a well-formatted email", () => {
+    expect(validateEmail("andrei.popescu@example.com").ok).toBe(true);
+  });
+  it("rejects an email without @ or without a domain dot", () => {
+    expect(validateEmail("andrei.popescu-example.com").ok).toBe(false);
+    expect(validateEmail("andrei@example").ok).toBe(false);
+  });
+  it("rejects an email with embedded whitespace", () => {
+    expect(validateEmail("andrei popescu@example.com").ok).toBe(false);
   });
 });

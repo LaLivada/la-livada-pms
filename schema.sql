@@ -75,6 +75,20 @@ alter table guests add constraint guests_lungimi_text check (
   length(coalesce(notes, ''))      <= 2000
 );
 
+-- Validare de format pentru telefon si email — plasa de siguranta pentru
+-- orice cale de scriere in afara UI-ului (inclusiv create_booking,
+-- apelabila public). Nu duplica regula fina din front-end (PhoneDialPicker,
+-- "0 redundant dupa prefixul de tara") — aia are nevoie de lista de
+-- prefixuri, care exista doar in JS. Aici se verifica doar forma generala.
+-- NOT VALID: cel putin o inregistrare existenta (email fara domeniu real)
+-- ar fi picat o validare retroactiva — regula se aplica de acum inainte.
+alter table guests add constraint guests_format_contact check (
+  (phone = '' or (phone ~ '^[+]?[0-9 ()-]+$'
+                   and length(regexp_replace(phone, '[^0-9]', '', 'g')) between 6 and 15))
+  and
+  (email is null or email = '' or email ~* '^[^\s@]+@[^\s@]+\.[^\s@]+$')
+) not valid;
+
 
 -- ---------------------------------------------------------------------
 -- GRUPURI
@@ -432,6 +446,13 @@ alter table billing_customers add constraint billing_customers_lungimi_text chec
   length(coalesce(phone, ''))        <= 40  and
   length(coalesce(reg_com, ''))      <= 50
 );
+-- Acelasi rationament ca la guests_format_contact mai sus.
+alter table billing_customers add constraint billing_customers_format_contact check (
+  (phone is null or phone = '' or (phone ~ '^[+]?[0-9 ()-]+$'
+                   and length(regexp_replace(phone, '[^0-9]', '', 'g')) between 6 and 15))
+  and
+  (email is null or email = '' or email ~* '^[^\s@]+@[^\s@]+\.[^\s@]+$')
+) not valid;
 -- Previne duplicarea clientilor de facturare cu acelasi CUI/CNP, chiar
 -- daca UI-ul e ocolit (ex. request direct). Normalizeaza CUI-ul (fara
 -- prefix RO, uppercase) la fel ca validateCUIFormat din front-end.
@@ -1185,6 +1206,18 @@ begin
   if coalesce(trim(p_last_name),'') = '' or coalesce(trim(p_first_name),'') = ''
      or coalesce(trim(p_phone),'') = '' then
     raise exception 'Nume, prenume și telefon sunt obligatorii.';
+  end if;
+  -- Validare de format — site-ul public nu trece prin PMS, deci nu are
+  -- validarea din front-end (PhoneDialPicker); e nevoie de ea aici,
+  -- înainte de orice scriere. Aceeași regulă generală ca la nivel de
+  -- tabel (guests_format_contact), verificată devreme ca să iasă cu un
+  -- mesaj clar, nu cu eroarea brută de constraint.
+  if not (p_phone ~ '^[+]?[0-9 ()-]+$'
+          and length(regexp_replace(p_phone, '[^0-9]', '', 'g')) between 6 and 15) then
+    raise exception 'Numărul de telefon nu pare valid.';
+  end if;
+  if p_email is not null and trim(p_email) <> '' and p_email !~* '^[^\s@]+@[^\s@]+\.[^\s@]+$' then
+    raise exception 'Adresa de email nu are un format valid.';
   end if;
 
   -- Telefonul e mereu disponibil (obligatoriu mai sus). IP-ul vine din

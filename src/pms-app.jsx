@@ -21,7 +21,7 @@ import {
   isSameDay, isToday, canCheckIn, canCheckOut, canCancel, canNoShow,
   checkouturiRestante, zileIntarziere, ORE_CHECKIN_DEVREME,
 } from "./lib/tranzitii.js";
-import { validateCUIFormat } from "./lib/validation.js";
+import { validateCUIFormat, validatePhone, validateEmail } from "./lib/validation.js";
 import { mesajEroare } from "./lib/errors.js";
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
@@ -7133,7 +7133,11 @@ const DIAL_LIST = TARI.map((t) => ({ country: t, dial: PHONE_DIAL[t] })).filter(
 
 /* Desparte un numar deja salvat in prefix+rest — daca nu incepe cu "+"
    e tratat ca un numar romanesc vechi (fara prefix), ca sa nu se piarda
-   nimic la editarea unei fise existente. */
+   nimic la editarea unei fise existente. Un asemenea numar vechi incepe
+   de obicei cu 0 (format local, "0722 111 222") — il scoatem la despartire,
+   ca afisarea sa arate exact ce ar trebui tastat acum, cu prefixul deja
+   ales: altfel validarea nou-adaugata ("nu pune 0 dupa prefix") ar
+   respinge o fisa veche neschimbata, doar redeschisa pentru editare. */
 function splitPhone(phone) {
   const s = String(phone || "").trim();
   if (s.startsWith("+")) {
@@ -7142,7 +7146,7 @@ function splitPhone(phone) {
       .sort((a, b) => b.dial.length - a.dial.length)[0];
     if (match) return { dial: match.dial, local: s.slice(match.dial.length).trim() };
   }
-  return { dial: "+40", local: s };
+  return { dial: "+40", local: s.replace(/^0/, "") };
 }
 function joinPhone(dial, local) {
   const l = String(local || "").trim();
@@ -7272,6 +7276,8 @@ const GuestFields = React.memo(function GuestFields({ value, onChange, invalid }
   const set = (k) => (e) => onChange({ ...value, [k]: e.target.value });
   const err = (k) => (invalid?.has(k) ? " input-error" : "");
   const { dial, local } = splitPhone(value.phone);
+  const phoneCheck = validatePhone(local, dial);
+  const emailCheck = validateEmail(value.email);
   return (
     <>
       <div className="field-row field-row-2col">
@@ -7293,13 +7299,23 @@ const GuestFields = React.memo(function GuestFields({ value, onChange, invalid }
           <span className="fl">Telefon *</span>
           <div className="phone-input-row">
             <PhoneDialPicker dial={dial} onSelect={(d) => onChange({ ...value, phone: joinPhone(d, local) })} />
-            <input className={err("phone")} value={local}
+            <input className={err("phone") + (local && !phoneCheck.ok ? " input-error" : "")} value={local}
               onChange={(e) => onChange({ ...value, phone: joinPhone(dial, e.target.value) })}
               placeholder="722 111 222" />
           </div>
         </label>
-        <label className="field"><span className="fl">Email</span><input type="email" value={value.email} onChange={set("email")} placeholder="nume@exemplu.ro" /></label>
+        <label className="field">
+          <span className="fl">Email</span>
+          <input type="email" className={value.email && !emailCheck.ok ? "input-error" : ""}
+            value={value.email} onChange={set("email")} placeholder="nume@exemplu.ro" />
+        </label>
       </div>
+      {local && !phoneCheck.ok && (
+        <div className="note" style={{ marginTop: -6, marginBottom: 14 }}>{phoneCheck.message}</div>
+      )}
+      {value.email && !emailCheck.ok && (
+        <div className="note" style={{ marginTop: -6, marginBottom: 14 }}>{emailCheck.message}</div>
+      )}
       <div className="field-row field-row-2col">
         <label className="field"><span className="fl">Adresă</span><input value={value.address} onChange={set("address")} placeholder="Str. Exemplu nr. 10" /></label>
         <label className="field"><span className="fl">Oraș *</span><input className={err("city")} value={value.city} onChange={set("city")} /></label>
@@ -7580,6 +7596,10 @@ function BillingCustomerModal({ customer, seedFromGuest, existingCustomers, onSa
   const set = (k) => (e) => { setC({ ...c, [k]: e.target.value }); setError(""); setNameWarning(null); };
 
   const cuiCheck = c.kind === "company" ? validateCUIFormat(c.cui) : { ok: true, warn: false };
+  // Fara selector de prefix aici (spre deosebire de fisa de client) — un
+  // "0" la inceput e un numar local romanesc normal, nu o greseala.
+  const phoneCheck = validatePhone(c.phone);
+  const emailCheck = validateEmail(c.email);
 
   const submit = async () => {
     if (saving) return;
@@ -7595,6 +7615,14 @@ function BillingCustomerModal({ customer, seedFromGuest, existingCustomers, onSa
     }
     if (c.kind === "company" && !cuiCheck.ok) {
       setError(cuiCheck.message);
+      return;
+    }
+    if (!phoneCheck.ok) {
+      setError(phoneCheck.message);
+      return;
+    }
+    if (!emailCheck.ok) {
+      setError(emailCheck.message);
       return;
     }
 
@@ -7725,8 +7753,14 @@ function BillingCustomerModal({ customer, seedFromGuest, existingCustomers, onSa
       </div>
       <label className="field"><span className="fl">Cod poștal</span><input value={c.postalCode || ""} onChange={set("postalCode")} /></label>
       <div className="field-row field-row-2col">
-        <label className="field"><span className="fl">Email</span><input type="email" value={c.email} onChange={set("email")} /></label>
-        <label className="field"><span className="fl">Telefon</span><input value={c.phone} onChange={set("phone")} /></label>
+        <label className="field">
+          <span className="fl">Email</span>
+          <input type="email" className={c.email && !emailCheck.ok ? "input-error" : ""} value={c.email} onChange={set("email")} />
+        </label>
+        <label className="field">
+          <span className="fl">Telefon</span>
+          <input className={c.phone && !phoneCheck.ok ? "input-error" : ""} value={c.phone} onChange={set("phone")} />
+        </label>
       </div>
 
       {error && <div className="error-text" role="alert" style={{ marginBottom: 10 }}>{error}</div>}
@@ -7766,6 +7800,19 @@ function GuestModal({ guest, onSave, onClose }) {
     if (missing.length) {
       setInvalid(new Set(missing.map(([k]) => k)));
       setError(`Completează: ${missing.map(([, label]) => label).join(", ")}.`);
+      return;
+    }
+    const { dial, local } = splitPhone(g.phone);
+    const phoneCheck = validatePhone(local, dial);
+    if (!phoneCheck.ok) {
+      setInvalid(new Set(["phone"]));
+      setError(phoneCheck.message);
+      return;
+    }
+    const emailCheck = validateEmail(g.email);
+    if (!emailCheck.ok) {
+      setInvalid(new Set(["email"]));
+      setError(emailCheck.message);
       return;
     }
     setInvalid(null);
