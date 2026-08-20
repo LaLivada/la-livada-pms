@@ -28,6 +28,7 @@ import { validateCUIFormat, validatePhone, validateEmail } from "./lib/validatio
 import { camelBillingCustomer, snakeBillingCustomer } from "./data/mapari.js";
 import * as dateContabilitate from "./data/contabilitate.js";
 import * as dateFacturare from "./data/facturare.js";
+import * as datePlati from "./data/plati.js";
 import { uid } from "./lib/uid.js";
 import { mesajEroare } from "./lib/errors.js";
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
@@ -3600,8 +3601,9 @@ function RecordPaymentInline({ invoice, core, onChanged }) {
 
   useEffect(() => {
     if (!isCash) return;
-    supabase.from("receipt_series").select("*").eq("id", "series-ch").maybeSingle()
-      .then(({ data }) => setReceiptSeries(data || null));
+    datePlati.serieChitante()
+      .then(setReceiptSeries)
+      .catch((e) => { console.error("serie chitante", e); setReceiptSeries(null); });
   }, [isCash]);
 
   const submit = async () => {
@@ -3609,23 +3611,29 @@ function RecordPaymentInline({ invoice, core, onChanged }) {
     setSaving(true);
     let receiptSeriesVal = null, receiptNumberVal = null;
     if (isCash) {
-      const seriesLetters = receiptSeries?.series || "CH";
-      const { data: numRow, error: numErr } = await supabase.rpc("next_receipt_number", { p_series: seriesLetters });
-      if (numErr) { toaster.show(mesajEroare(numErr, "Nu am putut aloca numărul de chitanță"), { tone: "danger" }); setSaving(false); return; }
-      const r = Array.isArray(numRow) ? numRow[0] : numRow;
-      receiptSeriesVal = r.series; receiptNumberVal = r.number;
+      try {
+        const r = await datePlati.alocaNumarChitanta(receiptSeries?.series || "CH");
+        receiptSeriesVal = r.serie; receiptNumberVal = r.numar;
+      } catch (e) {
+        toaster.show(mesajEroare(e, "Nu am putut aloca numărul de chitanță"), { tone: "danger" });
+        setSaving(false); return;
+      }
     }
-    const { error } = await supabase.from("payments").insert({
-      id: uid(), invoice_id: invoice.id, amount: Number(amount), method,
-      reference: reference.trim() || null, created_by: audit.user?.id || null,
-      receipt_series: receiptSeriesVal, receipt_number: receiptNumberVal,
-      card_receipt_number: isCard ? (cardReceiptNumber.trim() || null) : null,
-      card_receipt_date: isCard ? (cardReceiptDate || null) : null,
-    });
-    if (error) { toaster.show(mesajEroare(error, "Plata a eșuat"), { tone: "danger" }); setSaving(false); return; }
-    // Trigger-ul recalc_invoice_payment_status ruleaza server-side —
-    // reincarcam factura ca sa vedem soldul/statusul actualizat.
-    const { data: updated } = await supabase.from("invoices").select("*").eq("id", invoice.id).maybeSingle();
+    let updated;
+    try {
+      /* Intoarce factura reincarcata: soldul si statusul sunt recalculate
+         de un trigger server-side dupa inserarea platii. */
+      updated = await datePlati.inregistreazaPlata({
+        idFactura: invoice.id, suma: amount, metoda: method,
+        referinta: reference.trim(), creatDe: audit.user?.id || null,
+        serieChitanta: receiptSeriesVal, numarChitanta: receiptNumberVal,
+        numarBonCard: isCard ? (cardReceiptNumber.trim() || null) : null,
+        dataBonCard: isCard ? (cardReceiptDate || null) : null,
+      });
+    } catch (e) {
+      toaster.show(mesajEroare(e, "Plata a eșuat"), { tone: "danger" });
+      setSaving(false); return;
+    }
     const methodLabel = methods.find((m) => m.id === method)?.label || method;
     const receiptNote = receiptSeriesVal ? ` · chitanță ${receiptSeriesVal} ${receiptNumberVal}` : "";
     await audit.push("Plată înregistrată", `${fmtMoney(amount)} · ${methodLabel}${receiptNote}`);
@@ -6839,8 +6847,14 @@ function ReceiptSeriesEditor() {
   const [saving, setSaving] = useState(false);
 
   const load = useCallback(async () => {
-    const { data } = await supabase.from("receipt_series").select("*").eq("id", "series-ch").maybeSingle();
-    if (data) { setRow(data); setValue(data.series); }
+    try {
+      const data = await datePlati.serieChitante();
+      if (data) { setRow(data); setValue(data.series); }
+    } catch (e) {
+      /* Fara serie citita, componenta se ascunde singura (return null mai
+         jos) — inainte eroarea era inghitita tacut prin destructurare. */
+      console.error("serie chitante", e);
+    }
   }, []);
   useEffect(() => { load(); }, [load]);
 
@@ -6848,9 +6862,14 @@ function ReceiptSeriesEditor() {
     const next = value.trim().toUpperCase();
     if (!next || next === row?.series) return;
     setSaving(true);
-    const { error } = await supabase.from("receipt_series").update({ series: next }).eq("id", "series-ch");
-    setSaving(false);
-    if (error) { toaster.show(mesajEroare(error, "Nu am putut salva seria"), { tone: "danger" }); return; }
+    try {
+      await datePlati.schimbaSerieChitante(next);
+    } catch (e) {
+      toaster.show(mesajEroare(e, "Nu am putut salva seria"), { tone: "danger" });
+      return;
+    } finally {
+      setSaving(false);
+    }
     await audit.push("Serie chitanțe modificată", next);
     await load();
     toaster.show("Serie de chitanțe actualizată.");
@@ -6876,17 +6895,14 @@ function PaymentsListView({ core, updateCore }) {
   const [loadError, setLoadError] = useState("");
 
   const load = useCallback(async () => {
-    const { data, error } = await supabase.from("payments").select("*").order("paid_at", { ascending: false });
-    if (error) { setLoadError(mesajEroare(error)); return; }
-    setPayments(data || []);
-    const ids = [...new Set((data || []).map((p) => p.invoice_id))];
-    if (ids.length) {
-      const { data: invs } = await supabase.from("invoices").select("id, series, number, billing_customer_id").in("id", ids);
-      setInvoiceMap(Object.fromEntries((invs || []).map((i) => [i.id, i])));
-    } else {
-      setInvoiceMap({});
+    try {
+      const { plati, facturiDupaId } = await datePlati.listeazaPlatiCuFacturi();
+      setPayments(plati);
+      setInvoiceMap(facturiDupaId);
+      setLoadError("");
+    } catch (e) {
+      setLoadError(mesajEroare(e));
     }
-    setLoadError("");
   }, []);
   useEffect(() => { load(); }, [load]);
 
