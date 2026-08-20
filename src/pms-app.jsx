@@ -5434,7 +5434,7 @@ function InvoicePrint({ invoiceId, core, onClose, onChanged }) {
             prin regula din STYLES) sa se picteze peste el. Daca fisierul
             lipseste, se ascunde singur — o factura fara filigran e mult mai
             buna decat una cu o iconita de imagine rupta in mijloc. */}
-        <img src="/emblema.png" alt="" aria-hidden="true" className="inv-watermark"
+        <img src="/background.png" alt="" aria-hidden="true" className="inv-watermark"
           onError={(e) => { e.currentTarget.style.display = "none"; }} />
         {invoice.status === "cancelled" && <div className="inv-cancelled-stamp">ANULATĂ</div>}
         <div className="inv-top">
