@@ -859,14 +859,14 @@ const STYLES = `
      factura are putine linii; scroll orizontal doar pe ecrane inguste. */
   .inv-sheet-wrap{ overflow:hidden; }
   .inv-sheet{ width:794px; min-height:1123px; display:flex; flex-direction:column; position:relative; transform-origin:top left; }
-  /* Filigranul din mijlocul facturii: 70% din latimea colii, opacitate 60%.
+  /* Filigranul din mijlocul facturii: 35% din latimea colii, opacitate 20%.
      Continutul trece PESTE el fara z-index: elementele pozitionate se
      picteaza in ordinea din DOM, iar filigranul e primul copil. Stampila de
      anulare e exclusa ca sa-si pastreze pozitionarea proprie (z-index:5,
      deasupra a tot). */
   .inv-watermark{
     position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
-    width:70%; height:auto; opacity:.6; pointer-events:none; user-select:none;
+    width:35%; height:auto; opacity:.2; pointer-events:none; user-select:none;
   }
   .inv-sheet > *:not(.inv-watermark):not(.inv-cancelled-stamp){ position:relative; }
   .inv-cancelled-stamp{
