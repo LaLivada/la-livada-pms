@@ -1071,7 +1071,14 @@ const STYLES = `
     .inv-sheet-wrap{ height:auto !important; overflow:visible !important; }
     .inv-sheet{ width:auto !important; height:auto !important; }
     * { -webkit-print-color-adjust:exact; print-color-adjust:exact; }
-    @page{ margin:10mm; }
+    /* Fisa si factura sunt randate deja la dimensiunea exacta a unei pagini
+       A4 (794x1123px = 210x297mm). O margine de pagina aici scade zona
+       tiparibila SUB acea dimensiune, iar diferenta impinge un rest din josul
+       colii pe o a doua pagina — exact ce s-a intamplat la primul test live
+       pe 20 august 2026 (o pagina goala cu doar 2-3 randuri, la ambele
+       documente). Fara margine, coala de 297mm incape exact intr-o pagina A4
+       de 297mm. */
+    @page{ size:A4; margin:0; }
   }
 
   .quick-actions{ display:flex; flex-wrap:wrap; gap:8px; margin-top:4px; }
