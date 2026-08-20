@@ -285,6 +285,15 @@ Deno.serve(async (req) => {
         .eq("id", rezervareId).maybeSingle();
       if (!rez) return raspuns({ error: "Rezervarea nu a fost găsită." }, 404);
 
+      /* Numele afișat pe yală (in aplicatia TTLock/TTHotel): numele
+         oaspetelui, nu id-ul rezervării — id-ul e opac pentru oricine se
+         uită acolo la o listă de coduri. Fallback pe id doar dacă oaspetele
+         n-are nume salvat. */
+      const { data: oaspeteCod } = rez.guest_id
+        ? await admin.from("guests").select("first_name, last_name").eq("id", rez.guest_id).maybeSingle()
+        : { data: null };
+      const numeOaspete = [oaspeteCod?.first_name, oaspeteCod?.last_name].filter(Boolean).join(" ").trim();
+
       const { data: cam } = await admin.from("rooms")
         .select("id, name, access_provider, access_lock_id")
         .eq("id", rez.room_id).maybeSingle();
@@ -340,7 +349,7 @@ Deno.serve(async (req) => {
          lungimi accepta o yala, deci nu presupunem: daca refuza, eroarea ei
          ajunge la receptie asa cum e. */
       const nou = await f.api.creeazaCod(
-        cam.access_lock_id, de, pana, `Rezervare ${rez.id}`,
+        cam.access_lock_id, de, pana, numeOaspete || `Rezervare ${rez.id}`,
         genereazaCodPin(lungimeCod(s)));
 
       const rand = {
