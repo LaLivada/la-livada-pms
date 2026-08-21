@@ -64,3 +64,8 @@ export function occupancyForStay(checkin, checkout, reservations, roomCount, exc
   }
   return sumPct / nights;
 }
+
+/* Rezervarile care intra in cifrele de business (ocupare, venit, ADR, RevPAR).
+   Protocolul ocupa camera real, dar nu se incaseaza pe el — daca ar intra in
+   venit, ar strica toate mediile. */
+export const isStatsEligible = (r) => isLive(r) && r.status !== "protocol";

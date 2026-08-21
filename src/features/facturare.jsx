@@ -32,7 +32,7 @@ import { nightsBetween } from "../lib/availability.js";
 import { validateCUIFormat, validatePhone, validateEmail } from "../lib/validation.js";
 import { fmtMoney, fmtDate, fmtDateFull, fmtDateTime, toDateInput, initials } from "../lib/format.js";
 import { INVOICE_STATUS_LABEL, INVOICE_STATUS_CLASS, PAYMENT_METHOD_LABEL, BILLING_PERMISSION_LABEL, BILLING_PERMISSION_KEYS, JUDETE, TARI, ROLE_LABEL } from "../lib/constante.js";
-import { Dialog, toaster, usePaginare, Paginare, useModalLock } from "../ui/primitive.jsx";
+import { Dialog, toaster, usePaginare, Paginare, useModalLock, useAduInVizor } from "../ui/primitive.jsx";
 import { audit } from "../lib/audit.js";
 import { guestFullName } from "../lib/nume.js";
 

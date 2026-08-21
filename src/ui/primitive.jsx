@@ -290,3 +290,87 @@ export function useVisualViewportHeight() {
 /* ---------------------------------------------------------------
    ROOT APP
 ----------------------------------------------------------------*/
+
+export function OccupantStepper({ label, value, otherValue, capacity, min, onChange }) {
+  const cap = Number(capacity) || 20;
+  const max = Math.max(min, cap - (Number(otherValue) || 0));
+  const v = Math.min(max, Math.max(min, Number(value) || min));
+  const set = (n) => onChange(Math.min(max, Math.max(min, n)));
+  /* Cand capacitatea scade (camera schimbata, celalalt ocupant crescut),
+     valoarea afisata se clampeaza automat — sincronizam si starea reala
+     din parinte, ca ce se vede sa fie mereu ce se si salveaza. */
+  useEffect(() => {
+    if (Number(value) !== v) onChange(v);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [v]);
+  return (
+    <div className="stepper">
+      <button type="button" className="stepper-btn" onClick={() => set(v - 1)} disabled={v <= min} aria-label={`${label} — scade`}>−</button>
+      <span className="stepper-value" aria-live="polite">{v}</span>
+      <button type="button" className="stepper-btn" onClick={() => set(v + 1)} disabled={v >= max} aria-label={`${label} — crește`}>+</button>
+    </div>
+  );
+}
+
+/* ---------------------------------------------------------------
+   FOLIO — pozitii de cazare + extra, direct din rezervare.
+   Nu trece prin core/syncTable (colectie separata, per rezervare) —
+   citeste/scrie direct in Supabase, incarcata la deschiderea modalului.
+----------------------------------------------------------------*/
+/* Sincronizeaza linia de "Cazare" din folio cu pretul curent al
+   rezervarii (bookedPrice/priceOverride) — dar NICIODATA daca acea
+   linie e deja legata de o factura activa (invoiced_status='invoiced'),
+   ca sa nu modificam retroactiv ceva deja facturat. */
+/* Emiterea unei facturi — draft -> emisa, cu alocarea numarului.
+ *
+ * Seria NU mai e scrisa in cod. Inainte se cerea "LIV", iar in baza seria
+ * configurata era "LL": next_invoice_number arunca "Serie de facturare
+ * inexistenta sau inactiva", deci emiterea esua de fiecare data. Seria e
+ * oricum configurabila din Setari, deci a o fixa in cod anula acel
+ * setting. Acum se citeste seria activa in momentul emiterii.
+ *
+ * Intoarce randul actualizat, sau null daca ceva a esuat (mesajul e deja
+ * aratat utilizatorului). Folosita si din folio, si din lista de facturi.
+ */
+
+export const Stat = React.memo(function Stat({ label, value, sub }) {
+  return (
+    <div className="stat">
+      <div className="stat-label">{label}</div>
+      <div className="stat-value">{value}</div>
+      <div className="stat-sub">{sub}</div>
+    </div>
+  );
+});
+
+export const TODAY_SECTION_PAGE_SIZE = 10;
+
+export const Section = React.memo(function Section({ title, items, renderItem, empty }) {
+  const [page, setPage] = useState(0);
+  const pageCount = Math.max(1, Math.ceil(items.length / TODAY_SECTION_PAGE_SIZE));
+  const safePage = Math.min(page, pageCount - 1);
+  const pageItems = items.slice(safePage * TODAY_SECTION_PAGE_SIZE, (safePage + 1) * TODAY_SECTION_PAGE_SIZE);
+  return (
+    <div className="panel section-panel">
+      <div className="section-head">{title}<span className="badge-count">{items.length}</span></div>
+      {pageItems.length ? pageItems.map(renderItem) : <div className="section-empty">{empty}</div>}
+      {pageCount > 1 && (
+        <div className="pager">
+          <button className="btn btn-ghost" style={{ width: "auto" }} disabled={safePage === 0}
+            onClick={() => setPage((p) => Math.max(0, p - 1))}>
+            <ChevronLeft size={15} />
+          </button>
+          <span className="pager-info">Pagina {safePage + 1} din {pageCount}</span>
+          <button className="btn btn-ghost" style={{ width: "auto" }} disabled={safePage >= pageCount - 1}
+            onClick={() => setPage((p) => Math.min(pageCount - 1, p + 1))}>
+            <ChevronRight size={15} />
+          </button>
+        </div>
+      )}
+    </div>
+  );
+});
+
+/* ---------------------------------------------------------------
+   REPORTS VIEW
+----------------------------------------------------------------*/

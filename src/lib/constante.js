@@ -191,3 +191,5 @@ export const DIAL_LIST = TARI.map((t) => ({ country: t, dial: PHONE_DIAL[t] })).
    ca afisarea sa arate exact ce ar trebui tastat acum, cu prefixul deja
    ales: altfel validarea nou-adaugata ("nu pune 0 dupa prefix") ar
    respinge o fisa veche neschimbata, doar redeschisa pentru editare. */
+
+export const GUEST_HISTORY_PAGE_SIZE = 15;
