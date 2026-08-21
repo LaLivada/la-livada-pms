@@ -8,8 +8,10 @@
 
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import { Plus, X, Search, Check, Trash2, Pencil, History, Users, UsersRound, Phone, MessageCircle, Banknote, UserCheck, ArrowRight, ChevronLeft, ChevronRight, Receipt } from "lucide-react";
+import { supabase } from "../supabase.js";
 import { uid } from "../lib/uid.js";
 import { mesajEroare } from "../lib/errors.js";
+import * as dateFacturare from "../data/facturare.js";
 import { audit, isAdmin } from "../lib/audit.js";
 import { guestFullName, occupantName } from "../lib/nume.js";
 import { nightsBetween, isLive, isStatsEligible } from "../lib/availability.js";
