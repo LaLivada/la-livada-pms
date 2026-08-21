@@ -36,10 +36,16 @@ export const canCheckIn = (r, now = new Date()) =>
   && new Date(r.checkin).getTime() - new Date(now).getTime() <= ORE_CHECKIN_DEVREME * 3600_000;
 
 export const canCheckOut = (r) => r.status === "checkedin";
-export const canCancel   = (r) => r.status === "confirmed";
+
+/* "pending" (Cerere) alaturi de "confirmed": o cerere netratata trebuie sa
+   se poata anula in orice moment, la fel ca o rezervare confirmata — altfel
+   ramane agatata la nesfarsit fara nicio iesire. */
+export const STATUSURI_NEREZOLVATE = ["pending", "confirmed"];
+
+export const canCancel = (r) => STATUSURI_NEREZOLVATE.includes(r.status);
 
 export const canNoShow = (r, now = new Date()) =>
-  r.status === "confirmed" && startOfDay(r.checkin) < startOfDay(now);
+  STATUSURI_NEREZOLVATE.includes(r.status) && startOfDay(r.checkin) < startOfDay(now);
 
 /* Night audit: rezervari inca "checked-in" a caror zi de plecare a trecut.
  *
@@ -59,4 +65,26 @@ export function checkouturiRestante(reservations, now = new Date()) {
 /* Cate zile a trecut peste plecarea programata — pentru afisaj. */
 export function zileIntarziere(r, now = new Date()) {
   return Math.max(1, Math.round((startOfDay(now) - startOfDay(r.checkout)) / 86400000));
+}
+
+/* Night audit: rezervari "pending" sau "confirmed" a caror zi de sosire a
+ * trecut fara nicio decizie — o rezervare nu are voie sa ramana agatata la
+ * nesfarsit intre "cerere"/"confirmata" dupa ce ziua de checkin a venit si
+ * a trecut; un operator (admin sau receptioner) trebuie sa o rezolve in
+ * check-in, no-show sau anulare.
+ *
+ * Fix la exact aceeasi regula ca la checkouturiRestante, doar oglindita pe
+ * sosire in loc de plecare: refolosim canNoShow (nu o reimplementam), deci
+ * fiecare rand din lista are garantat cel putin no-show ca rezolvare —
+ * plus anularea, mereu posibila pentru pending/confirmed. Check-in-ul de
+ * pe ziua exacta ramane blocat de canCheckIn (sosire trecuta, vezi mai
+ * sus) — corect: o sosire de acum cateva zile nu se mai cazeaza direct,
+ * intai se corecteaza data. */
+export function sosiriRestante(reservations, now = new Date()) {
+  return (reservations || []).filter((r) => canNoShow(r, now));
+}
+
+/* Cate zile a trecut peste sosirea programata — pentru afisaj. */
+export function zileIntarziereSosire(r, now = new Date()) {
+  return Math.max(1, Math.round((startOfDay(now) - startOfDay(r.checkin)) / 86400000));
 }

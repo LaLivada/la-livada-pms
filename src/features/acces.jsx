@@ -161,6 +161,10 @@ export function SectiuneAcces({ res, core }) {
   }
 
   const facutCheckIn = res.status === "checkedin" || res.status === "checkedout";
+  /* Dupa check-out codul e sters (vezi doCheckOut) si nu se mai regenereaza:
+     camera trece la urmatorul oaspete, iar un cod vechi inca valid ar
+     deschide usa oricui il mai are, indiferent cine sta acum in camera. */
+  const dupaCheckout = res.status === "checkedout";
 
   return (
     <div className="field">
@@ -170,9 +174,11 @@ export function SectiuneAcces({ res, core }) {
 
       {cod === null && (
         <div className="ldv-mic" style={{ color: "var(--muted)" }}>
-          {facutCheckIn
-            ? "Codul de acces nu a fost generat."
-            : "Codul de acces se generează automat la check-in."}
+          {dupaCheckout
+            ? "Codul de acces a fost șters la check-out."
+            : facutCheckIn
+              ? "Codul de acces nu a fost generat."
+              : "Codul de acces se generează automat la check-in."}
         </div>
       )}
 
@@ -214,7 +220,7 @@ export function SectiuneAcces({ res, core }) {
         </div>
       )}
 
-      {(facutCheckIn || cod) && (
+      {(facutCheckIn || cod) && !dupaCheckout && (
         <div className="quick-actions acces-actions" style={{ marginTop: 8 }}>
           <button className="btn btn-ghost" onClick={genereaza} disabled={lucrez}>
             <RefreshCw size={14} color="var(--accent)" />

@@ -19,7 +19,7 @@ import { decideActiuneAcces } from "./lib/acces.js";
    src/tranzitii.test.js. */
 import {
   isSameDay, isToday, canCheckIn, canCheckOut, canCancel, canNoShow,
-  checkouturiRestante, zileIntarziere, ORE_CHECKIN_DEVREME,
+  checkouturiRestante, zileIntarziere, sosiriRestante, ORE_CHECKIN_DEVREME,
 } from "./lib/tranzitii.js";
 import { validateCUIFormat, validatePhone, validateEmail } from "./lib/validation.js";
 import {
@@ -652,6 +652,12 @@ function PMSApp() {
   const restanteAudit = useMemo(
     () => checkouturiRestante(reservations, new Date(tickAudit)),
     [reservations, tickAudit]);
+  /* La fel ca restanteAudit, dar pe sosiri: o rezervare "cerere" sau
+     "confirmata" nu are voie sa ramana asa dupa ce ziua de checkin a
+     trecut fara nicio decizie — vezi sosiriRestante (lib/tranzitii.js). */
+  const sosiriAudit = useMemo(
+    () => sosiriRestante(reservations, new Date(tickAudit)),
+    [reservations, tickAudit]);
 
   if (loading) {
     return (
@@ -705,13 +711,19 @@ function PMSApp() {
   /* NIGHT AUDIT — blocaj pana se inchide ziua.
    *
    * Nu are buton de ocolire: decizia e ca disciplina de inchidere sa fie
-   * obligatorie. Nu se poate ajunge la un blocaj permanent, fiindca fiecare
-   * rezervare din lista e "checked-in", iar canCheckOut cere exact atat —
-   * deci fiecare rand poate fi rezolvat pe loc, din ecranul asta.
+   * obligatorie. Doua liste independente, aceeasi poarta:
+   *   · restanteAudit — plecari ramase "checked-in" dupa data plecarii;
+   *   · sosiriAudit   — sosiri ramase "cerere"/"confirmata" dupa data
+   *     sosirii, fara nicio decizie (check-in, no-show sau anulare).
+   * Nu se poate ajunge la un blocaj permanent: fiecare rand din restanteAudit
+   * poate fi inchis cu check-out (canCheckOut cere exact "checked-in"), iar
+   * fiecare rand din sosiriAudit poate fi rezolvat cu no-show sau anulare
+   * (canNoShow/canCancel — vezi sosiriRestante in lib/tranzitii.js).
    *
-   * Housekeeping nu e blocat: nu poate face check-out, deci blocarea lui ar
-   * opri curatenia fara sa deblocheze nimic. */
-  if (restanteAudit.length > 0 && ["admin", "receptionist"].includes(currentUser.role)) {
+   * Housekeeping nu e blocat: nu poate face check-out si nici nu decide
+   * soarta unei rezervari, deci blocarea lui ar opri curatenia fara sa
+   * deblocheze nimic. */
+  if ((restanteAudit.length > 0 || sosiriAudit.length > 0) && ["admin", "receptionist"].includes(currentUser.role)) {
     return (
       <div className="pms">
         <ToastHost />
@@ -721,6 +733,7 @@ function PMSApp() {
         <Suspense fallback={<div className="login-wrap"><div className="boot">Se încarcă…</div></div>}>
         <NightAuditGate
           restante={restanteAudit}
+          sosiri={sosiriAudit}
           core={core}
           groups={groups}
           reservations={reservations}

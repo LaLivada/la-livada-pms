@@ -21,7 +21,7 @@ import { guestFullName, occupantName } from "../lib/nume.js";
 import { nightsBetween, rangesOverlap, validateStay, isLive, isStatsEligible, startOfDay } from "../lib/availability.js";
 import { reservationTotal, nightlyRate, liveReservationTotalOnline } from "../lib/pricing.js";
 import { splitEvenly } from "../lib/money.js";
-import { isSameDay, isToday, canCheckIn, canCheckOut, canCancel, canNoShow, checkouturiRestante, zileIntarziere, ORE_CHECKIN_DEVREME } from "../lib/tranzitii.js";
+import { isSameDay, isToday, canCheckIn, canCheckOut, canCancel, canNoShow, checkouturiRestante, zileIntarziere, sosiriRestante, zileIntarziereSosire, ORE_CHECKIN_DEVREME } from "../lib/tranzitii.js";
 import { fmtMoney, fmtDate, fmtDateFull, fmtDateTime, toDateInput, toLocalInputValue, withNewDate, initials, validatePrice, FMT_DATE, FMT_TIME, FMT_WEEKDAY, FMT_MONTH_YEAR } from "../lib/format.js";
 import { ROOM_TYPE, STATUS_LABEL, STATUS_GLYPH, STATUS_CLASS, CREATE_STATUSES, EDIT_STATUSES, SOURCES, sourceLabel, DEFAULT_TAGS, HK_STATUSES } from "../lib/constante.js";
 import { Dialog, toaster, useModalLock, useAduInVizor, usePaginare, Paginare, Stat, Section, OccupantStepper } from "../ui/primitive.jsx";
@@ -32,8 +32,21 @@ import { FolioPanel, InvoicePrint, BillingCustomerPicker, BillingCustomerModal, 
 import { GuestFields, GuestModal, ContactQuickActions, emptyGuest } from "./clienti.jsx";
 import { ArrivalForm } from "./documente.jsx";
 
-export function NightAuditGate({ restante, core, groups, reservations, updateReservations, housekeeping, updateHousekeeping, onLogout }) {
+export function NightAuditGate({ restante, sosiri, core, groups, reservations, updateReservations, housekeeping, updateHousekeeping, onLogout }) {
   const [busyId, setBusyId] = useState(null);
+
+  const marcheazaNoShow = async (r) => {
+    const camera = core.rooms.find((x) => x.id === r.roomId);
+    await updateReservations(reservations.map((x) => (x.id === r.id ? { ...x, status: "noshow" } : x)));
+    await audit.push("No-show", `${camera?.name || r.roomId} · ${occupantName(r, core, groups) || "Fără nume"}`);
+  };
+
+  const anuleaza = async (r) => {
+    const camera = core.rooms.find((x) => x.id === r.roomId);
+    await updateReservations(reservations.map((x) => (x.id === r.id ? { ...x, status: "cancelled" } : x)));
+    await audit.push("Rezervare anulată",
+      `${camera?.name || r.roomId} · ${occupantName(r, core, groups) || "Fără nume"} · ${fmtDate(r.checkin)}`);
+  };
 
   return (
     <div className="login-wrap">
@@ -43,44 +56,93 @@ export function NightAuditGate({ restante, core, groups, reservations, updateRes
           <div>
             <strong>Închide ziua</strong>
             <p>
-              {restante.length === 1
+              {restante.length > 0 && (restante.length === 1
                 ? "O cameră a rămas ocupată după data plecării."
-                : `${restante.length} camere au rămas ocupate după data plecării.`}
-              {" "}Fă check-out ca să poți folosi mai departe aplicația.
+                : `${restante.length} camere au rămas ocupate după data plecării.`)}
+              {restante.length > 0 && sosiri.length > 0 && " "}
+              {sosiri.length > 0 && (sosiri.length === 1
+                ? "O rezervare nu a fost rezolvată până la sosire."
+                : `${sosiri.length} rezervări nu au fost rezolvate până la sosire.`)}
+              {" "}Rezolvă-le ca să poți folosi mai departe aplicația.
             </p>
           </div>
         </div>
 
-        <div className="panel" style={{ marginTop: 4 }}>
-          {restante.map((r) => {
-            const camera = core.rooms.find((x) => x.id === r.roomId);
-            const zile = zileIntarziere(r);
-            return (
-              <div className="list-row" key={r.id}>
-                <div style={{ minWidth: 0 }}>
-                  <div className="primary">
-                    <span className="mono">{camera?.name || r.roomId}</span>
-                    {" · "}{occupantName(r, core, groups) || "Fără nume"}
+        {restante.length > 0 && (
+          <div className="panel" style={{ marginTop: 4 }}>
+            {restante.map((r) => {
+              const camera = core.rooms.find((x) => x.id === r.roomId);
+              const zile = zileIntarziere(r);
+              return (
+                <div className="list-row" key={r.id}>
+                  <div style={{ minWidth: 0 }}>
+                    <div className="primary">
+                      <span className="mono">{camera?.name || r.roomId}</span>
+                      {" · "}{occupantName(r, core, groups) || "Fără nume"}
+                    </div>
+                    <div className="secondary">
+                      Plecare {fmtDate(r.checkout)} · {zile === 1 ? "o zi" : `${zile} zile`} întârziere
+                    </div>
                   </div>
-                  <div className="secondary">
-                    Plecare {fmtDate(r.checkout)} · {zile === 1 ? "o zi" : `${zile} zile`} întârziere
+                  <button className="btn btn-primary" style={{ width: "auto", padding: "8px 14px" }}
+                    disabled={busyId === r.id}
+                    onClick={async () => {
+                      if (busyId) return;
+                      setBusyId(r.id);
+                      try {
+                        await doCheckOut(r, reservations, updateReservations, core, housekeeping, updateHousekeeping);
+                      } finally { setBusyId(null); }
+                    }}>
+                    {busyId === r.id ? "…" : <><ArrowRight size={14} /> Check-out</>}
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {sosiri.length > 0 && (
+          <div className="panel" style={{ marginTop: restante.length > 0 ? 10 : 4 }}>
+            {sosiri.map((r) => {
+              const camera = core.rooms.find((x) => x.id === r.roomId);
+              const zile = zileIntarziereSosire(r);
+              return (
+                <div className="list-row" key={r.id}>
+                  <div style={{ minWidth: 0 }}>
+                    <div className="primary">
+                      <span className="mono">{camera?.name || r.roomId}</span>
+                      {" · "}{occupantName(r, core, groups) || "Fără nume"}
+                      {" · "}<span className="secondary">{STATUS_LABEL[r.status]}</span>
+                    </div>
+                    <div className="secondary">
+                      Sosire {fmtDate(r.checkin)} · {zile === 1 ? "o zi" : `${zile} zile`} întârziere
+                    </div>
+                  </div>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <button className="btn btn-ghost" style={{ width: "auto", padding: "8px 12px" }}
+                      disabled={busyId === r.id}
+                      onClick={async () => {
+                        if (busyId) return;
+                        setBusyId(r.id);
+                        try { await marcheazaNoShow(r); } finally { setBusyId(null); }
+                      }}>
+                      {busyId === r.id ? "…" : <><UserCheck size={14} /> No-show</>}
+                    </button>
+                    <button className="btn btn-danger" style={{ width: "auto", padding: "8px 12px" }}
+                      disabled={busyId === r.id}
+                      onClick={async () => {
+                        if (busyId) return;
+                        setBusyId(r.id);
+                        try { await anuleaza(r); } finally { setBusyId(null); }
+                      }}>
+                      {busyId === r.id ? "…" : <><XCircle size={14} /> Anulează</>}
+                    </button>
                   </div>
                 </div>
-                <button className="btn btn-primary" style={{ width: "auto", padding: "8px 14px" }}
-                  disabled={busyId === r.id}
-                  onClick={async () => {
-                    if (busyId) return;
-                    setBusyId(r.id);
-                    try {
-                      await doCheckOut(r, reservations, updateReservations, core, housekeeping, updateHousekeeping);
-                    } finally { setBusyId(null); }
-                  }}>
-                  {busyId === r.id ? "…" : <><ArrowRight size={14} /> Check-out</>}
-                </button>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        )}
 
         <button className="btn btn-ghost" style={{ width: "100%", marginTop: 4 }} onClick={onLogout}>
           <LogOut size={15} /> Delogare
@@ -1489,6 +1551,25 @@ export async function doCheckOut(res, reservations, updateReservations, core, ho
   const room = core.rooms.find((x) => x.id === res.roomId);
   await audit.push("Check-out", `${room?.name || res.roomId} · camera trecută pe „murdară”`);
   toaster.show(`Check-out făcut · ${room?.name || ""} trecută pe „murdară”`, { tone: "ok" });
+
+  /* Codul se șterge ACUM, nu lăsat să expire singur la ora calculată la
+     emitere: camera trece la următorul oaspete, iar un cod încă valid ar
+     deschide ușa oricui îl mai are, indiferent cine stă acum acolo.
+     Aceeași plasă ca la ștergerea rezervării (removeInner, mai sus): nu
+     blocăm check-out-ul dacă revocarea eșuează — operațiunea hotelieră
+     contează mai mult — dar avertizăm explicit, ca recepția să știe că
+     mai are de verificat manual în TTHOTEL. */
+  if (room?.accessLockId) {
+    try {
+      const rev = await cheamaAcces("revoke", { reservationId: res.id });
+      if (rev && rev.ok === false && rev.reason !== "neconfigurat") {
+        toaster.show(
+          "Check-out făcut, dar codul de acces nu a putut fi șters de pe yală. Verifică în TTHOTEL.",
+          { tone: "danger" });
+      }
+    } catch (e) { console.error("Revocare acces la check-out", e); }
+  }
+
   return true;
 }
 

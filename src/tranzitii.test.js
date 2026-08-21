@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   canCheckIn, canCheckOut, canCancel, canNoShow,
   checkouturiRestante, zileIntarziere, ORE_CHECKIN_DEVREME,
+  sosiriRestante, zileIntarziereSosire,
 } from "./lib/tranzitii.js";
 
 /* Momentul de referinta al tuturor testelor. Fix, injectat explicit: o
@@ -56,14 +57,45 @@ describe("canCheckOut / canCancel / canNoShow", () => {
     expect(canCheckOut(rez({ status: "confirmed" }))).toBe(false);
   });
 
-  it("anulare doar dintr-o rezervare confirmata", () => {
+  it("anulare din confirmata sau din cerere (pending) — nu si din alte stari", () => {
     expect(canCancel(rez({ status: "confirmed" }))).toBe(true);
+    expect(canCancel(rez({ status: "pending" }))).toBe(true);
     expect(canCancel(rez({ status: "checkedin" }))).toBe(false);
   });
 
-  it("no-show doar dupa ce ziua sosirii a trecut", () => {
+  it("no-show doar dupa ce ziua sosirii a trecut, din confirmata sau din cerere", () => {
     expect(canNoShow(rez({ checkin: peste(-24).toISOString() }), ACUM)).toBe(true);
     expect(canNoShow(rez({ checkin: peste(5).toISOString() }), ACUM)).toBe(false);
+    expect(canNoShow(rez({ status: "pending", checkin: peste(-24).toISOString() }), ACUM)).toBe(true);
+    expect(canNoShow(rez({ status: "checkedin", checkin: peste(-24).toISOString() }), ACUM)).toBe(false);
+  });
+});
+
+describe("sosiriRestante — night audit pe sosiri neprezentate", () => {
+  it("nu semnaleaza o sosire de azi, oricat de tarziu ar fi ora", () => {
+    const seara = new Date("2026-08-20T23:30:00");
+    const r = rez({ status: "confirmed", checkin: "2026-08-20T14:00:00" });
+    expect(sosiriRestante([r], seara)).toEqual([]);
+  });
+
+  it("semnaleaza o sosire de ieri ramasa confirmata sau in cerere", () => {
+    const confirmata = rez({ id: "c", status: "confirmed", checkin: "2026-08-19T14:00:00" });
+    const cerere = rez({ id: "p", status: "pending", checkin: "2026-08-19T14:00:00" });
+    expect(sosiriRestante([confirmata, cerere], ACUM)).toEqual([confirmata, cerere]);
+  });
+
+  it("ignora sosirile deja rezolvate — checked-in, no-show sau anulate", () => {
+    const cazata = rez({ id: "a", status: "checkedin", checkin: "2026-08-10T14:00:00" });
+    const noshow = rez({ id: "n", status: "noshow", checkin: "2026-08-10T14:00:00" });
+    const anulata = rez({ id: "x", status: "cancelled", checkin: "2026-08-10T14:00:00" });
+    expect(sosiriRestante([cazata, noshow, anulata], ACUM)).toEqual([]);
+  });
+
+  it("fiecare restanta poate fi rezolvata pe loc — no-show sau anulare, mereu disponibile", () => {
+    const a = rez({ id: "a", status: "confirmed", checkin: "2026-08-18T14:00:00" });
+    for (const r of sosiriRestante([a], ACUM)) {
+      expect(canNoShow(r, ACUM) || canCancel(r)).toBe(true);
+    }
   });
 });
 
@@ -112,5 +144,12 @@ describe("zileIntarziere", () => {
   it("numara zilele trecute peste plecarea programata", () => {
     expect(zileIntarziere({ checkout: "2026-08-19T11:00:00" }, ACUM)).toBe(1);
     expect(zileIntarziere({ checkout: "2026-08-17T11:00:00" }, ACUM)).toBe(3);
+  });
+});
+
+describe("zileIntarziereSosire", () => {
+  it("numara zilele trecute peste sosirea programata", () => {
+    expect(zileIntarziereSosire({ checkin: "2026-08-19T14:00:00" }, ACUM)).toBe(1);
+    expect(zileIntarziereSosire({ checkin: "2026-08-17T14:00:00" }, ACUM)).toBe(3);
   });
 });
