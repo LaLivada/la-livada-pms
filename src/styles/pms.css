@@ -363,7 +363,15 @@
   background:var(--surface); box-shadow:var(--shadow-sm);
   max-height:calc(100vh - var(--topbar-h) - 132px);
   max-height:calc(100dvh - var(--topbar-h) - 132px);
-  -webkit-overflow-scrolling:touch; overscroll-behavior:none; scrollbar-width:thin;
+  -webkit-overflow-scrolling:touch; scrollbar-width:thin;
+  /* Doar pe orizontala (unde .cal-scroll chiar deruleaza) — nu pe ambele
+     axe deodata (`overscroll-behavior:none` scurt). Pe mobil .cal-scroll nu
+     mai deruleaza vertical deloc (vezi regula de mai jos, "la orice
+     latime"): o restrictie pusa pe ambele axe, cand elementul are scroll
+     doar pe una, e banuita ca motivul pentru care unele motoare Android
+     (Honor/Magic OS raportat) nu mai lasa deloc gestul vertical sa treaca
+     mai departe la pagina. Ingustata la o singura axa — testam. */
+  overscroll-behavior-x:contain;
 }
 /* Latimea minima se calculeaza din numarul de zile, nu e o cifra fixa:
    inainte era 1060px, calibrata pentru 14 zile, si ar fi ramas o valoare
