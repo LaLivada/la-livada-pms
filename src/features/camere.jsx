@@ -159,7 +159,6 @@ export function RoomsView({ core, updateCore, reservations, updateReservations, 
         știe ce releu Shelly și ce unitate Sensibo aparțin fiecărei camere.
       </div>
       <div className="toolbar">
-        <span className="badge-count">{core.rooms.length} camere</span>
         <div className="grow" />
         {/* Doar admin — mod trecere liberă lasă usi descuiate, e mai
             sensibil decat deschiderea la distanta (vezi access-provider),
