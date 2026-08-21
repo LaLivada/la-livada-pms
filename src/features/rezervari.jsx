@@ -453,7 +453,12 @@ export function CalendarView({ core, updateCore, reservations, updateReservation
                 </div>
                 {days.map((d, i) => {
                   const span = spans.find((sp) => sp.startIdx === i);
-                  const covered = spans.find((sp) => i >= sp.startIdx && i <= sp.endIdx);
+                  /* Zi cu turnover (o rezervare pleaca, alta soseste in aceeasi
+                     celula): mai multe span-uri acopera aceeasi zi i. `span` de
+                     mai sus (bara desenata aici) trebuie sa fie si rezervarea pe
+                     care click-ul o deschide — altfel bara aratata si click-ul pe
+                     zona goala a celulei pot deschide doua rezervari diferite. */
+                  const covered = span || spans.find((sp) => i >= sp.startIdx && i <= sp.endIdx);
                   const bSpan = bSpans.find((sp) => sp.startIdx === i);
                   const bCovered = bSpans.find((sp) => i >= sp.startIdx && i <= sp.endIdx);
                   // Reservation bars start/end at the midpoint of the checkin/checkout
