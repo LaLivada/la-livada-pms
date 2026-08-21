@@ -50,33 +50,14 @@ import {
 import { K, loadShared, saveShared } from "./data/stare-partajata.js";
 import { audit } from "./lib/audit.js";
 import { occupantName, guestFullName } from "./lib/nume.js";
-import {
-  canBilling, billingPerms, billingCustomerLabel,
-  emiteFactura, ensureCazareLine, FolioPanel, InvoiceBuilderModal,
-  InvoicePrint, InvoicesListView, PaymentsListView, ProductsView,
-  BillingPermissionsView, FinancialView, AccountingExportView,
-  BillingCustomerPicker, BillingCustomerModal, InvoiceIssuerCard,
-  PaymentMethodsEditor, ReceiptSeriesEditor,
-} from "./features/facturare.jsx";
+import { canBilling, billingPerms } from "./lib/permisiuni.js";
 import { GUEST_HISTORY_PAGE_SIZE } from "./lib/constante.js";
 import { isStatsEligible } from "./lib/availability.js";
 import { Stat, Section, OccupantStepper } from "./ui/primitive.jsx";
 import { generatePdfBlob } from "./lib/pdf.js";
-import { cheamaAcces, reconciliazaAcces, SectiuneAcces } from "./features/acces.jsx";
-import { GroupPrint, GroupEditor, GroupsView } from "./features/grupuri.jsx";
-import {
-  ClientsView, FirmsView, GuestModal, GuestFields, GuestHistory, SubTabs,
-  ContactQuickActions, PhoneDialPicker, splitPhone, joinPhone, emptyGuest,
-  telHref, whatsappHref,
-} from "./features/clienti.jsx";
+
+
 import { HK_STATUSES, PERMISSIONS, ALL_PERMS, DEFAULT_ONLINE_TIERS } from "./lib/constante.js";
-import { RoomsView, RoomModal, HousekeepingView, RatesView, OnlinePricingView, TagsView } from "./features/camere.jsx";
-import { UsersView, ProfileView, LogView, ReportsView, SettingsView } from "./features/setari.jsx";
-import { ArrivalSheet, ArrivalForm } from "./features/documente.jsx";
-import {
-  CalendarView, ReservationViewModal, ReservationModal, ReservationActions,
-  doCheckIn, doCheckOut, TodayView, NightAuditGate,
-} from "./features/rezervari.jsx";
 import * as dateContabilitate from "./data/contabilitate.js";
 import * as dateFacturare from "./data/facturare.js";
 import * as datePlati from "./data/plati.js";
@@ -85,8 +66,28 @@ import * as datePersonal from "./data/personal.js";
 import * as dateAcces from "./data/acces.js";
 import { uid } from "./lib/uid.js";
 import { mesajEroare } from "./lib/errors.js";
-import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import React, { useState, useEffect, useMemo, useCallback, useRef, lazy, Suspense } from "react";
 import { createPortal } from "react-dom";
+
+/* ECRANE INCARCATE LA CERERE.
+   Nu toata lumea deschide rapoartele, contabilitatea sau administrarea de
+   useri — o cameristă nu le poate deschide deloc. Pana acum codul lor
+   ajungea in browser oricum, la fiecare pornire. Cu `lazy` se descarca abia
+   la primul click, iar pornirea aduce doar ce se vede.
+   Ce NU e lene: calendarul si ecranul Azi (primul lucru pe care il vede
+   receptia), plus curatenia, singurul ecran al camerarelor. */
+const CalendarView = lazy(() => import("./features/rezervari.jsx").then((m) => ({ default: m.CalendarView })));
+const TodayView = lazy(() => import("./features/rezervari.jsx").then((m) => ({ default: m.TodayView })));
+const ClientsView = lazy(() => import("./features/clienti.jsx").then((m) => ({ default: m.ClientsView })));
+const RoomsView = lazy(() => import("./features/camere.jsx").then((m) => ({ default: m.RoomsView })));
+const FinancialView = lazy(() => import("./features/facturare.jsx").then((m) => ({ default: m.FinancialView })));
+const ReportsView = lazy(() => import("./features/setari.jsx").then((m) => ({ default: m.ReportsView })));
+const UsersView = lazy(() => import("./features/setari.jsx").then((m) => ({ default: m.UsersView })));
+const LogView = lazy(() => import("./features/setari.jsx").then((m) => ({ default: m.LogView })));
+const ProfileView = lazy(() => import("./features/setari.jsx").then((m) => ({ default: m.ProfileView })));
+const SettingsView = lazy(() => import("./features/setari.jsx").then((m) => ({ default: m.SettingsView })));
+const HousekeepingView = lazy(() => import("./features/camere.jsx").then((m) => ({ default: m.HousekeepingView })));
+const NightAuditGate = lazy(() => import("./features/rezervari.jsx").then((m) => ({ default: m.NightAuditGate })));
 import {
   CalendarDays, Users, DoorOpen, Zap, UserCog, LogOut,
   Plus, X, Search, ChevronLeft, ChevronRight, Flame, Wind, Snowflake,
@@ -670,6 +671,10 @@ function PMSApp() {
     return (
       <div className="pms">
         <ToastHost />
+        {/* Poarta de night audit e incarcata la cerere ca restul ecranelor,
+            deci are nevoie de granita ei de asteptare — altfel React arunca
+            "suspended while responding to synchronous input". */}
+        <Suspense fallback={<div className="login-wrap"><div className="boot">Se încarcă…</div></div>}>
         <NightAuditGate
           restante={restanteAudit}
           core={core}
@@ -682,6 +687,7 @@ function PMSApp() {
             try { await datePersonal.deconecteaza(); } finally { setCurrentUser(null); resetStareLocala(); }
           }}
         />
+        </Suspense>
       </div>
     );
   }
@@ -888,6 +894,10 @@ function Shell({ user, view, setView, onLogout, core, updateCore, reservations, 
         </header>
 
         <div className={"content" + (safeView === "calendar" ? " content-cal" : "")}>
+          {/* Ecranele incarcate la cerere au nevoie de o granita de asteptare.
+              Mesajul e discret deliberat: pe o conexiune buna chunk-ul vine in
+              zeci de milisecunde, iar un spinner mare ar clipi suparator. */}
+          <Suspense fallback={<div className="note">Se încarcă…</div>}>
           {safeView === "profile" && (
             <ProfileView user={user} onLogout={onLogout} onBack={() => setView(homeView)} />
           )}
@@ -923,6 +933,7 @@ function Shell({ user, view, setView, onLogout, core, updateCore, reservations, 
           )}
           {safeView === "financial" && <FinancialView core={core} updateCore={updateCore} />}
           {safeView === "users" && <UsersView />}
+          </Suspense>
         </div>
       </div>
     </div>

@@ -35,6 +35,7 @@ import { fmtMoney, fmtDate, fmtDateFull, fmtDateTime, toDateInput, initials } fr
 import { INVOICE_STATUS_LABEL, INVOICE_STATUS_CLASS, PAYMENT_METHOD_LABEL, BILLING_PERMISSION_LABEL, BILLING_PERMISSION_KEYS, JUDETE, TARI, ROLE_LABEL } from "../lib/constante.js";
 import { Dialog, toaster, usePaginare, Paginare, useModalLock, useAduInVizor } from "../ui/primitive.jsx";
 import { audit } from "../lib/audit.js";
+import { canBilling } from "../lib/permisiuni.js";
 import { guestFullName } from "../lib/nume.js";
 
 const emptyBillingCustomer = () => ({
@@ -57,12 +58,6 @@ const emptyInvoiceIssuer = () => ({
   country: "România", iban: "", bank: "", email: "", phone: "",
 });
 
-export const billingPerms = { role: null, set: new Set() };
-
-export function canBilling(perm) {
-  if (billingPerms.role === "admin") return true;
-  return billingPerms.set.has(perm);
-}
 
 export async function emiteFactura(invoice) {
   let serie;
