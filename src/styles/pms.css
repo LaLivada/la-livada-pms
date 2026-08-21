@@ -1068,9 +1068,23 @@ label.field input, label.field select, label.field textarea{ cursor:auto; }
          doua fise s-a revarsat pe pagina 2;
        0.88 (21 aug, testul 2) — pas mic inapoi de la 0.92; tot s-a
          revarsat, deci pasul mic n-a fost suficient;
-       0.82 (21 aug, testul 3) — pas mai mare, ca sa nu mai fie nevoie
-         de multe reglaje succesive de-un rand. */
-  .arrival-scaler{ transform:none !important; zoom:0.82 !important; }
+       0.82 (21 aug, testul 3) — s-a incadrat pe o pagina, confirmat pe
+         hartie;
+       0.85 (21 aug, testul 4) — cerut pentru un plus de marime fata de
+         0.82; netestat inca pe hartie, revenim la 0.82 daca revarsa
+         iar un rand.
+
+     zoom fiind uniform, micsoreaza EGAL latimea si inaltimea — dar doar
+     inaltimea avea nevoie de rezerva (Safari isi pune antetul/subsolul
+     sus/jos, nu in lateral). La latimea originala (794px) coala incapea
+     deja perfect pe orizontala, deci zoom-ul lasa degeaba o fasie alba pe
+     dreapta. --fisa-print-zoom tine valoarea o singura data; latimea
+     declarata a colii duo se mareste cu exact atat cat zoom-ul o va
+     micsora inapoi, ca dupa zoom sa acopere iar toata latimea paginii —
+     inaltimea (nemodificata) tot se micsoreaza normal, cu aceeasi rezerva
+     de mai sus. */
+  .arrival-scaler{ --fisa-print-zoom:0.85; transform:none !important; zoom:var(--fisa-print-zoom) !important; }
+  .fisa-duo{ width:calc(794px / var(--fisa-print-zoom)) !important; }
   .arrival-sheet-wrap{ height:auto !important; overflow:visible !important; }
   /* Factura NU are o inaltime fixa ca fisa: numarul de linii variaza, iar
      o factura cu multe linii TREBUIE sa curga pe mai multe pagini — asta
@@ -1079,12 +1093,26 @@ label.field input, label.field select, label.field textarea{ cursor:auto; }
      si pentru o factura cu o singura linie) — la print, acel min-height
      ramane activ si dupa ce am resetat height la auto, deci o factura
      scurta era oricum impinsa sa ocupe toata pagina, fara nicio rezerva
-     pentru antetul/subsolul Safari. Scotem si min-height: o factura scurta
-     isi ia doar inaltimea reala, cu loc de rezerva; una lunga tot curge pe
-     cate pagini are nevoie. */
+     pentru antetul/subsolul Safari, si se revarsa pe a doua pagina doar
+     ca sa arate un subsol gol.
+
+     min-height:0 (20 august) a rezolvat revarsarea, dar a dus problema in
+     cealalta extrema: o factura scurta (o singura linie, cazul obisnuit)
+     isi ia doar inaltimea continutului si se opreste imediat dupa subsol
+     — cardul (chenar + filigranul din fundal) nu mai acopera restul
+     colii, ramasa alba goala, iar filigranul (centrat in cutia scurta)
+     nu mai ajunge in zona goala de dedesubt unde ar avea rost sa fie.
+
+     921px de mai jos NU e o cifra noua: e exact bugetul de inaltime
+     confirmat pe hartie la fisa de mai sus (1123 x 0.82) — inaltimea
+     utila a unei pagini inainte sa apara riscul de revarsare in
+     antetul/subsolul lui Safari. O factura scurta acopera acum acel
+     buget cu chenarul si filigranul ei, fara sa reintroduca riscul care
+     a dus la min-height:0. O factura lunga tot curge pe cate pagini are
+     nevoie — min-height e un prag minim, nu unul maxim. */
   .inv-scaler{ transform:none !important; }
   .inv-sheet-wrap{ height:auto !important; overflow:visible !important; }
-  .inv-sheet{ width:auto !important; height:auto !important; min-height:0 !important; }
+  .inv-sheet{ width:auto !important; height:auto !important; min-height:921px !important; }
   * { -webkit-print-color-adjust:exact; print-color-adjust:exact; }
   @page{ size:A4; margin:0; }
 }
