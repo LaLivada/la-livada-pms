@@ -796,7 +796,7 @@ const SETTINGS_ITEMS = [
   { key: "financial", label: "Financiar", icon: Receipt, desc: "Facturi, încasări, produse și TVA", roles: ["admin"] },
   { key: "reports", label: "Rapoarte", icon: BarChart3, desc: "Ocupare, venit, ADR și RevPAR pe luni", roles: ["admin"] },
   { key: "users", label: "Useri și drepturi", icon: UserCog, desc: "Conturi și roluri", roles: ["admin"] },
-  { key: "log", label: "Jurnal de activitate", icon: History, desc: "Cine ce a modificat și când", roles: ["admin"] },
+  { key: "log", label: "Jurnal de activitate", icon: History, desc: "Cine ce a modificat și când", roles: ["admin", "receptionist"] },
 ];
 
 const VIEW_TITLES = {
@@ -826,7 +826,7 @@ const VIEW_ROLES = {
   financial: ["admin"],
   reports: ["admin"],
   users: ["admin"],
-  log: ["admin"],
+  log: ["admin", "receptionist"],
   seed: ["admin"],
 };
 const mayView = (view, role) => (VIEW_ROLES[view] || []).includes(role);

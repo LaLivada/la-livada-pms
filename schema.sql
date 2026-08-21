@@ -942,6 +942,37 @@ returns boolean language sql security definer set search_path = public stable as
   );
 $$;
 
+-- Recepția are dreptul să factureze, ca politică standard — cerut explicit
+-- pe 21 august 2026, nu doar pentru cei deja existenți. Setul de mai jos e
+-- fluxul obișnuit de la recepție (creează, emite, încasează, anulează un
+-- draft greșit), NU stornarea (create_credit_note — corecție contabilă pe
+-- un document deja emis) și nici exportul de contabilitate — alea rămân
+-- decizii separate, acordate manual din Useri → Permisiuni dacă e nevoie.
+--
+-- Rândurile se scriu în tabelul obișnuit, nu hardcodate în
+-- has_billing_permission(): un admin tot poate retrage o permisiune unui
+-- recepționer anume din ecranul de Permisiuni, fără o excepție de cod.
+--
+-- ON CONFLICT DO NOTHING: nu suprascrie o permisiune deja acordată sau
+-- retrasă manual — doar completează ce lipsește.
+create or replace function acorda_permisiuni_facturare_implicite()
+returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  if new.role = 'receptionist'
+     and (tg_op = 'INSERT' or old.role is distinct from 'receptionist') then
+    insert into billing_permissions (user_id, permission)
+    select new.user_id, p
+    from unnest(array['view_invoices','create_invoice','issue_invoice','record_payment','cancel_invoice']) as p
+    on conflict (user_id, permission) do nothing;
+  end if;
+  return new;
+end;
+$$;
+
+create trigger staff_permisiuni_facturare_implicite
+  after insert or update of role on staff
+  for each row execute function acorda_permisiuni_facturare_implicite();
+
 
 -- =====================================================================
 -- FUNCȚII
@@ -2003,16 +2034,21 @@ create policy "scrie oaspeti" on guests
 create policy "modifica oaspeti" on guests
   for update to authenticated using (is_admin() or staff_role() = 'receptionist')
   with check (is_admin() or staff_role() = 'receptionist');
+-- Ștergerea oaspeților e doar a adminului — recepția editează și adaugă,
+-- nu curăță fișe (cerut explicit pe 21 august 2026). Scrierea și
+-- modificarea rămân la fel pentru recepționer.
 create policy "sterge oaspeti" on guests
-  for delete to authenticated using (is_admin() or staff_role() = 'receptionist');
+  for delete to authenticated using (is_admin());
 
 create policy "scrie grupuri" on res_groups
   for insert to authenticated with check (is_admin() or staff_role() = 'receptionist');
 create policy "modifica grupuri" on res_groups
   for update to authenticated using (is_admin() or staff_role() = 'receptionist')
   with check (is_admin() or staff_role() = 'receptionist');
+-- Același rationament ca la oaspeți: doar adminul șterge un grup (și,
+-- prin cascadă, rezervările lui).
 create policy "sterge grupuri" on res_groups
-  for delete to authenticated using (is_admin() or staff_role() = 'receptionist');
+  for delete to authenticated using (is_admin());
 
 create policy "scrie camere" on rooms
   for insert to authenticated with check (is_admin());
@@ -2093,8 +2129,12 @@ create policy "scrie clienti facturare" on billing_customers for insert to authe
   with check (has_billing_permission('create_invoice'));
 create policy "modifica clienti facturare" on billing_customers for update to authenticated
   using (has_billing_permission('create_invoice')) with check (has_billing_permission('create_invoice'));
+-- Ștergerea NU e legată de permisiunea de facturare — altfel orice
+-- recepționer cu drept de facturare (implicit, de la 21 august 2026, vezi
+-- trigger-ul de mai jos) ar putea șterge firme la fel de liber ca un
+-- admin. E aceeași regulă ca la oaspeți și grupuri: doar adminul șterge.
 create policy "sterge clienti facturare" on billing_customers for delete to authenticated
-  using (has_billing_permission('create_invoice'));
+  using (is_admin());
 
 create policy "citeste tva" on vat_rates for select to authenticated using (true);
 create policy "scrie tva" on vat_rates for insert to authenticated with check (is_admin());

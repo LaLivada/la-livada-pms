@@ -154,7 +154,12 @@ export function ClientsView({ core, updateCore, groups, updateGroups, reservatio
                 <History size={14} />
               </button>
               <button className="icon-btn" onClick={() => setModal({ guest: g })} aria-label={`Editează ${guestFullName(g)}`}><Pencil size={14} /></button>
-              <button className="icon-btn" onClick={() => remove(g.id)} aria-label={`Șterge ${guestFullName(g)}`}><Trash2 size={14} /></button>
+              {/* Doar adminul poate șterge — recepția editează și adaugă,
+                  nu curăță fișe. Oglindește politica RLS "sterge oaspeti";
+                  butonul ascuns evită un eșec confuz în loc de unul clar. */}
+              {audit.user?.role === "admin" && (
+                <button className="icon-btn" onClick={() => remove(g.id)} aria-label={`Șterge ${guestFullName(g)}`}><Trash2 size={14} /></button>
+              )}
             </div>
           </div>
         ))}
@@ -292,8 +297,12 @@ export function FirmsView({ core, updateCore, reservations, modalExtern, inchide
                   onClick={() => setIstoric(c)}><History size={14} /></button>
                 <button className="icon-btn" aria-label={`Editează ${billingCustomerLabel(c)}`}
                   onClick={() => setModal({ customer: c })}><Pencil size={14} /></button>
-                <button className="icon-btn" aria-label={`Șterge ${billingCustomerLabel(c)}`}
-                  onClick={() => remove(c)}><Trash2 size={14} /></button>
+                {/* Doar adminul poate șterge — vezi nota de la ștergerea
+                    clienților mai sus. */}
+                {audit.user?.role === "admin" && (
+                  <button className="icon-btn" aria-label={`Șterge ${billingCustomerLabel(c)}`}
+                    onClick={() => remove(c)}><Trash2 size={14} /></button>
+                )}
               </div>
             </div>
           );

@@ -720,10 +720,15 @@ export function GroupsView({ core, groups, updateGroups, reservations, updateRes
                       title="Editează grupul" aria-label={`Editează grupul ${g.name}`}>
                       <Pencil size={14} />
                     </button>
-                    <button className="icon-btn" onClick={() => setConfirmId(g.id)}
-                      title="Șterge grupul și rezervările lui" aria-label={`Șterge grupul ${g.name}`}>
-                      <Trash2 size={14} />
-                    </button>
+                    {/* Doar adminul poate șterge grupul (și rezervările lui) —
+                        recepția editează și adaugă. Oglindește politica RLS
+                        "sterge grupuri". */}
+                    {audit.user?.role === "admin" && (
+                      <button className="icon-btn" onClick={() => setConfirmId(g.id)}
+                        title="Șterge grupul și rezervările lui" aria-label={`Șterge grupul ${g.name}`}>
+                        <Trash2 size={14} />
+                      </button>
+                    )}
                   </>
                 )}
               </div>
