@@ -1058,11 +1058,16 @@ label.field input, label.field select, label.field textarea{ cursor:auto; }
      Pe langa asta, Safari/AirPrint isi adauga PROPRIUL antet (titlul
      paginii) si subsol (URL, data, "Pagina X din Y"), pe un fundal gri,
      peste care CSS-ul unei pagini nu are control — nu poate fi masurat
-     sau oprit. Rezerva de mai jos (25%) nu tinteste o cifra exacta a
-     acelui antet/subsol (nedocumentata si posibil diferita intre
-     versiuni de iOS): e deliberat generoasa, ca fisa sa incapa oricum
-     ar arata el. */
-  .arrival-scaler{ transform:none !important; zoom:0.75 !important; }
+     sau oprit. Rezerva de mai jos nu tinteste o cifra exacta a acelui
+     antet/subsol (nedocumentata si posibil diferita intre versiuni de
+     iOS), doar il incape.
+
+     Prima valoare (zoom:0.75, 20 august 2026) a fost deliberat foarte
+     generoasa, fara o tiparire reala care sa arate cat e nevoie. Testata
+     pe hartie pe 21 august 2026: mult prea multa margine goala fata de
+     cat ocupa antetul/subsolul lui Safari. Urcat la 0.92 — rezerva ramane
+     reala (~8%), dar nu mai risipeste toata coala. */
+  .arrival-scaler{ transform:none !important; zoom:0.92 !important; }
   .arrival-sheet-wrap{ height:auto !important; overflow:visible !important; }
   /* Factura NU are o inaltime fixa ca fisa: numarul de linii variaza, iar
      o factura cu multe linii TREBUIE sa curga pe mai multe pagini — asta
