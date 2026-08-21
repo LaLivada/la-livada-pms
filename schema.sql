@@ -943,11 +943,11 @@ returns boolean language sql security definer set search_path = public stable as
 $$;
 
 -- Recepția are dreptul să factureze, ca politică standard — cerut explicit
--- pe 21 august 2026, nu doar pentru cei deja existenți. Setul de mai jos e
--- fluxul obișnuit de la recepție (creează, emite, încasează, anulează un
--- draft greșit), NU stornarea (create_credit_note — corecție contabilă pe
--- un document deja emis) și nici exportul de contabilitate — alea rămân
--- decizii separate, acordate manual din Useri → Permisiuni dacă e nevoie.
+-- pe 21 august 2026, nu doar pentru cei deja existenți. Setul include și
+-- create_credit_note (stornarea), adăugat explicit la cerere după ce
+-- setul inițial o excludea deliberat — a rămas doar exportul de
+-- contabilitate ca decizie separată, acordată manual din Useri →
+-- Permisiuni dacă e nevoie.
 --
 -- Rândurile se scriu în tabelul obișnuit, nu hardcodate în
 -- has_billing_permission(): un admin tot poate retrage o permisiune unui
@@ -962,7 +962,7 @@ begin
      and (tg_op = 'INSERT' or old.role is distinct from 'receptionist') then
     insert into billing_permissions (user_id, permission)
     select new.user_id, p
-    from unnest(array['view_invoices','create_invoice','issue_invoice','record_payment','cancel_invoice']) as p
+    from unnest(array['view_invoices','create_invoice','issue_invoice','record_payment','cancel_invoice','create_credit_note']) as p
     on conflict (user_id, permission) do nothing;
   end if;
   return new;
