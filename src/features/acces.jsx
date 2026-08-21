@@ -195,8 +195,7 @@ export function SectiuneAcces({ res, core }) {
             {cod.code}
           </div>
           <div className="ldv-mic" style={{ color: "var(--muted)" }}>
-            Valabil de la {fmtDateTime(cod.valid_from)}<br />
-            până la {fmtDateTime(cod.valid_until)}
+            Valabil de la <strong>{fmtDateTime(cod.valid_from)}</strong> · până la <strong>{fmtDateTime(cod.valid_until)}</strong>
           </div>
         </div>
       )}
