@@ -1062,12 +1062,14 @@ label.field input, label.field select, label.field textarea{ cursor:auto; }
      antet/subsol (nedocumentata si posibil diferita intre versiuni de
      iOS), doar il incape.
 
-     Prima valoare (zoom:0.75, 20 august 2026) a fost deliberat foarte
-     generoasa, fara o tiparire reala care sa arate cat e nevoie. Testata
-     pe hartie pe 21 august 2026: mult prea multa margine goala fata de
-     cat ocupa antetul/subsolul lui Safari. Urcat la 0.92 — rezerva ramane
-     reala (~8%), dar nu mai risipeste toata coala. */
-  .arrival-scaler{ transform:none !important; zoom:0.92 !important; }
+     Istoricul valorii, din teste reale pe hartie (nu doar previzualizare):
+       0.75 (20 aug 2026) — deliberat foarte generoasa, fara masuratoare;
+       0.92 (21 aug, testul 1) — prea mare: randul de subsol al celei de-a
+         doua fise s-a revarsat pe pagina 2;
+       0.88 (21 aug, testul 2) — pas inapoi de la 0.92, cu o mica rezerva
+         suplimentara fata de limita gasita, ca sa nu revina exact la
+         aceeasi problema. */
+  .arrival-scaler{ transform:none !important; zoom:0.88 !important; }
   .arrival-sheet-wrap{ height:auto !important; overflow:visible !important; }
   /* Factura NU are o inaltime fixa ca fisa: numarul de linii variaza, iar
      o factura cu multe linii TREBUIE sa curga pe mai multe pagini — asta
