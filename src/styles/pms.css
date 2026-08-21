@@ -1066,10 +1066,11 @@ label.field input, label.field select, label.field textarea{ cursor:auto; }
        0.75 (20 aug 2026) — deliberat foarte generoasa, fara masuratoare;
        0.92 (21 aug, testul 1) — prea mare: randul de subsol al celei de-a
          doua fise s-a revarsat pe pagina 2;
-       0.88 (21 aug, testul 2) — pas inapoi de la 0.92, cu o mica rezerva
-         suplimentara fata de limita gasita, ca sa nu revina exact la
-         aceeasi problema. */
-  .arrival-scaler{ transform:none !important; zoom:0.88 !important; }
+       0.88 (21 aug, testul 2) — pas mic inapoi de la 0.92; tot s-a
+         revarsat, deci pasul mic n-a fost suficient;
+       0.82 (21 aug, testul 3) — pas mai mare, ca sa nu mai fie nevoie
+         de multe reglaje succesive de-un rand. */
+  .arrival-scaler{ transform:none !important; zoom:0.82 !important; }
   .arrival-sheet-wrap{ height:auto !important; overflow:visible !important; }
   /* Factura NU are o inaltime fixa ca fisa: numarul de linii variaza, iar
      o factura cu multe linii TREBUIE sa curga pe mai multe pagini — asta
