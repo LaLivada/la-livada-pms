@@ -387,10 +387,18 @@
 .cal-head{ position:sticky; top:0; background:var(--surface); z-index:8; }
 .cal-head .cal-daycell{ box-shadow:inset 0 -1px 0 var(--border); }
 .cal-head .cal-roomcell{ z-index:9; box-shadow:inset 0 -1px 0 var(--border); }
+/* .cal-roomcell e sticky (left:0) — daca ea insasi e si container flex,
+   unele motoare de randare mobile (confirmat pe Honor 200 Pro / Magic OS)
+   nu mai calculeaza corect pozitia sticky: elementul devine "vertical
+   ruler"-ul care nu mai ramane fix la scroll. Flex-ul se muta pe un copil
+   (.cal-roomcell-inner), ca elementul sticky sa ramana un simplu bloc —
+   .cal-roomcell insasi nu se atinge in rest, doar centrarea continutului
+   trece prin copil. */
 .cal-roomcell{
-  padding:8px 6px; border-right:1px solid var(--border); display:flex; flex-direction:column; justify-content:center;
+  padding:8px 6px; border-right:1px solid var(--border);
   background:var(--surface); position:sticky; left:0; z-index:6; text-align:center;
 }
+.cal-roomcell-inner{ display:flex; flex-direction:column; justify-content:center; height:100%; }
 .cal-foot .cal-roomcell{ background:var(--surface-2); z-index:8; }
 .cal-roomcell .rname{ font-weight:600; font-size:var(--fs-md); font-family:'IBM Plex Mono',monospace; }
 .cal-roomcell .rfloor{ font-size:var(--fs-2xs); color:var(--text-muted); margin-top:1px; }

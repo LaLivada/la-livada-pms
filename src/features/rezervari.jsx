@@ -416,7 +416,7 @@ export function CalendarView({ core, updateCore, reservations, updateReservation
       <div className={"cal-scroll" + (dense ? " dense" : "")}>
         <div className="cal-grid" style={{ "--days": DAYS }}>
           <div className="cal-row cal-head">
-            <div className="cal-roomcell" style={{ fontWeight: 700, fontSize: 12 }}>Cameră</div>
+            <div className="cal-roomcell"><div className="cal-roomcell-inner" style={{ fontWeight: 700, fontSize: 12 }}>Cameră</div></div>
             {days.map((d, i) => {
               const wk = d.getDay() === 0 || d.getDay() === 6;
               return (
@@ -443,10 +443,12 @@ export function CalendarView({ core, updateCore, reservations, updateReservation
                 )}
               <div className="cal-row">
                 <div className="cal-roomcell">
-                  <div className="rname">{room.name}</div>
-                  <div className="rfloor">
-                    {ROOM_TYPE[room.type]?.short || ""}
-                    {room.capacity > 2 && <span className="room-cap-plus"> +</span>}
+                  <div className="cal-roomcell-inner">
+                    <div className="rname">{room.name}</div>
+                    <div className="rfloor">
+                      {ROOM_TYPE[room.type]?.short || ""}
+                      {room.capacity > 2 && <span className="room-cap-plus"> +</span>}
+                    </div>
                   </div>
                 </div>
                 {days.map((d, i) => {
@@ -537,7 +539,9 @@ export function CalendarView({ core, updateCore, reservations, updateReservation
 
           <div className="cal-row cal-foot">
             <div className="cal-roomcell">
-              <div className="rname" style={{ fontSize: 11, fontFamily: "inherit", fontWeight: 700 }}>Ocupare</div>
+              <div className="cal-roomcell-inner">
+                <div className="rname" style={{ fontSize: 11, fontFamily: "inherit", fontWeight: 700 }}>Ocupare</div>
+              </div>
             </div>
             {days.map((d, i) => {
               const { occ, pct } = dailyOccupancy[i];
