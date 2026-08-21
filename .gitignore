@@ -42,3 +42,4 @@ dist-booking/
 
 # Backup-uri: contin date personale ale clientilor
 backup-*.sql
+.refactor/

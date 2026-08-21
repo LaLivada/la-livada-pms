@@ -22,6 +22,17 @@ import {
   checkouturiRestante, zileIntarziere, ORE_CHECKIN_DEVREME,
 } from "./lib/tranzitii.js";
 import { validateCUIFormat, validatePhone, validateEmail } from "./lib/validation.js";
+import {
+  FMT_MONEY, FMT_DATE, FMT_DATETIME, FMT_DATE_FULL, FMT_TIME, FMT_WEEKDAY, FMT_MONTH_YEAR,
+  fmtMoney, fmtDate, fmtDateFull, fmtDateTime,
+  toDateInput, toLocalInputValue, withNewDate, initials, validatePrice,
+} from "./lib/format.js";
+import {
+  ROOM_TYPE, STATUS_LABEL, STATUS_GLYPH, STATUS_CLASS, CREATE_STATUSES, EDIT_STATUSES,
+  INVOICE_STATUS_LABEL, INVOICE_STATUS_CLASS, PAYMENT_METHOD_LABEL,
+  BILLING_PERMISSION_LABEL, BILLING_PERMISSION_KEYS,
+  SOURCES, sourceLabel, DEFAULT_TAGS, ROLE_LABEL, JUDETE, TARI, PHONE_DIAL, DIAL_LIST,
+} from "./lib/constante.js";
 /* Stratul de acces la date — cererile catre Supabase, grupate pe domenii,
    ca sa se poata audita intr-un loc ce citeste si ce scrie aplicatia.
    Se migreaza domeniu cu domeniu; deocamdata contabilitatea. */
@@ -32,6 +43,10 @@ import {
   camelBillingCustomer, snakeBillingCustomer,
 } from "./data/mapari.js";
 import { syncTable, saveRatesAndSeasons, loadAll } from "./data/nucleu.js";
+import {
+  Dialog, toaster, ToastHost, Paginare, usePaginare,
+  useModalLock, useAduInVizor, useVisualViewportHeight, PdfPreview,
+} from "./ui/primitive.jsx";
 import * as dateContabilitate from "./data/contabilitate.js";
 import * as dateFacturare from "./data/facturare.js";
 import * as datePlati from "./data/plati.js";
@@ -96,11 +111,6 @@ function seedCore() {
   return { rooms, guests, rates, tags: [...DEFAULT_TAGS] };
 }
 
-const ROOM_TYPE = {
-  tiny: { label: "Tiny house", short: "Tiny" },
-  loft: { label: "Loft", short: "Loft" },
-};
-
 const SEED_GROUP_ID = "grp-seed";
 
 function seedReservations(core) {
@@ -151,136 +161,7 @@ function seedGroups() {
   }];
 }
 
-const STATUS_LABEL = {
-  pending: "Cerere", confirmed: "Confirmată", protocol: "Protocol", checkedin: "Checked-in",
-  checkedout: "Checked-out", noshow: "No-show", cancelled: "Anulată",
-};
-const STATUS_GLYPH = {
-  pending: "?", confirmed: "●", protocol: "§", checkedin: "▶", checkedout: "✓", noshow: "!", cancelled: "✕",
-};
-const STATUS_CLASS = {
-  pending: "st-pending", confirmed: "st-confirmed", protocol: "st-protocol", checkedin: "st-checkedin",
-  checkedout: "st-checkedout", noshow: "st-noshow", cancelled: "st-cancelled",
-};
-
-/* La creare, o rezervare poate porni doar in una din aceste 3 stari.
-   La editare, statusul revine la cel operational clasic — Cerere si
-   Protocol sunt doar puncte de intrare, nu stari intre care se comuta
-   liber ulterior (vezi ReservationModal). */
-const CREATE_STATUSES = ["pending", "confirmed", "protocol"];
-const EDIT_STATUSES = ["confirmed", "checkedin", "checkedout", "noshow", "cancelled"];
-
-/* Rezervarile "protocol" ocupa camera normal, dar nu se incaseaza bani pe
-   ele — nu trebuie sa apara in nicio statistica de venit/ocupare din
-   Rapoarte sau din fisele de client; vezi ReportsView (sectiune separata
-   pentru protocol) si ClientsView/GuestHistory. */
 const isStatsEligible = (r) => isLive(r) && r.status !== "protocol";
-
-const INVOICE_STATUS_LABEL = {
-  draft: "Draft", issued: "Emisă", partially_paid: "Parțial plătită",
-  paid: "Plătită", cancelled: "Anulată", credited: "Stornată",
-};
-const INVOICE_STATUS_CLASS = {
-  draft: "st-pending", issued: "st-confirmed", partially_paid: "st-noshow",
-  paid: "st-checkedin", cancelled: "st-cancelled", credited: "st-protocol",
-};
-const PAYMENT_METHOD_LABEL = {
-  cash: "Numerar", card: "Card", bank_transfer: "Transfer bancar", other: "Altă metodă",
-};
-const BILLING_PERMISSION_LABEL = {
-  view_invoices: "Vede facturile",
-  create_invoice: "Creează/editează draft",
-  issue_invoice: "Emite factura",
-  cancel_invoice: "Anulează factura",
-  create_credit_note: "Stornează",
-  record_payment: "Înregistrează plăți",
-  export_accounting: "Exportă contabilitate",
-  reexport_accounting: "Reexportă contabilitate",
-};
-const BILLING_PERMISSION_KEYS = Object.keys(BILLING_PERMISSION_LABEL);
-
-function validatePrice(v) {
-  if (v === "" || v == null) return null;
-  const n = Number(v);
-  if (!Number.isFinite(n)) return "Prețul manual trebuie să fie un număr.";
-  if (n < 0) return "Prețul manual nu poate fi negativ.";
-  if (n > 1000000) return "Prețul manual pare eronat.";
-  return null;
-}
-
-const SOURCES = [
-  { key: "direct", label: "Direct" },
-  { key: "phone", label: "Telefon" },
-  { key: "walkin", label: "Walk-in" },
-  { key: "site", label: "Site propriu (online)" },
-  { key: "booking", label: "Booking.com" },
-  { key: "airbnb", label: "Airbnb" },
-  { key: "other", label: "Altă agenție" },
-];
-const sourceLabel = (k) => SOURCES.find((x) => x.key === k)?.label || "—";
-
-const DEFAULT_TAGS = [
-  "VIP", "Client fidel", "Aniversare", "Sosire târzie",
-  "Pat suplimentar", "Animal de companie", "Necesită factură",
-];
-const ROLE_LABEL = { admin: "Admin", receptionist: "Recepționer", housekeeping: "Cameristă" };
-
-/* Intl formatters are expensive to construct (far more than to use), and
-   these run hundreds of times per render in lists, the calendar and
-   reports — so build each one once at module level. */
-const FMT_MONEY = new Intl.NumberFormat("ro-RO", { maximumFractionDigits: 0 });
-const FMT_DATE = new Intl.DateTimeFormat("ro-RO", { day: "2-digit", month: "2-digit" });
-const FMT_DATETIME = new Intl.DateTimeFormat("ro-RO", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
-const FMT_DATE_FULL = new Intl.DateTimeFormat("ro-RO", { day: "2-digit", month: "2-digit", year: "numeric" });
-const FMT_TIME = new Intl.DateTimeFormat("ro-RO", { hour: "2-digit", minute: "2-digit" });
-const FMT_WEEKDAY = new Intl.DateTimeFormat("ro-RO", { weekday: "short" });
-const FMT_MONTH_YEAR = new Intl.DateTimeFormat("ro-RO", { month: "long", year: "numeric" });
-
-function fmtMoney(v) {
-  return FMT_MONEY.format(Math.round(v || 0)) + " lei";
-}
-
-function fmtDate(d) {
-  return FMT_DATE.format(new Date(d));
-}
-function fmtDateFull(d) {
-  return FMT_DATE_FULL.format(new Date(d));
-}
-function fmtDateTime(d) {
-  return FMT_DATETIME.format(new Date(d));
-}
-function toDateInput(d) {
-  const x = new Date(d);
-  return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, "0")}-${String(x.getDate()).padStart(2, "0")}`;
-}
-function toLocalInputValue(iso) {
-  const d = new Date(iso);
-  const off = d.getTimezoneOffset();
-  const local = new Date(d.getTime() - off * 60000);
-  return local.toISOString().slice(0, 16);
-}
-/* Inlocuieste doar partea de data dintr-o valoare existenta, pastrand ora
-   neatinsa — folosit de selectoarele de data (fara ora in UI, dar ora
-   ramane cea implicita/existenta in date). */
-function withNewDate(iso, dateStr) {
-  return `${dateStr}T${toLocalInputValue(iso).slice(11)}`;
-}
-
-/* ---------------------------------------------------------------
-   STORAGE LAYER
-----------------------------------------------------------------*/
-/* ---------------------------------------------------------------
-   STRAT DE DATE — tabele reale in Supabase
-   Citirile aduc fiecare tabel separat; scrierile compara lista veche
-   cu cea noua si trimit DOAR randurile schimbate, ca doua persoane
-   care lucreaza simultan sa nu se suprascrie reciproc.
-----------------------------------------------------------------*/
-/* Maparile rand <-> obiect s-au mutat in src/data/mapari.js — sunt granita
-   cu baza de date, nu interfata. Se importa mai sus. */
-
-/* syncTable, saveRatesAndSeasons si loadAll s-au mutat in src/data/nucleu.js
-   — sunt calea prin care aplicatia isi ia si isi salveaza datele de baza.
-   Se importa mai sus. */
 
 const K = {
   core: "pms:core:v3",
@@ -607,248 +488,6 @@ async function generatePdfBlob(el, opts = {}) {
    iOS, unde randarea PDF-urilor in iframe e capricioasa; fiind un click
    direct al utilizatorului, nu il opreste blocarea de ferestre.
 ----------------------------------------------------------------*/
-function PdfPreview({ blob, filename, onClose }) {
-  const [url, setUrl] = useState(null);
-  useEffect(() => {
-    if (!blob) return;
-    const u = URL.createObjectURL(blob);
-    setUrl(u);
-    return () => URL.revokeObjectURL(u);
-  }, [blob]);
-
-  const marime = blob ? `${Math.round(blob.size / 1024)} KB` : "";
-
-  return (
-    <Dialog onClose={onClose} className="pdf-modal" title={filename}>
-      <div className="pdf-frame-wrap">
-        {url && <iframe src={url} title={filename} className="pdf-frame" />}
-      </div>
-      <div className="modal-actions">
-        <span className="ldv-mic" style={{ alignSelf: "center" }}>{marime}</span>
-        <div className="grow" />
-        {url && (
-          <a className="btn btn-ghost" href={url} target="_blank" rel="noopener noreferrer">
-            <Eye size={15} /> Deschide în filă nouă
-          </a>
-        )}
-        <button className="btn btn-primary" style={{ width: "auto" }} onClick={onClose}>Închide</button>
-      </div>
-    </Dialog>
-  );
-}
-
-const toaster = {
-  push: null,
-  show(message, opts = {}) {
-    if (toaster.push) toaster.push({ id: uid(), message, ...opts });
-  },
-};
-
-function ToastHost() {
-  const [items, setItems] = useState([]);
-
-  useEffect(() => {
-    toaster.push = (t) => {
-      setItems((prev) => [...prev, t]);
-      const ttl = t.onUndo ? 7000 : 3500;
-      setTimeout(() => setItems((prev) => prev.filter((x) => x.id !== t.id)), ttl);
-    };
-    return () => { toaster.push = null; };
-  }, []);
-
-  const dismiss = (id) => setItems((prev) => prev.filter((x) => x.id !== id));
-
-  if (!items.length) return null;
-  return (
-    <div className="toast-host" role="status" aria-live="polite">
-      {items.map((t) => (
-        <div className={"toast" + (t.tone ? " toast-" + t.tone : "")} key={t.id}>
-          <span className="toast-msg">{t.message}</span>
-          {t.onUndo && (
-            <button className="toast-undo" onClick={() => { t.onUndo(); dismiss(t.id); }}>
-              <Undo2 size={14} /> Anulează
-            </button>
-          )}
-          <button className="toast-x" onClick={() => dismiss(t.id)} aria-label="Închide notificarea">
-            <X size={14} />
-          </button>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-/* ---------------------------------------------------------------
-   DIALOG
-   One primitive for every modal: Escape to close, focus trapped
-   inside and restored on exit, correct ARIA roles, scroll lock.
-----------------------------------------------------------------*/
-const FOCUSABLE = 'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
-
-function Dialog({ title, onClose, children, className = "", overlayClassName = "", labelledBy }) {
-  useModalLock();
-  const ref = useRef(null);
-  const restoreTo = useRef(null);
-  const headingId = useRef(labelledBy || `dlg-${Math.random().toString(36).slice(2, 8)}`);
-
-  useEffect(() => {
-    restoreTo.current = document.activeElement;
-    const node = ref.current;
-    if (node) {
-      const first = node.querySelector(FOCUSABLE);
-      (first || node).focus({ preventScroll: true });
-    }
-    return () => {
-      const el = restoreTo.current;
-      if (el && typeof el.focus === "function") el.focus({ preventScroll: true });
-    };
-  }, []);
-
-  /* Cardul coboara pana la marginea ecranului, deci partea lui de jos sta
-     sub tastatura. Ca sa nu scrii "orbeste", campul care primeste focus e
-     adus in vizor; `scroll-padding-bottom` de pe .modal (calculat din
-     --vvb) face ca browserul sa lase liber exact cat ocupa tastatura.
-     Intarzierea asteapta animatia de deschidere a tastaturii — fara ea,
-     derularea se calculeaza pe inaltimea de dinainte si ramane scurta. */
-  const laFocus = (e) => {
-    const camp = e.target;
-    if (!camp?.matches?.("input, textarea, select")) return;
-    setTimeout(() => {
-      camp.scrollIntoView({ block: "nearest", behavior: "smooth" });
-    }, 250);
-  };
-
-  const onKeyDown = (e) => {
-    if (e.key === "Escape") { e.stopPropagation(); onClose?.(); return; }
-    if (e.key !== "Tab") return;
-    const node = ref.current;
-    if (!node) return;
-    const items = Array.from(node.querySelectorAll(FOCUSABLE)).filter((el) => el.offsetParent !== null);
-    if (!items.length) return;
-    const first = items[0], last = items[items.length - 1];
-    if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
-    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
-  };
-
-  return (
-    <div className={"modal-overlay " + overlayClassName} onClick={onClose}>
-      <div
-        ref={ref}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={headingId.current}
-        tabIndex={-1}
-        className={"modal " + className}
-        onClick={(e) => e.stopPropagation()}
-        onKeyDown={onKeyDown}
-        onFocus={laFocus}
-      >
-        {title !== undefined && (
-          <div className="modal-head">
-            <h3 id={headingId.current}>{title}</h3>
-            <button className="icon-btn" onClick={onClose} aria-label="Închide fereastra">
-              <X size={16} />
-            </button>
-          </div>
-        )}
-        {children}
-      </div>
-    </div>
-  );
-}
-
-/* Locks the page behind an open dialog: without this the calendar
-   underneath still pans sideways while you type. */
-let modalLockCount = 0;
-/* Aduce in vizor un element care tocmai a aparut — tipic: lista de
-   rezultate a unei cautari dintr-un modal cu derulare.
-   Pe telefon, cu tastatura deschisa, inaltimea utila a modalului scade
-   la jumatate, iar rezultatele cad sub marginea de jos: utilizatorul
-   scrie si nu vede ce a gasit. `block:"nearest"` deruleaza doar cat e
-   nevoie, deci nu smuceste ecranul cand rezultatele erau oricum vizibile.
-   Intarzierea lasa layout-ul sa se aseze dupa animatia tastaturii. */
-function useAduInVizor(vizibil) {
-  const ref = useRef(null);
-  useEffect(() => {
-    if (!vizibil) return;
-    const t = setTimeout(() => {
-      ref.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
-    }, 80);
-    return () => clearTimeout(t);
-  }, [vizibil]);
-  return ref;
-}
-
-/* Paginare simpla peste o lista deja filtrata. Tine pagina curenta si o
-   reseteaza cand se schimba filtrul — altfel ramai pe pagina 3 a unei
-   liste care intre timp are un singur rezultat. */
-function usePaginare(items, pePagina = 20) {
-  const [pagina, setPagina] = useState(1);
-  const total = Math.max(1, Math.ceil(items.length / pePagina));
-  useEffect(() => { setPagina(1); }, [items.length]);
-  const p = Math.min(pagina, total);
-  return {
-    pagina: p,
-    totalPagini: total,
-    setPagina,
-    feliate: items.slice((p - 1) * pePagina, p * pePagina),
-    arataPaginarea: items.length > pePagina,
-    pePagina,
-    totalItems: items.length,
-  };
-}
-
-function Paginare({ stare, eticheta = "rezultate" }) {
-  if (!stare.arataPaginarea) return null;
-  const { pagina, totalPagini, setPagina, pePagina, totalItems } = stare;
-  const primul = (pagina - 1) * pePagina + 1;
-  const ultimul = Math.min(pagina * pePagina, totalItems);
-  return (
-    <div className="paginare">
-      <button className="btn btn-ghost" style={{ width: "auto" }}
-        onClick={() => setPagina(pagina - 1)} disabled={pagina <= 1}
-        aria-label="Pagina anterioară">
-        <ChevronLeft size={15} />
-      </button>
-      <span className="paginare-info">
-        {primul}–{ultimul} din {totalItems} {eticheta}
-      </span>
-      <button className="btn btn-ghost" style={{ width: "auto" }}
-        onClick={() => setPagina(pagina + 1)} disabled={pagina >= totalPagini}
-        aria-label="Pagina următoare">
-        <ChevronRight size={15} />
-      </button>
-    </div>
-  );
-}
-
-function useModalLock() {
-  useEffect(() => {
-    measureVisualViewport();
-    const body = document.body;
-    if (modalLockCount === 0) {
-      body.dataset.pmsOverflow = body.style.overflow || "";
-      body.style.overflow = "hidden";
-      body.style.touchAction = "none";
-    }
-    modalLockCount += 1;
-    return () => {
-      modalLockCount = Math.max(0, modalLockCount - 1);
-      if (modalLockCount === 0) {
-        body.style.overflow = body.dataset.pmsOverflow || "";
-        body.style.touchAction = "";
-        delete body.dataset.pmsOverflow;
-      }
-    };
-  }, []);
-}
-
-/* ---------------------------------------------------------------
-   LOADED-DATA VALIDATION
-   Storage can hold values written by an older build or a partial
-   write. Anything that fails its shape check is rebuilt instead of
-   crashing a screen deep in the app.
-----------------------------------------------------------------*/
 function validCore(c) {
   if (!c || typeof c !== "object") return false;
   return Array.isArray(c.rooms) && Array.isArray(c.guests);
@@ -907,41 +546,6 @@ function repairBlocks(list, core) {
    recitim si in useModalLock, nu doar o singura data la pornirea
    aplicatiei, ca fereastra sa fie corecta chiar daca utilizatorul
    deschide un popup fara sa fi derulat pagina inainte. */
-function measureVisualViewport() {
-  const vv = window.visualViewport;
-  const h = vv ? vv.height : window.innerHeight;
-  const top = vv ? vv.offsetTop : 0;
-  document.documentElement.style.setProperty("--vvh", `${h}px`);
-  document.documentElement.style.setProperty("--vvt", `${top}px`);
-
-  /* Inaltimea zonei acoperite de tastatura: cat ramane din viewport-ul de
-     LAYOUT (cel la care se raporteaza position:fixed) sub zona vizibila.
-     Cand tastatura e inchisa iese 0, deci nu schimba nimic.
-     Pragul de 24px ignora diferentele mici dintre cele doua metrici
-     (barele de browser care se ascund la derulare), ca sa nu sara cardul
-     cu cativa pixeli fara motiv. */
-  const layout = document.documentElement.clientHeight || h;
-  const jos = Math.max(0, Math.round(layout - (h + top)));
-  document.documentElement.style.setProperty("--vvb", jos > 24 ? `${jos}px` : "0px");
-}
-
-function useVisualViewportHeight() {
-  useEffect(() => {
-    measureVisualViewport();
-    window.visualViewport?.addEventListener("resize", measureVisualViewport);
-    window.visualViewport?.addEventListener("scroll", measureVisualViewport);
-    window.addEventListener("resize", measureVisualViewport);
-    return () => {
-      window.visualViewport?.removeEventListener("resize", measureVisualViewport);
-      window.visualViewport?.removeEventListener("scroll", measureVisualViewport);
-      window.removeEventListener("resize", measureVisualViewport);
-    };
-  }, []);
-}
-
-/* ---------------------------------------------------------------
-   ROOT APP
-----------------------------------------------------------------*/
 function PMSApp() {
   useVisualViewportHeight();
   const [loading, setLoading] = useState(true);
@@ -1515,11 +1119,6 @@ const VIEW_TITLES = {
   profile: ["Profilul meu", "Cont și securitate"],
 };
 
-function initials(name) {
-  return name.trim().split(/\s+/).map((p) => p[0]).slice(0, 2).join("").toUpperCase();
-}
-/* Which screens each role may reach. Enforced on render, not just in the menu,
-   so a view left over from another session can't leak through. */
 const VIEW_ROLES = {
   today: ["admin", "receptionist"],
   calendar: ["admin", "receptionist"],
@@ -5330,105 +4929,6 @@ function FirmHistory({ firma, core, reservations, onClose }) {
 /* ---------------------------------------------------------------
    GUEST FORM — shared by ClientsView and ReservationModal
 ----------------------------------------------------------------*/
-const JUDETE = [
-  "Alba", "Arad", "Argeș", "Bacău", "Bihor", "Bistrița-Năsăud", "Botoșani", "Brăila", "Brașov",
-  "București", "Buzău", "Călărași", "Caraș-Severin", "Cluj", "Constanța", "Covasna", "Dâmbovița",
-  "Dolj", "Galați", "Giurgiu", "Gorj", "Harghita", "Hunedoara", "Ialomița", "Iași", "Ilfov",
-  "Maramureș", "Mehedinți", "Mureș", "Neamț", "Olt", "Prahova", "Sălaj", "Satu Mare", "Sibiu",
-  "Suceava", "Teleorman", "Timiș", "Tulcea", "Vâlcea", "Vaslui", "Vrancea",
-];
-
-const TARI = [
-  "România", "Republica Moldova", "Afganistan", "Africa de Sud", "Albania", "Algeria", "Andorra",
-  "Angola", "Antigua și Barbuda", "Arabia Saudită", "Argentina", "Armenia", "Australia", "Austria",
-  "Azerbaidjan", "Bahamas", "Bahrain", "Bangladesh", "Barbados", "Belarus", "Belgia", "Belize",
-  "Benin", "Bhutan", "Bolivia", "Bosnia și Herțegovina", "Botswana", "Brazilia", "Brunei",
-  "Bulgaria", "Burkina Faso", "Burundi", "Cambodgia", "Camerun", "Canada", "Capul Verde", "Cehia",
-  "Chile", "China", "Cipru", "Columbia", "Comore", "Congo", "Coreea de Nord", "Coreea de Sud",
-  "Costa Rica", "Coasta de Fildeș", "Croația", "Cuba", "Danemarca", "Djibouti", "Dominica",
-  "Ecuador", "Egipt", "El Salvador", "Elveția", "Emiratele Arabe Unite", "Eritreea", "Estonia",
-  "Eswatini", "Etiopia", "Fiji", "Filipine", "Finlanda", "Franța", "Gabon", "Gambia", "Georgia",
-  "Germania", "Ghana", "Grecia", "Grenada", "Guatemala", "Guineea", "Guineea-Bissau",
-  "Guineea Ecuatorială", "Guyana", "Haiti", "Honduras", "India", "Indonezia", "Irak", "Iran",
-  "Irlanda", "Islanda", "Israel", "Italia", "Jamaica", "Japonia", "Iordania", "Kazahstan", "Kenya",
-  "Kirgizstan", "Kiribati", "Kosovo", "Kuweit", "Laos", "Lesotho", "Letonia", "Liban", "Liberia",
-  "Libia", "Liechtenstein", "Lituania", "Luxemburg", "Macedonia de Nord", "Madagascar", "Malaezia",
-  "Malawi", "Maldive", "Mali", "Malta", "Maroc", "Insulele Marshall", "Mauritania", "Mauritius",
-  "Mexic", "Micronezia", "Monaco", "Mongolia", "Muntenegru", "Mozambic", "Myanmar", "Namibia",
-  "Nauru", "Nepal", "Nicaragua", "Niger", "Nigeria", "Norvegia", "Noua Zeelandă", "Olanda", "Oman",
-  "Pakistan", "Palau", "Palestina", "Panama", "Papua Noua Guinee", "Paraguay", "Peru", "Polonia",
-  "Portugalia", "Qatar", "Regatul Unit", "Republica Centrafricană", "Republica Dominicană",
-  "Republica Democrată Congo", "Ruanda", "Rusia", "Saint Kitts și Nevis", "Saint Lucia",
-  "Saint Vincent și Grenadinele", "Samoa", "San Marino", "São Tomé și Príncipe", "Senegal",
-  "Serbia", "Seychelles", "Sierra Leone", "Singapore", "Siria", "Slovacia", "Slovenia",
-  "Insulele Solomon", "Somalia", "Spania", "Sri Lanka", "Statele Unite ale Americii", "Sudan",
-  "Sudanul de Sud", "Suedia", "Surinam", "Tadjikistan", "Tanzania", "Thailanda", "Timorul de Est",
-  "Togo", "Tonga", "Trinidad și Tobago", "Tunisia", "Turcia", "Turkmenistan", "Tuvalu", "Ucraina",
-  "Uganda", "Ungaria", "Uruguay", "Uzbekistan", "Vanuatu", "Vatican", "Venezuela", "Vietnam",
-  "Yemen", "Zambia", "Zimbabwe",
-];
-
-/* Prefixe telefonice — cheile trebuie sa acopere fiecare tara din TARI.
-   Ordinea afisata in selector vine din TARI (Romania prima, apoi
-   Republica Moldova, apoi alfabetic), nu de aici. */
-const PHONE_DIAL = {
-  "România": "+40", "Republica Moldova": "+373", "Afganistan": "+93", "Africa de Sud": "+27",
-  "Albania": "+355", "Algeria": "+213", "Andorra": "+376", "Angola": "+244",
-  "Antigua și Barbuda": "+1268", "Arabia Saudită": "+966", "Argentina": "+54", "Armenia": "+374",
-  "Australia": "+61", "Austria": "+43", "Azerbaidjan": "+994", "Bahamas": "+1242", "Bahrain": "+973",
-  "Bangladesh": "+880", "Barbados": "+1246", "Belarus": "+375", "Belgia": "+32", "Belize": "+501",
-  "Benin": "+229", "Bhutan": "+975", "Bolivia": "+591", "Bosnia și Herțegovina": "+387",
-  "Botswana": "+267", "Brazilia": "+55", "Brunei": "+673", "Bulgaria": "+359", "Burkina Faso": "+226",
-  "Burundi": "+257", "Cambodgia": "+855", "Camerun": "+237", "Canada": "+1", "Capul Verde": "+238",
-  "Cehia": "+420", "Chile": "+56", "China": "+86", "Cipru": "+357", "Columbia": "+57",
-  "Comore": "+269", "Congo": "+242", "Coreea de Nord": "+850", "Coreea de Sud": "+82",
-  "Costa Rica": "+506", "Coasta de Fildeș": "+225", "Croația": "+385", "Cuba": "+53",
-  "Danemarca": "+45", "Djibouti": "+253", "Dominica": "+1767", "Ecuador": "+593", "Egipt": "+20",
-  "El Salvador": "+503", "Elveția": "+41", "Emiratele Arabe Unite": "+971", "Eritreea": "+291",
-  "Estonia": "+372", "Eswatini": "+268", "Etiopia": "+251", "Fiji": "+679", "Filipine": "+63",
-  "Finlanda": "+358", "Franța": "+33", "Gabon": "+241", "Gambia": "+220", "Georgia": "+995",
-  "Germania": "+49", "Ghana": "+233", "Grecia": "+30", "Grenada": "+1473", "Guatemala": "+502",
-  "Guineea": "+224", "Guineea-Bissau": "+245", "Guineea Ecuatorială": "+240", "Guyana": "+592",
-  "Haiti": "+509", "Honduras": "+504", "India": "+91", "Indonezia": "+62", "Irak": "+964",
-  "Iran": "+98", "Irlanda": "+353", "Islanda": "+354", "Israel": "+972", "Italia": "+39",
-  "Jamaica": "+1876", "Japonia": "+81", "Iordania": "+962", "Kazahstan": "+7", "Kenya": "+254",
-  "Kirgizstan": "+996", "Kiribati": "+686", "Kosovo": "+383", "Kuweit": "+965", "Laos": "+856",
-  "Lesotho": "+266", "Letonia": "+371", "Liban": "+961", "Liberia": "+231", "Libia": "+218",
-  "Liechtenstein": "+423", "Lituania": "+370", "Luxemburg": "+352", "Macedonia de Nord": "+389",
-  "Madagascar": "+261", "Malaezia": "+60", "Malawi": "+265", "Maldive": "+960", "Mali": "+223",
-  "Malta": "+356", "Maroc": "+212", "Insulele Marshall": "+692", "Mauritania": "+222",
-  "Mauritius": "+230", "Mexic": "+52", "Micronezia": "+691", "Monaco": "+377", "Mongolia": "+976",
-  "Muntenegru": "+382", "Mozambic": "+258", "Myanmar": "+95", "Namibia": "+264", "Nauru": "+674",
-  "Nepal": "+977", "Nicaragua": "+505", "Niger": "+227", "Nigeria": "+234", "Norvegia": "+47",
-  "Noua Zeelandă": "+64", "Olanda": "+31", "Oman": "+968", "Pakistan": "+92", "Palau": "+680",
-  "Palestina": "+970", "Panama": "+507", "Papua Noua Guinee": "+675", "Paraguay": "+595",
-  "Peru": "+51", "Polonia": "+48", "Portugalia": "+351", "Qatar": "+974", "Regatul Unit": "+44",
-  "Republica Centrafricană": "+236", "Republica Dominicană": "+1809",
-  "Republica Democrată Congo": "+243", "Ruanda": "+250", "Rusia": "+7",
-  "Saint Kitts și Nevis": "+1869", "Saint Lucia": "+1758", "Saint Vincent și Grenadinele": "+1784",
-  "Samoa": "+685", "San Marino": "+378", "São Tomé și Príncipe": "+239", "Senegal": "+221",
-  "Serbia": "+381", "Seychelles": "+248", "Sierra Leone": "+232", "Singapore": "+65",
-  "Siria": "+963", "Slovacia": "+421", "Slovenia": "+386", "Insulele Solomon": "+677",
-  "Somalia": "+252", "Spania": "+34", "Sri Lanka": "+94", "Statele Unite ale Americii": "+1",
-  "Sudan": "+249", "Sudanul de Sud": "+211", "Suedia": "+46", "Surinam": "+597",
-  "Tadjikistan": "+992", "Tanzania": "+255", "Thailanda": "+66", "Timorul de Est": "+670",
-  "Togo": "+228", "Tonga": "+676", "Trinidad și Tobago": "+1868", "Tunisia": "+216", "Turcia": "+90",
-  "Turkmenistan": "+993", "Tuvalu": "+688", "Ucraina": "+380", "Uganda": "+256", "Ungaria": "+36",
-  "Uruguay": "+598", "Uzbekistan": "+998", "Vanuatu": "+678", "Vatican": "+379", "Venezuela": "+58",
-  "Vietnam": "+84", "Yemen": "+967", "Zambia": "+260", "Zimbabwe": "+263",
-};
-/* Ordinea vine din TARI — România prima, apoi Republica Moldova, apoi
-   alfabetic — asa ca majoritatea clientilor (romani) gasesc prefixul
-   fara sa caute. */
-const DIAL_LIST = TARI.map((t) => ({ country: t, dial: PHONE_DIAL[t] })).filter((d) => d.dial);
-
-/* Desparte un numar deja salvat in prefix+rest — daca nu incepe cu "+"
-   e tratat ca un numar romanesc vechi (fara prefix), ca sa nu se piarda
-   nimic la editarea unei fise existente. Un asemenea numar vechi incepe
-   de obicei cu 0 (format local, "0722 111 222") — il scoatem la despartire,
-   ca afisarea sa arate exact ce ar trebui tastat acum, cu prefixul deja
-   ales: altfel validarea nou-adaugata ("nu pune 0 dupa prefix") ar
-   respinge o fisa veche neschimbata, doar redeschisa pentru editare. */
 function splitPhone(phone) {
   const s = String(phone || "").trim();
   if (s.startsWith("+")) {
