@@ -1533,21 +1533,10 @@ label.field input, label.field select, label.field textarea{ cursor:auto; }
    (care ii cupleaza automat si overflow-y, transformand-o intr-un
    container de scroll ce ar bloca position:sticky sa ajunga la scroll-ul
    real al paginii) — scroll-ul orizontal ramane oricum acoperit de
-   cal-scroll insusi.
-
-   touch-action:pan-x — fara el, confirmat pe Honor/Magic OS (indiferent
-   de browser): un gest de tras cu degetul care porneste pe cal-scroll e
-   interpretat ca apartinand STRICT axei orizontale a elementului, iar
-   componenta verticala a gestului nu mai ajunge nicaieri — nici la scroll-ul
-   propriu (overflow-y:visible, n-are cum), nici la pagina. Rezultatul:
-   scroll orizontal in calendar functioneaza, dar tot ce e vertical, cu
-   degetul pe calendar, nu misca nimic. Declarand explicit ca elementul
-   gestioneaza doar panul orizontal, motorul stie sa lase de la inceputul
-   gestului componenta verticala paginii, in loc sa incerce s-o rezolve
-   singur si sa esueze tacut. */
+   cal-scroll insusi. */
 .topbar-cal{ position:static; }
 .content-cal{ overflow-x:visible; }
-.cal-scroll{ max-height:none; overflow-y:visible; touch-action:pan-x; }
+.cal-scroll{ max-height:none; overflow-y:visible; }
 .cal-foot{ position:static; }
 .cal-toolbar{
   position:sticky; top:0; z-index:15;
