@@ -193,3 +193,43 @@ export const DIAL_LIST = TARI.map((t) => ({ country: t, dial: PHONE_DIAL[t] })).
    respinge o fisa veche neschimbata, doar redeschisa pentru editare. */
 
 export const GUEST_HISTORY_PAGE_SIZE = 15;
+
+export const HK_STATUSES = [
+  { key: "clean", label: "Curată", cls: "clean" },
+  { key: "progress", label: "În curs", cls: "progress" },
+  { key: "dirty", label: "Murdară", cls: "dirty" },
+];
+
+export const PERMISSIONS = {
+  admin: ["Calendar și rezervări", "Clienți", "Status camere", "Automatizare pre-sosire", "Configurare camere și dispozitive", "Administrare useri"],
+  receptionist: ["Calendar și rezervări", "Clienți", "Status camere", "Automatizare pre-sosire"],
+  housekeeping: ["Status camere"],
+};
+
+export const ALL_PERMS = PERMISSIONS.admin;
+
+/* Verifică dacă parola apare în scurgerile publice de date (HaveIBeenPwned).
+ *
+ * Supabase are asta încorporat, dar doar pe planul Pro. Verificarea în sine
+ * e un API public și gratuit, așa că o facem noi. O parolă apărută într-o
+ * scurgere e prima încercată de orice atac automat, indiferent cât de
+ * complicată pare după regulile obișnuite: „Parola123" trece de „minim 8
+ * caractere, o cifră", dar apare în scurgeri de peste 233.000 de ori.
+ *
+ * Parola NU pleacă din browser. Se trimit primele 5 caractere din hash-ul
+ * SHA-1; serverul întoarce toate hash-urile care încep așa (câteva sute),
+ * iar potrivirea se face local. Metoda se numește k-anonymity și e exact
+ * ce face Supabase pe Pro.
+ *
+ * Întoarce numărul de apariții, 0 dacă e curată, sau null dacă verificarea
+ * n-a putut fi făcută. La null lăsăm parola să treacă: un serviciu extern
+ * picat nu trebuie să blocheze pe cineva care își schimbă parola.
+ */
+
+export const DEFAULT_ONLINE_TIERS = [
+  { id: "ot1", min: 0, max: 30, adjustmentPct: -5 },
+  { id: "ot2", min: 30, max: 50, adjustmentPct: 0 },
+  { id: "ot3", min: 50, max: 70, adjustmentPct: 5 },
+  { id: "ot4", min: 70, max: 90, adjustmentPct: 10 },
+  { id: "ot5", min: 90, max: 100, adjustmentPct: 15 },
+];

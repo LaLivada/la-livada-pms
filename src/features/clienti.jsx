@@ -16,7 +16,7 @@ import { nightsBetween, isLive, isStatsEligible } from "../lib/availability.js";
 import { reservationTotal } from "../lib/pricing.js";
 import { validatePhone, validateEmail } from "../lib/validation.js";
 import { fmtMoney, fmtDate, fmtDateFull, initials } from "../lib/format.js";
-import { JUDETE, TARI, PHONE_DIAL, DIAL_LIST, STATUS_LABEL, ROOM_TYPE, GUEST_HISTORY_PAGE_SIZE } from "../lib/constante.js";
+import { JUDETE, TARI, PHONE_DIAL, DIAL_LIST, STATUS_LABEL, ROOM_TYPE, GUEST_HISTORY_PAGE_SIZE, INVOICE_STATUS_LABEL, INVOICE_STATUS_CLASS, sourceLabel } from "../lib/constante.js";
 import { Dialog, toaster, usePaginare, Paginare, useModalLock, Stat } from "../ui/primitive.jsx";
 import { GroupsView } from "./grupuri.jsx";
 import { billingCustomerLabel, BillingCustomerModal } from "./facturare.jsx";

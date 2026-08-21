@@ -29,6 +29,7 @@ import { uid } from "../lib/uid.js";
 import { mesajEroare } from "../lib/errors.js";
 import { calcAmounts, round2, splitEvenly } from "../lib/money.js";
 import { nightsBetween } from "../lib/availability.js";
+import { reservationTotal } from "../lib/pricing.js";
 import { validateCUIFormat, validatePhone, validateEmail } from "../lib/validation.js";
 import { fmtMoney, fmtDate, fmtDateFull, fmtDateTime, toDateInput, initials } from "../lib/format.js";
 import { INVOICE_STATUS_LABEL, INVOICE_STATUS_CLASS, PAYMENT_METHOD_LABEL, BILLING_PERMISSION_LABEL, BILLING_PERMISSION_KEYS, JUDETE, TARI, ROLE_LABEL } from "../lib/constante.js";
