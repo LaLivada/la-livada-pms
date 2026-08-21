@@ -452,34 +452,19 @@ export function CalendarView({ core, updateCore, reservations, updateReservation
                   </div>
                 </div>
                 {days.map((d, i) => {
-                  const span = spans.find((sp) => sp.startIdx === i);
-                  /* Zi cu turnover (o rezervare pleaca, alta soseste in aceeasi
-                     celula): mai multe span-uri acopera aceeasi zi i. `span` de
-                     mai sus (bara desenata aici) trebuie sa fie si rezervarea pe
-                     care click-ul o deschide — altfel bara aratata si click-ul pe
-                     zona goala a celulei pot deschide doua rezervari diferite. */
-                  const covered = span || spans.find((sp) => i >= sp.startIdx && i <= sp.endIdx);
+                  /* O rezervare care incepe INAINTE de fereastra vizibila e
+                     "clipata" — spanIndices() nu are de unde sa stie ziua ei
+                     reala de start (nu e in dayMs), asa ca prima zi vizibila
+                     (i=0) devine startIdx-ul ei. Cand chiar in acea zi mai
+                     soseste si un oaspete nou (turnover), ambele span-uri
+                     ajung cu startIdx===i — un singur `.find()` ar arata doar
+                     primul si l-ar pierde din vedere pe celalalt cu totul, nu
+                     doar la click. De-asta se randeaza TOATE span-urile
+                     ancorate in ziua i, nu doar primul gasit. */
+                  const cellSpans = spans.filter((sp) => sp.startIdx === i);
+                  const covered = cellSpans[0] || spans.find((sp) => i >= sp.startIdx && i <= sp.endIdx);
                   const bSpan = bSpans.find((sp) => sp.startIdx === i);
                   const bCovered = bSpans.find((sp) => i >= sp.startIdx && i <= sp.endIdx);
-                  // Reservation bars start/end at the midpoint of the checkin/checkout
-                  // day cell, so a same-day turnover shows both the departing and the
-                  // arriving stay side by side instead of one full cell hiding the other.
-                  // Computed straight from the reservation's own checkin/checkout dates
-                  // (not from span.len) since len counts the checkout day as fully
-                  // occupied whenever checkout isn't exactly midnight — using it here
-                  // pushed the bar a whole extra cell too far, overlapping the next stay.
-                  // Clipped ends (stay continues outside the visible date range) stay
-                  // flush with the cell edge instead of stopping at a midpoint.
-                  let barLeft = "3px";
-                  let barWidthUnits = 0;
-                  if (span) {
-                    const ciIdx = Math.floor((new Date(span.res.checkin) - rangeStart) / 86400000);
-                    const coIdx = Math.floor((new Date(span.res.checkout) - rangeStart) / 86400000);
-                    const leftAbs = span.clipStart ? span.startIdx : ciIdx + 0.5;
-                    const rightAbs = span.clipEnd ? days.length : coIdx + 0.5;
-                    barLeft = span.clipStart ? "3px" : "calc(50% + 3px)";
-                    barWidthUnits = rightAbs - leftAbs;
-                  }
                   return (
                     <div
                       key={i}
@@ -510,30 +495,48 @@ export function CalendarView({ core, updateCore, reservations, updateReservation
                         </div>
                       )}
 
-                      {span && (
-                        <div
-                          role="button"
-                          tabIndex={0}
-                          onClick={(e) => { e.stopPropagation(); if (moveId) return; setActionRes(span.res); }}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setActionRes(span.res); }
-                          }}
-                          className={"cal-bar " + STATUS_CLASS[span.res.status] +
-                            (span.clipStart ? " clip-start" : "") + (span.clipEnd ? " clip-end" : "") +
-                            (moveId === span.res.id ? " moving" : "")}
-                          style={{ left: barLeft, width: `calc(${barWidthUnits} * 100% - 6px)` }}
-                          title={`${occupantName(span.res, core, groups) || "Fără nume"} · ${fmtDateTime(span.res.checkin)} → ${fmtDateTime(span.res.checkout)} · ${STATUS_LABEL[span.res.status]}`}
-                        >
-                          <span className="bar-glyph" aria-hidden="true">{STATUS_GLYPH[span.res.status]}</span>
-                          {span.res.groupId && <UsersRound size={11} style={{ flexShrink: 0, opacity: .8 }} />}
-                          <span className="bar-name">
-                            {occupantName(span.res, core, groups) || "Fără nume"}
-                          </span>
-                          {span.res.tags?.includes("VIP") && <span className="bar-vip">VIP</span>}
-                          {span.res.messages?.length > 0 && <MessageSquare size={10} style={{ flexShrink: 0, opacity: .75 }} />}
-                          {span.nights > 2 && <span className="bar-nights">{span.nights}n</span>}
-                        </div>
-                      )}
+                      {cellSpans.map((span) => {
+                        // Reservation bars start/end at the midpoint of the checkin/checkout
+                        // day cell, so a same-day turnover shows both the departing and the
+                        // arriving stay side by side instead of one full cell hiding the other.
+                        // Computed straight from the reservation's own checkin/checkout dates
+                        // (not from span.len) since len counts the checkout day as fully
+                        // occupied whenever checkout isn't exactly midnight — using it here
+                        // pushed the bar a whole extra cell too far, overlapping the next stay.
+                        // Clipped ends (stay continues outside the visible date range) stay
+                        // flush with the cell edge instead of stopping at a midpoint.
+                        const ciIdx = Math.floor((new Date(span.res.checkin) - rangeStart) / 86400000);
+                        const coIdx = Math.floor((new Date(span.res.checkout) - rangeStart) / 86400000);
+                        const leftAbs = span.clipStart ? span.startIdx : ciIdx + 0.5;
+                        const rightAbs = span.clipEnd ? days.length : coIdx + 0.5;
+                        const barLeft = span.clipStart ? "3px" : "calc(50% + 3px)";
+                        const barWidthUnits = rightAbs - leftAbs;
+                        return (
+                          <div
+                            key={span.res.id}
+                            role="button"
+                            tabIndex={0}
+                            onClick={(e) => { e.stopPropagation(); if (moveId) return; setActionRes(span.res); }}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setActionRes(span.res); }
+                            }}
+                            className={"cal-bar " + STATUS_CLASS[span.res.status] +
+                              (span.clipStart ? " clip-start" : "") + (span.clipEnd ? " clip-end" : "") +
+                              (moveId === span.res.id ? " moving" : "")}
+                            style={{ left: barLeft, width: `calc(${barWidthUnits} * 100% - 6px)` }}
+                            title={`${occupantName(span.res, core, groups) || "Fără nume"} · ${fmtDateTime(span.res.checkin)} → ${fmtDateTime(span.res.checkout)} · ${STATUS_LABEL[span.res.status]}`}
+                          >
+                            <span className="bar-glyph" aria-hidden="true">{STATUS_GLYPH[span.res.status]}</span>
+                            {span.res.groupId && <UsersRound size={11} style={{ flexShrink: 0, opacity: .8 }} />}
+                            <span className="bar-name">
+                              {occupantName(span.res, core, groups) || "Fără nume"}
+                            </span>
+                            {span.res.tags?.includes("VIP") && <span className="bar-vip">VIP</span>}
+                            {span.res.messages?.length > 0 && <MessageSquare size={10} style={{ flexShrink: 0, opacity: .75 }} />}
+                            {span.nights > 2 && <span className="bar-nights">{span.nights}n</span>}
+                          </div>
+                        );
+                      })}
                     </div>
                   );
                 })}
