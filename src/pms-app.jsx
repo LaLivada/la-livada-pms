@@ -192,6 +192,15 @@ function seedGroups() {
   }];
 }
 
+/* Dupa un deploy, fisierele ecranelor incarcate la cerere (lazy, vezi
+   liniile 79-90) primesc alt hash. O fila ramasa deschisa dintr-o versiune
+   veche incearca sa importe un fisier care nu mai exista pe server si pica
+   aici cu "Importing a module script failed" / "Failed to fetch dynamically
+   imported module" — mesaje de la browser, nu bug de-al nostru. */
+const esteEroareDeIncarcareModul = (error) =>
+  /dynamically imported module|importing a module script failed|loading chunk/i
+    .test(error?.message || "");
+
 class ErrorBoundary extends React.Component {
   constructor(props) {
     super(props);
@@ -202,6 +211,14 @@ class ErrorBoundary extends React.Component {
   }
   componentDidCatch(error, info) {
     console.error("PMS render error", error, info);
+    /* O reincarcare reala (nu doar stergerea erorii din React) rezolva
+       cazul de mai sus, fiindca aduce din nou index.html si hash-urile
+       curente. O singura incercare automata per fila, ca sa nu intre in
+       bucla daca eroarea are alta cauza. */
+    if (esteEroareDeIncarcareModul(error) && !sessionStorage.getItem("pms-reload-modul")) {
+      sessionStorage.setItem("pms-reload-modul", "1");
+      window.location.reload();
+    }
   }
   render() {
     if (this.state.error) {
@@ -214,7 +231,7 @@ class ErrorBoundary extends React.Component {
                 <strong>Ceva n-a mers bine</strong>
                 <p>{this.state.error?.message || "Eroare neașteptată în interfață."}</p>
               </div>
-              <button className="btn btn-primary" onClick={() => this.setState({ error: null })}>
+              <button className="btn btn-primary" onClick={() => window.location.reload()}>
                 <RefreshCw size={15} /> Reîncarcă interfața
               </button>
             </div>
