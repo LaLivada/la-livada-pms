@@ -1704,7 +1704,15 @@ export function TodayView({ core, updateCore, reservations, updateReservations, 
       if (ci >= today && ci < tomorrow) arr.push(r);
       if (co >= today && co < tomorrow) dep.push(r);
       if (r.status === "checkedin") ih.push(r);
-      if (ci < tomorrow && co > today) {
+      /* Ocupata/incasata ASTAZI inseamna noaptea care incepe azi, nu orice
+         suprapunere cu ziua calendaristica de azi — acelasi prag ca la
+         dailyOccupancy din CalendarView ("ziua de plecare nu e o noapte
+         vanduta"). Cu ci/co brute (nu rotunjite la zi), o plecare de azi la
+         ora 08:00 trecea testul (co > today) desi noaptea ei vanduta a fost
+         ieri: "Venit azi" numara o rezervare care tocmai a plecat, si nu
+         numara o sosire de azi decat daca soseste dupa miezul noptii — ceea
+         ce oricum se intampla, dar plecarile ramaneau numarate gresit. */
+      if (startOfDay(ci) <= today && startOfDay(co) > today) {
         occRooms.add(r.roomId);
         // Cota pe noapte din pretul REAL (inghetat/manual) al rezervarii,
         // nu un recalcul cu tarifele curente — altfel "Venit azi" nu se
