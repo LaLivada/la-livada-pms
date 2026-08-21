@@ -28,7 +28,7 @@ import * as simulare from "./providers/simulare.ts";
 /* Logica pura (fus orar, sablon) sta in src/lib/acces.js, ca sa aiba o
    singura copie si sa fie testata cu vitest — vezi src/acces.test.js.
    Aici nu se rescrie, se importa. */
-import { laOraLocala, expirareCod, randeazaSablon, genereazaCodPin, lungimeCod, FUS_HOTEL }
+import { laOraLocala, expirareCod, inceputCod, randeazaSablon, genereazaCodPin, lungimeCod, FUS_HOTEL }
   from "../../../src/lib/acces.js";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -376,15 +376,13 @@ Deno.serve(async (req) => {
         .select("*").eq("reservation_id", rez.id).eq("status", "active").maybeSingle();
 
       const s = setariAcum;
-      /* Valabil de ACUM, nu de la ora programata de sosire (rez.checkin).
-         Actiunea asta se cere doar dupa check-in real (butonul e ascuns pana
-         atunci — vezi SectiuneAcces) sau la o schimbare reala de cameră/
-         perioadă pe o rezervare deja cazată, deci "acum" e mereu momentul
-         potrivit: un check-in mai devreme decat ora programata (fereastra de
-         48h) nu trebuie sa lase oaspetele blocat pe hol pana la ora din
-         rezervare — codul trebuie sa mearga chiar din clipa in care
-         recepția l-a generat. */
-      const de = new Date();
+      /* Inceputul valabilitatii: ACUM daca oaspetele soseste azi sau mai
+         devreme (sejur deja inceput / audit de noapte), dar NU mai devreme
+         de ziua rezervarii daca check-in-ul s-a facut cu zile inainte —
+         fereastra de check-in ajunge pana la 14 zile, iar un cod valabil
+         "de acum" ar tine camera practic deschisa saptamani intregi inainte
+         ca oaspetele sa fi ajuns. Vezi inceputCod in lib/acces.js. */
+      const de = inceputCod(rez.checkin, new Date(), s);
       const pana = expirareCod(rez.checkout, s);
 
       if (existent) {

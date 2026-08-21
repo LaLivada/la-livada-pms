@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   canCheckIn, canCheckOut, canCancel, canNoShow,
-  checkouturiRestante, zileIntarziere, ORE_CHECKIN_DEVREME,
+  checkouturiRestante, zileIntarziere, ORE_CHECKIN_DEVREME, ZILE_CHECKIN_DEVREME,
   sosiriRestante, zileIntarziereSosire,
 } from "./lib/tranzitii.js";
 
@@ -17,21 +17,22 @@ const rez = (over = {}) => ({
   ...over,
 });
 
-describe("canCheckIn — fereastra de 48h", () => {
+describe("canCheckIn — fereastra de 14 zile", () => {
   it("permite cazarea in ziua sosirii", () => {
     expect(canCheckIn(rez({ checkin: peste(5).toISOString() }), ACUM)).toBe(true);
   });
 
-  it("permite cazarea cu 47h inainte", () => {
-    expect(canCheckIn(rez({ checkin: peste(47).toISOString() }), ACUM)).toBe(true);
+  it("permite cazarea cu 335h (sub 14 zile) inainte", () => {
+    expect(canCheckIn(rez({ checkin: peste(335).toISOString() }), ACUM)).toBe(true);
   });
 
-  it("refuza cazarea cu 49h inainte", () => {
-    expect(canCheckIn(rez({ checkin: peste(49).toISOString() }), ACUM)).toBe(false);
+  it("refuza cazarea cu 337h (peste 14 zile) inainte", () => {
+    expect(canCheckIn(rez({ checkin: peste(337).toISOString() }), ACUM)).toBe(false);
   });
 
-  it("accepta exact la limita de 48h", () => {
+  it("accepta exact la limita de 14 zile", () => {
     expect(canCheckIn(rez({ checkin: peste(ORE_CHECKIN_DEVREME).toISOString() }), ACUM)).toBe(true);
+    expect(ORE_CHECKIN_DEVREME).toBe(ZILE_CHECKIN_DEVREME * 24);
   });
 
   it("refuza o sosire din trecut — data trebuie corectata intai", () => {

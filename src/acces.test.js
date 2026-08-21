@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
-  laOraLocala, expirareCod, randeazaSablon, decideActiuneAcces, decalajFus,
+  laOraLocala, expirareCod, inceputCod, randeazaSablon, decideActiuneAcces, decalajFus,
   genereazaCodPin, lungimeCod,
 } from "./lib/acces.js";
 
@@ -59,6 +59,41 @@ describe("expirarea codului de acces", () => {
     // trebuie sa fie cea locala (24), nu cea UTC (23).
     const e = laOraLocala("2026-08-23T21:00:00Z", 11, 30);
     expect(ziRo(e)).toBe("2026-08-24");
+  });
+});
+
+describe("inceputul valabilitatii codului", () => {
+  it("e chiar acum cand check-in-ul se face in ziua sosirii", () => {
+    const acum = new Date("2026-08-23T09:00:00+03:00");
+    const d = inceputCod("2026-08-23T15:00:00+03:00", acum);
+    expect(d).toEqual(acum);
+  });
+
+  it("e chiar acum cand check-in-ul se face dupa ziua sosirii (audit de noapte)", () => {
+    const acum = new Date("2026-08-25T08:00:00+03:00");
+    const d = inceputCod("2026-08-23T15:00:00+03:00", acum);
+    expect(d).toEqual(acum);
+  });
+
+  it("nu e inainte de ziua rezervarii cand check-in-ul se face cu zile inainte", () => {
+    // Check-in facut pe 10, sosire abia pe 23: codul nu are voie sa fie
+    // valabil "de acum" — ar tine camera deschisa 13 zile degeaba.
+    const acum = new Date("2026-08-10T11:00:00+03:00");
+    const d = inceputCod("2026-08-23T15:00:00+03:00", acum);
+    expect(ziRo(d)).toBe("2026-08-23");
+    expect(oraRo(d)).toBe("11:00");
+  });
+
+  it("foloseste ora de plecare din setari, nu 11:00 scris de mana", () => {
+    const acum = new Date("2026-08-10T11:00:00+03:00");
+    const d = inceputCod("2026-08-23T15:00:00+03:00", acum, { oraPlecare: 12, minutePlecare: 30 });
+    expect(oraRo(d)).toBe("12:30");
+  });
+
+  it("nu adauga minutele de gratie — acelea sunt doar pentru expirare", () => {
+    const acum = new Date("2026-08-10T11:00:00+03:00");
+    const d = inceputCod("2026-08-23T15:00:00+03:00", acum, { grateMinute: 45 });
+    expect(oraRo(d)).toBe("11:00");
   });
 });
 

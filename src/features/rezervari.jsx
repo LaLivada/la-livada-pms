@@ -2,7 +2,7 @@
  * check-in / check-out si ecranul Azi.
  *
  * Inima aplicatiei. Regulile de tranzitie (cine poate face check-in si cand,
- * fereastra de 48h, night audit-ul) NU sunt aici: stau in lib/tranzitii.js,
+ * fereastra de check-in, night audit-ul) NU sunt aici: stau in lib/tranzitii.js,
  * testate — o regula despre timp verificata cu "acum" real trece sau cade
  * dupa ora la care ruleaza suita.
  */
@@ -21,7 +21,7 @@ import { guestFullName, occupantName } from "../lib/nume.js";
 import { nightsBetween, rangesOverlap, validateStay, isLive, isStatsEligible, startOfDay } from "../lib/availability.js";
 import { reservationTotal, nightlyRate, liveReservationTotalOnline } from "../lib/pricing.js";
 import { splitEvenly } from "../lib/money.js";
-import { isSameDay, isToday, canCheckIn, canCheckOut, canCancel, canNoShow, checkouturiRestante, zileIntarziere, sosiriRestante, zileIntarziereSosire, ORE_CHECKIN_DEVREME } from "../lib/tranzitii.js";
+import { isSameDay, isToday, canCheckIn, canCheckOut, canCancel, canNoShow, checkouturiRestante, zileIntarziere, sosiriRestante, zileIntarziereSosire, ZILE_CHECKIN_DEVREME } from "../lib/tranzitii.js";
 import { fmtMoney, fmtDate, fmtDateFull, fmtDateTime, toDateInput, toLocalInputValue, withNewDate, initials, validatePrice, FMT_DATE, FMT_TIME, FMT_WEEKDAY, FMT_MONTH_YEAR } from "../lib/format.js";
 import { ROOM_TYPE, STATUS_LABEL, STATUS_GLYPH, STATUS_CLASS, CREATE_STATUSES, EDIT_STATUSES, SOURCES, sourceLabel, DEFAULT_TAGS, HK_STATUSES } from "../lib/constante.js";
 import { Dialog, toaster, useModalLock, useAduInVizor, usePaginare, Paginare, Stat, Section, OccupantStepper } from "../ui/primitive.jsx";
@@ -32,8 +32,9 @@ import { FolioPanel, InvoicePrint, BillingCustomerPicker, BillingCustomerModal, 
 import { GuestFields, GuestModal, ContactQuickActions, emptyGuest } from "./clienti.jsx";
 import { ArrivalForm } from "./documente.jsx";
 
-export function NightAuditGate({ restante, sosiri, core, groups, reservations, updateReservations, housekeeping, updateHousekeeping, onLogout }) {
+export function NightAuditGate({ restante, sosiri, core, updateCore, groups, updateGroups, blocks, updateBlocks, reservations, updateReservations, housekeeping, updateHousekeeping, onLogout }) {
   const [busyId, setBusyId] = useState(null);
+  const [modal, setModal] = useState(null); // { reservation } — deschis din Editează, mai jos
 
   const marcheazaNoShow = async (r) => {
     const camera = core.rooms.find((x) => x.id === r.roomId);
@@ -74,7 +75,7 @@ export function NightAuditGate({ restante, sosiri, core, groups, reservations, u
               const camera = core.rooms.find((x) => x.id === r.roomId);
               const zile = zileIntarziere(r);
               return (
-                <div className="list-row" key={r.id}>
+                <div className="list-row" style={{ flexDirection: "column", alignItems: "stretch", gap: 10 }} key={r.id}>
                   <div style={{ minWidth: 0 }}>
                     <div className="primary">
                       <span className="mono">{camera?.name || r.roomId}</span>
@@ -84,17 +85,26 @@ export function NightAuditGate({ restante, sosiri, core, groups, reservations, u
                       Plecare {fmtDate(r.checkout)} · {zile === 1 ? "o zi" : `${zile} zile`} întârziere
                     </div>
                   </div>
-                  <button className="btn btn-primary" style={{ width: "auto", padding: "8px 14px" }}
-                    disabled={busyId === r.id}
-                    onClick={async () => {
-                      if (busyId) return;
-                      setBusyId(r.id);
-                      try {
-                        await doCheckOut(r, reservations, updateReservations, core, housekeeping, updateHousekeeping);
-                      } finally { setBusyId(null); }
-                    }}>
-                    {busyId === r.id ? "…" : <><ArrowRight size={14} /> Check-out</>}
-                  </button>
+                  {/* Editează, nu doar Check-out: o restantă poate fi si o
+                      factura uitata (se rezolva din formular, nu de aici) sau
+                      un sejur prelungit — daca plecarea se muta in viitor,
+                      rezervarea iese singura din lista asta la urmatorul tick. */}
+                  <div className="quick-actions acces-actions">
+                    <button className="btn btn-ghost" onClick={() => setModal({ reservation: r })}>
+                      <Pencil size={14} /> Editează
+                    </button>
+                    <button className="btn btn-primary"
+                      disabled={busyId === r.id}
+                      onClick={async () => {
+                        if (busyId) return;
+                        setBusyId(r.id);
+                        try {
+                          await doCheckOut(r, reservations, updateReservations, core, housekeeping, updateHousekeeping);
+                        } finally { setBusyId(null); }
+                      }}>
+                      {busyId === r.id ? "…" : <><ArrowRight size={14} /> Check-out</>}
+                    </button>
+                  </div>
                 </div>
               );
             })}
@@ -107,7 +117,7 @@ export function NightAuditGate({ restante, sosiri, core, groups, reservations, u
               const camera = core.rooms.find((x) => x.id === r.roomId);
               const zile = zileIntarziereSosire(r);
               return (
-                <div className="list-row" key={r.id}>
+                <div className="list-row" style={{ flexDirection: "column", alignItems: "stretch", gap: 10 }} key={r.id}>
                   <div style={{ minWidth: 0 }}>
                     <div className="primary">
                       <span className="mono">{camera?.name || r.roomId}</span>
@@ -118,8 +128,22 @@ export function NightAuditGate({ restante, sosiri, core, groups, reservations, u
                       Sosire {fmtDate(r.checkin)} · {zile === 1 ? "o zi" : `${zile} zile`} întârziere
                     </div>
                   </div>
-                  <div style={{ display: "flex", gap: 8 }}>
-                    <button className="btn btn-ghost" style={{ width: "auto", padding: "8px 12px" }}
+                  {/* Rand fix de 3 — aceeasi clasa ca la actiunile de acces,
+                      ca sa nu se rupa pe doua randuri pe mobil. */}
+                  <div className="quick-actions acces-actions">
+                    <button className="btn btn-ghost"
+                      disabled={busyId === r.id}
+                      onClick={async () => {
+                        if (busyId) return;
+                        setBusyId(r.id);
+                        try {
+                          const out = await doCheckIn(r, reservations, updateReservations, core, { forta: true });
+                          if (out && out.error) toaster.show(out.error, { tone: "danger" });
+                        } finally { setBusyId(null); }
+                      }}>
+                      {busyId === r.id ? "…" : <><LogIn size={14} /> Check-in</>}
+                    </button>
+                    <button className="btn btn-ghost"
                       disabled={busyId === r.id}
                       onClick={async () => {
                         if (busyId) return;
@@ -128,7 +152,7 @@ export function NightAuditGate({ restante, sosiri, core, groups, reservations, u
                       }}>
                       {busyId === r.id ? "…" : <><UserCheck size={14} /> No-show</>}
                     </button>
-                    <button className="btn btn-danger" style={{ width: "auto", padding: "8px 12px" }}
+                    <button className="btn btn-danger"
                       disabled={busyId === r.id}
                       onClick={async () => {
                         if (busyId) return;
@@ -148,6 +172,21 @@ export function NightAuditGate({ restante, sosiri, core, groups, reservations, u
           <LogOut size={15} /> Delogare
         </button>
       </div>
+
+      {modal && (
+        <ReservationModal
+          data={modal}
+          core={core}
+          updateCore={updateCore}
+          reservations={reservations}
+          updateReservations={updateReservations}
+          groups={groups}
+          updateGroups={updateGroups}
+          blocks={blocks}
+          updateBlocks={updateBlocks}
+          onClose={() => setModal(null)}
+        />
+      )}
     </div>
   );
 }
@@ -986,7 +1025,7 @@ export function ReservationModal({ data, core, updateCore, reservations, updateR
        cazata. */
     if (statusFinal === "checkedin" && editing?.status !== "checkedin"
       && !canCheckIn({ status: "confirmed", checkin })) {
-      setError(`Check-in-ul se poate face cu cel mult ${ORE_CHECKIN_DEVREME}h înainte de sosire.`);
+      setError(`Check-in-ul se poate face cu cel mult ${ZILE_CHECKIN_DEVREME} zile înainte de sosire.`);
       return;
     }
 
@@ -1432,7 +1471,7 @@ export function ReservationModal({ data, core, updateCore, reservations, updateR
               <Printer size={14} /> Fișa de sosire
             </button>
             {/* Aceeasi regula canCheckIn ca in panoul din calendar: cu pana
-                la 48h inainte de sosire.
+                la ZILE_CHECKIN_DEVREME zile inainte de sosire.
                 Butonul SALVEAZA pe loc, nu doar schimba dropdownul de status:
                 inainte apela setStatus si atat, iar dropdownul fiind derulat
                 sus, in afara ecranului, parea ca apasarea nu face nimic. */}
@@ -1445,7 +1484,7 @@ export function ReservationModal({ data, core, updateCore, reservations, updateR
             {editing.status === "confirmed" && !canCheckIn(editing) && (
               <span className="quick-hint">
                 {new Date(editing.checkin) > new Date()
-                  ? `Check-in disponibil cu ${ORE_CHECKIN_DEVREME}h înainte de sosire (${fmtDate(editing.checkin)})`
+                  ? `Check-in disponibil cu ${ZILE_CHECKIN_DEVREME} zile înainte de sosire (${fmtDate(editing.checkin)})`
                   : "Sosirea era într-o zi trecută — corectează data de check-in."}
               </span>
             )}
@@ -1507,8 +1546,13 @@ export function ReservationModal({ data, core, updateCore, reservations, updateR
    CLIENTS VIEW
 ----------------------------------------------------------------*/
 
-export async function doCheckIn(res, reservations, updateReservations, core) {
-  if (!canCheckIn(res)) return false;
+/* `forta` ocoleste doar fereastra de zile dinaintea sosirii (canCheckIn) —
+   folosita de night audit, unde operatorul rezolva manual o sosire deja
+   restanta (canCheckIn refuza orice zi trecuta, vezi lib/tranzitii.js).
+   Garda de camera ocupata ramane oricum, mai jos: aceea nu e o regula de
+   fereastra, ci o imposibilitate reala. */
+export async function doCheckIn(res, reservations, updateReservations, core, { forta = false } = {}) {
+  if (!forta && !canCheckIn(res)) return false;
 
   // Someone else may still be occupying the room — refuse rather than
   // silently place two guests in it.
@@ -1884,11 +1928,12 @@ export function ReservationActions({ res: resSnapshot, core, groups, reservation
   const mayCheckOut = canCheckOut(res);
 
   /* Explicatia apare doar cand check-in-ul chiar NU e posibil: cu fereastra
-     de 48h, o sosire de maine e deja cazabila, deci n-are ce explica. */
+     de ZILE_CHECKIN_DEVREME zile, o sosire apropiata e deja cazabila, deci
+     n-are ce explica. */
   const checkInHint = res.status !== "confirmed" || mayCheckIn
     ? null
     : new Date(res.checkin) > now
-      ? `Check-in disponibil cu ${ORE_CHECKIN_DEVREME}h înainte de sosire (${fmtDate(res.checkin)})`
+      ? `Check-in disponibil cu ${ZILE_CHECKIN_DEVREME} zile înainte de sosire (${fmtDate(res.checkin)})`
       : "Sosirea era într-o zi trecută — deschide rezervarea ca să corectezi data.";
 
   const addMessage = async () => {

@@ -735,7 +735,11 @@ function PMSApp() {
           restante={restanteAudit}
           sosiri={sosiriAudit}
           core={core}
+          updateCore={updateCore}
           groups={groups}
+          updateGroups={updateGroups}
+          blocks={blocks}
+          updateBlocks={updateBlocks}
           reservations={reservations}
           updateReservations={updateReservations}
           housekeeping={housekeeping}

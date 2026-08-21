@@ -54,6 +54,26 @@ export function expirareCod(checkout, { oraPlecare = 11, minutePlecare = 0, grat
   return laOraLocala(checkout, oraPlecare, minutePlecare + grateMinute);
 }
 
+/* Inceputul valabilitatii codului.
+ *
+ * Un check-in facut chiar in ziua sosirii (sau mai tarziu — un audit de
+ * noapte care rezolva o sosire restanta) inseamna ca oaspetele e la
+ * receptie ACUM: codul trebuie sa mearga imediat, altfel ar ramane blocat
+ * pe hol pana la o ora arbitrara.
+ *
+ * Un check-in facut cu zile inainte (fereastra de check-in ajunge pana la
+ * 14 zile — vezi ZILE_CHECKIN_DEVREME in lib/tranzitii.js) e altceva: daca
+ * codul ar fi valabil "de acum", camera ar sta practic deschisa saptamani
+ * intregi inainte ca oaspetele sa fi ajuns macar la usa. In acest caz
+ * valabilitatea incepe abia in ziua rezervarii, la aceeasi ora la care
+ * camera se elibereaza de la oaspetele anterior (oraPlecare/minutePlecare
+ * din setari — implicit 11:00): reluam ora de turnover existenta, nu
+ * inventam una noua doar pentru sosiri. */
+export function inceputCod(checkin, acum, { oraPlecare = 11, minutePlecare = 0 } = {}) {
+  const ziSosirii = laOraLocala(checkin, 0, 0);
+  return acum < ziSosirii ? laOraLocala(checkin, oraPlecare, minutePlecare) : acum;
+}
+
 /* Inlocuieste {{variabila}} in sablon. Variabilele lipsa devin sir gol, nu
  * raman ca {{...}} in mesajul trimis oaspetelui. */
 export function randeazaSablon(sablon, valori) {
