@@ -366,7 +366,14 @@ create table online_pricing_tiers (
 create table staff (
   user_id  uuid primary key references auth.users(id) on delete cascade,
   name     text not null,
-  role     text not null check (role in ('admin','receptionist','housekeeping'))
+  role     text not null check (role in ('admin','receptionist','housekeeping')),
+  -- Tine minte daca setul implicit de permisiuni de facturare a fost deja
+  -- acordat o data acestui user (vezi acorda_permisiuni_facturare_implicite
+  -- mai jos). Fara ea, un rol care oscileaza receptionist -> altceva ->
+  -- receptionist re-declanseaza acordarea si anuleaza tacit o permisiune
+  -- pe care un admin o retrasese manual intre timp (ON CONFLICT DO NOTHING
+  -- nu ajuta aici: randul revocat chiar lipseste, deci INSERT-ul reuseste).
+  permisiuni_implicite_acordate boolean not null default false
 );
 
 
@@ -955,15 +962,25 @@ $$;
 --
 -- ON CONFLICT DO NOTHING: nu suprascrie o permisiune deja acordată sau
 -- retrasă manual — doar completează ce lipsește.
+--
+-- Acordarea se face O SINGURĂ DATĂ per user (vezi coloana
+-- permisiuni_implicite_acordate de la tabelul staff), nu de fiecare dată
+-- când rolul redevine 'receptionist'. Fără garda asta, un admin care
+-- retrage manual o permisiune (șterge rândul din billing_permissions) ar
+-- risca s-o vadă reapărută singură dacă userul iese și reintră din rolul
+-- de receptionist — găsit la recenzia din 21 august 2026, înainte să
+-- apuce să se întâmple real.
 create or replace function acorda_permisiuni_facturare_implicite()
 returns trigger language plpgsql security definer set search_path = public as $$
 begin
-  if new.role = 'receptionist'
-     and (tg_op = 'INSERT' or old.role is distinct from 'receptionist') then
+  if new.role = 'receptionist' and not new.permisiuni_implicite_acordate then
     insert into billing_permissions (user_id, permission)
     select new.user_id, p
     from unnest(array['view_invoices','create_invoice','issue_invoice','record_payment','cancel_invoice','create_credit_note']) as p
     on conflict (user_id, permission) do nothing;
+    -- Nu atinge coloana role, deci nu redeclanșează acest trigger
+    -- ("update of role") — fără risc de recursie.
+    update staff set permisiuni_implicite_acordate = true where user_id = new.user_id;
   end if;
   return new;
 end;
@@ -2157,8 +2174,11 @@ create policy "scrie folio" on folios for insert to authenticated
   with check (has_billing_permission('create_invoice'));
 create policy "modifica folio" on folios for update to authenticated
   using (has_billing_permission('create_invoice')) with check (has_billing_permission('create_invoice'));
+-- Neatinsa din UI azi (nicio ștergere de folio în cod) — is_admin() în loc
+-- de has_billing_permission, ca să nu se lărgească odată cu recepționerii
+-- care primesc acum implicit create_invoice (vezi trigger-ul de mai sus).
 create policy "sterge folio" on folios for delete to authenticated
-  using (has_billing_permission('create_invoice'));
+  using (is_admin());
 
 create policy "citeste folio_items" on folio_items for select to authenticated
   using (has_billing_permission('view_invoices'));
@@ -2166,8 +2186,16 @@ create policy "scrie folio_items" on folio_items for insert to authenticated
   with check (has_billing_permission('create_invoice'));
 create policy "modifica folio_items" on folio_items for update to authenticated
   using (has_billing_permission('create_invoice')) with check (has_billing_permission('create_invoice'));
+-- "Niciodată nu se șterge fizic o poziție odată legată de o factură" (vezi
+-- comentariul de la tabelul folio_items) era impusă doar în interfață
+-- (facturare.jsx blochează butonul când invoiced_status = 'invoiced'),
+-- deși un comentariu din folio.js pretindea că RLS e plasa de siguranță —
+-- nu era. invoice_item_links are FK on delete restrict spre folio_items,
+-- deci o poziție încă legată tot nu se putea șterge fizic — dar ștergerea
+-- LEGĂTURII întâi (altă politică, mai jos) ar fi ocolit și asta. Adăugăm
+-- garda direct aici, ca RLS să chiar facă ce pretinde comentariul.
 create policy "sterge folio_items" on folio_items for delete to authenticated
-  using (has_billing_permission('create_invoice'));
+  using (has_billing_permission('create_invoice') and invoiced_status <> 'invoiced');
 
 create policy "citeste serii" on invoice_series for select to authenticated using (true);
 create policy "scrie serii" on invoice_series for insert to authenticated with check (is_admin());
@@ -2213,8 +2241,12 @@ create policy "scrie linii factura" on invoice_items for insert to authenticated
   with check (has_billing_permission('create_invoice'));
 create policy "modifica linii factura" on invoice_items for update to authenticated
   using (has_billing_permission('create_invoice')) with check (has_billing_permission('create_invoice'));
+-- Ca la "sterge folio": neatinsă din UI azi (nicio ștergere de linie de
+-- factură în cod, doar update pe liniile de draft) — is_admin() în loc de
+-- has_billing_permission, acum că orice recepționer are implicit
+-- create_invoice.
 create policy "sterge linii factura" on invoice_items for delete to authenticated
-  using (has_billing_permission('create_invoice'));
+  using (is_admin());
 
 create policy "citeste linkuri factura" on invoice_item_links for select to authenticated
   using (has_billing_permission('view_invoices'));
@@ -2222,8 +2254,12 @@ create policy "scrie linkuri factura" on invoice_item_links for insert to authen
   with check (has_billing_permission('create_invoice'));
 create policy "modifica linkuri factura" on invoice_item_links for update to authenticated
   using (has_billing_permission('create_invoice')) with check (has_billing_permission('create_invoice'));
+-- Ca mai sus: neatinsă din UI azi (legăturile se doar inserează, niciodată
+-- șterse din cod). is_admin() închide și ocolul "șterge legătura, apoi
+-- poziția de folio devine liberă" pe care garda de invoiced_status de la
+-- "sterge folio_items" singură n-ar fi acoperit-o.
 create policy "sterge linkuri factura" on invoice_item_links for delete to authenticated
-  using (has_billing_permission('create_invoice'));
+  using (is_admin());
 
 create policy "citeste plati" on payments for select to authenticated
   using (has_billing_permission('view_invoices'));

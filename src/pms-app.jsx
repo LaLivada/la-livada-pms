@@ -196,10 +196,36 @@ function seedGroups() {
    liniile 79-90) primesc alt hash. O fila ramasa deschisa dintr-o versiune
    veche incearca sa importe un fisier care nu mai exista pe server si pica
    aici cu "Importing a module script failed" / "Failed to fetch dynamically
-   imported module" — mesaje de la browser, nu bug de-al nostru. */
+   imported module" — mesaje de la browser, nu bug de-al nostru.
+   Plasa secundara: Vite mai jos are propriul semnal, structural, pentru
+   exact acest caz — ramane si potrivirea de text, pentru un caz prins de
+   ErrorBoundary fara sa treaca prin acel eveniment. */
 const esteEroareDeIncarcareModul = (error) =>
   /dynamically imported module|importing a module script failed|loading chunk/i
     .test(error?.message || "");
+
+/* O reincarcare reala (nu doar stergerea erorii din React) rezolva cazul de
+   mai sus, fiindca aduce din nou index.html si hash-urile curente.
+   Racire, nu "o singura data pe toata durata filei": sessionStorage
+   supravietuieste unui reload, deci un flag pus o singura data ar ramane
+   activ pentru totdeauna — a doua eroare de acelasi fel, de la un deploy
+   urmator din aceeasi zi, nu s-ar mai repara singura. 60s e suficient sa
+   opreasca o bucla (esec imediat, la loc) fara sa blocheze un esec real,
+   mai tarziu. */
+const CHEIE_RELOAD_MODUL = "pms-reload-modul-la";
+const RACIRE_RELOAD_MODUL_MS = 60_000;
+function reincarcaDupaEsecModul() {
+  const ultima = Number(sessionStorage.getItem(CHEIE_RELOAD_MODUL) || 0);
+  if (Date.now() - ultima <= RACIRE_RELOAD_MODUL_MS) return;
+  sessionStorage.setItem(CHEIE_RELOAD_MODUL, String(Date.now()));
+  window.location.reload();
+}
+/* Vite emite acest eveniment tocmai pentru importul dinamic esuat dupa un
+   deploy — semnal structural, nu text parsat, deci nu se strica daca un
+   browser isi schimba formularea erorii. */
+if (typeof window !== "undefined") {
+  window.addEventListener("vite:preloadError", reincarcaDupaEsecModul);
+}
 
 class ErrorBoundary extends React.Component {
   constructor(props) {
@@ -211,17 +237,17 @@ class ErrorBoundary extends React.Component {
   }
   componentDidCatch(error, info) {
     console.error("PMS render error", error, info);
-    /* O reincarcare reala (nu doar stergerea erorii din React) rezolva
-       cazul de mai sus, fiindca aduce din nou index.html si hash-urile
-       curente. O singura incercare automata per fila, ca sa nu intre in
-       bucla daca eroarea are alta cauza. */
-    if (esteEroareDeIncarcareModul(error) && !sessionStorage.getItem("pms-reload-modul")) {
-      sessionStorage.setItem("pms-reload-modul", "1");
-      window.location.reload();
-    }
+    if (esteEroareDeIncarcareModul(error)) reincarcaDupaEsecModul();
   }
   render() {
     if (this.state.error) {
+      /* O reincarcare completa (retea) are rost doar cand promisiunea unui
+         import lazy a picat de-adevaratelea — pentru orice alta eroare de
+         randare (tranzitorie, fara legatura cu un deploy), stergerea
+         starii locale remonteaza aplicatia instant, fara retea; utila la
+         receptie, pe o conexiune care poate lipsi exact cand ai nevoie de
+         reincarcare. */
+      const eEsecModul = esteEroareDeIncarcareModul(this.state.error);
       return (
         <div className="pms">
           <div className="login-wrap">
@@ -231,7 +257,8 @@ class ErrorBoundary extends React.Component {
                 <strong>Ceva n-a mers bine</strong>
                 <p>{this.state.error?.message || "Eroare neașteptată în interfață."}</p>
               </div>
-              <button className="btn btn-primary" onClick={() => window.location.reload()}>
+              <button className="btn btn-primary"
+                onClick={() => eEsecModul ? window.location.reload() : this.setState({ error: null })}>
                 <RefreshCw size={15} /> Reîncarcă interfața
               </button>
             </div>

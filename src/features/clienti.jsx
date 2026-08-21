@@ -10,7 +10,7 @@ import React, { useState, useEffect, useMemo, useRef } from "react";
 import { Plus, X, Search, Check, Trash2, Pencil, History, Users, UsersRound, Phone, MessageCircle, Banknote, UserCheck, ArrowRight, ChevronLeft, ChevronRight, Receipt } from "lucide-react";
 import { uid } from "../lib/uid.js";
 import { mesajEroare } from "../lib/errors.js";
-import { audit } from "../lib/audit.js";
+import { audit, isAdmin } from "../lib/audit.js";
 import { guestFullName, occupantName } from "../lib/nume.js";
 import { nightsBetween, isLive, isStatsEligible } from "../lib/availability.js";
 import { reservationTotal } from "../lib/pricing.js";
@@ -157,7 +157,7 @@ export function ClientsView({ core, updateCore, groups, updateGroups, reservatio
               {/* Doar adminul poate șterge — recepția editează și adaugă,
                   nu curăță fișe. Oglindește politica RLS "sterge oaspeti";
                   butonul ascuns evită un eșec confuz în loc de unul clar. */}
-              {audit.user?.role === "admin" && (
+              {isAdmin() && (
                 <button className="icon-btn" onClick={() => remove(g.id)} aria-label={`Șterge ${guestFullName(g)}`}><Trash2 size={14} /></button>
               )}
             </div>
@@ -299,7 +299,7 @@ export function FirmsView({ core, updateCore, reservations, modalExtern, inchide
                   onClick={() => setModal({ customer: c })}><Pencil size={14} /></button>
                 {/* Doar adminul poate șterge — vezi nota de la ștergerea
                     clienților mai sus. */}
-                {audit.user?.role === "admin" && (
+                {isAdmin() && (
                   <button className="icon-btn" aria-label={`Șterge ${billingCustomerLabel(c)}`}
                     onClick={() => remove(c)}><Trash2 size={14} /></button>
                 )}

@@ -10,7 +10,7 @@ import { Plus, X, Check, Trash2, Pencil, Printer, UsersRound, ArrowRight, AlertT
 import { supabase } from "../supabase.js";
 import { uid } from "../lib/uid.js";
 import { mesajEroare } from "../lib/errors.js";
-import { audit } from "../lib/audit.js";
+import { audit, isAdmin } from "../lib/audit.js";
 import { guestFullName, occupantName } from "../lib/nume.js";
 import { nightsBetween, isLive, startOfDay, rangesOverlap, validateStay } from "../lib/availability.js";
 import { reservationTotal, liveReservationTotalOnline } from "../lib/pricing.js";
@@ -703,9 +703,16 @@ export function GroupsView({ core, groups, updateGroups, reservations, updateRes
               <div className="gt-col gt-col-actions">
                 {confirmId === g.id ? (
                   <>
-                    <button className="btn btn-danger" style={{ padding: "8px 12px" }} onClick={() => removeGroup(g.id)}>
-                      Șterge tot
-                    </button>
+                    {/* Verificare proprie, nu doar pe butonul care deschide
+                        confirmarea: rolul se re-verifică periodic (vezi
+                        pms-app.jsx) fără să remonteze acest ecran, deci
+                        confirmId ar putea rămâne setat după o retrogradare
+                        din admin. */}
+                    {isAdmin() && (
+                      <button className="btn btn-danger" style={{ padding: "8px 12px" }} onClick={() => removeGroup(g.id)}>
+                        Șterge tot
+                      </button>
+                    )}
                     <button className="btn btn-ghost" style={{ padding: "8px 12px" }} onClick={() => setConfirmId(null)}>
                       Renunță
                     </button>
@@ -723,7 +730,7 @@ export function GroupsView({ core, groups, updateGroups, reservations, updateRes
                     {/* Doar adminul poate șterge grupul (și rezervările lui) —
                         recepția editează și adaugă. Oglindește politica RLS
                         "sterge grupuri". */}
-                    {audit.user?.role === "admin" && (
+                    {isAdmin() && (
                       <button className="icon-btn" onClick={() => setConfirmId(g.id)}
                         title="Șterge grupul și rezervările lui" aria-label={`Șterge grupul ${g.name}`}>
                         <Trash2 size={14} />

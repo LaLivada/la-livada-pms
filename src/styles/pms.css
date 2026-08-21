@@ -1082,8 +1082,17 @@ label.field input, label.field select, label.field textarea{ cursor:auto; }
      declarata a colii duo se mareste cu exact atat cat zoom-ul o va
      micsora inapoi, ca dupa zoom sa acopere iar toata latimea paginii —
      inaltimea (nemodificata) tot se micsoreaza normal, cu aceeasi rezerva
-     de mai sus. */
-  .arrival-scaler{ --fisa-print-zoom:0.85; transform:none !important; zoom:var(--fisa-print-zoom) !important; }
+     de mai sus.
+
+     Declarata pe :root (nu pe .arrival-scaler): rezerva de pagina de mai
+     jos, la factura, are nevoie de aceeasi valoare, iar custom properties
+     mostenesc pe tot arborele — inclusiv in alt subarbore de portal
+     (.inv-scaler nu e descendent din .arrival-scaler). Asa nu mai pot sa
+     ajunga desincronizate: gasit la recenzia din 21 august 2026, cand
+     min-height-ul facturii de mai jos ramasese calculat manual la 0.82,
+     desi zoom-ul fisei trecuse deja la 0.85 in acelasi diff. */
+  :root{ --fisa-print-zoom:0.85; }
+  .arrival-scaler{ transform:none !important; zoom:var(--fisa-print-zoom) !important; }
   .fisa-duo{ width:calc(794px / var(--fisa-print-zoom)) !important; }
   .arrival-sheet-wrap{ height:auto !important; overflow:visible !important; }
   /* Factura NU are o inaltime fixa ca fisa: numarul de linii variaza, iar
@@ -1103,16 +1112,22 @@ label.field input, label.field select, label.field textarea{ cursor:auto; }
      colii, ramasa alba goala, iar filigranul (centrat in cutia scurta)
      nu mai ajunge in zona goala de dedesubt unde ar avea rost sa fie.
 
-     921px de mai jos NU e o cifra noua: e exact bugetul de inaltime
-     confirmat pe hartie la fisa de mai sus (1123 x 0.82) — inaltimea
-     utila a unei pagini inainte sa apara riscul de revarsare in
-     antetul/subsolul lui Safari. O factura scurta acopera acum acel
-     buget cu chenarul si filigranul ei, fara sa reintroduca riscul care
-     a dus la min-height:0. O factura lunga tot curge pe cate pagini are
-     nevoie — min-height e un prag minim, nu unul maxim. */
+     Bugetul de mai jos NU e o cifra noua: e acelasi buget de inaltime
+     confirmat pe hartie la fisa de mai sus — inaltimea utila a unei
+     pagini inainte sa apara riscul de revarsare in antetul/subsolul lui
+     Safari. O factura scurta acopera acum acel buget cu chenarul si
+     filigranul ei, fara sa reintroduca riscul care a dus la min-height:0.
+     O factura lunga tot curge pe cate pagini are nevoie — min-height e un
+     prag minim, nu unul maxim.
+
+     calc(), nu un numar fix: un min-height hardcodat (921px, calculat o
+     singura data din 1123 x 0.82) a ramas desincronizat de indata ce
+     --fisa-print-zoom a trecut la 0.85 mai sus, in acelasi diff — gasit
+     la recenzia din 21 august 2026. Legat de aceeasi variabila, cele doua
+     bugete nu mai pot diverge. */
   .inv-scaler{ transform:none !important; }
   .inv-sheet-wrap{ height:auto !important; overflow:visible !important; }
-  .inv-sheet{ width:auto !important; height:auto !important; min-height:921px !important; }
+  .inv-sheet{ width:auto !important; height:auto !important; min-height:calc(1123px * var(--fisa-print-zoom)) !important; }
   * { -webkit-print-color-adjust:exact; print-color-adjust:exact; }
   @page{ size:A4; margin:0; }
 }

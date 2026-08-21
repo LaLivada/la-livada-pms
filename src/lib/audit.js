@@ -40,6 +40,12 @@ export const audit = {
   },
 };
 
+/* Un singur loc pentru "e admin?", in loc de audit.user?.role === "admin"
+   repetat la fiecare buton care trebuie ascuns non-adminilor (stergere
+   oaspeti/firme/grupuri). Tot doar pentru UI — RLS impune regula reala,
+   la fel ca la canBilling mai jos. */
+export const isAdmin = () => audit.user?.role === "admin";
+
 /* Permisiuni granulare de facturare pentru userul curent — module-level
    ca audit, populat o singura data la login (vezi PMSApp). Adminii au
    automat tot (oglindeste has_billing_permission() din RLS — vezi
