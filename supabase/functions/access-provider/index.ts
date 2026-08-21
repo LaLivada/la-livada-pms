@@ -167,13 +167,21 @@ Deno.serve(async (req) => {
     return raspuns({ error: "Deschiderea la distanță e permisă doar administratorilor." }, 403);
   }
 
+  /* Modul trecere liberă e o schimbare de stare STANDING, nu o acțiune
+     punctuală ca unlock — o ușă lăsată descuiată rămâne așa până cineva o
+     oprește la loc. Cel puțin la fel de sensibilă ca deschiderea la
+     distanță, deci aceeași restricție. */
+  if ((actiune === "passage-mode-set" || actiune === "passage-mode-get") && staff.role !== "admin") {
+    return raspuns({ error: "Modul trecere liberă e permis doar administratorilor." }, 403);
+  }
+
   /* Garda de configurare se aplică DOAR acțiunilor care chiar vorbesc cu
      yala. Trimiterea unui email nu are nevoie de TTLock, iar dacă garda ar
      sta înaintea dispecerizării, un cod deja generat n-ar mai putea fi
      trimis oaspetelui doar fiindcă lipsesc credențialele. */
   const setariAcum = await setari(admin);
   const f = furnizor(setariAcum);
-  const cereYala = ["sync-locks", "issue", "revoke", "test-lock", "unlock"].includes(actiune);
+  const cereYala = ["sync-locks", "issue", "revoke", "test-lock", "unlock", "passage-mode-set", "passage-mode-get"].includes(actiune);
   if (cereYala && !f.api.configurat()) {
     return raspuns({
       ok: false, reason: "neconfigurat",
@@ -268,6 +276,48 @@ Deno.serve(async (req) => {
         provider: f.nume, lock_id: lockId,
       });
       return raspuns({ ok: true });
+    }
+
+    // ---------------- MOD TRECERE LIBERĂ: CITIRE ----------------
+    if (actiune === "passage-mode-get") {
+      const lockId = String(cerere?.lockId || "").trim();
+      if (!lockId) return raspuns({ error: "Lipsește Lock ID-ul." }, 400);
+      try {
+        const stare = await f.api.citesteModPasaj(lockId);
+        return raspuns({ ok: true, ...stare });
+      } catch (e) {
+        return raspuns({ ok: false, error: String((e as Error).message) }, 502);
+      }
+    }
+
+    // ---------------- MOD TRECERE LIBERĂ: ACTIVARE/DEZACTIVARE ----------------
+    //
+    // Ușa rămâne descuiată, fără cod, cât timp modul e activ — gândit de
+    // TTLock pentru spații comune în orele de funcționare, nu pentru camere
+    // de oaspeți. Interfața avertizează explicit; aici doar executăm și
+    // consemnăm, ca deschiderea la distanță.
+    if (actiune === "passage-mode-set") {
+      const lockId = String(cerere?.lockId || "").trim();
+      const activ = Boolean(cerere?.on);
+      if (!lockId) return raspuns({ error: "Lipsește Lock ID-ul." }, 400);
+
+      try {
+        await f.api.seteazaModPasaj(lockId, activ);
+      } catch (e) {
+        await jurnal(admin, {
+          actor, action: "mod trecere liberă", result: "error",
+          provider: f.nume, lock_id: lockId,
+          detail: `${activ ? "activare" : "dezactivare"}: ${String((e as Error).message).slice(0, 280)}`,
+        });
+        return raspuns({ ok: false, error: String((e as Error).message) }, 502);
+      }
+
+      await jurnal(admin, {
+        actor, action: "mod trecere liberă", result: "ok",
+        provider: f.nume, lock_id: lockId,
+        detail: activ ? "activat" : "dezactivat",
+      });
+      return raspuns({ ok: true, activ });
     }
 
     // ---------------- GENERARE COD ----------------

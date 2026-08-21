@@ -304,3 +304,43 @@ export async function deschideUsa(lockId: string): Promise<void> {
     lockId, date: Date.now(),
   });
 }
+
+export interface StareModPasaj { activ: boolean }
+
+/* Mod "trecere liberă" (passage mode): ușa rămâne descuiată, fără cod —
+ * gândit de TTLock pentru spații comune în orele de funcționare, NU pentru
+ * camere de oaspeți, unde ar însemna acces liber oricui, fără nicio urmă.
+ * Interfața din PMS avertizează explicit despre asta; adaptorul doar
+ * execută ce i se cere.
+ *
+ * Endpoint verificat în documentația oficială (euopen.ttlock.com/doc/api/
+ * v3/lock/configPassageMode și .../getPassageModeConfig):
+ *   passageMode: 1 = pornit, 2 = oprit.
+ *   type: 1 = prin Bluetooth (telefon), 2 = prin gateway — la fel ca restul
+ *     adaptorului (addType/deleteType=2), fiindcă apelul vine de pe server.
+ *   isAllDay=1: pornit/oprit acum, fără fereastră orară — butonul din PMS
+ *     e gândit ca un întrerupător, nu ca o programare (startDate/endDate/
+ *     weekDays există în API, dar nu sunt expuse aici).
+ *
+ * Nu orice yală/firmware suportă modul ăsta — dacă nu-l suportă, TTLock
+ * întoarce un errcode, tradus mai departe de `cere()` ca orice altă eroare;
+ * nu presupunem că merge peste tot. */
+export async function seteazaModPasaj(lockId: string, activ: boolean): Promise<void> {
+  const accessToken = await acces();
+  await cere("/v3/lock/configPassageMode", {
+    clientId: CLIENT_ID, accessToken,
+    lockId,
+    passageMode: activ ? 1 : 2,
+    isAllDay: 1,
+    type: 2,
+    date: Date.now(),
+  });
+}
+
+export async function citesteModPasaj(lockId: string): Promise<StareModPasaj> {
+  const accessToken = await acces();
+  const d = await cere("/v3/lock/getPassageModeConfig", {
+    clientId: CLIENT_ID, accessToken, lockId, date: Date.now(),
+  });
+  return { activ: Number(d?.passageMode) === 1 };
+}

@@ -62,3 +62,20 @@ export function stergeCod(_lockId: string, externalId: string): Promise<void> {
 export function deschideUsa(_lockId: string): Promise<void> {
   return Promise.resolve();
 }
+
+export interface StareModPasaj { activ: boolean }
+
+/* Stare tinuta in memorie, cat traieste instanta — suficient ca sa se poata
+   testa un ciclu complet (activeaza, citeste, dezactiveaza) fara o yala
+   reala. Reseteaza la fiecare pornire la rece, la fel ca tokenul din
+   adaptorul TTLock. */
+const stareModPasaj = new Map<string, boolean>();
+
+export function seteazaModPasaj(lockId: string, activ: boolean): Promise<void> {
+  stareModPasaj.set(lockId, activ);
+  return Promise.resolve();
+}
+
+export function citesteModPasaj(lockId: string): Promise<StareModPasaj> {
+  return Promise.resolve({ activ: stareModPasaj.get(lockId) || false });
+}

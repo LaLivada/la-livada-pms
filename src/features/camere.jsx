@@ -6,11 +6,11 @@
  */
 
 import React, { useState, useEffect, useMemo } from "react";
-import { Plus, X, Check, Trash2, Pencil, DoorOpen, Sparkles, Wrench, KeyRound, Banknote, RefreshCw, AlertTriangle, ArrowRight, Info, TrendingUp, Tag as TagIcon, Copy, Cpu, Flame, Snowflake, Wind } from "lucide-react";
+import { Plus, X, Check, Trash2, Pencil, DoorOpen, Sparkles, Wrench, KeyRound, Banknote, RefreshCw, AlertTriangle, ArrowRight, Info, TrendingUp, Tag as TagIcon, Copy, Cpu, Flame, Snowflake, Wind, Unlock } from "lucide-react";
 import { uid } from "../lib/uid.js";
 import { isLive } from "../lib/availability.js";
 import { mesajEroare } from "../lib/errors.js";
-import { audit } from "../lib/audit.js";
+import { audit, isAdmin } from "../lib/audit.js";
 import { fmtMoney, fmtDate, validatePrice } from "../lib/format.js";
 import { ROOM_TYPE, DEFAULT_TAGS, HK_STATUSES, DEFAULT_ONLINE_TIERS } from "../lib/constante.js";
 import { Dialog, toaster, useModalLock } from "../ui/primitive.jsx";
@@ -80,6 +80,7 @@ export function RoomsView({ core, updateCore, reservations, updateReservations, 
   const [tab, setTab] = useState("rooms");
   const [modal, setModal] = useState(null);
   const [confirmRoomId, setConfirmRoomId] = useState(null);
+  const [modPasajDeschis, setModPasajDeschis] = useState(false);
 
   const save = async (room) => {
     const exists = core.rooms.some((r) => r.id === room.id);
@@ -160,10 +161,26 @@ export function RoomsView({ core, updateCore, reservations, updateReservations, 
       <div className="toolbar">
         <span className="badge-count">{core.rooms.length} camere</span>
         <div className="grow" />
+        {/* Doar admin — mod trecere liberă lasă usi descuiate, e mai
+            sensibil decat deschiderea la distanta (vezi access-provider),
+            care e deja restransa la admin. Ascuns, nu doar dezactivat: un
+            buton care oricum ar refuza serverul e o eroare confuza in loc
+            de una clara. */}
+        {isAdmin() && (
+          <button className="btn btn-ghost" style={{ width: "auto" }} onClick={() => setModPasajDeschis(true)}>
+            <Unlock size={15} /> Mod trecere liberă
+          </button>
+        )}
         <button className="btn btn-primary" style={{ width: "auto" }} onClick={() => setModal({ room: null })}>
           <Plus size={15} /> Cameră nouă
         </button>
       </div>
+      {modPasajDeschis && (
+        <PassageModePanel
+          rooms={core.rooms.filter((r) => r.accessLockId)}
+          onClose={() => setModPasajDeschis(false)}
+        />
+      )}
       <div className="panel">
         {core.rooms.map((r) => (
           <div className="list-row" key={r.id}>
@@ -421,6 +438,148 @@ export function RoomModal({ room, onSave, onClose }) {
           <button className="btn btn-ghost" onClick={onClose}>Anulează</button>
           <button className="btn btn-primary" style={{ width: "auto" }} onClick={submit}><Check size={15} /> Salvează</button>
         </div>
+    </Dialog>
+  );
+}
+
+/* Modul "trecere liberă" al yalei TTLock: cât timp e activ, ușa rămâne
+   descuiată, fără cod — gândit pentru spații comune în orele de
+   funcționare, NU pentru camere de oaspeți ocupate (nu lasă nicio urmă a
+   cui a intrat). De-aia panoul avertizează explicit și cere confirmare
+   pentru orice activare, la fel ca "Deschide ușa" din RoomModal.
+
+   Secvențial, nu Promise.all, la "pe toate": nu suprasolicităm API-ul
+   TTLock pe 16+ yale deodată, iar o eroare pe o yală nu oprește restul. */
+export function PassageModePanel({ rooms, onClose }) {
+  useModalLock();
+  const [stari, setStari] = useState({});
+  const [confirmBulk, setConfirmBulk] = useState(null); // "activeaza" | "dezactiveaza" | null
+  const [bulkInCurs, setBulkInCurs] = useState(false);
+  const [bulkRezultat, setBulkRezultat] = useState(null);
+
+  const setStare = (lockId, patch) =>
+    setStari((prev) => ({ ...prev, [lockId]: { ...prev[lockId], ...patch } }));
+
+  const verifica = async (lockId) => {
+    setStare(lockId, { verificare: "verific", eroare: null });
+    const r = await cheamaAcces("passage-mode-get", { lockId });
+    setStare(lockId, r.ok
+      ? { verificare: null, activ: r.activ, eroare: null }
+      : { verificare: null, eroare: r.error || "Nu am putut citi starea." });
+  };
+
+  const seteaza = async (lockId, activ) => {
+    setStare(lockId, { actiune: activ ? "pornesc" : "opresc", eroare: null });
+    const r = await cheamaAcces("passage-mode-set", { lockId, on: activ });
+    setStare(lockId, r.ok
+      ? { actiune: null, activ: r.activ, eroare: null }
+      : { actiune: null, eroare: r.error || "Comanda a eșuat." });
+    return r.ok;
+  };
+
+  const seteazaToate = async (activ) => {
+    setConfirmBulk(null);
+    setBulkInCurs(true);
+    setBulkRezultat(null);
+    let reusite = 0, esuate = 0;
+    for (const r of rooms) {
+      const ok = await seteaza(r.accessLockId, activ);
+      if (ok) reusite++; else esuate++;
+    }
+    setBulkInCurs(false);
+    setBulkRezultat(`${reusite} reușite${esuate ? `, ${esuate} eșuate` : ""}.`);
+  };
+
+  return (
+    <Dialog onClose={onClose} title="Mod trecere liberă">
+      <div className="note" style={{ marginBottom: 14 }}>
+        Cât timp e activ pe o yală, ușa rămâne descuiată — oricine intră, fără
+        cod și fără nicio urmă a cui a fost. Gândit pentru spații comune (hol,
+        recepție) în orele de funcționare — nu pentru camere de oaspeți
+        ocupate. Nu toate yalele/firmware-urile suportă modul ăsta; dacă nu-l
+        suportă, comanda întoarce eroarea primită de la TTLock.
+      </div>
+
+      {rooms.length === 0 ? (
+        <div className="ldv-mic">
+          Nicio cameră nu are o yală asociată — configureaz-o din Editează cameră → Yală.
+        </div>
+      ) : (
+        <>
+          <div style={{ marginBottom: 12 }}>
+            {confirmBulk ? (
+              <div className="action-confirm">
+                <span>
+                  {confirmBulk === "activeaza"
+                    ? `Activezi trecerea liberă pe toate cele ${rooms.length} yale?`
+                    : `Dezactivezi trecerea liberă pe toate cele ${rooms.length} yale?`}
+                </span>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button className="btn btn-ghost" style={{ padding: "8px 12px" }}
+                    onClick={() => setConfirmBulk(null)} disabled={bulkInCurs}>Nu</button>
+                  <button className={confirmBulk === "activeaza" ? "btn btn-danger" : "btn btn-primary"}
+                    style={{ padding: "8px 12px", width: "auto" }} disabled={bulkInCurs}
+                    onClick={() => seteazaToate(confirmBulk === "activeaza")}>
+                    Da, {confirmBulk === "activeaza" ? "activează" : "dezactivează"} pe toate
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                <button className="btn btn-danger" style={{ width: "auto" }} disabled={bulkInCurs}
+                  onClick={() => setConfirmBulk("activeaza")}>
+                  <Unlock size={15} /> Activează pe toate
+                </button>
+                <button className="btn btn-ghost" style={{ width: "auto" }} disabled={bulkInCurs}
+                  onClick={() => setConfirmBulk("dezactiveaza")}>
+                  Dezactivează pe toate
+                </button>
+              </div>
+            )}
+            {bulkInCurs && <div className="ldv-mic" style={{ marginTop: 8 }}>Se aplică pe rând, ca să nu suprasolicităm yalele…</div>}
+            {bulkRezultat && !bulkInCurs && <div className="ldv-mic" style={{ marginTop: 8 }}>{bulkRezultat}</div>}
+          </div>
+
+          <div className="panel">
+            {rooms.map((r) => {
+              const s = stari[r.accessLockId] || {};
+              return (
+                <div className="list-row" key={r.id}>
+                  <div>
+                    <div className="primary">{r.name}</div>
+                    <div className="secondary mono">{r.accessLockName || r.accessLockId}</div>
+                    {s.eroare && <div className="error-text" style={{ marginTop: 4 }}>{s.eroare}</div>}
+                  </div>
+                  <div className="row-actions" style={{ alignItems: "center", gap: 8 }}>
+                    {s.activ === true && (
+                      <span className="role-tag" style={{ background: "var(--danger-soft)", color: "var(--danger)" }}>Activ</span>
+                    )}
+                    {s.activ === false && <span className="secondary">Inactiv</span>}
+                    <button className="btn btn-ghost" style={{ padding: "6px 10px" }}
+                      disabled={s.verificare === "verific" || !!s.actiune}
+                      onClick={() => verifica(r.accessLockId)}>
+                      {s.verificare === "verific" ? "Verific…" : "Verifică"}
+                    </button>
+                    <button className="btn btn-ghost" style={{ padding: "6px 10px" }}
+                      disabled={!!s.actiune} onClick={() => seteaza(r.accessLockId, false)}>
+                      {s.actiune === "opresc" ? "…" : "Dezactivează"}
+                    </button>
+                    <button className="btn btn-danger" style={{ padding: "6px 10px" }}
+                      disabled={!!s.actiune} onClick={() => seteaza(r.accessLockId, true)}>
+                      {s.actiune === "pornesc" ? "…" : "Activează"}
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </>
+      )}
+
+      <div className="modal-actions" style={{ marginTop: 14 }}>
+        <div className="grow" />
+        <button className="btn btn-ghost" onClick={onClose}>Închide</button>
+      </div>
     </Dialog>
   );
 }
