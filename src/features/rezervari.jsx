@@ -31,6 +31,7 @@ import { SectiuneAcces, cheamaAcces, reconciliazaAcces } from "./acces.jsx";
 import { FolioPanel, InvoicePrint, BillingCustomerPicker, BillingCustomerModal, billingCustomerLabel } from "./facturare.jsx";
 import { GuestFields, GuestModal, ContactQuickActions, emptyGuest } from "./clienti.jsx";
 import { ArrivalForm } from "./documente.jsx";
+import { GroupEditor, GroupPrint } from "./grupuri.jsx";
 
 export function NightAuditGate({ restante, sosiri, core, updateCore, groups, updateGroups, blocks, updateBlocks, reservations, updateReservations, housekeeping, updateHousekeeping, onLogout }) {
   const [busyId, setBusyId] = useState(null);
@@ -670,6 +671,10 @@ export function CalendarView({ core, updateCore, reservations, updateReservation
           core={core}
           updateCore={updateCore}
           groups={groups}
+          updateGroups={updateGroups}
+          reservations={reservations}
+          updateReservations={updateReservations}
+          blocks={blocks}
           onClose={() => setViewModal(null)}
           onEdit={() => { setModal({ reservation: viewModal }); setViewModal(null); }}
         />
@@ -697,7 +702,7 @@ export function CalendarView({ core, updateCore, reservations, updateReservation
    fac zoom pe iOS la focus si permit tastarea unei valori peste capacitate)
    si aplica limita direct in logica de crestere/scadere. */
 
-export function ReservationViewModal({ reservation, core, updateCore, groups, onClose, onEdit }) {
+export function ReservationViewModal({ reservation, core, updateCore, groups, updateGroups, reservations, updateReservations, blocks, onClose, onEdit }) {
   useModalLock();
   const guest = core.guests.find((g) => g.id === reservation.guestId) || null;
   const room = core.rooms.find((r) => r.id === reservation.roomId);
@@ -706,6 +711,8 @@ export function ReservationViewModal({ reservation, core, updateCore, groups, on
   const [billingCustomerId, setBillingCustomerId] = useState(reservation.billingCustomerId || "");
   const [billingModalOpen, setBillingModalOpen] = useState(false);
   const [showArrival, setShowArrival] = useState(false);
+  // "edit" deschide grupul, "print" lista de cazare — acelasi tipar ca in GroupsView.
+  const [groupModal, setGroupModal] = useState(null);
 
   const saveNewBillingCustomer = async (customer) => {
     if ((core.billingCustomers || []).some((c) => c.id === customer.id)) { setBillingCustomerId(customer.id); setBillingModalOpen(false); return; }
@@ -751,10 +758,10 @@ export function ReservationViewModal({ reservation, core, updateCore, groups, on
       </div>
 
       {editingGroup && (
-        <div className="group-banner">
+        <button type="button" className="group-banner group-banner-link" onClick={() => setGroupModal("edit")}>
           <UsersRound size={15} />
           <span>Face parte din grupul <strong>{editingGroup.name}</strong></span>
-        </div>
+        </button>
       )}
 
       {guest && (
@@ -819,6 +826,33 @@ export function ReservationViewModal({ reservation, core, updateCore, groups, on
             existingCustomers={core.billingCustomers || []}
             onSave={saveNewBillingCustomer}
             onClose={() => setBillingModalOpen(false)}
+          />
+        </div>
+      )}
+
+      {groupModal === "edit" && editingGroup && (
+        <div onClick={(e) => e.stopPropagation()}>
+          <GroupEditor
+            group={editingGroup}
+            core={core}
+            groups={groups}
+            updateGroups={updateGroups}
+            reservations={reservations}
+            updateReservations={updateReservations}
+            blocks={blocks}
+            onClose={() => setGroupModal(null)}
+            onPrint={() => setGroupModal("print")}
+          />
+        </div>
+      )}
+
+      {groupModal === "print" && editingGroup && (
+        <div onClick={(e) => e.stopPropagation()}>
+          <GroupPrint
+            group={editingGroup}
+            core={core}
+            reservations={reservations}
+            onClose={() => setGroupModal(null)}
           />
         </div>
       )}
@@ -1875,6 +1909,10 @@ export function TodayView({ core, updateCore, reservations, updateReservations, 
           core={core}
           updateCore={updateCore}
           groups={groups}
+          updateGroups={updateGroups}
+          reservations={reservations}
+          updateReservations={updateReservations}
+          blocks={blocks}
           onClose={() => setViewRes(null)}
           onEdit={() => { setEditRes(viewRes); setViewRes(null); }}
         />
