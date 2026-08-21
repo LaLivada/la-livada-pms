@@ -1703,16 +1703,21 @@ export function TodayView({ core, updateCore, reservations, updateReservations, 
       const ci = new Date(r.checkin), co = new Date(r.checkout);
       if (ci >= today && ci < tomorrow) arr.push(r);
       if (co >= today && co < tomorrow) dep.push(r);
-      if (r.status === "checkedin") ih.push(r);
-      /* Ocupata/incasata ASTAZI inseamna noaptea care incepe azi, nu orice
-         suprapunere cu ziua calendaristica de azi — acelasi prag ca la
-         dailyOccupancy din CalendarView ("ziua de plecare nu e o noapte
+      /* Ocupata/incasata/in-house ASTAZI inseamna noaptea care incepe azi,
+         nu orice suprapunere cu ziua calendaristica de azi — acelasi prag ca
+         la dailyOccupancy din CalendarView ("ziua de plecare nu e o noapte
          vanduta"). Cu ci/co brute (nu rotunjite la zi), o plecare de azi la
          ora 08:00 trecea testul (co > today) desi noaptea ei vanduta a fost
          ieri: "Venit azi" numara o rezervare care tocmai a plecat, si nu
          numara o sosire de azi decat daca soseste dupa miezul noptii — ceea
-         ce oricum se intampla, dar plecarile ramaneau numarate gresit. */
-      if (startOfDay(ci) <= today && startOfDay(co) > today) {
+         ce oricum se intampla, dar plecarile ramaneau numarate gresit.
+         Acelasi test opreste si "În house" sa numere un check-in facut cu
+         zile inainte (fereastra de 14 zile, vezi lib/tranzitii.js) pentru o
+         sosire care inca n-a ajuns — statusul e deja "checkedin", dar
+         camera nu e ocupata azi. */
+      const ocupaAzi = startOfDay(ci) <= today && startOfDay(co) > today;
+      if (r.status === "checkedin" && ocupaAzi) ih.push(r);
+      if (ocupaAzi) {
         occRooms.add(r.roomId);
         // Cota pe noapte din pretul REAL (inghetat/manual) al rezervarii,
         // nu un recalcul cu tarifele curente — altfel "Venit azi" nu se
