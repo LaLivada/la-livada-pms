@@ -7,6 +7,10 @@
     <link rel="icon" type="image/png" href="/background.png" />
     <link rel="apple-touch-icon" href="/background.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- Unealtă internă de recepție, nu conținut public — nu trebuie să
+         apară în căutări. public/robots.txt (Disallow: /) completează asta
+         pentru crawlere care ignoră meta tag-ul. -->
+    <meta name="robots" content="noindex, nofollow, noarchive, nosnippet, noimageindex" />
     <!-- Fonturile stateau intr-un @import in capul stilurilor. Un @import
          trebuie sa fie prima regula a fisierului CSS, ceea ce nu se poate
          garanta cand bundler-ul concateneaza mai multe fisiere — ar fi
