@@ -908,6 +908,26 @@ function Shell({ user, view, setView, onLogout, core, updateCore, reservations, 
     if (!mayView(view, user.role)) setView(homeView);
   }, [view, user.role, homeView, setView]);
 
+  // Fiecare ecran e lazy — la primul clic pe un meniu neîncărcat, Suspense
+  // așteaptă un fetch de rețea (1-2s pe conexiuni slabe). Pornim descărcarea
+  // modulelor pe fundal, cât timp browserul e liber, ca navigarea ulterioară
+  // să găsească chunk-ul deja în cache in loc să-l mai ceară.
+  useEffect(() => {
+    const prefetch = () => {
+      import("./features/rezervari.jsx");
+      import("./features/clienti.jsx");
+      import("./features/camere.jsx");
+      import("./features/facturare.jsx");
+      import("./features/setari.jsx");
+    };
+    if ("requestIdleCallback" in window) {
+      const id = window.requestIdleCallback(prefetch, { timeout: 3000 });
+      return () => window.cancelIdleCallback(id);
+    }
+    const id = setTimeout(prefetch, 1500);
+    return () => clearTimeout(id);
+  }, []);
+
   const safeView = mayView(view, user.role) ? view : homeView;
   const [title] = VIEW_TITLES[safeView] || ["", ""];
 
