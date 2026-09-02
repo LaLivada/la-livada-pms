@@ -18,6 +18,7 @@
 
   --role-ui: "Manrope", system-ui, sans-serif;
   --role-editorial: "Instrument Serif", "Iowan Old Style", Georgia, serif;
+  --role-photographic: "Inter Tight", "Helvetica Neue", Arial, sans-serif;
 
   --hdr-h: 4.25rem;
   --gutter: clamp(1.25rem, 5vw, 3.5rem);
@@ -47,9 +48,11 @@ body {
 
 /* ── Antet ──────────────────────────────────────────────────────────────
    Portat din components/SiteHeader.tsx: aceleași cinci linkuri, același
-   panou de telefon pe grupe. Fix, dar fără ascunderea la derulare a
-   originalului — pagina n-are un prim ecran de imagine sub care bara să
-   aibă motiv să dispară, deci partea aia din comportament n-a fost adusă.
+   panou de telefon pe grupe. Fix, fără ascunderea la derulare a
+   originalului (pagina e scurtă, n-are motiv să dispară) — dar CU starea
+   „peste fotografie": capul de pagină de mai jos e cât tot ecranul, ca la
+   /magnifique, deci bara pleacă transparentă și devine solidă abia după
+   ce fotografia a trecut (vezi `data-film`, pornit din booking/menu.js).
    CTA-ul duce spre formularul de mai jos (`#rezervari`), nu spre altă
    pagină: aici chiar suntem la unealta de rezervare. */
 .ldv-hdr {
@@ -62,7 +65,44 @@ body {
   background: rgba(245, 241, 232, 0.94);
   backdrop-filter: blur(16px);
   border-bottom: 1px solid rgba(63, 74, 61, 0.14);
+  transition: background 0.4s ease, border-color 0.4s ease;
 }
+.ldv-hdr[data-film="true"] {
+  background: transparent;
+  backdrop-filter: none;
+  border-bottom-color: transparent;
+}
+.ldv-hdr[data-film="true"] .ldv-hdr-mark img {
+  filter: brightness(0) invert(1) drop-shadow(0 0 2px rgba(34, 34, 31, 0.85))
+    drop-shadow(0 2px 14px rgba(34, 34, 31, 0.6));
+}
+.ldv-hdr[data-film="true"] .ldv-hdr-nav a {
+  color: var(--ivory);
+  text-shadow: 0 1px 12px rgba(34, 34, 31, 0.75);
+}
+.ldv-hdr[data-film="true"] .ldv-hdr-nav a:hover {
+  color: var(--ivory);
+}
+.ldv-hdr[data-film="true"] .ldv-hdr-toggle i {
+  background: var(--ivory);
+  box-shadow: 0 1px 10px rgba(34, 34, 31, 0.8);
+}
+@media (min-width: 1080px) {
+  .ldv-hdr[data-film="true"] .ldv-hdr-cta .ldv-btn {
+    border-color: rgba(245, 241, 232, 0.5);
+    color: var(--ivory);
+    text-shadow: 0 1px 12px rgba(34, 34, 31, 0.75);
+  }
+  .ldv-hdr[data-film="true"] .ldv-hdr-cta .ldv-btn:hover {
+    background: var(--ivory);
+    border-color: var(--ivory);
+    color: var(--charcoal);
+    text-shadow: none;
+  }
+}
+/* Bara peste panoul deschis: regulile astea stau după cele „peste
+   fotografie" fiindcă la specificitate egală câștigă ultima — altfel
+   filmul ar anula meniul deschis chiar dacă panoul e opac. */
 .ldv-hdr[data-open="true"] {
   background: var(--charcoal);
   backdrop-filter: none;
@@ -73,6 +113,7 @@ body {
 }
 .ldv-hdr[data-open="true"] .ldv-hdr-toggle i {
   background: var(--ivory);
+  box-shadow: none;
 }
 .ldv-hdr-in {
   position: relative;
@@ -433,43 +474,71 @@ body {
   border-color: var(--charcoal);
 }
 
-/* ── Corp ───────────────────────────────────────────────────────────── */
-.ldv-main {
-  padding-top: calc(var(--hdr-h) + clamp(1.75rem, 5vh, 3rem));
-  padding-bottom: clamp(3rem, 8vh, 5rem);
+/* ── Capul de pagină ────────────────────────────────────────────────────
+   Portat din PageHeader.tsx, varianta `night` + `plin` — cea folosită de
+   /magnifique: fotografie cât tot ecranul, voal adânc sus (pentru bară) și
+   la bază (pentru text), titlu cules în grotescul fin, împins spre baza
+   cadrului. Fotografia de aici e cea de la /cazare, nu cea a sălii — cerută
+   așa, nu preluată din pagină. */
+.ldv-phead {
+  position: relative;
+  isolation: isolate;
+  min-height: 100vh;
+  min-height: 100svh;
+  display: grid;
+  align-items: end;
+  overflow: hidden;
+  background: var(--charcoal);
 }
-.ldv-eyebrow {
-  display: flex;
-  align-items: baseline;
-  gap: 0.7rem;
-  margin: 0 0 1rem;
-  font-size: 0.7rem;
-  font-weight: 500;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  color: var(--olive);
+.ldv-phead-img {
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 65%;
 }
-.ldv-eyebrow::before {
+.ldv-phead::after {
   content: "";
-  width: 1.4rem;
-  height: 1px;
-  background: currentColor;
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background:
+    linear-gradient(to bottom, rgba(24, 24, 22, 0.62) 0, rgba(24, 24, 22, 0.56) 76px, rgba(24, 24, 22, 0) 22%),
+    linear-gradient(
+      to top,
+      rgba(24, 24, 22, 0.82) 0,
+      rgba(24, 24, 22, 0.68) 28rem,
+      rgba(24, 24, 22, 0.14) 40rem,
+      rgba(24, 24, 22, 0.14) 100%
+    );
+}
+.ldv-phead-in {
+  padding-block: var(--hdr-h) clamp(4rem, 10vh, 7rem);
+  display: grid;
+  gap: 1.15rem;
 }
 .ldv-h1 {
-  margin: 0 0 0.6rem;
-  font-family: var(--role-editorial);
-  font-weight: 400;
-  font-size: clamp(2rem, 1.5rem + 2vw, 2.9rem);
-  line-height: 1.05;
-  letter-spacing: -0.014em;
-  color: var(--charcoal);
+  margin: 0;
+  max-width: 16ch;
+  font-family: var(--role-photographic, "Inter Tight", sans-serif);
+  font-weight: 300;
+  font-size: clamp(2.3rem, 1.55rem + 3.4vw, 4.5rem);
+  line-height: 1.04;
+  letter-spacing: -0.025em;
+  color: var(--ivory);
+  text-shadow: 0 1px 24px rgba(24, 24, 22, 0.5);
 }
 .ldv-lede {
-  margin: 0 0 clamp(2rem, 5vh, 3rem);
+  margin: 0;
   max-width: 44ch;
   font-size: 1.05rem;
   line-height: 1.5;
-  color: rgba(34, 34, 31, 0.68);
+  color: var(--ivory);
+}
+.ldv-form-wrap {
+  padding-block: clamp(3rem, 8vh, 5rem);
 }
 /* ── Subsol ─────────────────────────────────────────────────────────────
    Portat din components/Footer.tsx: aceleași cinci coloane, același rând

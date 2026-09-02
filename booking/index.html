@@ -13,16 +13,18 @@
     <link rel="canonical" href="https://lalivada.ro/" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <!-- Aceleași două fonturi ca pe lalivada.ro: Instrument Serif pentru
-         titluri, Manrope pentru rest. Acolo vin din next/font (auto-hostate);
-         aici, din Google Fonts direct — cele două build-uri nu împart
-         un bundler, deci nu pot împărți nici fișierele de font. -->
+    <!-- Aceleași trei fonturi ca pe lalivada.ro: Instrument Serif pentru
+         titlurile obișnuite, Inter Tight 300 pentru titlul peste fotografie
+         (rolul „fotografic" — vezi capul de pagină), Manrope pentru rest.
+         Acolo vin din next/font (auto-hostate); aici, din Google Fonts
+         direct — cele două build-uri nu împart un bundler, deci nu pot
+         împărți nici fișierele de font. -->
     <link rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Manrope:wght@400;500&display=swap" />
+      href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter+Tight:wght@300&family=Manrope:wght@400;500&display=swap" />
     <link rel="stylesheet" href="./brand.css" />
   </head>
   <body>
-    <header class="ldv-hdr" data-open="false">
+    <header class="ldv-hdr" data-open="false" data-film="true">
       <div class="wrap ldv-hdr-in">
         <a class="ldv-hdr-mark" href="https://lalivada.ro/" aria-label="Complex La Livada — pagina de start">
           <img src="/brand/livada-text.svg" alt="La Livada" width="140" height="21" />
@@ -120,13 +122,22 @@
       </div>
     </header>
 
-    <main class="ldv-main">
-      <div class="wrap">
-        <p class="ldv-eyebrow">Rezervare directă</p>
-        <h1 class="ldv-h1">Rezervă direct</h1>
-        <p class="ldv-lede">Fără comision de intermediar.</p>
-      </div>
-      <div class="wrap">
+    <main>
+      <section class="ldv-phead">
+        <img class="ldv-phead-img"
+          src="/foto/cazare-camera-la-livada-vaslui.webp"
+          srcset="/foto/cazare-camera-la-livada-vaslui-400.webp 400w,
+                  /foto/cazare-camera-la-livada-vaslui-800.webp 800w,
+                  /foto/cazare-camera-la-livada-vaslui.webp 1600w"
+          sizes="100vw"
+          alt="Cameră de cazare la Complex La Livada"
+          fetchpriority="high" />
+        <div class="wrap ldv-phead-in">
+          <h1 class="ldv-h1">Rezervă direct</h1>
+          <p class="ldv-lede">Fără comision de intermediar.</p>
+        </div>
+      </section>
+      <div class="wrap ldv-form-wrap">
         <div id="rezervari"></div>
       </div>
     </main>
