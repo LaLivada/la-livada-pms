@@ -49,10 +49,10 @@ body {
 /* ── Antet ──────────────────────────────────────────────────────────────
    Portat din components/SiteHeader.tsx: aceleași cinci linkuri, același
    panou de telefon pe grupe. Fix, fără ascunderea la derulare a
-   originalului (pagina e scurtă, n-are motiv să dispară). Capul de pagină
-   de mai jos e varianta obișnuită („editorial"), nu cea cât tot ecranul —
-   pe site, doar aia din urmă face bara transparentă (vezi gate-ul din
-   SiteHeader.tsx), deci aici bara rămâne solidă tot timpul, ca pe /cazare.
+   originalului (pagina e scurtă, n-are motiv să dispară) — dar CU starea
+   „peste fotografie": capul de pagină de mai jos e cât tot ecranul, ca la
+   /magnifique, deci bara pleacă transparentă și devine solidă abia după
+   ce fotografia a trecut (vezi `data-film`, pornit din booking/menu.js).
    CTA-ul duce spre formularul de mai jos (`#rezervari`), nu spre altă
    pagină: aici chiar suntem la unealta de rezervare. */
 .ldv-hdr {
@@ -67,6 +67,42 @@ body {
   border-bottom: 1px solid rgba(63, 74, 61, 0.14);
   transition: background 0.4s ease, border-color 0.4s ease;
 }
+.ldv-hdr[data-film="true"] {
+  background: transparent;
+  backdrop-filter: none;
+  border-bottom-color: transparent;
+}
+.ldv-hdr[data-film="true"] .ldv-hdr-mark img {
+  filter: brightness(0) invert(1) drop-shadow(0 0 2px rgba(34, 34, 31, 0.85))
+    drop-shadow(0 2px 14px rgba(34, 34, 31, 0.6));
+}
+.ldv-hdr[data-film="true"] .ldv-hdr-nav a {
+  color: var(--ivory);
+  text-shadow: 0 1px 12px rgba(34, 34, 31, 0.75);
+}
+.ldv-hdr[data-film="true"] .ldv-hdr-nav a:hover {
+  color: var(--ivory);
+}
+.ldv-hdr[data-film="true"] .ldv-hdr-toggle i {
+  background: var(--ivory);
+  box-shadow: 0 1px 10px rgba(34, 34, 31, 0.8);
+}
+@media (min-width: 1080px) {
+  .ldv-hdr[data-film="true"] .ldv-hdr-cta .ldv-btn {
+    border-color: rgba(245, 241, 232, 0.5);
+    color: var(--ivory);
+    text-shadow: 0 1px 12px rgba(34, 34, 31, 0.75);
+  }
+  .ldv-hdr[data-film="true"] .ldv-hdr-cta .ldv-btn:hover {
+    background: var(--ivory);
+    border-color: var(--ivory);
+    color: var(--charcoal);
+    text-shadow: none;
+  }
+}
+/* Bara peste panoul deschis: regulile astea stau după cele „peste
+   fotografie" fiindcă la specificitate egală câștigă ultima — altfel
+   filmul ar anula meniul deschis chiar dacă panoul e opac. */
 .ldv-hdr[data-open="true"] {
   background: var(--charcoal);
   backdrop-filter: none;
@@ -439,14 +475,20 @@ body {
 }
 
 /* ── Capul de pagină ────────────────────────────────────────────────────
-   Portat din PageHeader.tsx, varianta obișnuită („editorial") — cea de pe
-   /cazare, nu cea de pe /magnifique: fotografie cu voal oliv, nu cadru cât
-   tot ecranul. Fotografia și textul sunt chiar cele de pe /cazare. */
+   Portat din PageHeader.tsx, varianta `night` + `plin` — cea de pe
+   /magnifique: cadru cât tot ecranul, voal adânc sus (pentru bară) și la
+   bază (pentru text), titlu în grotescul fin, împins spre baza cadrului.
+   Fotografia și textul sunt cele de la /cazare — cerute separat de
+   variantă. */
 .ldv-phead {
   position: relative;
   isolation: isolate;
+  min-height: 100vh;
+  min-height: 100svh;
+  display: grid;
+  align-items: end;
   overflow: hidden;
-  background: var(--olive-deep);
+  background: var(--charcoal);
 }
 .ldv-phead-img {
   position: absolute;
@@ -462,27 +504,31 @@ body {
   position: absolute;
   inset: 0;
   z-index: -1;
-  background: linear-gradient(
-    to bottom,
-    rgba(42, 51, 42, 0.9) 0%,
-    rgba(42, 51, 42, 0.68) 48%,
-    rgba(42, 51, 42, 0.9) 100%
-  );
+  background:
+    linear-gradient(to bottom, rgba(24, 24, 22, 0.62) 0, rgba(24, 24, 22, 0.56) 76px, rgba(24, 24, 22, 0) 22%),
+    linear-gradient(
+      to top,
+      rgba(24, 24, 22, 0.82) 0,
+      rgba(24, 24, 22, 0.68) 28rem,
+      rgba(24, 24, 22, 0.14) 40rem,
+      rgba(24, 24, 22, 0.14) 100%
+    );
 }
 .ldv-phead-in {
-  padding-block: clamp(7.5rem, 20vh, 12rem) clamp(3.5rem, 9vh, 6rem);
+  padding-block: var(--hdr-h) clamp(4rem, 10vh, 7rem);
   display: grid;
   gap: 1.15rem;
 }
 .ldv-h1 {
   margin: 0;
-  max-width: 17ch;
-  font-family: var(--role-editorial);
-  font-weight: 400;
+  max-width: 16ch;
+  font-family: var(--role-photographic, "Inter Tight", sans-serif);
+  font-weight: 300;
   font-size: clamp(2.3rem, 1.55rem + 3.4vw, 4.5rem);
-  line-height: 1.06;
-  letter-spacing: -0.014em;
+  line-height: 1.04;
+  letter-spacing: -0.025em;
   color: var(--ivory);
+  text-shadow: 0 1px 24px rgba(24, 24, 22, 0.5);
 }
 .ldv-lede {
   margin: 0;
@@ -497,9 +543,8 @@ body {
 
 /* ── Semnul de derulare ─────────────────────────────────────────────────
    O linie verticală, ca pe primul ecran al site-ului (`.hero-cue`): apare
-   crescând, o dată, apoi pulsează încet — site-ul n-are nevoie de pulsul
-   ăsta fiindcă filmul de-acolo ocupă tot ecranul; pagina noastră e mai
-   scundă, deci semnul are nevoie de puțin plus ca să nu treacă neobservat. */
+   crescând, o dată, apoi pulsează încet — pulsul e în plus față de site,
+   care nu are nevoie de el pe filmul de pe prima pagină. */
 .ldv-cue {
   position: absolute;
   z-index: 3;

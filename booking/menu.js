@@ -51,4 +51,17 @@
   panel.querySelectorAll("a").forEach(function (a) {
     a.addEventListener("click", function () { setOpen(false); });
   });
+
+  // Bara peste fotografie: transparentă cât capul de pagină (cât tot
+  // ecranul) e sub ea, solidă după — pragul e înălțimea fotografiei minus
+  // înălțimea barei, ca în SiteHeader.tsx.
+  var phead = document.querySelector(".ldv-phead");
+  if (phead) {
+    var gate = Math.max(0, phead.offsetHeight - header.offsetHeight);
+    var onScroll = function () {
+      header.dataset.film = window.scrollY <= gate ? "true" : "false";
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    onScroll();
+  }
 })();
