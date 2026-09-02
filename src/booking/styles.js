@@ -39,6 +39,9 @@ export const STILURI = `
   max-width:760px;
   margin:0 auto;
   box-sizing:border-box;
+  /* La schimbarea pasului (vezi App.jsx), cardul e adus la vedere cu
+     scrollIntoView — fără marja asta ar ateriza chiar sub bara fixă. */
+  scroll-margin-top:calc(var(--hdr-h, 4.25rem) + 1rem);
 }
 .ldv *,.ldv *::before,.ldv *::after{ box-sizing:border-box; }
 

@@ -25,7 +25,7 @@
  * (?checkin=…&checkout=…&adults=…&children=…), ca să poată fi lansată
  * dintr-un formular scurt aflat pe altă pagină.
  */
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   cautaDisponibilitate, creeazaRezervare, citesteRezervare, citesteCapacitatea,
   anuleazaRezervare, trimiteEmailConfirmare, COD_INDISPONIBIL,
@@ -152,6 +152,17 @@ export default function App({ valoriInitiale }) {
       .then((d) => d && setCapacitate(d))
       .catch(() => { /* selectoarele raman la minimul implicit */ });
   }, []);
+
+  /* La trecerea la un pas nou, browserul păstrează poziția de scroll de la
+     pasul anterior — dacă cineva alege o cameră derulat jos în „Camerele",
+     ajunge pe „Datele tale" tot jos, sub primele câmpuri, nu la începutul
+     cardului. Aducem cardul la vedere la fiecare schimbare de pas, dar nu
+     și la montare (`intaiRandare`), ca pagina să nu sară singură la deschidere. */
+  const intaiRandare = useRef(true);
+  useEffect(() => {
+    if (intaiRandare.current) { intaiRandare.current = false; return; }
+    document.querySelector(".ldv")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [stare]);
 
   const maxPers  = Number(capacitate?.maxGuests) || 2;
   const maxCopii = Math.max(0, maxPers - cautare.adulti);
