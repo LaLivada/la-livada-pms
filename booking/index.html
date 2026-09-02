@@ -158,8 +158,11 @@
             if (!v) return;
             var p = window.matchMedia("(max-width: 700px), (orientation: portrait)").matches;
             v.setAttribute("poster", p ? v.dataset.posterPortrait : v.dataset.posterLandscape);
+            // Cerut explicit de Ovidiu: filmul pornește indiferent de Reduce
+            // Motion — spre deosebire de lalivada.ro, care respectă setarea.
+            // Rămâne doar reducerea pe economie de date (Low Data Mode).
             var c = navigator.connection || {};
-            if (window.matchMedia("(prefers-reduced-motion: reduce)").matches || c.saveData === true) {
+            if (c.saveData === true) {
               v.setAttribute("data-still", "true");
               v.removeAttribute("autoplay");
               v.preload = "none";

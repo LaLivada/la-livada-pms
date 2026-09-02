@@ -594,12 +594,8 @@ body {
     opacity: 0;
   }
 }
-@media (prefers-reduced-motion: reduce) {
-  .ldv-cue,
-  .ldv-cue::after {
-    animation: none;
-  }
-}
+/* Cerut explicit de Ovidiu: punctul de derulare animă mereu, indiferent
+   de Reduce Motion — nu mai are pauza pentru reduced-motion de mai sus. */
 /* ── Subsol ─────────────────────────────────────────────────────────────
    Portat din components/Footer.tsx: aceleași cinci coloane, același rând
    de jos cu legal și rețele, și aceeași firmă mascată, cât toată lățimea,
