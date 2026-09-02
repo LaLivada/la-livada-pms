@@ -542,9 +542,12 @@ body {
 }
 
 /* ── Semnul de derulare ─────────────────────────────────────────────────
-   O linie verticală, ca pe primul ecran al site-ului (`.hero-cue`): apare
-   crescând, o dată, apoi pulsează încet — pulsul e în plus față de site,
-   care nu are nevoie de el pe filmul de pe prima pagină. */
+   Portat din `.hero-cue` de pe prima pagină a site-ului (linia verticală),
+   dar cu un plus cerut aici: site-ul o lasă statică după ce apare o dată,
+   fiindcă filmul de pe prima pagină ocupă tot ecranul şi contextul e
+   limpede. Pagina noastră are nevoie să spună limpede „poţi derula" — deci
+   şina rămâne fixă, iar un punct luminos coboară pe ea, la nesfârşit, ca
+   un indiciu de mouse-scroll. */
 .ldv-cue {
   position: absolute;
   z-index: 3;
@@ -552,29 +555,48 @@ body {
   bottom: 1.5rem;
   width: 1px;
   height: clamp(1.8rem, 4.5vh, 2.6rem);
-  background: rgba(245, 241, 232, 0.9);
-  box-shadow: 0 0 12px rgba(24, 24, 22, 0.85);
+  background: rgba(245, 241, 232, 0.3);
   pointer-events: none;
   transform-origin: top center;
-  animation: ldv-cue-grow 1.1s cubic-bezier(0.19, 1, 0.22, 1) 0.4s backwards,
-    ldv-cue-pulse 2.2s ease-in-out 1.5s infinite;
+  animation: ldv-cue-grow 1.1s cubic-bezier(0.19, 1, 0.22, 1) 0.4s backwards;
+}
+.ldv-cue::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 0;
+  width: 5px;
+  height: 5px;
+  margin-left: -2px;
+  border-radius: 50%;
+  background: var(--ivory);
+  box-shadow: 0 0 10px rgba(24, 24, 22, 0.9);
+  animation: ldv-cue-travel 1.9s ease-in-out 1.5s infinite;
 }
 @keyframes ldv-cue-grow {
   from {
     transform: scaleY(0);
   }
 }
-@keyframes ldv-cue-pulse {
-  0%,
-  100% {
+@keyframes ldv-cue-travel {
+  0% {
+    top: 0;
+    opacity: 0;
+  }
+  20% {
     opacity: 1;
   }
-  50% {
-    opacity: 0.35;
+  80% {
+    opacity: 1;
+  }
+  100% {
+    top: 100%;
+    opacity: 0;
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .ldv-cue {
+  .ldv-cue,
+  .ldv-cue::after {
     animation: none;
   }
 }

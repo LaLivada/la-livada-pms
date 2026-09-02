@@ -6,11 +6,23 @@
     <link rel="icon" type="image/png" sizes="32x32" href="/brand/favicon-32.png" />
     <link rel="icon" type="image/png" sizes="16x16" href="/brand/favicon-16.png" />
     <link rel="apple-touch-icon" href="/brand/apple-touch-icon.png" />
-    <title>Rezervări · La Livada</title>
-    <meta name="description" content="Verifică disponibilitatea și rezervă direct la Complex La Livada, fără comision de intermediar." />
-    <!-- Pagina e o unealtă de rezervare, nu conținut de indexat; canonical
-         trimite spre site-ul principal ca să nu concureze cu el în căutări. -->
-    <link rel="canonical" href="https://lalivada.ro/" />
+    <title>Cazare Vaslui - La Livada | Tiny houses și loft-uri</title>
+    <meta name="description" content="Cazare la Complex La Livada, Vaslui — 2 loft-uri și 14 Tiny houses, la câțiva metri de sălile de evenimente. Rezervă direct, fără comision de intermediar." />
+    <!-- Spre deosebire de PMS (pms.lalivada.ro, cu noindex), pagina asta
+         chiar trebuie indexată — canonical spre ea însăși, nu spre
+         lalivada.ro. robots.txt e separat de-al PMS-ului (vezi
+         vite.booking.config.js și public-booking/robots.txt), altfel
+         Disallow-ul de-acolo ar fi blocat-o și pe asta. -->
+    <link rel="canonical" href="https://rezervari.lalivada.ro/" />
+    <meta name="robots" content="index, follow" />
+    <meta property="og:type" content="website" />
+    <meta property="og:locale" content="ro_RO" />
+    <meta property="og:site_name" content="Complex La Livada" />
+    <meta property="og:title" content="Cazare Vaslui - La Livada | Tiny houses și loft-uri" />
+    <meta property="og:description" content="Cazare la Complex La Livada, Vaslui — 2 loft-uri și 14 Tiny houses, la câțiva metri de sălile de evenimente. Rezervă direct, fără comision de intermediar." />
+    <meta property="og:url" content="https://rezervari.lalivada.ro/" />
+    <meta property="og:image" content="https://rezervari.lalivada.ro/film/poster.jpg" />
+    <meta name="twitter:card" content="summary_large_image" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <!-- Aceleași trei fonturi ca pe lalivada.ro: Instrument Serif pentru
@@ -124,18 +136,41 @@
 
     <main>
       <section class="ldv-phead">
-        <img class="ldv-phead-img"
-          src="/foto/cazare-camera-la-livada-vaslui.webp"
-          srcset="/foto/cazare-camera-la-livada-vaslui-400.webp 400w,
-                  /foto/cazare-camera-la-livada-vaslui-800.webp 800w,
-                  /foto/cazare-camera-la-livada-vaslui.webp 1600w"
-          sizes="100vw"
-          alt="Cameră de cazare la Complex La Livada"
-          fetchpriority="high" />
+        <!-- Același film ca pe prima pagină a lalivada.ro (hero-desktop/
+             hero-mobile.mp4) — comprimat exact cum e comprimat acolo,
+             fiindcă sunt literalmente aceleași fișiere. Sursele stau în
+             marcaj, nu se pun din script: pe iOS, un element gol în clipa
+             în care Safari hotărăște dacă are voie să pornească singur
+             pierde dreptul definitiv — vezi booking/film.js. -->
+        <video id="ldv-film" class="ldv-phead-img"
+          autoplay muted loop playsinline preload="metadata"
+          poster="/film/poster.jpg"
+          data-video-landscape="/film/hero-desktop.mp4"
+          data-poster-landscape="/film/poster.jpg"
+          data-video-portrait="/film/hero-mobile.mp4"
+          data-poster-portrait="/film/poster-mobile.jpg">
+          <source src="/film/hero-mobile.mp4" type="video/mp4" media="(max-width: 700px), (orientation: portrait)" />
+          <source src="/film/hero-desktop.mp4" type="video/mp4" />
+        </video>
+        <script>
+          (function () {
+            var v = document.getElementById("ldv-film");
+            if (!v) return;
+            var p = window.matchMedia("(max-width: 700px), (orientation: portrait)").matches;
+            v.setAttribute("poster", p ? v.dataset.posterPortrait : v.dataset.posterLandscape);
+            var c = navigator.connection || {};
+            if (window.matchMedia("(prefers-reduced-motion: reduce)").matches || c.saveData === true) {
+              v.setAttribute("data-still", "true");
+              v.removeAttribute("autoplay");
+              v.preload = "none";
+              while (v.firstChild) v.removeChild(v.firstChild);
+            }
+          })();
+        </script>
         <div class="ldv-cue" aria-hidden="true"></div>
         <div class="wrap ldv-phead-in">
-          <h1 class="ldv-h1">16 unități de cazare, la câțiva metri de sală.</h1>
-          <p class="ldv-lede">Două loft-uri și paisprezece camere, în aceeași curte cu sălile de evenimente. Toate au baie proprie, aer condiționat și terasă.</p>
+          <h1 class="ldv-h1">Cazare Tiny houses</h1>
+          <p class="ldv-lede">LA LIVADA - Vaslui</p>
         </div>
       </section>
       <div class="wrap ldv-form-wrap">
@@ -210,6 +245,7 @@
       })();
     </script>
     <script type="module" src="./menu.js"></script>
+    <script type="module" src="./film.js"></script>
 
     <script type="module" src="./main.jsx"></script>
   </body>

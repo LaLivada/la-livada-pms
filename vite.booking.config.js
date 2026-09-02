@@ -17,7 +17,11 @@ export default defineConfig({
   // .env stă în rădăcina proiectului, nu în booking/ — fără asta,
   // VITE_SUPABASE_* nu ajung în bundle și aplicația pornește fără backend.
   envDir: process.cwd(),
-  publicDir: resolve(process.cwd(), "public"),
+  // Propriul folder public, nu cel al PMS-ului: PMS e privat (robots.txt
+  // cu Disallow: /, vezi public/robots.txt), iar rezervari.lalivada.ro
+  // trebuie indexat — un singur folder comun n-ar putea da fiecărui
+  // build robots.txt-ul lui.
+  publicDir: resolve(process.cwd(), "public-booking"),
   build: {
     outDir: resolve(process.cwd(), "dist-booking"),
     emptyOutDir: true,
