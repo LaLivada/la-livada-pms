@@ -46,10 +46,12 @@ body {
 }
 
 /* ── Antet ──────────────────────────────────────────────────────────────
-   Fix, ca pe site, dar fără ascunderea la derulare: pagina e o singură
-   unealtă, scurtă, deci bara nu are de ce să dispară — și ar fi încă un
-   fișier de JavaScript de întreținut pentru un beneficiu care nu se simte
-   aici. */
+   Portat din components/SiteHeader.tsx: aceleași cinci linkuri, același
+   panou de telefon pe grupe. Fix, dar fără ascunderea la derulare a
+   originalului — pagina n-are un prim ecran de imagine sub care bara să
+   aibă motiv să dispară, deci partea aia din comportament n-a fost adusă.
+   CTA-ul duce spre formularul de mai jos (`#rezervari`), nu spre altă
+   pagină: aici chiar suntem la unealta de rezervare. */
 .ldv-hdr {
   position: fixed;
   inset: 0 0 auto 0;
@@ -61,7 +63,20 @@ body {
   backdrop-filter: blur(16px);
   border-bottom: 1px solid rgba(63, 74, 61, 0.14);
 }
+.ldv-hdr[data-open="true"] {
+  background: var(--charcoal);
+  backdrop-filter: none;
+  border-bottom-color: transparent;
+}
+.ldv-hdr[data-open="true"] .ldv-hdr-mark img {
+  filter: brightness(0) invert(1);
+}
+.ldv-hdr[data-open="true"] .ldv-hdr-toggle i {
+  background: var(--ivory);
+}
 .ldv-hdr-in {
+  position: relative;
+  z-index: 2;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -72,12 +87,14 @@ body {
   display: flex;
   align-items: center;
   flex: 0 0 auto;
+  min-height: 44px;
 }
 .ldv-hdr-mark img {
   height: 1.3rem;
   width: auto;
   /* Firma e aurie (#CEA446) — pe ivoriu, cules în cerneală, ca pe site. */
   filter: brightness(0) invert(0.12);
+  transition: filter 0.2s ease;
 }
 .ldv-hdr-nav {
   display: none;
@@ -85,31 +102,335 @@ body {
   gap: clamp(1.1rem, 2.4vw, 2rem);
 }
 .ldv-hdr-nav a {
+  position: relative;
   font-size: 0.72rem;
   font-weight: 500;
   letter-spacing: 0.13em;
   text-transform: uppercase;
   text-decoration: none;
   color: rgba(34, 34, 31, 0.66);
+  padding-block: 0.5rem;
   transition: color 0.2s ease;
+}
+.ldv-hdr-nav a::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0.25rem;
+  height: 1px;
+  background: currentColor;
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.24s ease-out;
 }
 .ldv-hdr-nav a:hover {
   color: var(--olive);
 }
-.ldv-hdr-phone {
-  display: none;
-  font-size: 0.78rem;
-  font-weight: 500;
-  letter-spacing: 0.03em;
-  text-decoration: none;
-  color: var(--olive);
-  white-space: nowrap;
+.ldv-hdr-nav a:hover::after {
+  transform: scaleX(1);
 }
-@media (min-width: 860px) {
+.ldv-hdr-cta {
+  display: none;
+}
+@media (min-width: 1080px) {
   .ldv-hdr-nav,
-  .ldv-hdr-phone {
+  .ldv-hdr-cta {
     display: flex;
   }
+  .ldv-hdr-cta .ldv-btn {
+    min-height: 2.6rem;
+    padding-inline: 1.1rem;
+    font-size: 0.68rem;
+    background: transparent;
+    border-color: rgba(63, 74, 61, 0.35);
+    color: var(--olive);
+  }
+  .ldv-hdr-cta .ldv-btn::before {
+    background: var(--olive);
+  }
+  .ldv-hdr-cta .ldv-btn:hover {
+    color: var(--ivory);
+    border-color: var(--olive);
+  }
+}
+
+/* ── Butonul hamburger ──────────────────────────────────────────────── */
+.ldv-hdr-toggle {
+  display: inline-flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-end;
+  gap: 5px;
+  width: 2.75rem;
+  height: 2.75rem;
+  padding: 0;
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+.ldv-hdr-toggle i {
+  display: block;
+  width: 1.4rem;
+  height: 1px;
+  background: var(--charcoal);
+  transition: transform 0.3s ease, opacity 0.2s ease, background 0.2s ease;
+}
+.ldv-hdr-toggle[aria-expanded="true"] i:nth-child(1) {
+  transform: translateY(6px) rotate(45deg);
+}
+.ldv-hdr-toggle[aria-expanded="true"] i:nth-child(2) {
+  opacity: 0;
+}
+.ldv-hdr-toggle[aria-expanded="true"] i:nth-child(3) {
+  transform: translateY(-6px) rotate(-45deg);
+}
+@media (min-width: 1080px) {
+  .ldv-hdr-toggle,
+  .ldv-hdr-panel {
+    display: none;
+  }
+}
+
+/* ── Panoul de pe telefon ───────────────────────────────────────────────
+   `absolute`, nu `fixed`: bara e fixată în colțul de sus și devine ea
+   însăși sistemul de referință pentru un descendent poziționat — deci
+   `inset:0` de aici se așază pe ecran, nu pe caseta barei. */
+.ldv-hdr-panel {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100vh;
+  height: 100svh;
+  z-index: 1;
+  background: var(--charcoal);
+  color: var(--ivory);
+  padding-top: var(--hdr-h);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.35s ease, visibility 0s linear 0.35s;
+}
+.ldv-hdr-panel[data-open="true"] {
+  opacity: 1;
+  visibility: visible;
+  transition: opacity 0.35s ease, visibility 0s;
+}
+.ldv-hdr-panel-in {
+  min-height: 100%;
+  display: grid;
+  grid-template-rows: auto 1fr;
+  align-content: start;
+}
+.ldv-hdr-groups {
+  --menu-indent: clamp(2.2rem, 9vw, 2.9rem);
+  display: grid;
+  align-content: start;
+}
+.ldv-hdr-group {
+  border-bottom: 1px solid rgba(245, 241, 232, 0.14);
+}
+.ldv-hdr-group:first-child {
+  border-top: 1px solid rgba(245, 241, 232, 0.14);
+}
+.ldv-hdr-group-head,
+.ldv-hdr-group--flat {
+  display: grid;
+  grid-template-columns: var(--menu-indent) 1fr;
+  grid-template-areas: "n name" ". kicker";
+  align-items: baseline;
+  row-gap: 0.4rem;
+  width: 100%;
+  padding-block: clamp(0.95rem, 2.8vh, 1.45rem);
+  background: none;
+  border: 0;
+  text-align: left;
+  text-decoration: none;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+}
+.ldv-hdr-group-n {
+  grid-area: n;
+  font-family: var(--role-editorial);
+  font-style: italic;
+  font-size: 0.95rem;
+  line-height: 1;
+  color: rgba(245, 241, 232, 0.4);
+}
+.ldv-hdr-group-name {
+  grid-area: name;
+  font-family: var(--role-editorial);
+  font-size: clamp(2rem, 1.3rem + 3.2vw, 2.9rem);
+  line-height: 1;
+  letter-spacing: -0.015em;
+  color: var(--ivory);
+}
+.ldv-hdr-group-kicker {
+  grid-area: kicker;
+  font-size: 0.7rem;
+  letter-spacing: 0.17em;
+  text-transform: uppercase;
+  color: rgba(245, 241, 232, 0.55);
+}
+.ldv-hdr-group-head {
+  position: relative;
+}
+.ldv-hdr-group-head::before,
+.ldv-hdr-group-head::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  top: 50%;
+  width: 0.85rem;
+  height: 1px;
+  background: rgba(245, 241, 232, 0.6);
+  transition: transform 0.35s ease-out;
+}
+.ldv-hdr-group-head::after {
+  transform: rotate(90deg);
+}
+.ldv-hdr-group[data-open="true"] .ldv-hdr-group-head::after {
+  transform: rotate(0deg);
+}
+.ldv-hdr-sub {
+  display: grid;
+  grid-template-rows: 0fr;
+  visibility: hidden;
+  transition: grid-template-rows 0.45s ease-out, visibility 0s linear 0.45s;
+}
+.ldv-hdr-group[data-open="true"] .ldv-hdr-sub {
+  grid-template-rows: 1fr;
+  visibility: visible;
+  transition: grid-template-rows 0.45s ease-out, visibility 0s;
+}
+.ldv-hdr-sub-in {
+  min-height: 0;
+  overflow: hidden;
+}
+.ldv-hdr-sub a {
+  display: block;
+  padding: 0.62rem 0 0.62rem var(--menu-indent);
+  font-size: 1rem;
+  text-decoration: none;
+  color: rgba(245, 241, 232, 0.78);
+}
+.ldv-hdr-sub a:last-child {
+  padding-bottom: 1.15rem;
+}
+.ldv-hdr-foot {
+  align-self: end;
+  display: grid;
+  justify-items: start;
+  gap: 1.3rem;
+  padding-block: clamp(1.8rem, 5vh, 2.6rem);
+}
+.ldv-hdr-foot .ldv-btn {
+  background: var(--olive);
+  border-color: var(--olive);
+  color: var(--ivory);
+}
+.ldv-hdr-foot .ldv-btn::before {
+  background: var(--champagne);
+}
+.ldv-hdr-foot .ldv-btn:hover {
+  color: var(--charcoal);
+  border-color: var(--champagne);
+}
+.ldv-hdr-util {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem 1.35rem;
+  font-size: 0.78rem;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+}
+.ldv-hdr-util a {
+  color: rgba(245, 241, 232, 0.62);
+  text-decoration: none;
+}
+.ldv-hdr-util--social {
+  margin-top: -0.55rem;
+  font-size: 0.72rem;
+}
+.ldv-hdr-util--social a {
+  color: rgba(245, 241, 232, 0.42);
+}
+@media (min-width: 700px) {
+  .ldv-hdr-group-head,
+  .ldv-hdr-group--flat {
+    padding-block: clamp(1.4rem, 3.4vh, 2.2rem);
+  }
+}
+/* Cuprinsul intră de sus în jos, patru pași cât ține deschiderea panoului. */
+.ldv-hdr-panel[data-open="true"] .ldv-hdr-group {
+  animation: ldv-menu-row 0.5s cubic-bezier(0.19, 1, 0.22, 1) backwards;
+}
+.ldv-hdr-panel[data-open="true"] .ldv-hdr-group:nth-child(1) {
+  animation-delay: 0.05s;
+}
+.ldv-hdr-panel[data-open="true"] .ldv-hdr-group:nth-child(2) {
+  animation-delay: 0.11s;
+}
+.ldv-hdr-panel[data-open="true"] .ldv-hdr-group:nth-child(3) {
+  animation-delay: 0.17s;
+}
+.ldv-hdr-panel[data-open="true"] .ldv-hdr-group:nth-child(n + 4) {
+  animation-delay: 0.23s;
+}
+.ldv-hdr-panel[data-open="true"] .ldv-hdr-foot {
+  animation: ldv-menu-row 0.5s cubic-bezier(0.19, 1, 0.22, 1) 0.29s backwards;
+}
+@keyframes ldv-menu-row {
+  from {
+    opacity: 0;
+    transform: translateY(0.7rem);
+  }
+}
+
+/* ── Buton reutilizat în antet (CTA + panou) ────────────────────────────
+   Aceeași umplere din stânga ca `.ldv-btn` din formular (styles.js), dar
+   declarată separat: antetul e static, în afara arborelui React unde
+   trăiește formularul, deci nu-i poate moșteni stilurile. */
+.ldv-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: 2.9rem;
+  padding: 0 1.4rem;
+  background: var(--olive);
+  color: var(--ivory);
+  border: 1px solid var(--olive);
+  border-radius: 3px;
+  font-size: 0.72rem;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  text-decoration: none;
+  cursor: pointer;
+  overflow: hidden;
+  isolation: isolate;
+  transition: color 0.2s ease, border-color 0.2s ease;
+}
+.ldv-btn::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: var(--charcoal);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.ldv-btn:hover::before {
+  transform: scaleX(1);
+}
+.ldv-btn:hover {
+  border-color: var(--charcoal);
 }
 
 /* ── Corp ───────────────────────────────────────────────────────────── */
@@ -164,60 +485,158 @@ body {
   color: var(--olive);
 }
 
-/* ── Subsol ─────────────────────────────────────────────────────────── */
+/* ── Subsol ─────────────────────────────────────────────────────────────
+   Portat din components/Footer.tsx: aceleași cinci coloane, același rând
+   de jos cu legal și rețele, și aceeași firmă mascată, cât toată lățimea,
+   la capătul paginii. */
 .ldv-ftr {
   background: var(--charcoal);
   color: var(--ivory);
 }
 .ldv-ftr-in {
-  padding-block: clamp(2.5rem, 7vh, 4rem) clamp(1.5rem, 4vh, 2rem);
+  padding-block: clamp(3rem, 6vw, 4.5rem) 1.5rem;
+}
+.ldv-ftr a {
+  text-decoration: none;
+}
+.ldv-ftr-top {
+  display: grid;
+  gap: clamp(2.25rem, 4vw, 3rem);
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr));
+}
+@media (max-width: 719px) {
+  .ldv-ftr-top {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: clamp(1.25rem, 5vw, 2rem);
+    row-gap: clamp(1.9rem, 5vw, 2.5rem);
+  }
+  .ldv-ftr-col:nth-child(1),
+  .ldv-ftr-col:nth-child(4),
+  .ldv-ftr-col:nth-child(5) {
+    grid-column: 1 / -1;
+  }
+  .ldv-ftr-col:nth-child(4) {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.4rem clamp(0.4rem, 1.9vw, 0.95rem);
+  }
+  .ldv-ftr-col:nth-child(4) p.label {
+    flex: 1 0 100%;
+    margin-bottom: 0;
+  }
+  .ldv-ftr-col:nth-child(4) a {
+    white-space: nowrap;
+  }
+}
+@media (min-width: 1000px) {
+  .ldv-ftr-top {
+    grid-template-columns: 1.35fr repeat(4, minmax(0, 1fr));
+  }
 }
 .ldv-ftr-promise {
-  margin: 0 0 clamp(1.75rem, 5vh, 2.75rem);
-  max-width: 30ch;
+  margin: 0;
+  max-width: 13ch;
   font-family: var(--role-editorial);
-  font-size: clamp(1.4rem, 1.1rem + 1.2vw, 1.9rem);
-  line-height: 1.15;
+  font-weight: 400;
+  font-size: clamp(1.5rem, 1.2rem + 1.7vw, 2.1rem);
+  line-height: 1.06;
+  letter-spacing: -0.014em;
   color: var(--ivory);
 }
-.ldv-ftr-cols {
+.ldv-ftr-col {
   display: grid;
-  gap: 1.75rem;
-  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
-  padding-bottom: clamp(1.75rem, 5vh, 2.5rem);
-  border-bottom: 1px solid rgba(245, 241, 232, 0.14);
+  gap: 0.5rem;
+  align-content: start;
 }
-.ldv-ftr-cols .label {
+.ldv-ftr-col p.label {
   display: flex;
   align-items: baseline;
   gap: 0.6rem;
-  margin: 0 0 0.85rem;
-  font-size: 0.68rem;
+  margin: 0 0 0.35rem;
+  font-size: 0.7rem;
   font-weight: 500;
   letter-spacing: 0.16em;
   text-transform: uppercase;
   color: var(--champagne);
 }
-.ldv-ftr-cols div {
-  display: grid;
-  gap: 0.55rem;
-}
-.ldv-ftr-cols a {
+.ldv-ftr-col a,
+.ldv-ftr-col span {
   font-size: 0.92rem;
-  text-decoration: none;
-  color: rgba(245, 241, 232, 0.78);
+  color: rgba(245, 241, 232, 0.72);
+  transition: color 0.2s ease;
 }
-.ldv-ftr-cols a:hover {
+.ldv-ftr-col a:hover {
   color: var(--ivory);
 }
 .ldv-ftr-btm {
-  margin: 1.4rem 0 0;
-  font-size: 0.78rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1.5rem;
+  justify-content: space-between;
+  margin-top: clamp(2.5rem, 6vw, 4.5rem);
+  padding-top: 1.4rem;
+  border-top: 1px solid rgba(245, 241, 232, 0.14);
+  font-size: 0.9rem;
   color: rgba(245, 241, 232, 0.5);
 }
-
-@media (min-width: 640px) {
+.ldv-ftr-legal {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 1.25rem;
+}
+.ldv-ftr-legal a {
+  color: inherit;
+  font-size: inherit;
+}
+.ldv-ftr-social a {
+  color: inherit;
+}
+@media (max-width: 719px) {
   .ldv-ftr-btm {
-    margin-top: 1.6rem;
+    display: grid;
+    grid-template-columns: auto auto;
+    justify-content: space-between;
+    align-items: center;
+    row-gap: 0.15rem;
+    column-gap: 0.75rem;
+    font-size: clamp(0.68rem, 3.05vw, 0.9rem);
   }
+  .ldv-ftr-btm > span {
+    white-space: nowrap;
+  }
+  .ldv-ftr-btm > span:first-of-type {
+    grid-column: 1;
+    grid-row: 1;
+  }
+  .ldv-ftr-social {
+    grid-column: 2;
+    grid-row: 1;
+    justify-self: end;
+  }
+  .ldv-ftr-legal {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    gap: 0.35rem 1rem;
+  }
+}
+
+/* Firma întreagă, cât toată lățimea, la capătul paginii — desenul real
+   aplicat ca mască peste culoare, nu o reconstrucție cu un font. */
+.ldv-ftr-sign {
+  margin-top: clamp(1.75rem, 4.5vw, 3rem);
+}
+.ldv-ftr-mark {
+  display: block;
+  width: 100%;
+  aspect-ratio: 278.1 / 69.4;
+  background-color: rgba(245, 241, 232, 0.11);
+  mask-image: url(/brand/livada-text.svg);
+  mask-repeat: no-repeat;
+  mask-size: contain;
+  mask-position: center;
+  -webkit-mask-image: url(/brand/livada-text.svg);
+  -webkit-mask-repeat: no-repeat;
+  -webkit-mask-size: contain;
+  -webkit-mask-position: center;
 }
