@@ -471,20 +471,6 @@ body {
   line-height: 1.5;
   color: rgba(34, 34, 31, 0.68);
 }
-.ldv-back {
-  display: inline-block;
-  margin-bottom: 1.1rem;
-  font-size: 0.72rem;
-  font-weight: 500;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  text-decoration: none;
-  color: rgba(34, 34, 31, 0.55);
-}
-.ldv-back:hover {
-  color: var(--olive);
-}
-
 /* ── Subsol ─────────────────────────────────────────────────────────────
    Portat din components/Footer.tsx: aceleași cinci coloane, același rând
    de jos cu legal și rețele, și aceeași firmă mascată, cât toată lățimea,
