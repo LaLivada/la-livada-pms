@@ -15,19 +15,22 @@
    S-a întâmplat de trei ori; scrie numele proprietăților fără ele. */
 export const STILURI = `
 .ldv{
-  --ldv-ink:#1a1d1c;
-  --ldv-muted:#5f6a66;
-  --ldv-faint:#8a938f;
-  --ldv-line:#dde3e0;
-  --ldv-line-soft:#eef1f0;
+  /* Aceleași jetoane ca lalivada.ro (vezi booking/brand.css) — cerute aici
+     din nou, cu valori de rezervă, ca formularul să rămână arătos și
+     folosit ca simplă componentă, fără brand.css alături. */
+  --ldv-ink:var(--charcoal, #22221f);
+  --ldv-muted:rgba(34,34,31,.68);
+  --ldv-faint:rgba(34,34,31,.45);
+  --ldv-line:rgba(63,74,61,.2);
+  --ldv-line-soft:rgba(63,74,61,.12);
   --ldv-surface:#ffffff;
-  --ldv-surface-2:#f5f7f6;
-  --ldv-accent:#2f6b53;
-  --ldv-accent-ink:#ffffff;
-  --ldv-accent-soft:#e6f0eb;
+  --ldv-surface-2:var(--beige, #e7dfd1);
+  --ldv-accent:var(--olive, #3f4a3d);
+  --ldv-accent-ink:var(--ivory, #f5f1e8);
+  --ldv-accent-soft:rgba(63,74,61,.1);
   --ldv-danger:#a33a2f;
   --ldv-danger-soft:#fbeae7;
-  --ldv-radius:10px;
+  --ldv-radius:6px;
   --ldv-gap:16px;
 
   color:var(--ldv-ink);
@@ -47,8 +50,15 @@ export const STILURI = `
 }
 .ldv-card + .ldv-card{ margin-top:14px; }
 
-.ldv h2{ font-size:1.25em; margin:0 0 4px; font-weight:650; letter-spacing:-.01em; }
-.ldv h3{ font-size:1.02em; margin:0 0 3px; font-weight:650; }
+/* Titlu editorial, ca pe site — nu un sub-cap bold din temele obișnuite. */
+.ldv h2{
+  font-family:var(--role-editorial, Georgia, serif); font-size:1.7em;
+  margin:0 0 8px; font-weight:400; letter-spacing:-.014em; line-height:1.1;
+}
+.ldv h3{
+  font-family:var(--role-editorial, Georgia, serif); font-size:1.2em;
+  margin:0 0 3px; font-weight:400; letter-spacing:-.01em;
+}
 .ldv p{ margin:0 0 10px; }
 .ldv-sub{ color:var(--ldv-muted); font-size:.92em; margin:0 0 16px; }
 .ldv-mic{ color:var(--ldv-faint); font-size:.86em; }
@@ -99,19 +109,34 @@ export const STILURI = `
 }
 .ldv-camp input[aria-invalid="true"]{ border-color:var(--ldv-danger); }
 
-/* ---------- butoane ---------- */
+/* ---------- butoane ----------
+   Colț drept, majuscule spațiate, umplere care se desface de la stânga —
+   același buton ca pe lalivada.ro (.btn din globals.css), nu pilula
+   rotunjită obișnuită a formularelor. */
 .ldv-btn{
-  font:inherit; font-size:1em; font-weight:600;
-  border-radius:8px; padding:12px 20px; min-height:46px;
+  position:relative; font:inherit; font-size:.78em; font-weight:500;
+  letter-spacing:.14em; text-transform:uppercase;
+  border-radius:3px; padding:0 1.5rem; min-height:3.1rem;
   border:1px solid transparent; cursor:pointer;
   display:inline-flex; align-items:center; justify-content:center; gap:8px;
-  transition:background .15s, border-color .15s, opacity .15s;
+  overflow:hidden; isolation:isolate;
+  transition:color .2s, border-color .2s;
 }
+.ldv-btn::before{
+  content:""; position:absolute; inset:0; z-index:-1;
+  transform:scaleX(0); transform-origin:left;
+  transition:transform .4s cubic-bezier(.16,1,.3,1);
+}
+.ldv-btn:not(:disabled):hover::before{ transform:scaleX(1); }
 .ldv-btn:disabled{ opacity:.55; cursor:not-allowed; }
-.ldv-btn-principal{ background:var(--ldv-accent); color:var(--ldv-accent-ink); }
-.ldv-btn-principal:not(:disabled):hover{ background:#255843; }
+.ldv-btn-principal{
+  background:var(--ldv-accent); color:var(--ldv-accent-ink); border-color:var(--ldv-accent);
+}
+.ldv-btn-principal::before{ background:var(--ldv-ink); }
+.ldv-btn-principal:not(:disabled):hover{ border-color:var(--ldv-ink); }
 .ldv-btn-simplu{ background:transparent; color:var(--ldv-ink); border-color:var(--ldv-line); }
-.ldv-btn-simplu:not(:disabled):hover{ border-color:var(--ldv-muted); }
+.ldv-btn-simplu::before{ background:var(--ldv-ink); }
+.ldv-btn-simplu:not(:disabled):hover{ color:var(--ldv-accent-ink); border-color:var(--ldv-ink); }
 .ldv-btn:focus-visible{ outline:2px solid var(--ldv-accent); outline-offset:2px; }
 .ldv-actiuni{ display:flex; gap:10px; flex-wrap:wrap; margin-top:18px; }
 .ldv-creste{ flex:1; }

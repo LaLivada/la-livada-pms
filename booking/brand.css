@@ -1,0 +1,223 @@
+/* Identitatea vizuală a lalivada.ro, portată pentru rezervari.lalivada.ro.
+ *
+ * E un build separat (Vite, nu Next.js), deci nu poate importa direct
+ * componentele site-ului — dar poate purta aceleași jetoane de culoare,
+ * aceleași două fonturi și același antet/subsol, ca pagina să nu pară un
+ * corp străin când vine cineva din lalivada.ro. Valorile sunt copiate din
+ * `lalivada-site/app/globals.css`; dacă paleta de-acolo se schimbă, se
+ * schimbă și aici manual — nu există build comun între cele două repo-uri.
+ */
+
+:root {
+  --ivory: #f5f1e8;
+  --beige: #e7dfd1;
+  --olive: #3f4a3d;
+  --olive-deep: #333d31;
+  --charcoal: #22221f;
+  --champagne: #c8b18a;
+
+  --role-ui: "Manrope", system-ui, sans-serif;
+  --role-editorial: "Instrument Serif", "Iowan Old Style", Georgia, serif;
+
+  --hdr-h: 4.25rem;
+  --gutter: clamp(1.25rem, 5vw, 3.5rem);
+  --max: 1280px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--ivory);
+  color: var(--charcoal);
+  font-family: var(--role-ui);
+  font-size: 1rem;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+.wrap {
+  width: 100%;
+  max-width: var(--max);
+  margin-inline: auto;
+  padding-inline: var(--gutter);
+}
+
+/* ── Antet ──────────────────────────────────────────────────────────────
+   Fix, ca pe site, dar fără ascunderea la derulare: pagina e o singură
+   unealtă, scurtă, deci bara nu are de ce să dispară — și ar fi încă un
+   fișier de JavaScript de întreținut pentru un beneficiu care nu se simte
+   aici. */
+.ldv-hdr {
+  position: fixed;
+  inset: 0 0 auto 0;
+  z-index: 60;
+  min-height: var(--hdr-h);
+  display: flex;
+  align-items: center;
+  background: rgba(245, 241, 232, 0.94);
+  backdrop-filter: blur(16px);
+  border-bottom: 1px solid rgba(63, 74, 61, 0.14);
+}
+.ldv-hdr-in {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  width: 100%;
+}
+.ldv-hdr-mark {
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+}
+.ldv-hdr-mark img {
+  height: 1.3rem;
+  width: auto;
+  /* Firma e aurie (#CEA446) — pe ivoriu, cules în cerneală, ca pe site. */
+  filter: brightness(0) invert(0.12);
+}
+.ldv-hdr-nav {
+  display: none;
+  align-items: center;
+  gap: clamp(1.1rem, 2.4vw, 2rem);
+}
+.ldv-hdr-nav a {
+  font-size: 0.72rem;
+  font-weight: 500;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  text-decoration: none;
+  color: rgba(34, 34, 31, 0.66);
+  transition: color 0.2s ease;
+}
+.ldv-hdr-nav a:hover {
+  color: var(--olive);
+}
+.ldv-hdr-phone {
+  display: none;
+  font-size: 0.78rem;
+  font-weight: 500;
+  letter-spacing: 0.03em;
+  text-decoration: none;
+  color: var(--olive);
+  white-space: nowrap;
+}
+@media (min-width: 860px) {
+  .ldv-hdr-nav,
+  .ldv-hdr-phone {
+    display: flex;
+  }
+}
+
+/* ── Corp ───────────────────────────────────────────────────────────── */
+.ldv-main {
+  padding-top: calc(var(--hdr-h) + clamp(1.75rem, 5vh, 3rem));
+  padding-bottom: clamp(3rem, 8vh, 5rem);
+}
+.ldv-eyebrow {
+  display: flex;
+  align-items: baseline;
+  gap: 0.7rem;
+  margin: 0 0 1rem;
+  font-size: 0.7rem;
+  font-weight: 500;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--olive);
+}
+.ldv-eyebrow::before {
+  content: "";
+  width: 1.4rem;
+  height: 1px;
+  background: currentColor;
+}
+.ldv-h1 {
+  margin: 0 0 0.6rem;
+  font-family: var(--role-editorial);
+  font-weight: 400;
+  font-size: clamp(2rem, 1.5rem + 2vw, 2.9rem);
+  line-height: 1.05;
+  letter-spacing: -0.014em;
+  color: var(--charcoal);
+}
+.ldv-lede {
+  margin: 0 0 clamp(2rem, 5vh, 3rem);
+  max-width: 44ch;
+  font-size: 1.05rem;
+  line-height: 1.5;
+  color: rgba(34, 34, 31, 0.68);
+}
+.ldv-back {
+  display: inline-block;
+  margin-bottom: 1.1rem;
+  font-size: 0.72rem;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  text-decoration: none;
+  color: rgba(34, 34, 31, 0.55);
+}
+.ldv-back:hover {
+  color: var(--olive);
+}
+
+/* ── Subsol ─────────────────────────────────────────────────────────── */
+.ldv-ftr {
+  background: var(--charcoal);
+  color: var(--ivory);
+}
+.ldv-ftr-in {
+  padding-block: clamp(2.5rem, 7vh, 4rem) clamp(1.5rem, 4vh, 2rem);
+}
+.ldv-ftr-promise {
+  margin: 0 0 clamp(1.75rem, 5vh, 2.75rem);
+  max-width: 30ch;
+  font-family: var(--role-editorial);
+  font-size: clamp(1.4rem, 1.1rem + 1.2vw, 1.9rem);
+  line-height: 1.15;
+  color: var(--ivory);
+}
+.ldv-ftr-cols {
+  display: grid;
+  gap: 1.75rem;
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  padding-bottom: clamp(1.75rem, 5vh, 2.5rem);
+  border-bottom: 1px solid rgba(245, 241, 232, 0.14);
+}
+.ldv-ftr-cols .label {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  margin: 0 0 0.85rem;
+  font-size: 0.68rem;
+  font-weight: 500;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--champagne);
+}
+.ldv-ftr-cols div {
+  display: grid;
+  gap: 0.55rem;
+}
+.ldv-ftr-cols a {
+  font-size: 0.92rem;
+  text-decoration: none;
+  color: rgba(245, 241, 232, 0.78);
+}
+.ldv-ftr-cols a:hover {
+  color: var(--ivory);
+}
+.ldv-ftr-btm {
+  margin: 1.4rem 0 0;
+  font-size: 0.78rem;
+  color: rgba(245, 241, 232, 0.5);
+}
+
+@media (min-width: 640px) {
+  .ldv-ftr-btm {
+    margin-top: 1.6rem;
+  }
+}
