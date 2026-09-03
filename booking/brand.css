@@ -630,38 +630,44 @@ body {
     column-gap: clamp(1.25rem, 5vw, 2rem);
     row-gap: clamp(1.9rem, 5vw, 2.5rem);
   }
-  .ldv-ftr-col:nth-child(1),
-  .ldv-ftr-col:nth-child(4),
-  .ldv-ftr-col:nth-child(5) {
+  /* Coloanele „Detalii" și „Contact" — a treia și a patra de când deviza
+     a ieșit din grilă — au rânduri prea lungi pentru o jumătate de ecran. */
+  .ldv-ftr-col:nth-child(3),
+  .ldv-ftr-col:nth-child(4) {
     grid-column: 1 / -1;
   }
-  .ldv-ftr-col:nth-child(4) {
+  .ldv-ftr-col:nth-child(3) {
     display: flex;
     flex-wrap: wrap;
     align-items: baseline;
     gap: 0.4rem clamp(0.4rem, 1.9vw, 0.95rem);
   }
-  .ldv-ftr-col:nth-child(4) p.label {
+  .ldv-ftr-col:nth-child(3) p.label {
     flex: 1 0 100%;
     margin-bottom: 0;
   }
-  .ldv-ftr-col:nth-child(4) a {
+  .ldv-ftr-col:nth-child(3) a {
     white-space: nowrap;
   }
 }
 @media (min-width: 1000px) {
   .ldv-ftr-top {
-    grid-template-columns: 1.35fr repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 }
-.ldv-ftr-promise {
-  margin: 0;
-  max-width: 13ch;
+/* Textul de subsol despre cazare stă deasupra coloanelor, pe toată
+   lățimea — nu strâns în prima coloană, ca deviza scurtă pe care a
+   înlocuit-o: e o frază lungă, care în lățimea unei coloane s-ar rupe în
+   zece rânduri înguste. */
+.ldv-ftr-seo {
+  margin: 0 0 clamp(2.5rem, 5vw, 3.5rem);
+  padding-bottom: clamp(2.25rem, 4.5vw, 3rem);
+  border-bottom: 1px solid rgba(245, 241, 232, 0.14);
   font-family: var(--role-editorial);
   font-weight: 400;
-  font-size: clamp(1.5rem, 1.2rem + 1.7vw, 2.1rem);
-  line-height: 1.06;
-  letter-spacing: -0.014em;
+  font-size: clamp(1.12rem, 1rem + 0.7vw, 1.5rem);
+  line-height: 1.42;
+  letter-spacing: -0.008em;
   color: var(--ivory);
 }
 .ldv-ftr-col {
