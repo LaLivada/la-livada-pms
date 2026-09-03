@@ -2,10 +2,16 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <!-- Emblema pensiunii. favicon.svg ramas din sablonul de pornire era
-         logo-ul altcuiva, nimic de-al nostru. -->
-    <link rel="icon" type="image/png" href="/background.png" />
-    <link rel="apple-touch-icon" href="/background.png" />
+    <!-- Emblema complexului, aceleasi fisiere ca pe lalivada.ro si pe
+         rezervari.lalivada.ro — copiate din lalivada-site/public/assets/,
+         nu partajate: nu exista build comun intre repo-uri, deci daca
+         emblema se schimba acolo, se copiaza si aici manual.
+         Inainte era /background.png, o fotografie de fundal folosita pe
+         post de pictograma: la 16 pixeli nu se distingea nimic din ea. -->
+    <link rel="icon" type="image/png" sizes="32x32" href="/brand/favicon-32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/brand/favicon-16.png" />
+    <link rel="icon" type="image/png" sizes="512x512" href="/brand/favicon.png" />
+    <link rel="apple-touch-icon" href="/brand/apple-touch-icon.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <!-- Unealtă internă de recepție, nu conținut public — nu trebuie să
          apară în căutări. public/robots.txt (Disallow: /) completează asta
