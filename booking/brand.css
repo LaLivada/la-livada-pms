@@ -499,6 +499,25 @@ body {
   object-fit: cover;
   object-position: center 65%;
 }
+/* Pe telefon, ecranul e mult mai lung decât filmul (9:19.5 față de 9:16),
+   iar `cover` taie o cincime din lățime ca să umple înălțimea — cadrul
+   apare mărit, se pierd casele de pe margini. `contain` arată filmul
+   întreg; banda rămasă cade jos, unde voalul de sub titlu e oricum
+   aproape opac, deci cusătura nu se vede.
+   Condiția e identică cu cea din film.js — exact când rulează varianta
+   verticală, nu și când o fereastră îngustă de desktop primește filmul
+   orizontal. */
+@media (max-width: 700px), (orientation: portrait) {
+  .ldv-phead-img {
+    object-fit: contain;
+    object-position: center top;
+    /* Fără asta, filmul s-ar termina cu o muchie orizontală care, pe un
+       ecran obișnuit de telefon, cade tocmai prin titlu. Topit în jos,
+       cadrul se stinge în fundalul cărbune și marginea dispare. */
+    -webkit-mask-image: linear-gradient(to bottom, #000 62%, rgba(0, 0, 0, 0) 82%);
+    mask-image: linear-gradient(to bottom, #000 62%, rgba(0, 0, 0, 0) 82%);
+  }
+}
 .ldv-phead::after {
   content: "";
   position: absolute;
