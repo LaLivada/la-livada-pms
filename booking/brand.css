@@ -550,6 +550,72 @@ body {
   padding-block: clamp(3rem, 8vh, 5rem);
 }
 
+/* ── Galeria de sub formular ────────────────────────────────────────────
+   Şir orizontal, derulat cu degetul sau cu trackpad-ul. Merge pe lăţimea
+   ferestrei, nu pe cea a coloanei de text: aşa ultima fotografie e tăiată
+   de marginea ecranului, iar tăietura spune singură că şirul continuă.
+   Alinierea cu restul paginii vine din padding, nu din `.wrap` — un
+   container cu lăţime maximă ar opri derularea la 1280px şi ar reintroduce
+   marginile pe care le vrem depăşite. */
+.ldv-gal {
+  padding-bottom: clamp(3rem, 8vh, 5rem);
+}
+.ldv-gal-cap {
+  margin-bottom: clamp(1.25rem, 3vw, 1.9rem);
+}
+.ldv-gal-cap .label {
+  margin: 0 0 0.5rem;
+  font-size: 0.7rem;
+  font-weight: 500;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--olive);
+}
+.ldv-gal-cap h2 {
+  margin: 0;
+  font-family: var(--role-editorial);
+  font-weight: 400;
+  font-size: clamp(1.6rem, 1.25rem + 1.6vw, 2.3rem);
+  line-height: 1.1;
+  letter-spacing: -0.014em;
+}
+.ldv-gal-sir {
+  margin: 0;
+  padding: 0 var(--gutter) 1rem;
+  list-style: none;
+  display: flex;
+  gap: clamp(0.75rem, 1.6vw, 1.15rem);
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x mandatory;
+  /* Marginea de final: fără ea, ultima fotografie s-ar lipi de muchia
+     ecranului, în loc să se oprească la aceeaşi distanţă ca prima. */
+  scroll-padding-inline: var(--gutter);
+  scrollbar-width: thin;
+  scrollbar-color: rgba(63, 74, 61, 0.35) transparent;
+}
+.ldv-gal-sir::-webkit-scrollbar {
+  height: 6px;
+}
+.ldv-gal-sir::-webkit-scrollbar-thumb {
+  border-radius: 99px;
+  background: rgba(63, 74, 61, 0.32);
+}
+.ldv-gal-sir > li {
+  flex: 0 0 auto;
+  scroll-snap-align: start;
+  width: clamp(15rem, 78vw, 30rem);
+}
+.ldv-gal-sir img {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 3 / 2;
+  object-fit: cover;
+  border-radius: 6px;
+  background: var(--beige);
+}
+
 /* ── Semnul de derulare ─────────────────────────────────────────────────
    Portat din `.hero-cue` de pe prima pagină a site-ului (linia verticală),
    dar cu un plus cerut aici: site-ul o lasă statică după ce apare o dată,
