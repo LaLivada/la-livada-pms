@@ -296,12 +296,21 @@ function OcupareZilnicaModal({ perDay, monthStart, totalCamere, onClose }) {
   const totalCamereNopti = perDay.reduce((s, p) => s + p.occ, 0);
   const totalVenit = perDay.reduce((s, p) => s + p.rev, 0);
 
+  /* Impartire in doua coloane, prima primind randul in plus la lunile
+     impare: 16 + 15 arata mai echilibrat decat 15 + 16, fiindca prima
+     coloana e cea pe care o citesti intai. */
+  const jumatati = [perDay.slice(0, Math.ceil(perDay.length / 2)),
+                    perDay.slice(Math.ceil(perDay.length / 2))];
+
   const descarca = async () => {
     setGenereaza(true);
     /* Fara `catch`, un esec de generare ar trece neobservat: butonul ar
        clipi si n-ar aparea nimic. */
     try {
-      const blob = await generatePdfBlob(foaie.current);
+      /* `singlePage`: raportul unei luni e un singur document, nu o lista
+         care curge. Cu foaia asezata pe doua coloane, proportia ei se
+         apropie de A4, deci incadrarea nu mai micsoreaza textul semnificativ. */
+      const blob = await generatePdfBlob(foaie.current, { singlePage: true });
       setPdf({ blob, filename: `Raport-zilnic-${luna.replace(/\s+/g, "-")}.pdf` });
     } catch (e) {
       toaster.show(mesajEroare(e, "PDF-ul nu a putut fi generat"), { tone: "danger" });
@@ -315,7 +324,7 @@ function OcupareZilnicaModal({ perDay, monthStart, totalCamere, onClose }) {
   return (
     <Dialog onClose={onClose} className="arrival-modal" overlayClassName="arrival-overlay" title={undefined}>
       <div className="modal-head no-print">
-        <h3>Raport zilnic · {luna}</h3>
+        <h3>Raport zilnic</h3>
         <div style={{ display: "flex", gap: 8 }}>
           <button className="btn btn-primary" style={{ width: "auto" }} onClick={descarca} disabled={genereaza}>
             <Printer size={15} /> {genereaza ? "Se generează…" : "Vezi PDF"}
@@ -330,44 +339,64 @@ function OcupareZilnicaModal({ perDay, monthStart, totalCamere, onClose }) {
         </div>
       )}
 
-      <div className="arrival-sheet" ref={foaie}>
-        <div className="fisa">
-          <h2 style={{ marginTop: 0 }}>Raport zilnic · {luna}</h2>
-          <table className="tabel-zile">
-            <thead>
-              <tr>
-                <th>Ziua</th>
-                <th style={{ textAlign: "right" }}>Camere</th>
-                <th style={{ textAlign: "right" }}>Grad</th>
-                <th style={{ textAlign: "right" }}>Încasat</th>
-              </tr>
-            </thead>
-            <tbody>
-              {perDay.map((p) => (
-                <tr key={p.day} className={p.occ === 0 ? "zi-goala" : undefined}>
-                  <td>{String(p.day).padStart(2, "0")} <span className="zi-nume">{numeZi(p.day)}</span></td>
-                  <td style={{ textAlign: "right" }}>{p.occ}{totalCamere ? ` / ${totalCamere}` : ""}</td>
-                  <td style={{ textAlign: "right" }}>{totalCamere ? Math.round((p.occ / totalCamere) * 100) : 0}%</td>
-                  <td style={{ textAlign: "right" }}>{fmtMoney(p.rev)}</td>
-                </tr>
+      {/* Derulare laterala doar pe ecran: foaia are latime fixa (vezi
+          .raport-sheet), ca PDF-ul sa iasa identic de pe orice dispozitiv.
+          Fara ea, pe telefon coloanele s-ar aseza una sub alta si raportul
+          ar redeveni de doua pagini — exact ce trebuia evitat. */}
+      <div className="raport-scroll">
+        <div className="arrival-sheet raport-sheet" ref={foaie}>
+          <div className="fisa">
+            <h2 style={{ marginTop: 0 }}>Raport zilnic · {luna}</h2>
+
+            {/* Doua coloane, nu una lunga: 31 de randuri intr-o singura
+                coloana dau o foaie inalta si ingusta, pe care incadrarea
+                intr-o pagina A4 ar strivi-o la o banda mica in mijloc, cu
+                text de necitit. Impartita in doua, proportia foii se apropie
+                de cea a paginii, deci umple pagina la marime lizibila. */}
+            <div className="raport-coloane">
+              {jumatati.map((jum, i) => (
+                <table className="tabel-zile" key={i}>
+                  <thead>
+                    <tr>
+                      <th>Ziua</th>
+                      <th style={{ textAlign: "right" }}>Camere</th>
+                      <th style={{ textAlign: "right" }}>Grad</th>
+                      <th style={{ textAlign: "right" }}>Încasat</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {jum.map((p) => (
+                      <tr key={p.day} className={p.occ === 0 ? "zi-goala" : undefined}>
+                        <td>{String(p.day).padStart(2, "0")} <span className="zi-nume">{numeZi(p.day)}</span></td>
+                        <td style={{ textAlign: "right" }}>{p.occ}{totalCamere ? ` / ${totalCamere}` : ""}</td>
+                        <td style={{ textAlign: "right" }}>{totalCamere ? Math.round((p.occ / totalCamere) * 100) : 0}%</td>
+                        <td style={{ textAlign: "right" }}>{fmtMoney(p.rev)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               ))}
-            </tbody>
-            <tfoot>
-              <tr>
-                <th>Total lună</th>
-                <th style={{ textAlign: "right" }}>{totalCamereNopti} nopți</th>
-                <th style={{ textAlign: "right" }}>
-                  {totalCamere && perDay.length
-                    ? Math.round((totalCamereNopti / (totalCamere * perDay.length)) * 100) : 0}%
-                </th>
-                <th style={{ textAlign: "right" }}>{fmtMoney(totalVenit)}</th>
-              </tr>
-            </tfoot>
-          </table>
-          <p className="ldv-mic" style={{ marginTop: 12 }}>
-            Ziua plecării nu se numără ca noapte vândută, deci o zi cu schimb de
-            oaspeți apare o singură dată. Rezervările de protocol sunt excluse.
-          </p>
+            </div>
+
+            <table className="tabel-zile tabel-total">
+              <tfoot>
+                <tr>
+                  <th>Total lună</th>
+                  <th style={{ textAlign: "right" }}>{totalCamereNopti} nopți</th>
+                  <th style={{ textAlign: "right" }}>
+                    {totalCamere && perDay.length
+                      ? Math.round((totalCamereNopti / (totalCamere * perDay.length)) * 100) : 0}%
+                  </th>
+                  <th style={{ textAlign: "right" }}>{fmtMoney(totalVenit)}</th>
+                </tr>
+              </tfoot>
+            </table>
+
+            <p className="ldv-mic" style={{ marginTop: 10 }}>
+              Ziua plecării nu se numără ca noapte vândută, deci o zi cu schimb de
+              oaspeți apare o singură dată. Rezervările de protocol sunt excluse.
+            </p>
+          </div>
         </div>
       </div>
     </Dialog>

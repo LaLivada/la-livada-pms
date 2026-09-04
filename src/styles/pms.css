@@ -314,6 +314,19 @@
   border-top:2px solid #c9c9c3; border-bottom:none;
   font-size:12.5px; font-variant-numeric:tabular-nums; padding-top:8px;
 }
+
+/* Foaia raportului are latime FIXA, spre deosebire de celelalte documente
+   tiparibile: PDF-ul e o captura a DOM-ului asa cum arata pe ecran, deci o
+   latime fluida ar produce alt document de pe telefon decat de pe laptop —
+   pe telefon coloanele s-ar aseza una sub alta si raportul ar redeveni de
+   doua pagini. Asa iese identic de oriunde. */
+.raport-scroll{ overflow-x:auto; }
+.raport-sheet{ width:720px; }
+.raport-coloane{ display:flex; gap:16px; align-items:flex-start; }
+.raport-coloane > .tabel-zile{ flex:1 1 0; min-width:0; }
+/* Randul de total, sub ambele coloane: e al lunii intregi, nu al uneia. */
+.tabel-total{ margin-top:2px; }
+.tabel-total tfoot th{ border-top-width:2px; }
 .toolbar{ display:flex; align-items:center; gap:10px; margin-bottom:16px; flex-wrap:wrap; }
 .cal-toolbar{ margin-bottom:10px; flex-wrap:nowrap; gap:8px; }
 .cal-toolbar .week-nav{ min-width:0; }
