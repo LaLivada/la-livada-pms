@@ -144,7 +144,7 @@ Deno.serve(async (req) => {
      ar fi trebuit verificata in schema, nu ghicita. */
   const { data: staff } = await admin.from("staff")
     .select("user_id, name, role").eq("user_id", auth.user.id).maybeSingle();
-  if (!staff || !["admin", "receptionist"].includes(staff.role)) {
+  if (!staff || !["admin", "receptionist", "housekeeping"].includes(staff.role)) {
     return raspuns({
       error: staff
         ? `Rolul „${staff.role}" nu poate administra accesul la camere.`
@@ -159,12 +159,48 @@ Deno.serve(async (req) => {
 
   const actiune = String(cerere?.action || "");
 
-  /* Deschiderea la distanță nu e o operațiune de recepție: spre deosebire
-     de un cod cu interval, deschide ușa PE LOC, cui e în fața ei atunci.
-     Garda generală de mai sus acceptă admin+recepționer — asta o
-     restrânge suplimentar, doar pentru acțiunea asta. */
+  /* Camerista trece de garda generală DOAR pentru deschiderea unei uși —
+     restul acțiunilor (emitere de coduri, ștergere, mod trecere liberă,
+     sincronizare) rămân în afara rolului ei, ca înainte. Fără linia asta,
+     lărgirea de mai sus i-ar fi dat acces la tot. */
+  if (staff.role === "housekeeping" && actiune !== "unlock") {
+    return raspuns({ error: `Rolul „housekeeping" poate doar deschide uși.` }, 403);
+  }
+
+  /* Deschiderea la distanță deschide ușa PE LOC, cui e în fața ei atunci —
+     spre deosebire de un cod, care are interval. E permisă tuturor
+     rolurilor, fiindcă și camerista, și recepția au nevoie de ea la o
+     cameră liberă; într-o cameră CAZATĂ însă intri peste bagajele și
+     intimitatea cuiva, deci acolo rămâne doar la admin.
+     Regula se impune aici, nu în interfață: un buton ascuns e o sugestie,
+     nu o restricție. */
   if (actiune === "unlock" && staff.role !== "admin") {
-    return raspuns({ error: "Deschiderea la distanță e permisă doar administratorilor." }, 403);
+    const roomId = String(cerere?.roomId || "").trim();
+    const lockIdCerut = String(cerere?.lockId || "").trim();
+
+    /* Camera se caută și după lockId, nu doar după roomId: altfel oricine
+       ar putea sări peste verificarea de mai jos trimițând direct yala. */
+    const q = admin.from("rooms").select("id, name, access_lock_id");
+    const { data: camera } = roomId
+      ? await q.eq("id", roomId).maybeSingle()
+      : await q.eq("access_lock_id", lockIdCerut).maybeSingle();
+
+    if (!camera) {
+      /* O yală neasociată niciunei camere nu poate fi verificată — deci
+         nu se poate ști dacă e cazat cineva dincolo de ea. */
+      return raspuns({
+        error: "Yala nu e asociată niciunei camere. Deschiderea e permisă doar administratorilor.",
+      }, 403);
+    }
+
+    const { data: cazate } = await admin.from("reservations")
+      .select("id").eq("room_id", camera.id).eq("status", "checkedin").limit(1);
+
+    if (cazate && cazate.length > 0) {
+      return raspuns({
+        error: `Camera ${camera.name} e ocupată. Deschiderea unei camere cazate e permisă doar administratorilor.`,
+      }, 403);
+    }
   }
 
   /* Modul trecere liberă e o schimbare de stare STANDING, nu o acțiune
@@ -258,7 +294,18 @@ Deno.serve(async (req) => {
     // decât la restul acțiunilor). Nu scrie nimic în access_codes: nu e
     // un cod emis, e o acțiune punctuală, consemnată doar în audit.
     if (actiune === "unlock") {
-      const lockId = String(cerere?.lockId || "").trim();
+      /* Două căi de intrare: panoul de administrare trimite yala aleasă
+         din listă (`lockId`), iar cardurile de status trimit camera
+         (`roomId`) — acolo id-ul yalei n-are ce căuta în browser, e un
+         detaliu de configurare, nu ceva ce apasă cineva. */
+      let lockId = String(cerere?.lockId || "").trim();
+      const roomIdCerut = String(cerere?.roomId || "").trim();
+      if (!lockId && roomIdCerut) {
+        const { data: cam } = await admin.from("rooms")
+          .select("access_lock_id").eq("id", roomIdCerut).maybeSingle();
+        lockId = String(cam?.access_lock_id || "").trim();
+        if (!lockId) return raspuns({ error: "Camera n-are yală asociată." }, 400);
+      }
       if (!lockId) return raspuns({ error: "Lipsește Lock ID-ul." }, 400);
 
       try {

@@ -5,7 +5,7 @@
  * testat separat.
  */
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { Plus, X, Check, Trash2, Pencil, DoorOpen, Sparkles, Wrench, KeyRound, Banknote, RefreshCw, AlertTriangle, ArrowRight, Info, TrendingUp, Tag as TagIcon, Copy, Cpu, Flame, Snowflake, Wind, Unlock } from "lucide-react";
 import { uid } from "../lib/uid.js";
 import { isLive } from "../lib/availability.js";
@@ -16,6 +16,141 @@ import { ROOM_TYPE, DEFAULT_TAGS, HK_STATUSES, DEFAULT_ONLINE_TIERS } from "../l
 import { Dialog, toaster, useModalLock } from "../ui/primitive.jsx";
 import { cheamaAcces } from "./acces.jsx";
 
+/* Glisor de deschidere a ușii.
+ *
+ * DE CE GLISARE, nu un buton. Cardurile de status se folosesc de pe telefon,
+ * cu mâna ocupată, iar butoanele de curățenie sunt exact deasupra: un tap
+ * greșit pe un buton obișnuit ar descuia o ușă, iar o ușă deschisă din
+ * greșeală nu se poate anula. Glisarea cere o intenție pe care atingerea
+ * accidentală n-o are. Aceeași grijă ca la confirmarea din panoul de
+ * administrare, dar fără un dialog care ar cere două atingeri la o
+ * operațiune de câteva secunde.
+ *
+ * Regula „camerele cazate doar pentru admin" e verificată ȘI pe server
+ * (vezi access-provider/index.ts). Aici e doar afișată — un glisor
+ * dezactivat spune de ce, un glisor lipsă ar lăsa omul să se întrebe.
+ */
+function GlisorDeschidere({ room, blocat, motivBlocare }) {
+  const sina = React.useRef(null);
+  const [x, setX] = useState(0);
+  const [maxim, setMaxim] = useState(0);
+  /* Tragerea stă într-un ref, nu doar în state: `onPointerMove` citește
+     valoarea din închiderea randării curente, iar între `pointerdown` și
+     primul `pointermove` nu e garantată o re-randare. Cu state singur,
+     o mișcare sosită în aceeași sarcină ar fi ignorată tăcut. State-ul
+     rămâne doar pentru stil (oprirea tranziției în timpul tragerii). */
+  const trageRef = React.useRef(false);
+  const [trage, setTrage] = useState(false);
+  const [stare, setStare] = useState("gata");   // gata | deschid | deschis | eroare
+  const [eroare, setEroare] = useState(null);
+
+  const LATIME_BUTON = 44;
+  const PRAG = 0.82;                            // cât din cursă înseamnă „dus până la capăt"
+
+  const masoara = useCallback(() => {
+    if (sina.current) setMaxim(Math.max(0, sina.current.offsetWidth - LATIME_BUTON - 6));
+  }, []);
+  useEffect(() => {
+    masoara();
+    window.addEventListener("resize", masoara);
+    return () => window.removeEventListener("resize", masoara);
+  }, [masoara]);
+
+  const inactiv = blocat || stare === "deschid" || stare === "deschis";
+
+  /* Poziția curentă e ținută și într-un ref, din același motiv ca `trage`:
+     `pointerup` trebuie să compare cu ultima poziție reală, nu cu cea din
+     randarea în care s-a legat handlerul. */
+  const xRef = React.useRef(0);
+  const muta = useCallback((valoare) => { xRef.current = valoare; setX(valoare); }, []);
+
+  const deschide = useCallback(async () => {
+    setStare("deschid");
+    setEroare(null);
+    /* Trimitem camera, nu yala: id-ul yalei e configurare, n-are ce căuta
+       în browser la o apăsare de zi cu zi. Serverul îl caută singur. */
+    const r = await cheamaAcces("unlock", { roomId: room.id });
+    if (r?.ok) {
+      setStare("deschis");
+      await audit.push("Deschidere ușă", `${room.name} — de la cardul de status`);
+      /* Revine la starea inițială după câteva secunde: cardul rămâne pe
+         ecran, iar un glisor înțepenit pe „deschis" ar sugera că ușa e
+         încă deschisă, ceea ce nu e adevărat — yala se încuie la loc. */
+      setTimeout(() => { setStare("gata"); muta(0); }, 4000);
+    } else {
+      setStare("eroare");
+      setEroare(r?.error || "Deschiderea a eșuat.");
+      muta(0);
+      setTimeout(() => setStare((s) => (s === "eroare" ? "gata" : s)), 6000);
+    }
+  }, [room.id, room.name, muta]);
+
+  const laCapat = (pozitie) => {
+    if (maxim > 0 && pozitie >= maxim * PRAG) { muta(maxim); deschide(); }
+    else muta(0);
+  };
+
+  const onPointerDown = (e) => {
+    if (inactiv) return;
+    try { e.currentTarget.setPointerCapture(e.pointerId); } catch { /* neacceptat */ }
+    trageRef.current = true;
+    setTrage(true);
+  };
+  const onPointerMove = (e) => {
+    if (!trageRef.current || inactiv || !sina.current) return;
+    const stanga = sina.current.getBoundingClientRect().left;
+    muta(Math.min(maxim, Math.max(0, e.clientX - stanga - LATIME_BUTON / 2)));
+  };
+  const incheie = (e) => {
+    if (!trageRef.current) return;
+    trageRef.current = false;
+    setTrage(false);
+    try { e.currentTarget.releasePointerCapture(e.pointerId); } catch { /* deja eliberat */ }
+    laCapat(xRef.current);
+  };
+
+  const eticheta =
+    stare === "deschid" ? "Deschid…"
+    : stare === "deschis" ? "Ușa e deschisă"
+    : blocat ? motivBlocare
+    : "Glisează ca să deschizi";
+
+  return (
+    <div className="glisor-usa-wrap">
+      <div
+        ref={sina}
+        className={"glisor-usa" + (blocat ? " blocat" : "") + (stare === "deschis" ? " reusit" : "")}
+        aria-hidden={blocat ? "true" : undefined}
+      >
+        <span className="glisor-eticheta">{eticheta}</span>
+        <button
+          type="button"
+          className="glisor-buton"
+          style={{ transform: `translateX(${x}px)`, transition: trage ? "none" : undefined }}
+          disabled={inactiv}
+          aria-label={blocat ? motivBlocare : `Deschide ușa camerei ${room.name}`}
+          onPointerDown={onPointerDown}
+          onPointerMove={onPointerMove}
+          onPointerUp={incheie}
+          onPointerCancel={incheie}
+          /* Tastatura nu poate glisa. Enter/Space fac direct acțiunea:
+             glisarea există împotriva atingerii accidentale pe telefon, iar
+             o apăsare pe un element focalizat e deja deliberată. */
+          onKeyDown={(e) => {
+            if (inactiv) return;
+            if (e.key === "Enter" || e.key === " ") { e.preventDefault(); muta(maxim); deschide(); }
+          }}
+        >
+          {stare === "deschid" ? <RefreshCw size={15} className="spin" />
+            : stare === "deschis" ? <Check size={15} />
+            : <Unlock size={15} />}
+        </button>
+      </div>
+      {eroare && <div className="error-text" role="alert" style={{ marginTop: 6 }}>{eroare}</div>}
+    </div>
+  );
+}
+
 export function HousekeepingView({ core, reservations, housekeeping, updateHousekeeping }) {
   const today = new Date(); today.setHours(0, 0, 0, 0);
   const tomorrow = new Date(today.getTime() + 86400000);
@@ -23,6 +158,14 @@ export function HousekeepingView({ core, reservations, housekeeping, updateHouse
   const arrivesToday = (roomId) =>
     reservations.some((r) => r.roomId === roomId && isLive(r) &&
       new Date(r.checkin) >= today && new Date(r.checkin) < tomorrow);
+
+  /* „Cazată" înseamnă check-in făcut, nu doar o rezervare care acoperă ziua
+     de azi: între o sosire de azi neînregistrată încă și o cameră în care
+     stă cineva chiar acum e toată diferența. Aceeași definiție ca pe server
+     (status = 'checkedin'), altfel interfața ar bloca alte camere decât
+     refuză funcția edge. */
+  const ocupata = (roomId) =>
+    reservations.some((r) => r.roomId === roomId && r.status === "checkedin");
 
   const setStatus = async (roomId, status) => {
     const next = { ...housekeeping, [roomId]: { status, updatedAt: new Date().toISOString() } };
@@ -45,11 +188,13 @@ export function HousekeepingView({ core, reservations, housekeeping, updateHouse
             {g.rooms.map((room) => {
               const hk = housekeeping[room.id] || { status: "clean" };
               const arrival = arrivesToday(room.id);
+              const cazata = ocupata(room.id);
               return (
                 <div className="room-card" key={room.id}>
                   <div className="top">
                     <h4>{room.name}</h4>
                     {arrival && <span className="arrival-badge">Sosire azi</span>}
+                    {cazata && <span className="occupied-badge">Cazată</span>}
                   </div>
                   <div className="status-btns">
                     {HK_STATUSES.map((s) => (
@@ -62,6 +207,15 @@ export function HousekeepingView({ core, reservations, housekeeping, updateHouse
                       </button>
                     ))}
                   </div>
+                  {/* Camera fără yală asociată n-are ce deschide — glisorul
+                      lipsește cu totul, nu apare dezactivat degeaba. */}
+                  {room.accessLockId && (
+                    <GlisorDeschidere
+                      room={room}
+                      blocat={cazata && !isAdmin()}
+                      motivBlocare="Cazată — doar administratorul"
+                    />
+                  )}
                 </div>
               );
             })}

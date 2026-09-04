@@ -607,6 +607,48 @@
 .status-btn.on.dirty{ background:var(--danger-soft); color:var(--danger); }
 .status-btn.on.progress{ background:var(--warning-soft); color:var(--warning); }
 .device-row{ display:flex; align-items:center; gap:6px; font-size:var(--fs-sm); color:var(--text-muted); margin-top:4px; }
+.occupied-badge{
+  font-size:var(--fs-xs); font-weight:700; text-transform:uppercase; letter-spacing:.03em;
+  background:var(--accent-soft); color:var(--accent); padding:3px 7px; border-radius:var(--r-xs);
+}
+
+/* ---------- Glisor de deschidere a ușii (card de status) ---------- */
+.glisor-usa-wrap{ margin-top:10px; padding-top:10px; border-top:1px solid var(--border-soft); }
+.glisor-usa{
+  position:relative; height:44px; border-radius:22px;
+  background:var(--surface-2); border:1px solid var(--border);
+  display:flex; align-items:center; overflow:hidden;
+  /* Glisarea pe orizontală n-are voie să fie interpretată de browser ca
+     derulare a paginii — fără asta, pe telefon degetul mișcă ecranul, nu
+     butonul. */
+  touch-action:pan-y;
+}
+.glisor-eticheta{
+  /* Centrată pe TOT șinele, nu pe spațiul rămas: altfel textul ar sări
+     lateral pe măsură ce butonul înaintează. */
+  position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+  padding-left:36px; pointer-events:none;
+  font-size:var(--fs-2xs); font-weight:600; letter-spacing:.02em;
+  color:var(--text-muted); white-space:nowrap;
+}
+.glisor-buton{
+  position:relative; z-index:1; flex:0 0 auto;
+  width:44px; height:40px; margin:1px; border-radius:20px;
+  border:1px solid var(--border); background:var(--surface); color:var(--accent);
+  display:flex; align-items:center; justify-content:center;
+  cursor:grab; box-shadow:var(--shadow-sm);
+  transition:transform .28s cubic-bezier(.22,1,.36,1), background .15s, color .15s;
+}
+.glisor-buton:active{ cursor:grabbing; }
+.glisor-usa.reusit{ background:var(--success-soft); border-color:transparent; }
+.glisor-usa.reusit .glisor-eticheta{ color:var(--success); }
+.glisor-usa.reusit .glisor-buton{ background:var(--success); border-color:transparent; color:#fff; }
+.glisor-usa.blocat{ opacity:.55; }
+.glisor-usa.blocat .glisor-buton{ cursor:not-allowed; color:var(--text-muted); }
+
+@media (prefers-reduced-motion: reduce){
+  .glisor-buton{ transition:none; }
+}
 
 /* ---------- Modal ---------- */
 /* FUNDALUL acopera intotdeauna tot ecranul, fara sa depinda de metrica
