@@ -1493,35 +1493,6 @@ export function ReservationModal({ data, core, updateCore, reservations, updateR
           </label>
         </div>
 
-        {/* Orele stau sub un buton, nu in randul de mai sus, fiindca in
-            marea majoritate a cazarilor nu se ating: 14:00 → 11:00 e regula
-            casei. Randul de date ar fi devenit de doua ori mai incarcat
-            pentru un caz rar.
-            Nu apare la blocaje: un blocaj de mentenanta n-are cod de acces,
-            deci ora lui nu deschide nicio usa. */}
-        {!isBlock && (
-          <div className="field" style={{ marginTop: 2 }}>
-            <button type="button" className="btn btn-ghost" style={{ width: "auto" }}
-              onClick={() => setOreModal(true)}>
-              <Clock size={14} /> Orele cazării · {checkin.slice(11, 16)} → {checkout.slice(11, 16)}
-            </button>
-            {editing && (oraDin(checkin) !== ORA_SOSIRE_IMPLICITA || oraDin(checkout) !== ORA_PLECARE_IMPLICITA) && (
-              <div className="ldv-mic" style={{ marginTop: 6 }}>
-                Ore diferite de cele obișnuite ({ORA_SOSIRE_IMPLICITA}:00 → {ORA_PLECARE_IMPLICITA}:00).
-                Codul de acces urmează orele de aici.
-              </div>
-            )}
-          </div>
-        )}
-
-        {oreModal && (
-          <OreCazareModal
-            checkin={checkin} checkout={checkout}
-            onClose={() => setOreModal(false)}
-            onSave={(ci, co) => { setCheckin(ci); setCheckout(co); setOreModal(false); }}
-          />
-        )}
-
         {grupModal && editingGroup && (
           <GroupEditor
             group={editingGroup} core={core} groups={groups} updateGroups={updateGroups}
@@ -1614,6 +1585,35 @@ export function ReservationModal({ data, core, updateCore, reservations, updateR
               ))}
             </div>
           </div>
+        )}
+
+        {/* Orele stau imediat deasupra sectiunii de acces, nu langa date:
+            aici sunt langa butoanele pe care le influenteaza direct —
+            regenerarea codului, emailul, WhatsApp-ul. Cine schimba o ora
+            vede in acelasi loc ce se intampla cu codul.
+            Nu apar la blocaje: un blocaj de mentenanta n-are cod de acces,
+            deci ora lui nu deschide nicio usa. */}
+        {!isBlock && (
+          <div className="field" style={{ marginBottom: 4 }}>
+            <button type="button" className="btn btn-ghost" style={{ width: "auto" }}
+              onClick={() => setOreModal(true)}>
+              <Clock size={14} /> Orele cazării · {checkin.slice(11, 16)} → {checkout.slice(11, 16)}
+            </button>
+            {editing && (oraDin(checkin) !== ORA_SOSIRE_IMPLICITA || oraDin(checkout) !== ORA_PLECARE_IMPLICITA) && (
+              <div className="ldv-mic" style={{ marginTop: 6 }}>
+                Ore diferite de cele obișnuite ({ORA_SOSIRE_IMPLICITA}:00 → {ORA_PLECARE_IMPLICITA}:00).
+                Codul de acces urmează orele de aici.
+              </div>
+            )}
+          </div>
+        )}
+
+        {oreModal && (
+          <OreCazareModal
+            checkin={checkin} checkout={checkout}
+            onClose={() => setOreModal(false)}
+            onSave={(ci, co) => { setCheckin(ci); setCheckout(co); setOreModal(false); }}
+          />
         )}
 
         {editing && !isBlock && <SectiuneAcces res={editing} core={core} />}
