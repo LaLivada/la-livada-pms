@@ -119,6 +119,45 @@ export async function generatePdfBlob(el, opts = {}) {
 }
 
 /* ---------------------------------------------------------------
+   DESCHIDEREA PDF-ULUI INTR-O FILA NOUA
+
+   Ordinea apelurilor NU e o preferinta de stil. Fila se cere in gestul de
+   click (`pregatesteFila`), inainte de generare; generarea dureaza in jur
+   de o secunda, iar un `window.open` de dupa `await` nu mai e legat de
+   click, deci browserul il trateaza drept fereastra nesolicitata si il
+   blocheaza — Safari intotdeauna, Chrome cand utilizatorul a refuzat
+   ferestrele o data. Fila goala se deschide pe loc si e trimisa la
+   document abia cand blob-ul e gata.
+----------------------------------------------------------------*/
+
+export function pregatesteFila() {
+  try {
+    const fila = window.open("", "_blank");
+    /* Fila goala arata a pagina crapata cat dureaza generarea. */
+    if (fila) fila.document.write("<title>Se generează PDF…</title>");
+    return fila;
+  } catch { return null; }
+}
+
+/* Intoarce `false` daca fila lipseste (blocata sau inchisa intre timp) —
+   apelantul are atunci de ales ce face, de obicei arata vizualizatorul din
+   aplicatie, ca sa nu ramana cu un buton care pare ca n-a facut nimic. */
+export function arataInFila(fila, blob) {
+  if (!fila || fila.closed) return false;
+  const url = URL.createObjectURL(blob);
+  /* URL-ul NU se revoca: fila tocmai a fost trimisa acolo, iar o revocare
+     ar goli-o. Se elibereaza cand se inchide fila din care a plecat. */
+  fila.location.replace(url);
+  try { fila.opener = null; } catch { /* deja navigata, nu mai e treaba noastra */ }
+  return true;
+}
+
+/* La o eroare de generare, fila deschisa in avans ar ramane alba pe ecran. */
+export function inchideFila(fila) {
+  try { if (fila && !fila.closed) fila.close(); } catch { /* deja inchisa */ }
+}
+
+/* ---------------------------------------------------------------
    TOASTS
    Destructive actions are reversible for a few seconds instead of
    being guarded by another confirmation prompt.

@@ -18,7 +18,7 @@ import { isSameDay } from "../lib/tranzitii.js";
 import { fmtMoney, fmtDate, fmtDateFull, toDateInput, initials, withNewDate, FMT_DATE, FMT_DATE_FULL } from "../lib/format.js";
 import { ROOM_TYPE, STATUS_LABEL, TARI } from "../lib/constante.js";
 import { Dialog, toaster, useModalLock, PdfPreview, OccupantStepper, Paginare, usePaginare } from "../ui/primitive.jsx";
-import { generatePdfBlob } from "../lib/pdf.js";
+import { generatePdfBlob, pregatesteFila, arataInFila, inchideFila } from "../lib/pdf.js";
 import { reconciliazaAcces } from "./acces.jsx";
 
 export function GroupPrint({ group, core, reservations, onClose }) {
@@ -27,14 +27,23 @@ export function GroupPrint({ group, core, reservations, onClose }) {
   const [pdf, setPdf] = useState(null);
   const download = async () => {
     setDownloading(true);
+    /* Fila se cere aici, in gestul de click, nu dupa generare — vezi
+       comentariul de la `pregatesteFila`. */
+    const fila = pregatesteFila();
     /* Fara `catch`, un esec de generare trecea complet neobservat: butonul
        clipea „Se generează…", revenea, si nu aparea niciun fisier si niciun
        mesaj. Mai bine o eroare vizibila decat o tacere. */
     try {
       const blob = await generatePdfBlob(sheetRef.current);
-      setPdf({ blob, filename: `Cazare-grup-${group.id}.pdf` });
+      /* Daca browserul a blocat fila, ramane vizualizatorul din aplicatie. */
+      if (!arataInFila(fila, blob)) {
+        setPdf({ blob, filename: `Cazare-grup-${group.id}.pdf` });
+      }
     }
-    catch (e) { toaster.show(mesajEroare(e, "PDF-ul nu a putut fi generat"), { tone: "danger" }); }
+    catch (e) {
+      inchideFila(fila);
+      toaster.show(mesajEroare(e, "PDF-ul nu a putut fi generat"), { tone: "danger" });
+    }
     finally { setDownloading(false); }
   };
   const rows = reservations

@@ -16,7 +16,7 @@ import { ROLE_LABEL, ROOM_TYPE, SOURCES, sourceLabel, STATUS_CLASS, PERMISSIONS,
 import { nightsBetween, isStatsEligible } from "../lib/availability.js";
 import { reservationTotal } from "../lib/pricing.js";
 import { Dialog, toaster, useModalLock, Stat, PdfPreview } from "../ui/primitive.jsx";
-import { generatePdfBlob } from "../lib/pdf.js";
+import { generatePdfBlob, pregatesteFila, arataInFila, inchideFila } from "../lib/pdf.js";
 
 export function UsersView() {
   const [list, setList] = useState(null);
@@ -288,11 +288,11 @@ export function ProfileView({ user, onLogout, onBack }) {
  * diferite la aceeasi intrebare. */
 
 /* Latimea la care foaia se aseaza pentru tiparire — masurata, nu aleasa din
-   ochi: cu 31 de randuri foaia iese de 953px inaltime, iar 658/953 = 0,690,
+   ochi: cu 31 de randuri foaia iese de 935px inaltime, iar 645/935 = 0,690,
    exact proportia zonei utile a paginii A4 (194/281). Asa incadrarea pe o
    pagina umple foaia in loc s-o micsoreze. Pe ecran raportul NU are latimea
    asta; vezi .raport-sheet in pms.css. */
-const LATIME_TIPAR = 658;
+const LATIME_TIPAR = 645;
 
 function OcupareZilnicaModal({ perDay, monthStart, totalCamere, onClose }) {
   const foaie = useRef(null);
@@ -307,20 +307,28 @@ function OcupareZilnicaModal({ perDay, monthStart, totalCamere, onClose }) {
 
   const descarca = async () => {
     setGenereaza(true);
+    /* Fila se cere aici, in gestul de click, nu dupa generare — vezi
+       comentariul de la `pregatesteFila`. */
+    const fila = pregatesteFila();
     /* Fara `catch`, un esec de generare ar trece neobservat: butonul ar
        clipi si n-ar aparea nimic. */
     try {
       /* `singlePage`: raportul unei luni e un singur document, nu o lista
          care curge. Fereastra poate fi derulata, dar PDF-ul de tiparit
          intra intreg pe o pagina, oricat de lunga e luna.
-         `latimeFixa`: 650px e latimea la care foaia are proportia A4 (vezi
-         .raport-sheet). Se aplica doar pe durata capturii, ca pe ecran
+         `latimeFixa`: latimea la care foaia are proportia A4 (vezi
+         LATIME_TIPAR). Se aplica doar pe durata capturii, ca pe ecran
          raportul sa curga dupa latimea ferestrei. */
       const blob = await generatePdfBlob(foaie.current, {
         singlePage: true, latimeFixa: LATIME_TIPAR,
       });
-      setPdf({ blob, filename: `Raport-zilnic-${luna.replace(/\s+/g, "-")}.pdf` });
+      /* Daca browserul a blocat fila, documentul tot trebuie sa apara —
+         altfel butonul pare ca n-a facut nimic. */
+      if (!arataInFila(fila, blob)) {
+        setPdf({ blob, filename: `Raport-zilnic-${luna.replace(/\s+/g, "-")}.pdf` });
+      }
     } catch (e) {
+      inchideFila(fila);
       toaster.show(mesajEroare(e, "PDF-ul nu a putut fi generat"), { tone: "danger" });
     } finally { setGenereaza(false); }
   };
