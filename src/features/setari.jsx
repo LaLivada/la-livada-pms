@@ -333,9 +333,11 @@ function OcupareZilnicaModal({ perDay, monthStart, totalCamere, onClose }) {
     } finally { setGenereaza(false); }
   };
 
+  /* Numele intreg, nu prescurtarea: „mar." si „mie." se confunda la
+     citirea rapida a unei coloane de 31 de randuri, iar loc este. */
   const numeZi = (zi) =>
     new Date(monthStart.getFullYear(), monthStart.getMonth(), zi)
-      .toLocaleDateString("ro-RO", { weekday: "short" });
+      .toLocaleDateString("ro-RO", { weekday: "long" });
 
   return (
     <Dialog onClose={onClose} className="arrival-modal" overlayClassName="arrival-overlay" title={undefined}>
