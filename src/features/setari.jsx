@@ -302,7 +302,7 @@ function OcupareZilnicaModal({ perDay, monthStart, totalCamere, onClose }) {
        clipi si n-ar aparea nimic. */
     try {
       const blob = await generatePdfBlob(foaie.current);
-      setPdf({ blob, filename: `Ocupare-zilnica-${luna.replace(/\s+/g, "-")}.pdf` });
+      setPdf({ blob, filename: `Raport-zilnic-${luna.replace(/\s+/g, "-")}.pdf` });
     } catch (e) {
       toaster.show(mesajEroare(e, "PDF-ul nu a putut fi generat"), { tone: "danger" });
     } finally { setGenereaza(false); }
@@ -315,7 +315,7 @@ function OcupareZilnicaModal({ perDay, monthStart, totalCamere, onClose }) {
   return (
     <Dialog onClose={onClose} className="arrival-modal" overlayClassName="arrival-overlay" title={undefined}>
       <div className="modal-head no-print">
-        <h3>Ocupare zilnică · {luna}</h3>
+        <h3>Raport zilnic · {luna}</h3>
         <div style={{ display: "flex", gap: 8 }}>
           <button className="btn btn-primary" style={{ width: "auto" }} onClick={descarca} disabled={genereaza}>
             <Printer size={15} /> {genereaza ? "Se generează…" : "Vezi PDF"}
@@ -332,7 +332,7 @@ function OcupareZilnicaModal({ perDay, monthStart, totalCamere, onClose }) {
 
       <div className="arrival-sheet" ref={foaie}>
         <div className="fisa">
-          <h2 style={{ marginTop: 0 }}>Ocupare zilnică · {luna}</h2>
+          <h2 style={{ marginTop: 0 }}>Raport zilnic · {luna}</h2>
           <table className="tabel-zile">
             <thead>
               <tr>
@@ -511,7 +511,7 @@ export function ReportsView({ core, reservations }) {
       <button type="button" className="panel panel-clickabil"
         style={{ padding: 18, marginBottom: 14, width: "100%", textAlign: "left" }}
         onClick={() => setDetaliuZilnic(true)}
-        aria-label={`Vezi ocuparea zilnică pe ${FMT_MONTH_YEAR.format(monthStart)}, cu totalul încasat pe zi`}>
+        aria-label={`Raportul zilnic pe ${FMT_MONTH_YEAR.format(monthStart)}: camere ocupate și total încasat pe zi`}>
         <div className="section-head" style={{ padding: 0, border: "none", marginBottom: 14, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <span>Ocupare zilnică</span>
           <span className="ldv-mic" style={{ fontWeight: 500 }}>Vezi pe zile <ArrowRight size={13} /></span>
