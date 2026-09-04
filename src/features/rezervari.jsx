@@ -12,7 +12,7 @@ import {
   CalendarDays, Users, DoorOpen, Plus, X, Search, ChevronLeft, ChevronRight,
   Sparkles, Check, Trash2, Pencil, UsersRound, LogIn, LogOut, Printer, Eye,
   ArrowRight, MoveRight, XCircle, MessageSquare, AlertTriangle, RefreshCw,
-  Undo2, Copy, Info, Wrench, Tag as TagIcon, Rows2, Rows3, Zap, Flame, Wind, Snowflake, UserCheck,
+  Undo2, Copy, Info, Wrench, Tag as TagIcon, Rows2, Rows3, Zap, Flame, Wind, Snowflake, UserCheck, Clock,
 } from "lucide-react";
 import { uid } from "../lib/uid.js";
 import { mesajEroare } from "../lib/errors.js";
@@ -27,6 +27,7 @@ import { ROOM_TYPE, STATUS_LABEL, STATUS_GLYPH, STATUS_CLASS, CREATE_STATUSES, E
 import { Dialog, toaster, useModalLock, useAduInVizor, usePaginare, Paginare, Stat, Section, OccupantStepper } from "../ui/primitive.jsx";
 import { snakeRes } from "../data/mapari.js";
 import { syncTable } from "../data/nucleu.js";
+import { ORA_SOSIRE_IMPLICITA, ORA_PLECARE_IMPLICITA } from "../lib/acces.js";
 import { SectiuneAcces, cheamaAcces, reconciliazaAcces } from "./acces.jsx";
 import { FolioPanel, InvoicePrint, BillingCustomerPicker, BillingCustomerModal, billingCustomerLabel } from "./facturare.jsx";
 import { GuestFields, GuestModal, ContactQuickActions, emptyGuest } from "./clienti.jsx";
@@ -880,6 +881,60 @@ export function ReservationViewModal({ reservation, core, updateCore, groups, up
   );
 }
 
+/* Ora locala dintr-o valoare de <input type="datetime-local"> ("2026-09-04T14:00"). */
+const oraDin = (v) => Number(String(v).slice(11, 13));
+
+/* Orele unei cazari anume — sosire si plecare.
+ *
+ * DE CE O FEREASTRA SEPARATA, nu doua campuri langa date. Orele nu se ating
+ * aproape niciodata: 14:00 → 11:00 e regula casei, iar randul de date ar fi
+ * devenit de doua ori mai incarcat pentru un caz rar. Aici mai incape si
+ * avertismentul care conteaza — ca se schimba fereastra codului de acces —
+ * imposibil de scris lizibil intr-o eticheta de camp.
+ *
+ * Nu salveaza singura. Intoarce valorile in formularul de deasupra, iar
+ * salvarea trece prin acelasi drum ca orice alta modificare de rezervare —
+ * inclusiv prin `decideActiuneAcces`, care vede perioada schimbata si cere
+ * refacerea codului. Asa nu exista o a doua cale de scriere care sa poata
+ * uita de cod. */
+function OreCazareModal({ checkin, checkout, onClose, onSave }) {
+  const [ora1, setOra1] = useState(checkin.slice(11, 16));
+  const [ora2, setOra2] = useState(checkout.slice(11, 16));
+  useModalLock();
+
+  const valid = /^\d{2}:\d{2}$/.test(ora1) && /^\d{2}:\d{2}$/.test(ora2);
+  const schimbat = ora1 !== checkin.slice(11, 16) || ora2 !== checkout.slice(11, 16);
+
+  return (
+    <Dialog title="Orele cazării" onClose={onClose}>
+      <div className="field-row">
+        <label className="field">
+          <span className="fl">Sosire</span>
+          <input type="time" value={ora1} onChange={(e) => setOra1(e.target.value)} step="300" />
+        </label>
+        <label className="field">
+          <span className="fl">Plecare</span>
+          <input type="time" value={ora2} onChange={(e) => setOra2(e.target.value)} step="300" />
+        </label>
+      </div>
+
+      <p className="ldv-mic" style={{ marginTop: 10 }}>
+        Codul de acces urmează exact aceste ore: merge de la ora de sosire
+        până la cea de plecare, plus minutele de grație din Setări.
+        {schimbat && " Codul curent se reface automat la salvare."}
+      </p>
+
+      <div className="modal-actions">
+        <button className="btn btn-ghost" onClick={onClose}>Anulează</button>
+        <button className="btn btn-primary" style={{ width: "auto" }} disabled={!valid}
+          onClick={() => onSave(checkin.slice(0, 11) + ora1, checkout.slice(0, 11) + ora2)}>
+          Salvează orele
+        </button>
+      </div>
+    </Dialog>
+  );
+}
+
 export function ReservationModal({ data, core, updateCore, reservations, updateReservations, groups, updateGroups, blocks, updateBlocks, onClose }) {
   useModalLock();
   const editing = data.reservation;
@@ -894,12 +949,17 @@ export function ReservationModal({ data, core, updateCore, reservations, updateR
   const [billingModalOpen, setBillingModalOpen] = useState(false);
   const [checkin, setCheckin] = useState(
     editing ? toLocalInputValue(editing.checkin) :
-    (() => { const d = data.defaultDate ? new Date(data.defaultDate) : new Date(); d.setHours(15, 0, 0, 0); return toLocalInputValue(d.toISOString()); })()
+    /* 14:00, nu 15:00 ca pana pe 4 septembrie 2026: ora de sosire e acum si
+       ora de la care merge codul de acces (vezi inceputCod in lib/acces.js),
+       iar regula casei e „din ziua cazarii, de la 14:00". */
+    (() => { const d = data.defaultDate ? new Date(data.defaultDate) : new Date(); d.setHours(ORA_SOSIRE_IMPLICITA, 0, 0, 0); return toLocalInputValue(d.toISOString()); })()
   );
   const [checkout, setCheckout] = useState(
     editing ? toLocalInputValue(editing.checkout) :
-    (() => { const d = data.defaultDate ? new Date(data.defaultDate) : new Date(); d.setDate(d.getDate() + 1); d.setHours(11, 0, 0, 0); return toLocalInputValue(d.toISOString()); })()
+    (() => { const d = data.defaultDate ? new Date(data.defaultDate) : new Date(); d.setDate(d.getDate() + 1); d.setHours(ORA_PLECARE_IMPLICITA, 0, 0, 0); return toLocalInputValue(d.toISOString()); })()
   );
+  const [oreModal, setOreModal] = useState(false);
+  const [grupModal, setGrupModal] = useState(false);
   const [status, setStatus] = useState(editing?.status || "confirmed");
   /* La creare: doar Cerere/Confirmata/Protocol. La editare: starile
      operationale clasice — plus statusul curent, daca a ramas pe
@@ -1241,11 +1301,15 @@ export function ReservationModal({ data, core, updateCore, reservations, updateR
           </div>
         )}
 
+        {/* Acelasi banner ca in fereastra de vizualizare, dar acolo era link
+            si aici nu — desi tocmai de aici, din editare, ai mai des nevoie
+            sa treci la grup. Deschide editorul de grup peste formular. */}
         {editingGroup && (
-          <div className="group-banner">
+          <button type="button" className="group-banner group-banner-link"
+            onClick={() => setGrupModal(true)}>
             <UsersRound size={15} />
             <span>Face parte din grupul <strong>{editingGroup.name}</strong></span>
-          </div>
+          </button>
         )}
 
         {isGroup || isBlock ? (
@@ -1428,6 +1492,43 @@ export function ReservationModal({ data, core, updateCore, reservations, updateR
             <input type="date" value={checkout.slice(0, 10)} onChange={(e) => setCheckout(withNewDate(checkout, e.target.value))} />
           </label>
         </div>
+
+        {/* Orele stau sub un buton, nu in randul de mai sus, fiindca in
+            marea majoritate a cazarilor nu se ating: 14:00 → 11:00 e regula
+            casei. Randul de date ar fi devenit de doua ori mai incarcat
+            pentru un caz rar.
+            Nu apare la blocaje: un blocaj de mentenanta n-are cod de acces,
+            deci ora lui nu deschide nicio usa. */}
+        {!isBlock && (
+          <div className="field" style={{ marginTop: 2 }}>
+            <button type="button" className="btn btn-ghost" style={{ width: "auto" }}
+              onClick={() => setOreModal(true)}>
+              <Clock size={14} /> Orele cazării · {checkin.slice(11, 16)} → {checkout.slice(11, 16)}
+            </button>
+            {editing && (oraDin(checkin) !== ORA_SOSIRE_IMPLICITA || oraDin(checkout) !== ORA_PLECARE_IMPLICITA) && (
+              <div className="ldv-mic" style={{ marginTop: 6 }}>
+                Ore diferite de cele obișnuite ({ORA_SOSIRE_IMPLICITA}:00 → {ORA_PLECARE_IMPLICITA}:00).
+                Codul de acces urmează orele de aici.
+              </div>
+            )}
+          </div>
+        )}
+
+        {oreModal && (
+          <OreCazareModal
+            checkin={checkin} checkout={checkout}
+            onClose={() => setOreModal(false)}
+            onSave={(ci, co) => { setCheckin(ci); setCheckout(co); setOreModal(false); }}
+          />
+        )}
+
+        {grupModal && editingGroup && (
+          <GroupEditor
+            group={editingGroup} core={core} groups={groups} updateGroups={updateGroups}
+            reservations={reservations} updateReservations={updateReservations} blocks={blocks}
+            onClose={() => setGrupModal(false)}
+          />
+        )}
 
         {!isBlock && <div className="price-box">
           <div className="pb-info">

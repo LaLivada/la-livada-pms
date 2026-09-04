@@ -50,29 +50,48 @@ export function laOraLocala(reper, ore, minute, fus = FUS_HOTEL) {
  * Minutele se aduna la ora, nu se scriu de mana ca "11:30": daca gratia
  * devine 45, sau ora de plecare 12, rezultatul iese corect fara sa umble
  * nimeni prin cod.  Minutele peste 59 se reporteaza singure — vezi laOraLocala. */
-export function expirareCod(checkout, { oraPlecare = 11, minutePlecare = 0, grateMinute = 30 } = {}) {
-  return laOraLocala(checkout, oraPlecare, minutePlecare + grateMinute);
+export function expirareCod(checkout, { grateMinute = 30 } = {}) {
+  /* Ora vine din rezervarea insasi, nu din setari.
+   *
+   * Pana pe 4 septembrie 2026 setarea `checkoutHour` inlocuia ora rezervarii:
+   * orice sejur expira la 11:00, oricat i-ar fi scris in `checkout`. Asta a
+   * devenit fals in clipa in care receptia a capatat un ecran de unde poate
+   * schimba orele unei cazari anume (vezi OreCazareModal) — o plecare mutata
+   * la 09:00 ar fi ramas cu codul valabil pana la 11:30.
+   *
+   * Setarile raman ce erau de fapt tot timpul: valorile IMPLICITE cu care se
+   * naste o rezervare noua (vezi ORA_SOSIRE_IMPLICITA/ORA_PLECARE_IMPLICITA),
+   * nu un supracontrol la generarea codului.
+   *
+   * Gratia ramane setare, fiindca e o proprietate a casei, nu a sejurului:
+   * cate minute peste ora scrisa mai lasi omul sa intre dupa bagaje. */
+  const co = new Date(checkout);
+  return new Date(co.getTime() + grateMinute * 60_000);
 }
 
-/* Inceputul valabilitatii codului.
+/* Inceputul valabilitatii codului: ora de sosire scrisa in rezervare.
  *
- * Un check-in facut chiar in ziua sosirii (sau mai tarziu — un audit de
- * noapte care rezolva o sosire restanta) inseamna ca oaspetele e la
- * receptie ACUM: codul trebuie sa mearga imediat, altfel ar ramane blocat
- * pe hol pana la o ora arbitrara.
+ * Pana pe 4 septembrie 2026 exista aici o exceptie — un check-in facut in
+ * ziua sosirii pornea codul PE LOC, ca oaspetele ajuns la receptie sa nu
+ * astepte o ora anume. Regula ceruta acum e insa una singura, limpede:
+ * codul merge din ziua cazarii de la 14:00. Exceptia ar fi contrazis-o
+ * tacut — un check-in facut dimineata la 9 ar fi deschis usa de la 9.
  *
- * Un check-in facut cu zile inainte (fereastra de check-in ajunge pana la
- * 14 zile — vezi ZILE_CHECKIN_DEVREME in lib/tranzitii.js) e altceva: daca
- * codul ar fi valabil "de acum", camera ar sta practic deschisa saptamani
- * intregi inainte ca oaspetele sa fi ajuns macar la usa. In acest caz
- * valabilitatea incepe abia in ziua rezervarii, la aceeasi ora la care
- * camera se elibereaza de la oaspetele anterior (oraPlecare/minutePlecare
- * din setari — implicit 11:00): reluam ora de turnover existenta, nu
- * inventam una noua doar pentru sosiri. */
-export function inceputCod(checkin, acum, { oraPlecare = 11, minutePlecare = 0 } = {}) {
-  const ziSosirii = laOraLocala(checkin, 0, 0);
-  return acum < ziSosirii ? laOraLocala(checkin, oraPlecare, minutePlecare) : acum;
+ * Consecinta de retinut: un oaspete care vine mai devreme NU intra cu
+ * codul pana la ora scrisa. Cand receptia vrea sa-l lase, muta ora de
+ * sosire pe rezervarea lui (butonul „Orele cazarii" din ecranul de
+ * editare) — codul se regenereaza singur pe fereastra noua. Portita e
+ * explicita si lasa urma in jurnal, spre deosebire de vechea exceptie,
+ * care se declansa singura. */
+export function inceputCod(checkin) {
+  return new Date(checkin);
 }
+
+/* Orele implicite ale casei: 14:00 sosire, 11:00 plecare. Traiesc aici, nu
+   in formular, fiindca aceeasi pereche e folosita si de ecranul de creare a
+   rezervarii, si de cel de editare a orelor. */
+export const ORA_SOSIRE_IMPLICITA = 14;
+export const ORA_PLECARE_IMPLICITA = 11;
 
 /* Inlocuieste {{variabila}} in sablon. Variabilele lipsa devin sir gol, nu
  * raman ca {{...}} in mesajul trimis oaspetelui. */

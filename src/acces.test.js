@@ -15,20 +15,25 @@ const ziRo = (d) => new Intl.DateTimeFormat("en-CA", {
 }).format(d);
 
 describe("expirarea codului de acces", () => {
-  it("expira la 11:30 in ziua plecarii, cu setarile implicite", () => {
-    // Plecare pe 23 august, ora din rezervare irelevanta: conteaza ZIUA.
+  it("expira la 11:30 in ziua plecarii, la o plecare obisnuita de 11:00", () => {
     const e = expirareCod("2026-08-23T11:00:00+03:00");
     expect(ziRo(e)).toBe("2026-08-23");
     expect(oraRo(e)).toBe("11:30");
   });
 
-  it("nu are 11:30 scris de mana: gratia si ora de plecare sunt separate", () => {
-    // Cazul din brief-ul initial: plecare la 12:00 => expirare 12:30.
-    expect(oraRo(expirareCod("2026-08-23T11:00:00+03:00", { oraPlecare: 12 }))).toBe("12:30");
-    // Gratie de 45 de minute, fara sa umble nimeni prin cod.
+  it("urmeaza ora din rezervare, nu una fixa", () => {
+    // Receptia muta plecarea la 09:00 din „Orele cazarii": codul trebuie sa
+    // expire la 09:30, nu sa ramana valabil pana la 11:30.
+    expect(oraRo(expirareCod("2026-08-23T09:00:00+03:00"))).toBe("09:30");
+    expect(oraRo(expirareCod("2026-08-23T16:00:00+03:00"))).toBe("16:30");
+  });
+
+  it("nu are 11:30 scris de mana: gratia se aduna la ora rezervarii", () => {
     expect(oraRo(expirareCod("2026-08-23T11:00:00+03:00", { grateMinute: 45 }))).toBe("11:45");
-    // Gratie care trece peste ora: 11:00 + 90 = 12:30, reportat de Date.
+    // Gratie care trece peste ora: 11:00 + 90 = 12:30.
     expect(oraRo(expirareCod("2026-08-23T11:00:00+03:00", { grateMinute: 90 }))).toBe("12:30");
+    // Fara gratie, expira fix la ora scrisa.
+    expect(oraRo(expirareCod("2026-08-23T11:00:00+03:00", { grateMinute: 0 }))).toBe("11:00");
   });
 
   it("da aceeasi ora locala vara si iarna, desi decalajul UTC difera", () => {
@@ -42,9 +47,14 @@ describe("expirarea codului de acces", () => {
   });
 
   it("trece corect peste noaptea schimbarii orei", () => {
-    // Romania trece la ora de iarna in ultima duminica din octombrie 2026 (25).
-    // O plecare fix in acea zi e cazul in care o constanta de fus ar gresi.
-    const e = expirareCod("2026-10-25T11:00:00+03:00");
+    /* Romania trece la ora de iarna in ultima duminica din octombrie 2026
+       (25), la 04:00. O plecare in acea zi e cazul in care o constanta de
+       fus ar gresi: 11:00 local inseamna deja +02:00, nu +03:00.
+       Testul asta scria inainte `+03:00` — adica in realitate ora 10:00
+       locala — si tot ii iesea 11:30, fiindca implementarea de-atunci
+       inlocuia ora rezervarii cu cea din setari. Acum ora rezervarii chiar
+       conteaza, deci intrarea trebuie sa fie momentul corect. */
+    const e = expirareCod("2026-10-25T11:00:00+02:00");
     expect(ziRo(e)).toBe("2026-10-25");
     expect(oraRo(e)).toBe("11:30");
   });
@@ -63,37 +73,30 @@ describe("expirarea codului de acces", () => {
 });
 
 describe("inceputul valabilitatii codului", () => {
-  it("e chiar acum cand check-in-ul se face in ziua sosirii", () => {
-    const acum = new Date("2026-08-23T09:00:00+03:00");
-    const d = inceputCod("2026-08-23T15:00:00+03:00", acum);
-    expect(d).toEqual(acum);
-  });
-
-  it("e chiar acum cand check-in-ul se face dupa ziua sosirii (audit de noapte)", () => {
-    const acum = new Date("2026-08-25T08:00:00+03:00");
-    const d = inceputCod("2026-08-23T15:00:00+03:00", acum);
-    expect(d).toEqual(acum);
-  });
-
-  it("nu e inainte de ziua rezervarii cand check-in-ul se face cu zile inainte", () => {
-    // Check-in facut pe 10, sosire abia pe 23: codul nu are voie sa fie
-    // valabil "de acum" — ar tine camera deschisa 13 zile degeaba.
-    const acum = new Date("2026-08-10T11:00:00+03:00");
-    const d = inceputCod("2026-08-23T15:00:00+03:00", acum);
+  it("e ora de sosire din rezervare — 14:00 la o cazare obisnuita", () => {
+    const d = inceputCod("2026-08-23T14:00:00+03:00");
     expect(ziRo(d)).toBe("2026-08-23");
-    expect(oraRo(d)).toBe("11:00");
+    expect(oraRo(d)).toBe("14:00");
   });
 
-  it("foloseste ora de plecare din setari, nu 11:00 scris de mana", () => {
-    const acum = new Date("2026-08-10T11:00:00+03:00");
-    const d = inceputCod("2026-08-23T15:00:00+03:00", acum, { oraPlecare: 12, minutePlecare: 30 });
-    expect(oraRo(d)).toBe("12:30");
+  it("nu porneste mai devreme cand check-in-ul se face cu zile inainte", () => {
+    // Regula ceruta: din ziua cazarii, de la 14:00. Momentul check-in-ului
+    // nu mai intra in calcul deloc — inainte, un check-in facut in ziua
+    // sosirii pornea codul pe loc, la ora aceea.
+    const d = inceputCod("2026-08-23T14:00:00+03:00");
+    expect(ziRo(d)).toBe("2026-08-23");
+    expect(oraRo(d)).toBe("14:00");
   });
 
-  it("nu adauga minutele de gratie — acelea sunt doar pentru expirare", () => {
-    const acum = new Date("2026-08-10T11:00:00+03:00");
-    const d = inceputCod("2026-08-23T15:00:00+03:00", acum, { grateMinute: 45 });
-    expect(oraRo(d)).toBe("11:00");
+  it("urmeaza ora mutata de receptie pentru o sosire mai devreme", () => {
+    const d = inceputCod("2026-08-23T09:30:00+03:00");
+    expect(oraRo(d)).toBe("09:30");
+  });
+
+  it("pastreaza ziua locala, nu pe cea UTC", () => {
+    // 23 august 22:00 UTC = 24 august 01:00 in Romania.
+    const d = inceputCod("2026-08-23T22:00:00Z");
+    expect(ziRo(d)).toBe("2026-08-24");
   });
 });
 
@@ -142,6 +145,15 @@ describe("cand trebuie resincronizat codul", () => {
 
   it("regenereaza cand se schimba camera", () => {
     expect(decideActiuneAcces(baza, { ...baza, roomId: "cam2" })).toBe("reissue");
+  });
+
+  it("regenereaza cand se schimba DOAR ora, ziua ramanand aceeasi", () => {
+    /* Cazul ecranului „Orele cazarii": receptia muta sosirea de la 14:00 la
+       10:00. Ziua nu se schimba, dar fereastra codului da — daca asta n-ar
+       cere reissue, oaspetele ar ramane pe usa afara pana la 14:00 desi in
+       PMS scrie 10:00. */
+    expect(decideActiuneAcces(baza, { ...baza, checkin: "2026-08-20T07:00:00Z" })).toBe("reissue");
+    expect(decideActiuneAcces(baza, { ...baza, checkout: "2026-08-23T06:00:00Z" })).toBe("reissue");
   });
 
   it("regenereaza cand se schimba plecarea", () => {

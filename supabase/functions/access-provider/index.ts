@@ -423,13 +423,12 @@ Deno.serve(async (req) => {
         .select("*").eq("reservation_id", rez.id).eq("status", "active").maybeSingle();
 
       const s = setariAcum;
-      /* Inceputul valabilitatii: ACUM daca oaspetele soseste azi sau mai
-         devreme (sejur deja inceput / audit de noapte), dar NU mai devreme
-         de ziua rezervarii daca check-in-ul s-a facut cu zile inainte —
-         fereastra de check-in ajunge pana la 14 zile, iar un cod valabil
-         "de acum" ar tine camera practic deschisa saptamani intregi inainte
-         ca oaspetele sa fi ajuns. Vezi inceputCod in lib/acces.js. */
-      const de = inceputCod(rez.checkin, new Date(), s);
+      /* Fereastra vine din orele scrise pe rezervare — implicit 14:00 la
+         sosire si 11:00 la plecare, plus minutele de gratie ale casei, deci
+         14:00 → 11:30. Receptia le poate muta pentru un sejur anume din
+         „Orele cazarii", iar modificarea trece prin `reissue`, deci codul se
+         reface singur pe fereastra noua. Vezi lib/acces.js. */
+      const de = inceputCod(rez.checkin);
       const pana = expirareCod(rez.checkout, s);
 
       if (existent) {
