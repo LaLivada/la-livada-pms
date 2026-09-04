@@ -12,7 +12,7 @@ import { mesajEroare } from "./errors.js";
 
 export async function generatePdfBlob(el, opts = {}) {
   if (!el) return null;
-  const { singlePage = false } = opts;
+  const { singlePage = false, latimeFixa = 0 } = opts;
   /* Incarcare la cerere: cele doua biblioteci inseamna ~180 KB din
      pachetul principal, dar se folosesc doar cand cineva chiar descarca
      un PDF — nu la fiecare pornire a aplicatiei. Importul dinamic le
@@ -37,14 +37,33 @@ export async function generatePdfBlob(el, opts = {}) {
     eroare.code = "APP_VERSIUNE";
     throw eroare;
   }
-  const canvas = await html2canvas(el, {
-    scale: 2, backgroundColor: "#ffffff", useCORS: true,
-    // .no-print e gandit pentru @media print (window.print()) — aici nu
-    // exista niciun context de print, deci regula CSS n-ar avea niciun
-    // efect; excludem explicit acele elemente (controale de editare,
-    // butoane) din captura, ca sa nu ajunga in PDF.
-    ignoreElements: (node) => node.classList?.contains("no-print"),
-  });
+  /* `latimeFixa`: documentul se aseaza la o latime data DOAR cat tine
+     captura, apoi revine cum era. Asa PDF-ul iese identic de pe telefon si
+     de pe laptop, fara ca fereastra de pe ecran sa fie obligata la aceeasi
+     latime — altfel raportul pe 650px ar cere derulare laterala pe telefon.
+     `windowWidth` merge in pereche cu ea: html2canvas cloneaza pagina intr-un
+     iframe lat cat fereastra, deci pe un ecran de 375px un document de 650px
+     s-ar aseza altfel in clona decat in pagina reala. */
+  const latimeInitiala = el.style.width;
+  if (latimeFixa) el.style.width = `${latimeFixa}px`;
+  let canvas;
+  try {
+    canvas = await html2canvas(el, {
+      scale: 2, backgroundColor: "#ffffff", useCORS: true,
+      ...(latimeFixa
+        ? { windowWidth: Math.max(document.documentElement.clientWidth, latimeFixa + 40) }
+        : {}),
+      // .no-print e gandit pentru @media print (window.print()) — aici nu
+      // exista niciun context de print, deci regula CSS n-ar avea niciun
+      // efect; excludem explicit acele elemente (controale de editare,
+      // butoane) din captura, ca sa nu ajunga in PDF.
+      ignoreElements: (node) => node.classList?.contains("no-print"),
+    });
+  } finally {
+    /* `finally`, nu dupa apel: daca html2canvas arunca, documentul ar
+       ramane inghetat la latimea de tiparire pe ecranul utilizatorului. */
+    if (latimeFixa) el.style.width = latimeInitiala;
+  }
   const imgData = canvas.toDataURL("image/png");
 
   /* `compress: true` la fiecare jsPDF de mai jos NU e optional. Fara el,
