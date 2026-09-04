@@ -443,6 +443,12 @@
 .cal-bar:hover{ transform:translateY(-1px); }
 .cal-bar{ cursor:pointer; }
 .cal-bar.moving{ box-shadow:0 0 0 2px var(--accent); }
+/* Calendarul cameristei. Fara afordanta de clic: cursorul de mana si
+   ridicarea la hover promit un detaliu care nu se deschide. */
+.cal-cell-static, .cal-cell-static:hover{ cursor:default; background:inherit; }
+.cal-cell-static.weekend, .cal-cell-static.weekend:hover{ background:rgba(0,0,0,0.014); }
+.cal-cell-static .cal-bar{ cursor:default; }
+.cal-cell-static .cal-bar:hover{ transform:none; }
 .action-modal{ max-width:420px; }
 .action-head{
   display:flex; align-items:flex-start; justify-content:space-between; gap:12px;

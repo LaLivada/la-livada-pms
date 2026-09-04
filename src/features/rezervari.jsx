@@ -196,7 +196,17 @@ export function NightAuditGate({ restante, sosiri, core, updateCore, groups, upd
    LOGIN
 ----------------------------------------------------------------*/
 
-export function CalendarView({ core, updateCore, reservations, updateReservations, groups, updateGroups, housekeeping, updateHousekeeping, blocks, updateBlocks, intent, clearIntent }) {
+/* `doarCitire` — calendarul pentru cameristă.
+ *
+ * Nu e un mod „dezactivat" al aceluiași ecran, ci un ecran mai sărac: nu
+ * doar că nu se poate scrie, dar nici nu se arată cine stă în cameră.
+ * Camerista are nevoie să știe CE cameră e prinsă și ÎN CE zile, ca să-și
+ * planifice curățenia; numele oaspetelui nu o ajută cu nimic, deci nu are
+ * de ce să treacă prin ecranul ei.
+ *
+ * Ascunderea butoanelor n-ar fi de ajuns singură — de aceea și dispecerul
+ * de clic din celule iese devreme, nu doar controalele lipsesc. */
+export function CalendarView({ core, updateCore, reservations, updateReservations, groups, updateGroups, housekeeping, updateHousekeeping, blocks, updateBlocks, intent, clearIntent, doarCitire = false }) {
   const [offset, setOffset] = useState(0);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [dense, setDense] = useState(false);
@@ -437,11 +447,13 @@ export function CalendarView({ core, updateCore, reservations, updateReservation
         >
           {dense ? <Rows3 size={16} /> : <Rows2 size={16} />}
         </button>
-        <button className="btn btn-primary" style={{ width: "auto" }} onClick={() => setModal({ reservation: null })}>
-          <Plus size={15} />
-          <span className="lbl-long">Rezervare nouă</span>
-          <span className="lbl-short">Rezervare</span>
-        </button>
+        {!doarCitire && (
+          <button className="btn btn-primary" style={{ width: "auto" }} onClick={() => setModal({ reservation: null })}>
+            <Plus size={15} />
+            <span className="lbl-long">Rezervare nouă</span>
+            <span className="lbl-short">Rezervare</span>
+          </button>
+        )}
       </div>
 
       {dragError && <div className="drag-error" role="alert">{dragError}</div>}
@@ -510,8 +522,9 @@ export function CalendarView({ core, updateCore, reservations, updateReservation
                       key={i}
                       className={"cal-cell"
                         + (d.getDay() === 0 || d.getDay() === 6 ? " weekend" : "")
-                        + (moveId ? " movable" : "")}
-                      onClick={() => {
+                        + (moveId ? " movable" : "")
+                        + (doarCitire ? " cal-cell-static" : "")}
+                      onClick={doarCitire ? undefined : () => {
                         if (moveId) { moveReservation(moveId, room.id, d); setMoveId(null); return; }
                         if (bCovered) { setBlockInfo(bCovered.block); return; }
                         if (covered) setActionRes(covered.res);
@@ -520,10 +533,10 @@ export function CalendarView({ core, updateCore, reservations, updateReservation
                     >
                       {bSpan && (
                         <div
-                          role="button"
-                          tabIndex={0}
-                          onClick={(e) => { e.stopPropagation(); setBlockInfo(bSpan.block); }}
-                          onKeyDown={(e) => {
+                          role={doarCitire ? undefined : "button"}
+                          tabIndex={doarCitire ? undefined : 0}
+                          onClick={doarCitire ? undefined : (e) => { e.stopPropagation(); setBlockInfo(bSpan.block); }}
+                          onKeyDown={doarCitire ? undefined : (e) => {
                             if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setBlockInfo(bSpan.block); }
                           }}
                           className="cal-bar block-bar"
@@ -554,25 +567,32 @@ export function CalendarView({ core, updateCore, reservations, updateReservation
                         return (
                           <div
                             key={span.res.id}
-                            role="button"
-                            tabIndex={0}
-                            onClick={(e) => { e.stopPropagation(); if (moveId) return; setActionRes(span.res); }}
-                            onKeyDown={(e) => {
+                            role={doarCitire ? undefined : "button"}
+                            tabIndex={doarCitire ? undefined : 0}
+                            onClick={doarCitire ? undefined : (e) => { e.stopPropagation(); if (moveId) return; setActionRes(span.res); }}
+                            onKeyDown={doarCitire ? undefined : (e) => {
                               if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setActionRes(span.res); }
                             }}
                             className={"cal-bar " + STATUS_CLASS[span.res.status] +
                               (span.clipStart ? " clip-start" : "") + (span.clipEnd ? " clip-end" : "") +
                               (moveId === span.res.id ? " moving" : "")}
                             style={{ left: barLeft, width: `calc(${barWidthUnits} * 100% - 6px)` }}
-                            title={`${occupantName(span.res, core, groups) || "Fără nume"} · ${fmtDateTime(span.res.checkin)} → ${fmtDateTime(span.res.checkout)} · ${STATUS_LABEL[span.res.status]}`}
+                            /* Tooltipul urmează aceeași regulă ca eticheta: fără nume
+                               în vederea cameristei — altfel numele ar reintra pe ușa
+                               din dos, la trecerea cu mausul. */
+                            title={doarCitire
+                              ? `${fmtDateTime(span.res.checkin)} → ${fmtDateTime(span.res.checkout)} · ${STATUS_LABEL[span.res.status]}`
+                              : `${occupantName(span.res, core, groups) || "Fără nume"} · ${fmtDateTime(span.res.checkin)} → ${fmtDateTime(span.res.checkout)} · ${STATUS_LABEL[span.res.status]}`}
                           >
                             <span className="bar-glyph" aria-hidden="true">{STATUS_GLYPH[span.res.status]}</span>
-                            {span.res.groupId && <UsersRound size={11} style={{ flexShrink: 0, opacity: .8 }} />}
+                            {!doarCitire && span.res.groupId && <UsersRound size={11} style={{ flexShrink: 0, opacity: .8 }} />}
                             <span className="bar-name">
-                              {occupantName(span.res, core, groups) || "Fără nume"}
+                              {doarCitire
+                                ? STATUS_LABEL[span.res.status]
+                                : (occupantName(span.res, core, groups) || "Fără nume")}
                             </span>
-                            {span.res.tags?.includes("VIP") && <span className="bar-vip">VIP</span>}
-                            {span.res.messages?.length > 0 && <MessageSquare size={10} style={{ flexShrink: 0, opacity: .75 }} />}
+                            {!doarCitire && span.res.tags?.includes("VIP") && <span className="bar-vip">VIP</span>}
+                            {!doarCitire && span.res.messages?.length > 0 && <MessageSquare size={10} style={{ flexShrink: 0, opacity: .75 }} />}
                             {span.nights > 2 && <span className="bar-nights">{span.nights}n</span>}
                           </div>
                         );

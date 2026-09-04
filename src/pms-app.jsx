@@ -877,7 +877,11 @@ const VIEW_TITLES = {
 
 const VIEW_ROLES = {
   today: ["admin", "receptionist"],
-  calendar: ["admin", "receptionist"],
+  /* Camerista vede calendarul, dar DOAR ca ocupare: ce cameră e prinsă în
+     ce zile, ca să-și poată planifica curățenia dinainte. Fără nume, fără
+     detalii de rezervare, fără nicio scriere — vezi `doarCitire` în
+     CalendarView, unde regula e chiar aplicată. */
+  calendar: ["admin", "receptionist", "housekeeping"],
   housekeeping: ["admin", "receptionist", "housekeeping"],
   clients: ["admin", "receptionist"],
   automation: ["admin", "receptionist"],
@@ -935,7 +939,8 @@ function Shell({ user, view, setView, onLogout, core, updateCore, reservations, 
     <div className="shell">
       <div className="main">
         <header className={"topbar" + (safeView === "calendar" ? " topbar-cal" : "")}>
-          <button className="brand-block" onClick={() => setView(homeView)} title="Înapoi la Azi">
+          <button className="brand-block" onClick={() => setView(homeView)}
+            title={`Înapoi la ${VIEW_TITLES[homeView]?.[0] || "Azi"}`}>
             <span className="brand-mark"><DoorOpen size={16} /></span>
             <span className="brand-text">
               <span className="brand-name">La Livada</span>
@@ -996,6 +1001,7 @@ function Shell({ user, view, setView, onLogout, core, updateCore, reservations, 
               updateReservations={updateReservations} groups={groups} updateGroups={updateGroups}
               housekeeping={housekeeping} updateHousekeeping={updateHousekeeping}
               blocks={blocks} updateBlocks={updateBlocks}
+              doarCitire={user.role === "housekeeping"}
               intent={calendarIntent} clearIntent={() => setCalendarIntent(null)} />
           )}
           {safeView === "clients" && (
