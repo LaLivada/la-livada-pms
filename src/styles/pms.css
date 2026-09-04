@@ -290,6 +290,30 @@
 
 /* ---------- Cards / generic ---------- */
 .panel{ background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); box-shadow:var(--shadow-sm); overflow:hidden; }
+/* Un panou care chiar se apasa. `font:inherit` si `color:inherit` fiindca
+   e un <button>, iar browserul i-ar da altfel fontul lui de control. */
+.panel-clickabil{
+  font:inherit; color:inherit; display:block; cursor:pointer;
+  transition:box-shadow .15s, border-color .15s;
+}
+.panel-clickabil:hover{ box-shadow:var(--shadow); border-color:var(--text-muted); }
+.panel-clickabil .ldv-mic{ display:inline-flex; align-items:center; gap:4px; color:var(--accent); }
+
+/* Tabelul de ocupare zilnica — si pe ecran, si in PDF, deci culorile sunt
+   scrise direct, nu prin jetoane: foaia tiparita nu are tema intunecata. */
+.tabel-zile{ width:100%; border-collapse:collapse; font-size:12.5px; }
+.tabel-zile th, .tabel-zile td{ padding:5px 10px; border-bottom:1px solid #e3e3de; }
+.tabel-zile thead th{
+  text-align:left; font-size:10px; text-transform:uppercase; letter-spacing:.07em;
+  color:#6b6960; border-bottom:1px solid #c9c9c3;
+}
+.tabel-zile tbody td{ font-variant-numeric:tabular-nums; }
+.tabel-zile .zi-nume{ color:#8b8880; font-size:11px; }
+.tabel-zile .zi-goala td{ color:#9b9890; }
+.tabel-zile tfoot th{
+  border-top:2px solid #c9c9c3; border-bottom:none;
+  font-size:12.5px; font-variant-numeric:tabular-nums; padding-top:8px;
+}
 .toolbar{ display:flex; align-items:center; gap:10px; margin-bottom:16px; flex-wrap:wrap; }
 .cal-toolbar{ margin-bottom:10px; flex-wrap:nowrap; gap:8px; }
 .cal-toolbar .week-nav{ min-width:0; }

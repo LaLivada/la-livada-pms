@@ -5,8 +5,8 @@
  * parola. Serviciul nu poate sti ce parola s-a verificat.
  */
 
-import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Plus, X, Check, Trash2, Pencil, UserCog, LogOut, ShieldCheck, History, BarChart3, ChevronLeft, ChevronRight, TrendingUp, AlertTriangle, Settings, ArrowRight } from "lucide-react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Plus, X, Check, Trash2, Pencil, UserCog, LogOut, ShieldCheck, History, BarChart3, ChevronLeft, ChevronRight, TrendingUp, AlertTriangle, Settings, ArrowRight, Printer } from "lucide-react";
 import { supabase } from "../supabase.js";
 import * as datePersonal from "../data/personal.js";
 import { mesajEroare } from "../lib/errors.js";
@@ -15,7 +15,8 @@ import { fmtMoney, fmtDate, fmtDateTime, initials, FMT_MONTH_YEAR } from "../lib
 import { ROLE_LABEL, ROOM_TYPE, SOURCES, sourceLabel, STATUS_CLASS, PERMISSIONS, ALL_PERMS } from "../lib/constante.js";
 import { nightsBetween, isStatsEligible } from "../lib/availability.js";
 import { reservationTotal } from "../lib/pricing.js";
-import { Dialog, toaster, useModalLock, Stat } from "../ui/primitive.jsx";
+import { Dialog, toaster, useModalLock, Stat, PdfPreview } from "../ui/primitive.jsx";
+import { generatePdfBlob } from "../lib/pdf.js";
 
 export function UsersView() {
   const [list, setList] = useState(null);
@@ -276,8 +277,106 @@ export function ProfileView({ user, onLogout, onBack }) {
    GROUPS VIEW
 ----------------------------------------------------------------*/
 
+/* Detaliul zilnic din spatele graficului de ocupare.
+ *
+ * Graficul arata forma lunii; cifra exacta a unei zile se citea doar din
+ * tooltip, adica nicaieri pe telefon si niciunde tiparibil. Aici e aceeasi
+ * serie (`perDay`, calculata o singura data in ReportsView), pusa in tabel.
+ *
+ * Nu recalculeaza nimic: primeste datele gata facute. Doua surse pentru
+ * aceleasi cifre ar fi insemnat, mai devreme sau mai tarziu, doua raspunsuri
+ * diferite la aceeasi intrebare. */
+function OcupareZilnicaModal({ perDay, monthStart, totalCamere, onClose }) {
+  const foaie = useRef(null);
+  const [genereaza, setGenereaza] = useState(false);
+  const [pdf, setPdf] = useState(null);
+  useModalLock();
+
+  const luna = FMT_MONTH_YEAR.format(monthStart);
+  const totalCamereNopti = perDay.reduce((s, p) => s + p.occ, 0);
+  const totalVenit = perDay.reduce((s, p) => s + p.rev, 0);
+
+  const descarca = async () => {
+    setGenereaza(true);
+    /* Fara `catch`, un esec de generare ar trece neobservat: butonul ar
+       clipi si n-ar aparea nimic. */
+    try {
+      const blob = await generatePdfBlob(foaie.current);
+      setPdf({ blob, filename: `Ocupare-zilnica-${luna.replace(/\s+/g, "-")}.pdf` });
+    } catch (e) {
+      toaster.show(mesajEroare(e, "PDF-ul nu a putut fi generat"), { tone: "danger" });
+    } finally { setGenereaza(false); }
+  };
+
+  const numeZi = (zi) =>
+    new Date(monthStart.getFullYear(), monthStart.getMonth(), zi)
+      .toLocaleDateString("ro-RO", { weekday: "short" });
+
+  return (
+    <Dialog onClose={onClose} className="arrival-modal" overlayClassName="arrival-overlay" title={undefined}>
+      <div className="modal-head no-print">
+        <h3>Ocupare zilnică · {luna}</h3>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button className="btn btn-primary" style={{ width: "auto" }} onClick={descarca} disabled={genereaza}>
+            <Printer size={15} /> {genereaza ? "Se generează…" : "Vezi PDF"}
+          </button>
+          <button className="icon-btn" onClick={onClose} aria-label="Închide fereastra"><X size={16} /></button>
+        </div>
+      </div>
+
+      {pdf && (
+        <div onClick={(e) => e.stopPropagation()}>
+          <PdfPreview blob={pdf.blob} filename={pdf.filename} onClose={() => setPdf(null)} />
+        </div>
+      )}
+
+      <div className="arrival-sheet" ref={foaie}>
+        <div className="fisa">
+          <h2 style={{ marginTop: 0 }}>Ocupare zilnică · {luna}</h2>
+          <table className="tabel-zile">
+            <thead>
+              <tr>
+                <th>Ziua</th>
+                <th style={{ textAlign: "right" }}>Camere</th>
+                <th style={{ textAlign: "right" }}>Grad</th>
+                <th style={{ textAlign: "right" }}>Încasat</th>
+              </tr>
+            </thead>
+            <tbody>
+              {perDay.map((p) => (
+                <tr key={p.day} className={p.occ === 0 ? "zi-goala" : undefined}>
+                  <td>{String(p.day).padStart(2, "0")} <span className="zi-nume">{numeZi(p.day)}</span></td>
+                  <td style={{ textAlign: "right" }}>{p.occ}{totalCamere ? ` / ${totalCamere}` : ""}</td>
+                  <td style={{ textAlign: "right" }}>{totalCamere ? Math.round((p.occ / totalCamere) * 100) : 0}%</td>
+                  <td style={{ textAlign: "right" }}>{fmtMoney(p.rev)}</td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot>
+              <tr>
+                <th>Total lună</th>
+                <th style={{ textAlign: "right" }}>{totalCamereNopti} nopți</th>
+                <th style={{ textAlign: "right" }}>
+                  {totalCamere && perDay.length
+                    ? Math.round((totalCamereNopti / (totalCamere * perDay.length)) * 100) : 0}%
+                </th>
+                <th style={{ textAlign: "right" }}>{fmtMoney(totalVenit)}</th>
+              </tr>
+            </tfoot>
+          </table>
+          <p className="ldv-mic" style={{ marginTop: 12 }}>
+            Ziua plecării nu se numără ca noapte vândută, deci o zi cu schimb de
+            oaspeți apare o singură dată. Rezervările de protocol sunt excluse.
+          </p>
+        </div>
+      </div>
+    </Dialog>
+  );
+}
+
 export function ReportsView({ core, reservations }) {
   const [monthOffset, setMonthOffset] = useState(0);
+  const [detaliuZilnic, setDetaliuZilnic] = useState(false);
 
   const base = new Date();
   base.setDate(1); base.setHours(0, 0, 0, 0);
@@ -407,8 +506,16 @@ export function ReportsView({ core, reservations }) {
         <Stat label="RevPAR" value={fmtMoney(revpar)} sub="venit pe cameră disponibilă" />
       </div>
 
-      <div className="panel" style={{ padding: 18, marginBottom: 14 }}>
-        <div className="section-head" style={{ padding: 0, border: "none", marginBottom: 14 }}>Ocupare zilnică</div>
+      {/* Tot blocul e apasabil, nu doar un link intr-un colt: graficul e
+          deja lucrul la care te uiti cand vrei cifra unei zile anume. */}
+      <button type="button" className="panel panel-clickabil"
+        style={{ padding: 18, marginBottom: 14, width: "100%", textAlign: "left" }}
+        onClick={() => setDetaliuZilnic(true)}
+        aria-label={`Vezi ocuparea zilnică pe ${FMT_MONTH_YEAR.format(monthStart)}, cu totalul încasat pe zi`}>
+        <div className="section-head" style={{ padding: 0, border: "none", marginBottom: 14, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <span>Ocupare zilnică</span>
+          <span className="ldv-mic" style={{ fontWeight: 500 }}>Vezi pe zile <ArrowRight size={13} /></span>
+        </div>
         <div className="bar-chart">
           {perDay.map((p) => (
             <div className="bar-col" key={p.day} title={`${p.day}: ${p.occ} camere · ${fmtMoney(p.rev)}`}>
@@ -417,7 +524,14 @@ export function ReportsView({ core, reservations }) {
             </div>
           ))}
         </div>
-      </div>
+      </button>
+
+      {detaliuZilnic && (
+        <OcupareZilnicaModal
+          perDay={perDay} monthStart={monthStart} totalCamere={core.rooms.length}
+          onClose={() => setDetaliuZilnic(false)}
+        />
+      )}
 
       <div className="panel" style={{ marginBottom: 14 }}>
         <div className="section-head">Rezervări pe sursă</div>
