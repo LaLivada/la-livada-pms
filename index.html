@@ -1,7 +1,20 @@
 <!doctype html>
-<html lang="en">
+<!-- lang="ro", nu "en" cum era din sablonul de pornire, si traducerea
+     oprita explicit.
+     Nu e cosmetica: aplicatia e scrisa integral in romana, dar se declara
+     engleza, asa ca Chrome pe Android o traducea singur "in romana". Google
+     Translate rescrie nodurile de text (le imbraca in <font>), React nu-si
+     mai gaseste nodurile pe care le stia, iar prima actualizare cadea cu
+     „insertBefore ... nu este un copil al acestui nod" — ecranul rosu de
+     eroare pe care l-a vazut receptia. Semnul ca traducerea era de vina:
+     pana si textul exceptiei si butonul erau reformulate ("Reincarcare
+     interfata" in loc de "Reincarca interfata").
+     `translate="no"` si meta-ul Google raman ca plasa, pentru cazul in care
+     cineva cere traducerea manual din meniul browserului. -->
+<html lang="ro" translate="no">
   <head>
     <meta charset="UTF-8" />
+    <meta name="google" content="notranslate" />
     <!-- Emblema complexului, aceleasi fisiere ca pe lalivada.ro si pe
          rezervari.lalivada.ro — copiate din lalivada-site/public/assets/,
          nu partajate: nu exista build comun intre repo-uri, deci daca
