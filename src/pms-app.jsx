@@ -204,6 +204,21 @@ const esteEroareDeIncarcareModul = (error) =>
   /dynamically imported module|importing a module script failed|loading chunk/i
     .test(error?.message || "");
 
+/* Cineva a umblat in DOM pe sub React — practic intotdeauna o unealta de
+   tradus pagina (Google Translate imbraca nodurile de text in <font>), mai
+   rar o extensie de browser. React nu-si mai gaseste nodurile pe care le
+   stia si cade la prima actualizare.
+   index.html cere deja sa nu fie tradus (lang="ro", translate="no",
+   class="notranslate", meta google notranslate), dar semnalele acelea sunt
+   o rugaminte, nu un zid: un traducator care le ignora tot poate strica
+   pagina. De-aia exista si plasa asta — ca receptia sa afle CE sa faca, nu
+   doar ca „ceva n-a mers bine".
+   Se potriveste pe `name`, nu pe mesaj: mesajul vine tradus exact in cazul
+   asta, deci orice potrivire de text ar rata tocmai situatia pentru care e
+   scrisa. */
+const esteEroareDeDomStrain = (error) =>
+  error?.name === "NotFoundError" || error?.name === "HierarchyRequestError";
+
 /* O reincarcare reala (nu doar stergerea erorii din React) rezolva cazul de
    mai sus, fiindca aduce din nou index.html si hash-urile curente.
    Racire, nu "o singura data pe toata durata filei": sessionStorage
@@ -248,17 +263,25 @@ class ErrorBoundary extends React.Component {
          receptie, pe o conexiune care poate lipsi exact cand ai nevoie de
          reincarcare. */
       const eEsecModul = esteEroareDeIncarcareModul(this.state.error);
+      /* DOM-ul e deja stricat de altcineva, deci stergerea erorii din React
+         l-ar remonta peste aceleasi noduri gresite: aici trebuie reincarcare
+         adevarata, ca la esecul de modul. */
+      const eTradusa = esteEroareDeDomStrain(this.state.error);
       return (
         <div className="pms">
           <div className="login-wrap">
             <div className="boot boot-error">
               <AlertTriangle size={24} />
               <div>
-                <strong>Ceva n-a mers bine</strong>
-                <p>{this.state.error?.message || "Eroare neașteptată în interfață."}</p>
+                <strong>{eTradusa ? "Pagina a fost tradusă de browser" : "Ceva n-a mers bine"}</strong>
+                <p>
+                  {eTradusa
+                    ? "Traducerea automată rescrie textul paginii, iar aplicația nu mai poate actualiza ecranul. Oprește traducerea din bara de adrese („Afișează originalul”), apoi reîncarcă."
+                    : (this.state.error?.message || "Eroare neașteptată în interfață.")}
+                </p>
               </div>
               <button className="btn btn-primary"
-                onClick={() => eEsecModul ? window.location.reload() : this.setState({ error: null })}>
+                onClick={() => (eEsecModul || eTradusa) ? window.location.reload() : this.setState({ error: null })}>
                 <RefreshCw size={15} /> Reîncarcă interfața
               </button>
             </div>
