@@ -334,13 +334,17 @@
    nici pe telefon. Latimea de tiparire (LATIME_TIPAR din setari.jsx) se
    aplica doar cat tine captura html2canvas, ca PDF-ul sa iasa la fel de
    oriunde — cadrul de mai jos taie ce iese in lateral in acea secunda. */
-/* Chenarul lui .fisa are patru laturi, bun pentru fisa de anuntare, care e
-   un formular incadrat. Aici cele orizontale cad departe de tabel — una
-   deasupra titlului, alta sub nota de subsol — si arata ca doua linii
-   ratacite. Raman doar cele verticale, lipite de marginile tabelului.
+/* Chenarul lui .fisa incadreaza toata foaia — bun pentru fisa de anuntare,
+   care e un formular, dar aici liniile lui verticale urcau pe langa titlu
+   si coborau pe langa nota de subsol, mult peste tabel. Chenarul foii
+   dispare, iar liniile laterale trec pe tabel: incep de la capul lui si se
+   opresc la randul de total.
    Regula e scopata pe .raport-sheet: aceeasi clasa .fisa e folosita si de
    fisa de anuntare si de lista pe grup, care isi pastreaza chenarul. */
-.raport-sheet .fisa{ border-top:none; border-bottom:none; }
+.raport-sheet .fisa{ border:none; }
+.raport-sheet .tabel-zile{
+  border-left:1px solid #d0d0cc; border-right:1px solid #d0d0cc;
+}
 
 .raport-cadru{ overflow:hidden; }
 /* `width:auto`, fara `max-width`: foaia umple cadrul singura, iar in
