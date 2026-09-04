@@ -109,11 +109,15 @@ function GlisorDeschidere({ room, blocat, motivBlocare }) {
     laCapat(xRef.current);
   };
 
+  /* Textele sunt scurte fiindcă pe telefon intră două carduri pe rând, iar
+     șina rămâne de vreo 180 de pixeli din care butonul ia 44. „Glisează ca
+     să deschizi" nu încăpea și se tăia tocmai la început („lisează…").
+     Pictograma de lacăt spune CE face, cuvântul spune CUM. */
   const eticheta =
     stare === "deschid" ? "Deschid…"
-    : stare === "deschis" ? "Ușa e deschisă"
+    : stare === "deschis" ? "Deschisă"
     : blocat ? motivBlocare
-    : "Glisează ca să deschizi";
+    : "Glisează";
 
   return (
     <div className="glisor-usa-wrap">
@@ -155,8 +159,14 @@ export function HousekeepingView({ core, reservations, housekeeping, updateHouse
   const today = new Date(); today.setHours(0, 0, 0, 0);
   const tomorrow = new Date(today.getTime() + 86400000);
 
+  /* „Sosire azi" înseamnă o sosire care ÎNCĂ n-a ajuns — e un cap de listă
+     pentru cameristă: camera asta trebuie pregătită până diseară. Odată ce
+     oaspetele s-a cazat, pregătirea nu mai e de făcut, iar cardul spunea
+     până acum și „Sosire azi", și „Cazată" în același timp — două etichete
+     care se contrazic. Rămâne doar „Cazată". */
   const arrivesToday = (roomId) =>
     reservations.some((r) => r.roomId === roomId && isLive(r) &&
+      r.status !== "checkedin" && r.status !== "checkedout" &&
       new Date(r.checkin) >= today && new Date(r.checkin) < tomorrow);
 
   /* „Cazată" înseamnă check-in făcut, nu doar o rezervare care acoperă ziua
@@ -213,7 +223,7 @@ export function HousekeepingView({ core, reservations, housekeeping, updateHouse
                     <GlisorDeschidere
                       room={room}
                       blocat={cazata && !isAdmin()}
-                      motivBlocare="Cazată — doar administratorul"
+                      motivBlocare="Doar admin"
                     />
                   )}
                 </div>

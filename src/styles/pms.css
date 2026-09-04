@@ -593,12 +593,19 @@
   box-shadow:var(--shadow-sm); transition:box-shadow .15s, border-color .15s;
 }
 .room-card:hover{ box-shadow:var(--shadow); border-color:var(--text-muted); }
-.room-card .top{ display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
-.room-card h4{ margin:0; font-size:var(--fs-lg); }
-.arrival-badge{
-  font-size:var(--fs-xs); font-weight:700; text-transform:uppercase; letter-spacing:.03em;
-  background:var(--warning-soft); color:var(--warning); padding:3px 7px; border-radius:var(--r-xs);
+/* Antetul se rupe pe randuri cand nu incape: pe telefon intra doua carduri
+   pe rand, iar doua etichete langa numarul camerei nu au loc — inainte se
+   suprapuneau peste el si „SOSIRE AZI" se spargea in doua randuri. */
+.room-card .top{
+  display:flex; align-items:center; justify-content:space-between;
+  flex-wrap:wrap; gap:6px; margin-bottom:10px;
 }
+.room-card h4{ margin:0; font-size:var(--fs-lg); }
+.arrival-badge, .occupied-badge{
+  font-size:var(--fs-xs); font-weight:700; text-transform:uppercase; letter-spacing:.03em;
+  padding:3px 7px; border-radius:var(--r-xs); white-space:nowrap;
+}
+.arrival-badge{ background:var(--warning-soft); color:var(--warning); }
 .status-btns{ display:flex; gap:4px; margin-top:12px; }
 .status-btn{
   flex:1 1 0; min-width:0; padding:9px 2px; border-radius:var(--r-sm);
@@ -613,10 +620,7 @@
 .status-btn.on.dirty{ background:var(--danger-soft); color:var(--danger); }
 .status-btn.on.progress{ background:var(--warning-soft); color:var(--warning); }
 .device-row{ display:flex; align-items:center; gap:6px; font-size:var(--fs-sm); color:var(--text-muted); margin-top:4px; }
-.occupied-badge{
-  font-size:var(--fs-xs); font-weight:700; text-transform:uppercase; letter-spacing:.03em;
-  background:var(--accent-soft); color:var(--accent); padding:3px 7px; border-radius:var(--r-xs);
-}
+.occupied-badge{ background:var(--accent-soft); color:var(--accent); }
 
 /* ---------- Glisor de deschidere a ușii (card de status) ---------- */
 .glisor-usa-wrap{ margin-top:10px; padding-top:10px; border-top:1px solid var(--border-soft); }
@@ -630,12 +634,20 @@
   touch-action:pan-y;
 }
 .glisor-eticheta{
-  /* Centrată pe TOT șinele, nu pe spațiul rămas: altfel textul ar sări
-     lateral pe măsură ce butonul înaintează. */
-  position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
-  padding-left:36px; pointer-events:none;
+  /* Centrată pe spațiul de la DREAPTA butonului, nu pe toată șina: altfel
+     un text care nu încape se revarsă in ambele parti si `overflow:hidden`
+     al șinei îi taie tocmai începutul — asa se ajunsese la „lisează…".
+     Cu padding pe stanga si `min-width:0`, ce nu incape se scurteaza la
+     coada, cu trei puncte, nu la cap. */
+  /* Bloc, nu flex: `text-overflow:ellipsis` cere text inline intr-o cutie
+     de bloc — intr-un container flex, textul gol devine un element anonim
+     care nu primeste niciodata cele trei puncte. Centrarea verticala vine
+     din line-height, egal cu inaltimea sinei. */
+  position:absolute; inset:0; display:block; line-height:44px; text-align:center;
+  padding-left:48px; padding-right:10px; pointer-events:none;
   font-size:var(--fs-2xs); font-weight:600; letter-spacing:.02em;
-  color:var(--text-muted); white-space:nowrap;
+  color:var(--text-muted);
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
 }
 .glisor-buton{
   position:relative; z-index:1; flex:0 0 auto;
