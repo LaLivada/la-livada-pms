@@ -317,16 +317,14 @@
 
 /* Foaia raportului are latime FIXA, spre deosebire de celelalte documente
    tiparibile: PDF-ul e o captura a DOM-ului asa cum arata pe ecran, deci o
-   latime fluida ar produce alt document de pe telefon decat de pe laptop —
-   pe telefon coloanele s-ar aseza una sub alta si raportul ar redeveni de
-   doua pagini. Asa iese identic de oriunde. */
+   latime fluida ar produce alt document de pe telefon decat de pe laptop.
+   Cele 31 de randuri stau unul sub altul, iar foaia iese de 937px inaltime.
+   Latimea de 650px o aduce la proportia A4 (650/937 = 0,694 fata de
+   194/281 = 0,690), deci incadrarea pe o pagina umple foaia si lasa corpul
+   de litera la ~10,6pt — masurat, nu presupus. Derularea pe verticala o
+   face fereastra (.modal), cea laterala scrollerul de mai jos. */
 .raport-scroll{ overflow-x:auto; }
-.raport-sheet{ width:720px; }
-.raport-coloane{ display:flex; gap:16px; align-items:flex-start; }
-.raport-coloane > .tabel-zile{ flex:1 1 0; min-width:0; }
-/* Randul de total, sub ambele coloane: e al lunii intregi, nu al uneia. */
-.tabel-total{ margin-top:2px; }
-.tabel-total tfoot th{ border-top-width:2px; }
+.raport-sheet{ width:650px; }
 .toolbar{ display:flex; align-items:center; gap:10px; margin-bottom:16px; flex-wrap:wrap; }
 .cal-toolbar{ margin-bottom:10px; flex-wrap:nowrap; gap:8px; }
 .cal-toolbar .week-nav{ min-width:0; }

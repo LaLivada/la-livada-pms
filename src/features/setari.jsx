@@ -296,11 +296,6 @@ function OcupareZilnicaModal({ perDay, monthStart, totalCamere, onClose }) {
   const totalCamereNopti = perDay.reduce((s, p) => s + p.occ, 0);
   const totalVenit = perDay.reduce((s, p) => s + p.rev, 0);
 
-  /* Impartire in doua coloane, prima primind randul in plus la lunile
-     impare: 16 + 15 arata mai echilibrat decat 15 + 16, fiindca prima
-     coloana e cea pe care o citesti intai. */
-  const jumatati = [perDay.slice(0, Math.ceil(perDay.length / 2)),
-                    perDay.slice(Math.ceil(perDay.length / 2))];
 
   const descarca = async () => {
     setGenereaza(true);
@@ -308,8 +303,8 @@ function OcupareZilnicaModal({ perDay, monthStart, totalCamere, onClose }) {
        clipi si n-ar aparea nimic. */
     try {
       /* `singlePage`: raportul unei luni e un singur document, nu o lista
-         care curge. Cu foaia asezata pe doua coloane, proportia ei se
-         apropie de A4, deci incadrarea nu mai micsoreaza textul semnificativ. */
+         care curge. Fereastra poate fi derulata, dar PDF-ul de tiparit
+         intra intreg pe o pagina, oricat de lunga e luna. */
       const blob = await generatePdfBlob(foaie.current, { singlePage: true });
       setPdf({ blob, filename: `Raport-zilnic-${luna.replace(/\s+/g, "-")}.pdf` });
     } catch (e) {
@@ -341,44 +336,35 @@ function OcupareZilnicaModal({ perDay, monthStart, totalCamere, onClose }) {
 
       {/* Derulare laterala doar pe ecran: foaia are latime fixa (vezi
           .raport-sheet), ca PDF-ul sa iasa identic de pe orice dispozitiv.
-          Fara ea, pe telefon coloanele s-ar aseza una sub alta si raportul
-          ar redeveni de doua pagini — exact ce trebuia evitat. */}
+          Fara ea, de pe telefon ar iesi alt document decat de pe laptop. */}
       <div className="raport-scroll">
         <div className="arrival-sheet raport-sheet" ref={foaie}>
           <div className="fisa">
             <h2 style={{ marginTop: 0 }}>Raport zilnic · {luna}</h2>
 
-            {/* Doua coloane, nu una lunga: 31 de randuri intr-o singura
-                coloana dau o foaie inalta si ingusta, pe care incadrarea
-                intr-o pagina A4 ar strivi-o la o banda mica in mijloc, cu
-                text de necitit. Impartita in doua, proportia foii se apropie
-                de cea a paginii, deci umple pagina la marime lizibila. */}
-            <div className="raport-coloane">
-              {jumatati.map((jum, i) => (
-                <table className="tabel-zile" key={i}>
-                  <thead>
-                    <tr>
-                      <th>Ziua</th>
-                      <th style={{ textAlign: "right" }}>Camere</th>
-                      <th style={{ textAlign: "right" }}>Grad</th>
-                      <th style={{ textAlign: "right" }}>Încasat</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {jum.map((p) => (
-                      <tr key={p.day} className={p.occ === 0 ? "zi-goala" : undefined}>
-                        <td>{String(p.day).padStart(2, "0")} <span className="zi-nume">{numeZi(p.day)}</span></td>
-                        <td style={{ textAlign: "right" }}>{p.occ}{totalCamere ? ` / ${totalCamere}` : ""}</td>
-                        <td style={{ textAlign: "right" }}>{totalCamere ? Math.round((p.occ / totalCamere) * 100) : 0}%</td>
-                        <td style={{ textAlign: "right" }}>{fmtMoney(p.rev)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              ))}
-            </div>
-
-            <table className="tabel-zile tabel-total">
+            {/* O singura coloana: toate zilele lunii una sub alta, 31 de
+                randuri. Latimea foii (vezi .raport-sheet) e aleasa astfel
+                incat proportia ei sa fie aproape de cea a paginii A4 — asa
+                incadrarea nu lasa fasii albe late si nu micsoreaza textul. */}
+            <table className="tabel-zile">
+              <thead>
+                <tr>
+                  <th>Ziua</th>
+                  <th style={{ textAlign: "right" }}>Camere</th>
+                  <th style={{ textAlign: "right" }}>Grad</th>
+                  <th style={{ textAlign: "right" }}>Încasat</th>
+                </tr>
+              </thead>
+              <tbody>
+                {perDay.map((p) => (
+                  <tr key={p.day} className={p.occ === 0 ? "zi-goala" : undefined}>
+                    <td>{String(p.day).padStart(2, "0")} <span className="zi-nume">{numeZi(p.day)}</span></td>
+                    <td style={{ textAlign: "right" }}>{p.occ}{totalCamere ? ` / ${totalCamere}` : ""}</td>
+                    <td style={{ textAlign: "right" }}>{totalCamere ? Math.round((p.occ / totalCamere) * 100) : 0}%</td>
+                    <td style={{ textAlign: "right" }}>{fmtMoney(p.rev)}</td>
+                  </tr>
+                ))}
+              </tbody>
               <tfoot>
                 <tr>
                   <th>Total lună</th>
