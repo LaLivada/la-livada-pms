@@ -1191,7 +1191,10 @@ $$;
 -- `security definer` ocolește RLS pentru propriile query-uri.
 create table booking_attempts (
   id          bigint generated always as identity primary key,
-  fingerprint text not null,           -- 'phone:<telefon>' sau 'ip:<adresă>'
+  -- 'phone:<telefon>', 'ip:<adresă>' sau 'toate' — ultimul e contorul
+  -- pe toată pensiunea, singurul care nu poate fi ocolit prin rotirea
+  -- telefonului și a adresei.
+  fingerprint text not null,
   created_at  timestamptz not null default now()
 );
 create index booking_attempts_fp_created on booking_attempts (fingerprint, created_at desc);
@@ -1748,27 +1751,69 @@ begin
     raise exception 'Adresa de email nu este validă.';
   end if;
 
-  -- 3. RATE-LIMIT, același mecanism ca la create_booking
+  -- 3. RATE-LIMIT, pe trei paliere.
+  --
+  --    Telefonul e o identitate reală, dar se poate inventa. IP-ul se
+  --    poate roti (proxy rezidențial, rețea mobilă). Plafonul zilnic pe
+  --    toată pensiunea nu se poate ocoli în niciun fel — de aceea există.
+  --
+  --    Prețul plafonului global: dacă cineva îl epuizează, și clienții
+  --    reali sunt opriți până a doua zi. Alegerea e deliberată. Un client
+  --    oprit sună recepția și rezervă la telefon; un calendar umplut cu
+  --    rezervări false trebuie curățat rând cu rând, iar până atunci
+  --    camerele apar ocupate și pentru cei care chiar ar fi venit.
+  --    25 pe zi la 16 camere e mult peste orice zi reală — de la pornirea
+  --    site-ului au fost 3 rezervări online în total.
+  --
+  --    Se numără doar rezervările REUȘITE: un apel care eșuează face
+  --    rollback la toată tranzacția, inclusiv la rândul de contorizare.
+  --    E exact ce trebuie — scenariul vizat e umplerea calendarului cu
+  --    rezervări valide, nu cererile respinse, care nu ocupă nimic.
   begin
     v_ip := nullif(split_part(coalesce(
       current_setting('request.headers', true)::json->>'x-forwarded-for',''),',',1),'');
   exception when others then v_ip := null; end;
 
-  delete from booking_attempts where created_at < now() - interval '1 day';
+  -- Două zile, nu una: ferestrele de mai jos se uită 24 de ore în urmă,
+  -- iar o curățare la exact 24 de ore ar tăia din ce tocmai numărăm.
+  delete from booking_attempts where created_at < now() - interval '2 days';
+
   if (select count(*) from booking_attempts
        where fingerprint = 'phone:' || lower(trim(p_phone))
          and created_at > now() - interval '1 hour') >= 5 then
     raise exception 'Prea multe cereri cu acest număr de telefon. Sună recepția.';
   end if;
+  if (select count(*) from booking_attempts
+       where fingerprint = 'phone:' || lower(trim(p_phone))
+         and created_at > now() - interval '1 day') >= 8 then
+    raise exception 'Prea multe rezervări cu acest număr de telefon astăzi. Sună recepția.';
+  end if;
+
+  -- Pragurile pe IP rămân largi: rețelele mobile din România pun mulți
+  -- abonați în spatele aceleiași adrese, deci o limită strânsă ar opri
+  -- oameni fără nicio legătură între ei.
   if v_ip is not null and (select count(*) from booking_attempts
        where fingerprint = 'ip:' || v_ip
          and created_at > now() - interval '1 hour') >= 20 then
     raise exception 'Prea multe cereri de la această adresă. Încearcă mai târziu.';
   end if;
+  if v_ip is not null and (select count(*) from booking_attempts
+       where fingerprint = 'ip:' || v_ip
+         and created_at > now() - interval '1 day') >= 30 then
+    raise exception 'Prea multe cereri de la această adresă. Încearcă mâine sau sună recepția.';
+  end if;
+
+  if (select count(*) from booking_attempts
+       where fingerprint = 'toate'
+         and created_at > now() - interval '1 day') >= 25 then
+    raise exception 'Rezervările online sunt oprite temporar. Sună recepția și îți facem rezervarea pe loc.';
+  end if;
+
   insert into booking_attempts (fingerprint) values ('phone:' || lower(trim(p_phone)));
   if v_ip is not null then
     insert into booking_attempts (fingerprint) values ('ip:' || v_ip);
   end if;
+  insert into booking_attempts (fingerprint) values ('toate');
 
   -- 4. SERIALIZARE. Ține până la COMMIT. La 16 camere costul e neglijabil,
   --    iar alternativa (reîncercare la exclusion_violation) ar complica
