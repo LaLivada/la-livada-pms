@@ -46,8 +46,15 @@ function raspuns(body: unknown, status = 200): Response {
 const esc = (s: string) =>
   String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
-const dataRo = (iso: string) =>
-  new Date(iso).toLocaleDateString("ro-RO", { day: "numeric", month: "long", year: "numeric" });
+/* Plasă de siguranță pentru câmpuri lipsă: fără ea, `new Date(undefined)`
+   scrie „Invalid Date" în mesajul care ajunge la oaspete — s-a întâmplat.
+   Mai bine o liniuță, care se vede că e o scăpare, decât un text care pare
+   o dată și nu e. */
+const dataRo = (iso?: string | null) => {
+  const d = iso ? new Date(iso) : null;
+  if (!d || Number.isNaN(d.getTime())) return "—";
+  return d.toLocaleDateString("ro-RO", { day: "numeric", month: "long", year: "numeric" });
+};
 
 const bani = (n: number) =>
   new Intl.NumberFormat("ro-RO", { maximumFractionDigits: 0 }).format(Number(n)) + " lei";
@@ -208,6 +215,19 @@ Deno.serve(async (req) => {
 
   if (data?.status !== "pending") return raspuns(rezervare);
 
+  /* Datele pentru email se citesc din bază, nu din cererea primită.
+     `create_public_booking` întoarce doar numărul, tokenul, totalul și
+     camerele — nu și perioada. Șablonul cerea `checkIn`/`checkOut`, primea
+     `undefined`, iar în mesaj apărea „Invalid Date". Funcția de mai jos
+     există deja pentru celălalt email și întoarce exact ce trebuie.
+     În plus, e singura variantă corectă pe drumul idempotent: acolo
+     rezervarea a fost creată de o cerere anterioară, iar perioada care
+     contează e cea din bază, nu cea trimisă acum. */
+  const { data: detalii } = await admin.rpc("booking_email_payload", {
+    p_token: data.publicToken,
+  });
+  const pentruEmail = { ...rezervare, ...(detalii || {}) };
+
   // Rezervarea e ținută: trimitem emailul prin care devine fermă.
   let trimis = false;
   try {
@@ -218,8 +238,8 @@ Deno.serve(async (req) => {
         from: EXPEDITOR,
         to: [g.email],
         subject: `Confirmă rezervarea ${data.confirmationNumber} · Complex La Livada`,
-        html: sablonConfirmare(rezervare, MINUTE_HOLD),
-        text: textConfirmare(rezervare, MINUTE_HOLD),
+        html: sablonConfirmare(pentruEmail, MINUTE_HOLD),
+        text: textConfirmare(pentruEmail, MINUTE_HOLD),
       }),
     });
     trimis = r.ok;
