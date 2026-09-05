@@ -511,7 +511,7 @@ export default function App({ valoriInitiale }) {
             </div>
             <div className="ldv-rand-3">
               <label className="ldv-camp">
-                <span>Oraș *</span>
+                <span>Localitate *</span>
                 <input value={oaspete.oras} autoComplete="address-level2" maxLength={100}
                   onChange={(e) => setOaspete((o) => ({ ...o, oras: e.target.value }))} />
               </label>
