@@ -138,12 +138,23 @@ export const STILURI = `
 }
 .ldv-cal-luna td{ padding:1px; }
 
+/* Inaltime fixa si centrare prin line-height, NU aspect-ratio cu flex.
+   Combinatia aceea, intr-o celula de tabel, lasa WebKit-ul de pe telefon sa
+   amane redesenarea: apasai ziua plecarii, starea se schimba, dar culoarea
+   aparea abia dupa un scroll, cand compozitorul primea oricum un cadru.
+   Tot de aceea nu mai exista tranzitie pe fundal: o animatie de 120ms care
+   nu primeste niciun cadru arata exact ca o apasare pierduta. */
 .ldv-zi{
-  width:100%; aspect-ratio:1; min-height:36px;
-  display:flex; align-items:center; justify-content:center;
+  width:100%; height:38px; padding:0;
+  display:block; text-align:center; line-height:38px;
   border:0; border-radius:9px; background:transparent;
   font:inherit; font-size:.95em; color:var(--ldv-ink);
-  cursor:pointer; transition:background .12s, color .12s;
+  cursor:pointer;
+  /* Fara asta, o apasare repetata pe aceeasi zi selecteaza textul cifrei
+     in loc sa reia alegerea. */
+  -webkit-user-select:none; user-select:none;
+  /* Taie intarzierea de 300ms de pe unele browsere mobile. */
+  touch-action:manipulation;
 }
 .ldv-zi:hover:not(:disabled){ background:var(--ldv-accent-soft); }
 .ldv-zi:disabled{ color:var(--ldv-muted); opacity:.4; cursor:not-allowed; }

@@ -109,8 +109,12 @@ export default function App({ valoriInitiale }) {
      adresă (un formular de căutare aflat pe altă pagină poate trimite
      aici perioada deja aleasă), apoi valorile implicite. */
   const [cautare, setCautare] = useState(() => ({
-    checkin: valoriInitiale?.checkin || params.get("checkin") || peste(1),
-    checkout: valoriInitiale?.checkout || params.get("checkout") || peste(3),
+    /* Fără perioadă preselectată. Două date puse de la sine arată a alegere
+       făcută, iar cine nu le observa căuta pentru mâine crezând că a cerut
+       altceva. Gol, calendarul spune limpede că urmează să alegi — iar
+       prima apăsare e fără dubiu sosirea. */
+    checkin: valoriInitiale?.checkin || params.get("checkin") || "",
+    checkout: valoriInitiale?.checkout || params.get("checkout") || "",
     adulti: valoriInitiale?.adulti || Number(params.get("adults")) || 2,
     copii: valoriInitiale?.copii ?? (Number(params.get("children")) || 0),
   }));
@@ -415,8 +419,12 @@ export default function App({ valoriInitiale }) {
                     scurt pentru „de vineri, trei nopți", fără a mai căuta
                     ziua plecării pe grilă. */}
                 <span>Nopți</span>
-                <select value={nopti}
+                {/* Fără sosire aleasă n-ar avea de unde socoti plecarea, iar
+                    `adunaZile("")` ar arunca. Rămâne stins până există un
+                    punct de plecare pentru calcul. */}
+                <select value={nopti} disabled={!cautare.checkin}
                   onChange={(e) => schimbaNoptile(Number(e.target.value))}>
+                  {nopti === 0 && <option value={0}>—</option>}
                   {optiuniNopti.map((n) => <option key={n} value={n}>{n}</option>)}
                 </select>
               </label>

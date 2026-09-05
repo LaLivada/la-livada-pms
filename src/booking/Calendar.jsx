@@ -105,7 +105,12 @@ export function CalendarPerioada({
   const inainteOprit = adunaLuni(luna, LUNI_AFISATE) > primaZiDinLuna(maxZi);
 
   return (
-    <div className="ldv-cal" onMouseLeave={() => setSubMouse(null)}>
+    /* `pointerleave`, nu `mouseleave`, și doar pentru mouse: pe telefon
+       evenimentele de mouse sunt emulate la fiecare atingere, iar previzualizarea
+       intervalului — care există ca să urmărească un cursor — apuca să se
+       aprindă și să se stingă în jurul apăsării, fără niciun rost. */
+    <div className="ldv-cal"
+      onPointerLeave={(e) => e.pointerType === "mouse" && setSubMouse(null)}>
       <div className="ldv-cal-bara">
         <button type="button" className="ldv-cal-nav" disabled={inapoiOprit}
           aria-label="Luna anterioară"
@@ -153,7 +158,9 @@ export function CalendarPerioada({
                           aria-label={numeZiLunga(zi)}
                           aria-pressed={eSosire || ePlecare}
                           onFocus={() => setZiFocus(zi)}
-                          onMouseEnter={() => inCurs && setSubMouse(zi)}
+                          onPointerEnter={(e) => {
+                            if (e.pointerType === "mouse" && inCurs) setSubMouse(zi);
+                          }}
                           onKeyDown={(e) => laTasta(e, zi)}
                           onClick={() => apasa(zi)}>
                           {Number(zi.slice(8))}
@@ -169,8 +176,8 @@ export function CalendarPerioada({
       </div>
 
       <p className="ldv-mic ldv-cal-indiciu" aria-live="polite">
-        {inCurs
-          ? "Alege și ziua plecării."
+        {inCurs ? "Alege și ziua plecării."
+          : sosire && plecare ? "Apasă o zi ca să alegi altă perioadă."
           : "Apasă ziua sosirii, apoi pe cea a plecării."}
       </p>
     </div>

@@ -34,9 +34,17 @@ export const adunaZile = (zi, n) => {
   return d.toISOString().slice(0, 10);
 };
 
-export const noptiIntre = (a, b) =>
-  Math.max(0, Math.round(
-    (new Date(`${b}T00:00:00Z`) - new Date(`${a}T00:00:00Z`)) / 86400000));
+/* Zero, nu NaN, când lipsește un capăt.
+   Calendarul pornește fără perioadă aleasă, deci ambele capete pot fi goale.
+   Un NaN de aici ar fi trecut mai departe în verificarea `nopti < 1`, care e
+   FALSĂ pentru NaN — adică butonul de căutare ar fi rămas activ fără nicio
+   dată aleasă. */
+export const noptiIntre = (a, b) => {
+  if (!a || !b) return 0;
+  const nopti = Math.round(
+    (new Date(`${b}T00:00:00Z`) - new Date(`${a}T00:00:00Z`)) / 86400000);
+  return Number.isFinite(nopti) ? Math.max(0, nopti) : 0;
+};
 
 /* ---------------------------------------------------------------
    Ce are nevoie calendarul în plus
