@@ -2480,10 +2480,27 @@ create policy "sterge permisiuni facturare" on billing_permissions for delete to
 grant execute on function available_rooms(timestamptz, timestamptz, int) to anon;
 grant execute on function public_availability(timestamptz, timestamptz, int, int) to anon;
 grant execute on function public_capacity() to anon, authenticated, service_role;
+-- Crearea rezervarii NU e apelabila cu cheia publica.
+--
+-- Singurul apelant e functia edge booking-create, care verifica jetonul
+-- Turnstile inainte sa scrie ceva. Cat timp anon putea apela direct,
+-- verificarea era o sugestie, nu o restrictie: cheia publica apare in
+-- fiecare filă deschisa pe site, deci oricine putea sari peste poarta.
+--
+-- Revocarea de la PUBLIC, nu doar de la anon: in PostgreSQL orice functie
+-- noua primeste EXECUTE pentru PUBLIC, iar rolurile mostenesc de acolo.
+-- Verificat pe viu — dupa un `revoke ... from anon`, un apel direct cu
+-- cheia publica a creat in continuare o rezervare.
+revoke execute on function create_public_booking(uuid, timestamptz, timestamptz, text, text,
+  text, text, text, text, text, jsonb, text, int, text) from public, anon, authenticated;
 grant execute on function create_public_booking(uuid, timestamptz, timestamptz, text, text,
-  text, text, text, text, text, jsonb, text) to anon;
+  text, text, text, text, text, jsonb, text, int, text) to service_role;
+
+-- Celelalte raman deschise: cautarea nu scrie nimic, iar confirmarea si
+-- anularea cer un token de 128 de biti, care nu se poate ghici.
 grant execute on function public_booking_by_token(text) to anon;
 grant execute on function cancel_public_booking(text) to anon;
+grant execute on function confirm_public_booking(text) to anon, authenticated, service_role;
 
 -- Datele pentru email conțin adresa clientului: doar service_role, adică
 -- doar funcția edge care trimite mesajul.
