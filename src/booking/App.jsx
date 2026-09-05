@@ -289,10 +289,16 @@ export default function App({ valoriInitiale }) {
      e impusă și în baza de date — aici e doar ca omul să afle înainte de
      a apăsa, nu după. */
   const emailValid = /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(oaspete.email.trim());
+  /* Județul se cere doar pentru România: lista are cele 42 de județe
+     românești, deci un oaspete din altă țară ar fi fost silit să aleagă
+     unul care n-are nicio legătură cu adresa lui — o dată falsă în PMS,
+     obținută printr-o regulă de formular. */
+  const judetNecesar = oaspete.tara === "România";
   const dateValide =
     oaspete.nume.trim() && oaspete.prenume.trim() &&
     prefixValid && numarValid && emailValid &&
-    oaspete.oras.trim() && oaspete.judet.trim() && oaspete.tara.trim();
+    oaspete.oras.trim() && oaspete.tara.trim() &&
+    (!judetNecesar || oaspete.judet.trim());
 
   async function trimite() {
     setEroare("");
@@ -619,7 +625,15 @@ export default function App({ valoriInitiale }) {
               <label className="ldv-camp">
                 <span>Țara</span>
                 <select value={oaspete.tara}
-                  onChange={(e) => setOaspete((o) => ({ ...o, tara: e.target.value }))}>
+                  onChange={(e) => setOaspete((o) => ({
+                    ...o,
+                    tara: e.target.value,
+                    /* Județul ales se șterge la ieșirea din România. Altfel
+                       cineva care alege întâi „Vaslui" și apoi „Germania" ar
+                       trimite o adresă germană cu județ românesc — exact
+                       datele greșite pe care regula le evită. */
+                    judet: e.target.value === "România" ? o.judet : "",
+                  }))}>
                   {TARI.map((t) => <option key={t} value={t}>{t}</option>)}
                 </select>
               </label>
@@ -627,7 +641,10 @@ export default function App({ valoriInitiale }) {
             {/* Nota stă AICI, nu sub tot formularul: dedesubt urmează
                 cerințele speciale, care rămân opționale. Pusă la capătul de
                 jos ar fi spus ceva neadevărat despre ele. */}
-            <p className="ldv-mic ldv-obligatorii">Toate câmpurile de mai sus sunt obligatorii.</p>
+            <p className="ldv-mic ldv-obligatorii">
+              Toate câmpurile de mai sus sunt obligatorii
+              {judetNecesar ? "." : ", în afară de județ."}
+            </p>
             <label className="ldv-camp">
               <span>Cerințe speciale</span>
               <textarea value={cerinte} maxLength={2000} placeholder="ex. sosire după ora 22, pat suplimentar"
