@@ -156,7 +156,23 @@ export const STILURI = `
   /* Taie intarzierea de 300ms de pe unele browsere mobile. */
   touch-action:manipulation;
 }
-.ldv-zi:hover:not(:disabled){ background:var(--ldv-accent-soft); }
+/* Hover doar unde exista cu adevarat un cursor, si niciodata peste capetele
+   alese. Doua motive, amandoua vazute:
+
+   Pe iPhone, Safari lasa ultimul element atins in :hover pana la urmatoarea
+   atingere sau pana la un scroll. Ziua plecarii e mereu ultima atinsa, deci
+   ramanea agatata in hover: fundal palid in loc de verde, cu cifra alba pe
+   el — de aici si „apare apasat abia dupa ce dau scroll".
+
+   Iar regula veche .ldv-zi:hover:not(:disabled) are specificitatea (0,3,0),
+   fiindca argumentul lui :not() se numara. Batea (0,2,0) al capetelor, care
+   exista tocmai ca s-o anuleze. Excluderea capetelor direct in selector nu
+   mai lasa loc de asemenea intrecere. */
+@media (hover:hover) and (pointer:fine){
+  .ldv-zi:hover:not(:disabled):not(.ldv-zi-sosire):not(.ldv-zi-plecare){
+    background:var(--ldv-accent-soft);
+  }
+}
 .ldv-zi:disabled{ color:var(--ldv-muted); opacity:.4; cursor:not-allowed; }
 .ldv-zi:focus-visible{ outline:2px solid var(--ldv-accent); outline-offset:1px; }
 /* Zilele dintre capete: fundal continuu, colturi drepte, ca sa arate a
@@ -165,7 +181,6 @@ export const STILURI = `
 .ldv-zi-sosire, .ldv-zi-plecare{
   background:var(--ldv-accent); color:#fff; font-weight:600;
 }
-.ldv-zi-sosire:hover, .ldv-zi-plecare:hover{ background:var(--ldv-accent); }
 .ldv-cal-indiciu{ margin:6px 2px 4px; text-align:center; }
 
 /* Doar pentru cititoarele de ecran: numele lunii ca legenda a tabelului.
