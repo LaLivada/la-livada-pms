@@ -33,6 +33,7 @@ import {
 import { STILURI } from "./styles.js";
 import { JUDETE, TARI, PREFIXE_TELEFON, PREFIX_IMPLICIT, telefonInternational } from "./nomenclatoare.js";
 import { Turnstile } from "./Turnstile.jsx";
+import { fotoPentru } from "./foto.js";
 
 /* Aceleași denumiri ca în PMS (vezi ROOM_TYPES din pms-app.jsx), ca
    recepția și clientul să vorbească despre același lucru. */
@@ -74,6 +75,35 @@ const fmtBani = (n) => new Intl.NumberFormat("ro-RO", { maximumFractionDigits: 0
    nepotrivit față de al serverului, deci nu numărăm secundele pe ecran:
    o valoare rotunjită nu devine falsă dacă cele două ceasuri diferă cu
    un minut. Adevărul rămâne la server, care refuză confirmarea târzie. */
+/* Galeria tipului ales.
+ *
+ * Stă sub listă, nu în interiorul fiecărei opțiuni: opțiunile sunt butoane,
+ * iar o fâșie derulabilă înăuntrul unui buton face ca o tragere cu degetul
+ * să fie citită drept apăsare — ai schimba camera încercând să vezi poza.
+ *
+ * `key` pe tip: la trecerea de la un tip la altul React ar fi refolosit
+ * aceleași <img>, iar fâșia ar fi rămas derulată unde o lăsaseși, arătând
+ * a treia poză a casei noi. Cu cheia schimbată, lista se reface de la capăt. */
+function GalerieTip({ tip, eticheta }) {
+  const poze = fotoPentru(tip);
+  if (!poze.length) return null;
+  return (
+    <div className="ldv-foto" key={tip}>
+      <ul className="ldv-foto-sir" aria-label={`Fotografii — ${eticheta}`}>
+        {poze.map((p) => (
+          <li key={p.nume}>
+            <img
+              src={`/foto/${p.nume}-800.webp`}
+              srcSet={`/foto/${p.nume}-400.webp 400w, /foto/${p.nume}-800.webp 800w`}
+              sizes="(min-width: 640px) 17rem, 62vw"
+              loading="lazy" decoding="async" alt={p.alt} />
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 const minuteRamase = (iso) => {
   if (!iso) return "un timp scurt";
   const m = Math.round((new Date(iso) - Date.now()) / 60000);
@@ -497,6 +527,10 @@ export default function App({ valoriInitiale }) {
                   </button>
                 );
               })}
+
+              {optiune && (
+                <GalerieTip tip={optiune.roomType} eticheta={numeTip(optiune.roomType)} />
+              )}
 
               {optiune && (
                 <div className="ldv-sumar" style={{ marginTop: 16 }}>

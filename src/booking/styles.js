@@ -114,6 +114,36 @@ export const STILURI = `
 .ldv-tel-3{ grid-template-columns:118px 78px minmax(0,1fr); }
 .ldv-tel-numar{ font-variant-numeric:tabular-nums; }
 
+/* Galeria tipului ales, la pasul de alegere a camerei.
+   Acelasi idiom ca galeria din subsolul paginii: fasie orizontala cu
+   scroll-snap, nu grila. O grila ar fi impins butonul de continuare sub
+   ecran tocmai cand omul a ales si vrea sa mearga mai departe. */
+.ldv-foto{ margin-top:14px; }
+.ldv-foto-sir{
+  margin:0; padding:0; list-style:none;
+  display:flex; gap:10px;
+  overflow-x:auto; overscroll-behavior-x:contain;
+  scroll-snap-type:x mandatory;
+  scrollbar-width:thin;
+  scrollbar-color:rgba(63,74,61,.35) transparent;
+  /* Fara asta, ultima poza s-ar lipi de muchie in loc sa se opreasca la
+     aceeasi distanta ca prima. */
+  scroll-padding-inline:0;
+}
+.ldv-foto-sir::-webkit-scrollbar{ height:6px; }
+.ldv-foto-sir::-webkit-scrollbar-thumb{
+  border-radius:99px; background:rgba(63,74,61,.32);
+}
+.ldv-foto-sir > li{
+  flex:0 0 auto; scroll-snap-align:start;
+  width:clamp(11rem, 62vw, 17rem);
+}
+.ldv-foto-sir img{
+  display:block; width:100%; height:auto;
+  aspect-ratio:3/2; object-fit:cover;
+  border-radius:8px; background:var(--ldv-line);
+}
+
 /* Nota despre campurile obligatorii: sta intre grupul de campuri si
    cerintele speciale, deci are nevoie de aer deasupra, nu si dedesubt —
    randurile formularului isi aduc propriul spatiu prin gap. */
