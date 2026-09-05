@@ -116,7 +116,11 @@ export default function App({ valoriInitiale }) {
   const [eroare, setEroare] = useState("");
   const [oaspete, setOaspete] = useState({
     nume: "", prenume: "", prefix: PREFIX_IMPLICIT, telefon: "", email: "",
-    oras: "", judet: "Cluj", tara: "România",
+    /* Județul pornește gol, nu de la primul din listă: un câmp preumplut cu
+       o valoare plauzibilă trece neobservat, iar rezervarea ajunge cu un
+       județ care nu e al oaspetelui. Țara rămâne pe România, unde valoarea
+       implicită chiar e cea corectă pentru aproape toți. */
+    oras: "", judet: "", tara: "România",
   });
   const [cerinte, setCerinte] = useState("");
   const [confirmare, setConfirmare] = useState(null);
@@ -287,7 +291,8 @@ export default function App({ valoriInitiale }) {
   const emailValid = /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(oaspete.email.trim());
   const dateValide =
     oaspete.nume.trim() && oaspete.prenume.trim() &&
-    prefixValid && numarValid && emailValid && oaspete.oras.trim();
+    prefixValid && numarValid && emailValid &&
+    oaspete.oras.trim() && oaspete.judet.trim() && oaspete.tara.trim();
 
   async function trimite() {
     setEroare("");
@@ -540,12 +545,12 @@ export default function App({ valoriInitiale }) {
           <div className="ldv-randuri">
             <div className="ldv-rand-2">
               <label className="ldv-camp">
-                <span>Nume *</span>
+                <span>Nume</span>
                 <input value={oaspete.nume} autoComplete="family-name" maxLength={100}
                   onChange={(e) => setOaspete((o) => ({ ...o, nume: e.target.value }))} />
               </label>
               <label className="ldv-camp">
-                <span>Prenume *</span>
+                <span>Prenume</span>
                 <input value={oaspete.prenume} autoComplete="given-name" maxLength={100}
                   onChange={(e) => setOaspete((o) => ({ ...o, prenume: e.target.value }))} />
               </label>
@@ -555,7 +560,7 @@ export default function App({ valoriInitiale }) {
                   controale nu spune caruia dintre ele ii apartine, deci
                   fiecare isi poarta propriul aria-label. */}
               <div className="ldv-camp">
-                <span>Telefon *</span>
+                <span>Telefon</span>
                 <div className={`ldv-tel${prefixCunoscut ? "" : " ldv-tel-3"}`}>
                   <select className="ldv-tel-prefix" aria-label="Prefix internațional"
                     autoComplete="tel-country-code"
@@ -587,7 +592,7 @@ export default function App({ valoriInitiale }) {
                 </div>
               </div>
               <label className="ldv-camp">
-                <span>Email *</span>
+                <span>Email</span>
                 <input type="email" value={oaspete.email} autoComplete="email" maxLength={200}
                   placeholder="pe el primești confirmarea"
                   onChange={(e) => setOaspete((o) => ({ ...o, email: e.target.value }))} />
@@ -595,7 +600,7 @@ export default function App({ valoriInitiale }) {
             </div>
             <div className="ldv-rand-3">
               <label className="ldv-camp">
-                <span>Localitate *</span>
+                <span>Localitate</span>
                 <input value={oaspete.oras} autoComplete="address-level2" maxLength={100}
                   onChange={(e) => setOaspete((o) => ({ ...o, oras: e.target.value }))} />
               </label>
@@ -603,6 +608,11 @@ export default function App({ valoriInitiale }) {
                 <span>Județ</span>
                 <select value={oaspete.judet}
                   onChange={(e) => setOaspete((o) => ({ ...o, judet: e.target.value }))}>
+                  {/* Fără județ preselectat: „Cluj" era doar primul din listă
+                      alfabetic, iar cine nu se uita la câmp trimitea rezervarea
+                      cu un județ care n-avea legătură cu el. Mai bine gol și
+                      obligatoriu decât plin și greșit. */}
+                  <option value="">————————</option>
                   {JUDETE.map((j) => <option key={j} value={j}>{j}</option>)}
                 </select>
               </label>
@@ -614,6 +624,10 @@ export default function App({ valoriInitiale }) {
                 </select>
               </label>
             </div>
+            {/* Nota stă AICI, nu sub tot formularul: dedesubt urmează
+                cerințele speciale, care rămân opționale. Pusă la capătul de
+                jos ar fi spus ceva neadevărat despre ele. */}
+            <p className="ldv-mic ldv-obligatorii">Toate câmpurile de mai sus sunt obligatorii.</p>
             <label className="ldv-camp">
               <span>Cerințe speciale</span>
               <textarea value={cerinte} maxLength={2000} placeholder="ex. sosire după ora 22, pat suplimentar"

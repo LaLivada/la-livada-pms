@@ -114,6 +114,11 @@ export const STILURI = `
 .ldv-tel-3{ grid-template-columns:118px 78px minmax(0,1fr); }
 .ldv-tel-numar{ font-variant-numeric:tabular-nums; }
 
+/* Nota despre campurile obligatorii: sta intre grupul de campuri si
+   cerintele speciale, deci are nevoie de aer deasupra, nu si dedesubt —
+   randurile formularului isi aduc propriul spatiu prin gap. */
+.ldv-obligatorii{ margin:2px 0 0; }
+
 /* Widgetul Turnstile isi aduce propriile dimensiuni intr-un iframe; noi
    ii dam doar loc si il centram pe latimea cardului. */
 .ldv-turnstile{ margin-top:14px; display:flex; justify-content:center; min-height:0; }
