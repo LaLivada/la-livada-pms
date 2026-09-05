@@ -1787,7 +1787,15 @@ create or replace function create_public_booking(
   -- 0 = rezervare fermă pe loc. >0 = camera e doar ținută atâtea minute,
   -- până confirmă clientul; vezi comentariul de la
   -- expira_rezervari_neconfirmate.
-  p_hold_minutes int default 0
+  p_hold_minutes int default 0,
+  -- IP-ul vizitatorului, transmis explicit. Crearea trece printr-o funcție
+  -- edge (verificarea Turnstile cere o cheie secretă, iar PostgREST nu
+  -- face apeluri HTTP), iar de acolo `request.headers` conține adresa
+  -- funcției edge, nu a omului — limita pe IP ar fi numărat toate
+  -- rezervările pe aceeași adresă. Parametrul e de încredere fiindcă
+  -- singurul care poate apela funcția e service_role, adică funcția edge,
+  -- care citește adresa din propria cerere.
+  p_client_ip text default null
 ) returns jsonb
 language plpgsql security definer set search_path = public, extensions as $$
 declare
@@ -1842,6 +1850,13 @@ begin
      and p_email !~ '^[^@[:space:]]+@[^@[:space:]]+\.[^@[:space:]]+$' then
     raise exception 'Adresa de email nu este validă.';
   end if;
+  -- Când rezervarea e doar ținută, confirmarea vine pe email: fără adresă
+  -- n-ar avea cum să devină fermă niciodată. Regula stă aici, nu doar în
+  -- formular — un formular ocolit nu trebuie să producă o rezervare care
+  -- expiră oricum.
+  if coalesce(p_hold_minutes, 0) > 0 and coalesce(trim(p_email),'') = '' then
+    raise exception 'Emailul e obligatoriu pentru rezervarea online.';
+  end if;
 
   -- 3. RATE-LIMIT, pe trei paliere.
   --
@@ -1861,10 +1876,15 @@ begin
   --    rollback la toată tranzacția, inclusiv la rândul de contorizare.
   --    E exact ce trebuie — scenariul vizat e umplerea calendarului cu
   --    rezervări valide, nu cererile respinse, care nu ocupă nimic.
-  begin
-    v_ip := nullif(split_part(coalesce(
-      current_setting('request.headers', true)::json->>'x-forwarded-for',''),',',1),'');
-  exception when others then v_ip := null; end;
+  -- Adresa transmisă de funcția edge are prioritate; antetul rămâne
+  -- rezerva pentru cazul în care parametrul lipsește.
+  v_ip := nullif(trim(coalesce(p_client_ip, '')), '');
+  if v_ip is null then
+    begin
+      v_ip := nullif(split_part(coalesce(
+        current_setting('request.headers', true)::json->>'x-forwarded-for',''),',',1),'');
+    exception when others then v_ip := null; end;
+  end if;
 
   -- Două zile, nu una: ferestrele de mai jos se uită 24 de ore în urmă,
   -- iar o curățare la exact 24 de ore ar tăia din ce tocmai numărăm.
