@@ -31,7 +31,7 @@ import {
   anuleazaRezervare, trimiteEmailConfirmare, COD_INDISPONIBIL,
 } from "./api.js";
 import { STILURI } from "./styles.js";
-import { JUDETE, TARI } from "./nomenclatoare.js";
+import { JUDETE, TARI, PREFIXE_TELEFON, PREFIX_IMPLICIT, telefonInternational } from "./nomenclatoare.js";
 
 /* Aceleași denumiri ca în PMS (vezi ROOM_TYPES din pms-app.jsx), ca
    recepția și clientul să vorbească despre același lucru. */
@@ -99,7 +99,7 @@ export default function App({ valoriInitiale }) {
   const [capacitate, setCapacitate] = useState(null);
   const [eroare, setEroare] = useState("");
   const [oaspete, setOaspete] = useState({
-    nume: "", prenume: "", telefon: "", email: "",
+    nume: "", prenume: "", prefix: PREFIX_IMPLICIT, telefon: "", email: "",
     oras: "", judet: "Cluj", tara: "România",
   });
   const [cerinte, setCerinte] = useState("");
@@ -236,9 +236,16 @@ export default function App({ valoriInitiale }) {
   const totalCamere  = Number(optiune?.roomsNeeded) || 0;
   const totalEstimat = Number(optiune?.total) || 0;
 
+  /* Prefixul scris de mana trebuie sa arate a prefix, iar numarul sa aiba
+     destule cifre cat sa fie un numar — altfel rezervarea ajunge in PMS cu
+     un telefon la care nu raspunde nimeni. Sase cifre e minimul: numerele
+     nationale cele mai scurte din lume au atat. */
+  const prefixCunoscut = PREFIXE_TELEFON.some((p) => p.cod === oaspete.prefix);
+  const prefixValid = /^\+\d{1,4}$/.test(oaspete.prefix.trim());
+  const numarValid = oaspete.telefon.replace(/\D/g, "").length >= 6;
   const dateValide =
-    oaspete.nume.trim() && oaspete.prenume.trim() && oaspete.telefon.trim() &&
-    oaspete.oras.trim();
+    oaspete.nume.trim() && oaspete.prenume.trim() &&
+    prefixValid && numarValid && oaspete.oras.trim();
 
   async function trimite() {
     setEroare("");
@@ -498,11 +505,41 @@ export default function App({ valoriInitiale }) {
               </label>
             </div>
             <div className="ldv-rand-2">
-              <label className="ldv-camp">
+              {/* Nu e <label>, ci <div>: un label care cuprinde mai multe
+                  controale nu spune caruia dintre ele ii apartine, deci
+                  fiecare isi poarta propriul aria-label. */}
+              <div className="ldv-camp">
                 <span>Telefon *</span>
-                <input type="tel" value={oaspete.telefon} autoComplete="tel" maxLength={40}
-                  onChange={(e) => setOaspete((o) => ({ ...o, telefon: e.target.value }))} />
-              </label>
+                <div className={`ldv-tel${prefixCunoscut ? "" : " ldv-tel-3"}`}>
+                  <select className="ldv-tel-prefix" aria-label="Prefix internațional"
+                    autoComplete="tel-country-code"
+                    value={prefixCunoscut ? oaspete.prefix : "alt"}
+                    onChange={(e) => setOaspete((o) => ({
+                      ...o,
+                      /* „Alt prefix" nu e un prefix: lasa campul gol, cu
+                         plusul deja scris, ca omul sa continue de acolo. */
+                      prefix: e.target.value === "alt" ? "+" : e.target.value,
+                    }))}>
+                    {/* Codul primul: caseta inchisa e ingusta si taie
+                        sfarsitul etichetei, iar codul e partea care conteaza
+                        cand te uiti la ce ai ales. Numele tarii ramane
+                        vizibil intreg in lista deschisa. */}
+                    {PREFIXE_TELEFON.map((p) => (
+                      <option key={p.tara} value={p.cod}>{p.cod} {p.tara}</option>
+                    ))}
+                    <option value="alt">Alt prefix…</option>
+                  </select>
+                  {!prefixCunoscut && (
+                    <input className="ldv-tel-alt" value={oaspete.prefix} inputMode="tel"
+                      maxLength={5} aria-label="Prefixul țării" placeholder="+___"
+                      onChange={(e) => setOaspete((o) => ({ ...o, prefix: e.target.value }))} />
+                  )}
+                  <input type="tel" className="ldv-tel-numar" value={oaspete.telefon}
+                    autoComplete="tel-national" inputMode="tel" maxLength={20}
+                    aria-label="Numărul de telefon" placeholder="722 123 456"
+                    onChange={(e) => setOaspete((o) => ({ ...o, telefon: e.target.value }))} />
+                </div>
+              </div>
               <label className="ldv-camp">
                 <span>Email</span>
                 <input type="email" value={oaspete.email} autoComplete="email" maxLength={200}

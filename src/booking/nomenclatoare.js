@@ -14,6 +14,78 @@ export const JUDETE = [
   "Suceava", "Teleorman", "Timiș", "Tulcea", "Vâlcea", "Vaslui", "Vrancea",
 ];
 
+/* Prefixele telefonice oferite in lista.
+ *
+ * NU e lista completa a lumii: sunt tarile din care chiar vin oaspeti —
+ * Romania, Moldova, Uniunea Europeana si cateva destinatii mari — plus o
+ * optiune de prefix scris de mana, ca sa nu ramana nimeni blocat. O lista
+ * de 190 de coduri scrisa manual ar fi adus mai multe greseli decat
+ * acoperire, iar un prefix gresit inseamna un oaspete pe care receptia
+ * nu-l poate suna.
+ *
+ * Statele Unite si Canada impart codul +1, deci sunt o singura intrare:
+ * doua optiuni cu aceeasi valoare intr-un <select> nu pot fi deosebite. */
+export const PREFIXE_TELEFON = [
+  { tara: "România", cod: "+40" },
+  { tara: "Republica Moldova", cod: "+373" },
+  { tara: "Africa de Sud", cod: "+27" },
+  { tara: "Australia", cod: "+61" },
+  { tara: "Austria", cod: "+43" },
+  { tara: "Belgia", cod: "+32" },
+  { tara: "Brazilia", cod: "+55" },
+  { tara: "Bulgaria", cod: "+359" },
+  { tara: "Canada / SUA", cod: "+1" },
+  { tara: "Cehia", cod: "+420" },
+  { tara: "China", cod: "+86" },
+  { tara: "Cipru", cod: "+357" },
+  { tara: "Croația", cod: "+385" },
+  { tara: "Danemarca", cod: "+45" },
+  { tara: "Elveția", cod: "+41" },
+  { tara: "Emiratele Arabe Unite", cod: "+971" },
+  { tara: "Estonia", cod: "+372" },
+  { tara: "Finlanda", cod: "+358" },
+  { tara: "Franța", cod: "+33" },
+  { tara: "Germania", cod: "+49" },
+  { tara: "Grecia", cod: "+30" },
+  { tara: "India", cod: "+91" },
+  { tara: "Irlanda", cod: "+353" },
+  { tara: "Israel", cod: "+972" },
+  { tara: "Italia", cod: "+39" },
+  { tara: "Japonia", cod: "+81" },
+  { tara: "Letonia", cod: "+371" },
+  { tara: "Lituania", cod: "+370" },
+  { tara: "Luxemburg", cod: "+352" },
+  { tara: "Malta", cod: "+356" },
+  { tara: "Norvegia", cod: "+47" },
+  { tara: "Olanda", cod: "+31" },
+  { tara: "Polonia", cod: "+48" },
+  { tara: "Portugalia", cod: "+351" },
+  { tara: "Regatul Unit", cod: "+44" },
+  { tara: "Rusia", cod: "+7" },
+  { tara: "Serbia", cod: "+381" },
+  { tara: "Slovacia", cod: "+421" },
+  { tara: "Slovenia", cod: "+386" },
+  { tara: "Spania", cod: "+34" },
+  { tara: "Suedia", cod: "+46" },
+  { tara: "Turcia", cod: "+90" },
+  { tara: "Ucraina", cod: "+380" },
+  { tara: "Ungaria", cod: "+36" },
+];
+
+export const PREFIX_IMPLICIT = "+40";
+
+/* Numarul asa cum ajunge in PMS: prefix, spatiu, restul cifrelor.
+ *
+ * Zeroul de la inceput se taie, fiindca romanii scriu „0722…" iar
+ * „+40 0722…" nu se poate forma. Exceptia e Italia, singura tara din
+ * lista care pastreaza zeroul si in forma internationala (+39 06…) —
+ * acolo taierea ar strica numarul, deci nu se taie. */
+export function telefonInternational(prefix, numar) {
+  const cifre = String(numar || "").replace(/\D/g, "");
+  const fara0 = prefix === "+39" ? cifre : cifre.replace(/^0+/, "");
+  return fara0 ? `${String(prefix || "").trim()} ${fara0}` : "";
+}
+
 export const TARI = [
   "România", "Republica Moldova", "Afganistan", "Africa de Sud", "Albania", "Algeria", "Andorra",
   "Angola", "Antigua și Barbuda", "Arabia Saudită", "Argentina", "Armenia", "Australia", "Austria",

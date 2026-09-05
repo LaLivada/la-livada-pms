@@ -105,6 +105,15 @@ export const STILURI = `
   display:block; text-align:left;
 }
 
+/* Telefonul: prefixul si numarul, unul langa altul.
+   Prefixul primeste o latime fixa, nu o fractiune din grila: numele unei
+   tari poate fi lung, iar o coloana elastica s-ar intinde dupa el si ar
+   lasa numarul fara loc pentru noua cifre. Coloana numarului e
+   minmax(0,1fr), ca sa se stranga in loc sa iasa din card. */
+.ldv-tel{ display:grid; grid-template-columns:118px minmax(0,1fr); gap:8px; }
+.ldv-tel-3{ grid-template-columns:118px 78px minmax(0,1fr); }
+.ldv-tel-numar{ font-variant-numeric:tabular-nums; }
+
 .ldv-camp textarea{ min-height:76px; resize:vertical; }
 .ldv-camp input:focus,.ldv-camp select:focus,.ldv-camp textarea:focus{
   outline:none; border-color:var(--ldv-accent);

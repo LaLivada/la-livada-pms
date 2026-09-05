@@ -10,6 +10,8 @@
  * PostgreSQL. Tabelele sunt inaccesibile.
  */
 
+import { telefonInternational } from "./nomenclatoare.js";
+
 const URL_BAZA = import.meta.env.VITE_SUPABASE_URL;
 const CHEIE = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
@@ -99,7 +101,10 @@ export function creeazaRezervare({
     p_checkout: checkout,
     p_last_name: oaspete.nume,
     p_first_name: oaspete.prenume,
-    p_phone: oaspete.telefon,
+    /* Numarul pleaca in forma internationala, nu asa cum a fost tastat:
+       receptia il suna direct din PMS, iar „0722…" fara prefix nu spune
+       din ce tara e. Vezi `telefonInternational`. */
+    p_phone: telefonInternational(oaspete.prefix, oaspete.telefon),
     p_email: oaspete.email || null,
     p_city: oaspete.oras,
     p_county: oaspete.judet,
