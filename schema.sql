@@ -1384,8 +1384,13 @@ create table public_bookings (
   checkout         timestamptz not null,
   rooms_count      int not null,
   total_amount     numeric not null,
+  -- 'pending' = camera e doar ținută, până confirmă clientul; 'expired' =
+  -- n-a confirmat la timp și camera s-a eliberat singură.
   status           text not null default 'confirmed'
-                     check (status in ('confirmed','cancelled')),
+                     check (status in ('pending','confirmed','cancelled','expired')),
+  -- Cât ține camera până la confirmare. NULL = rezervare fermă din prima
+  -- clipă, adică drumul pe care intră rezervările făcute de recepție.
+  hold_expires_at  timestamptz,
   request_ip       text,
   created_at       timestamptz not null default now(),
   email_sent_at    timestamptz,   -- o singură trimitere per rezervare
@@ -1396,6 +1401,8 @@ create table public_bookings (
 create index public_bookings_token   on public_bookings (public_token);
 create index public_bookings_created on public_bookings (created_at desc);
 create index public_bookings_guest   on public_bookings (guest_id);
+create index public_bookings_hold    on public_bookings (hold_expires_at)
+  where status = 'pending';
 
 -- RLS activat, fără nicio politică: inaccesibil prin API pentru orice
 -- rol. Se scrie și se citește doar din funcțiile de mai jos.
@@ -1697,13 +1704,90 @@ end; $$;
 --     înapoi cu RETURNING. O singură formulă, nu două care pot diverge.
 --
 -- search_path include `extensions` pentru gen_random_bytes (pgcrypto).
+-- Eliberarea rezervărilor ținute care n-au fost confirmate la timp.
+--
+-- Fără job separat: se apelează din funcțiile publice, singurele căi prin
+-- care se ajunge oricum la aceste rânduri. Nu e doar pentru
+-- disponibilitate — acolo allocate_group ignoră deja holdurile expirate —
+-- ci și pentru calendarul din PMS, care altfel s-ar umple cu rezervări
+-- moarte pe care le-ar vedea recepția ca fiind reale.
+create or replace function expira_rezervari_neconfirmate()
+returns int language plpgsql security definer set search_path = public as $$
+declare v_n int;
+begin
+  update public_bookings
+     set status = 'expired'
+   where status = 'pending'
+     and hold_expires_at is not null
+     and hold_expires_at <= now();
+  get diagnostics v_n = row_count;
+
+  -- Doar rezervările PMS ale acelor rezervări online, nu orice 'pending':
+  -- recepția poate avea propriile rezervări în așteptare, fără nicio
+  -- legătură cu site-ul.
+  update reservations r
+     set status = 'cancelled'
+    from public_bookings b
+   where r.id = any(b.reservation_ids)
+     and b.status = 'expired'
+     and r.status = 'pending';
+
+  return v_n;
+end; $$;
+
+
+-- Confirmarea de către client a unei rezervări ținute.
+--
+-- Idempotentă: un link deschis de două ori nu e o eroare. Nu primește
+-- nimic în afară de token — pe calea asta nu se poate schimba nimic din
+-- rezervare, doar trecerea din „ținută" în „fermă".
+create or replace function confirm_public_booking(p_token text)
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare v_b public_bookings;
+begin
+  perform expira_rezervari_neconfirmate();
+
+  select * into v_b from public_bookings where public_token = p_token;
+  if not found then
+    raise exception 'Rezervarea nu a fost găsită.' using errcode = 'P0002';
+  end if;
+
+  if v_b.status = 'confirmed' then
+    return jsonb_build_object('success', true, 'repeat', true, 'status', 'confirmed',
+      'confirmationNumber', v_b.confirmation_number);
+  end if;
+  if v_b.status = 'cancelled' then
+    raise exception 'Rezervarea a fost anulată.' using errcode = 'P0003';
+  end if;
+  if v_b.status = 'expired' then
+    -- Nu e o eroare tehnică, e un rezultat: interfața trebuie să-i spună
+    -- omului că poate relua căutarea.
+    return jsonb_build_object('success', false, 'status', 'expired',
+      'confirmationNumber', v_b.confirmation_number);
+  end if;
+
+  update reservations set status = 'confirmed', hold_expires_at = null
+   where id = any(v_b.reservation_ids) and status = 'pending';
+
+  update public_bookings set status = 'confirmed', hold_expires_at = null
+   where id = v_b.id;
+
+  return jsonb_build_object('success', true, 'status', 'confirmed',
+    'confirmationNumber', v_b.confirmation_number);
+end; $$;
+
+
 create or replace function create_public_booking(
   p_idempotency_key uuid,
   p_checkin timestamptz, p_checkout timestamptz,
   p_last_name text, p_first_name text, p_phone text, p_email text,
   p_city text, p_county text, p_country text,
   p_rooms jsonb,
-  p_notes text default null
+  p_notes text default null,
+  -- 0 = rezervare fermă pe loc. >0 = camera e doar ținută atâtea minute,
+  -- până confirmă clientul; vezi comentariul de la
+  -- expira_rezervari_neconfirmate.
+  p_hold_minutes int default 0
 ) returns jsonb
 language plpgsql security definer set search_path = public, extensions as $$
 declare
@@ -1714,7 +1798,14 @@ declare
   v_res_ids   text[] := '{}';   v_total numeric := 0;  v_pret numeric;
   v_nr        text;   v_res_id text;   v_ip text;  v_token text;
   v_nr_camere int := coalesce(jsonb_array_length(p_rooms), 0);
+  v_hold      timestamptz := null;
+  v_status    text := 'confirmed';
 begin
+  if coalesce(p_hold_minutes, 0) > 0 then
+    v_hold   := now() + make_interval(mins => p_hold_minutes);
+    v_status := 'pending';
+  end if;
+
   -- 1. IDEMPOTENȚĂ
   if p_idempotency_key is null then
     raise exception 'Lipsește cheia de idempotență.';
@@ -1724,6 +1815,7 @@ begin
     return jsonb_build_object('success', true, 'repeat', true,
       'confirmationNumber', v_ex.confirmation_number,
       'publicToken', v_ex.public_token, 'status', v_ex.status,
+      'holdExpiresAt', v_ex.hold_expires_at,
       'total', v_ex.total_amount, 'rooms', v_ex.rooms_count);
   end if;
 
@@ -1820,6 +1912,10 @@ begin
   --    alocarea multi-cameră fără câștig real.
   perform pg_advisory_xact_lock(hashtext('lalivada:booking'));
 
+  -- Holdurile trecute se eliberează ÎNAINTE de căutarea camerelor, altfel
+  -- o rezervare abandonată acum o oră ar bloca una reală.
+  perform expira_rezervari_neconfirmate();
+
   -- 5. OASPETE, recunoscut după telefon ca în restul PMS-ului
   select id into v_guest_id from guests
    where lower(phone) = lower(trim(p_phone)) limit 1;
@@ -1863,6 +1959,11 @@ begin
          select 1 from reservations res
           where res.room_id = r.id
             and res.status not in ('cancelled','noshow')
+            -- Un hold trecut nu mai blochează. Expresia e IDENTICĂ cu cea
+            -- din allocate_group, intenționat: căutarea de disponibilitate
+            -- și crearea trebuie să răspundă la fel, altfel site-ul oferă
+            -- o cameră pe care funcția asta o refuză.
+            and (res.status <> 'pending' or res.hold_expires_at > now())
             and tstzrange(res.checkin, res.checkout, '[)')
                 && tstzrange(p_checkin, p_checkout, '[)')
        )
@@ -1877,9 +1978,9 @@ begin
 
     v_res_id := 'r-' || encode(gen_random_bytes(6),'hex');
     insert into reservations (id, room_id, guest_id, group_id, checkin, checkout,
-                              status, adults, children, source, notes)
+                              status, adults, children, source, notes, hold_expires_at)
     values (v_res_id, v_room_id, v_guest_id, v_group_id, p_checkin, p_checkout,
-            'confirmed', v_ad, v_cop, 'site', nullif(trim(p_notes),''))
+            v_status, v_ad, v_cop, 'site', nullif(trim(p_notes),''), v_hold)
     returning booked_price into v_pret;   -- prețul pus de trigger
 
     v_total   := v_total + coalesce(v_pret, 0);
@@ -1890,14 +1991,15 @@ begin
   v_nr := next_confirmation_number();
   insert into public_bookings (id, idempotency_key, confirmation_number, guest_id,
                                group_id, reservation_ids, checkin, checkout,
-                               rooms_count, total_amount, request_ip)
+                               rooms_count, total_amount, request_ip,
+                               status, hold_expires_at)
   values ('pb-' || encode(gen_random_bytes(6),'hex'), p_idempotency_key, v_nr,
           v_guest_id, v_group_id, v_res_ids, p_checkin, p_checkout,
-          v_nr_camere, v_total, v_ip)
+          v_nr_camere, v_total, v_ip, v_status, v_hold)
   returning public_token into v_token;
 
   return jsonb_build_object('success', true, 'confirmationNumber', v_nr,
-    'publicToken', v_token, 'status', 'confirmed',
+    'publicToken', v_token, 'status', v_status, 'holdExpiresAt', v_hold,
     'total', v_total, 'rooms', v_nr_camere);
 
 exception
