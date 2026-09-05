@@ -56,6 +56,38 @@ async function rpc(nume, parametri) {
   return date;
 }
 
+/* Apel către o funcție edge. Aceleași reguli de eroare ca `rpc`: mesajul
+   vine de la server și e scris pentru oaspete, nu pentru programator. */
+async function functie(nume, corp) {
+  let raspuns;
+  try {
+    raspuns = await fetch(`${URL_BAZA}/functions/v1/${nume}`, {
+      method: "POST",
+      headers: {
+        apikey: CHEIE,
+        Authorization: `Bearer ${CHEIE}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(corp),
+    });
+  } catch {
+    const e = new Error("Nu am putut contacta serverul. Verifică conexiunea.");
+    e.retea = true;
+    throw e;
+  }
+
+  const text = await raspuns.text();
+  let date = null;
+  try { date = text ? JSON.parse(text) : null; } catch { /* răspuns ne-JSON */ }
+
+  if (!raspuns.ok) {
+    const e = new Error(date?.error || "A apărut o eroare neașteptată.");
+    e.cod = date?.code;
+    throw e;
+  }
+  return date;
+}
+
 /* Capacitatea configurată a pensiunii: cât încape într-o cameră, câte
    camere se pot lua odată, și cel mai mare grup care poate rezerva online.
    Se cere o singură dată, la deschiderea paginii, ca selectoarele de
@@ -85,33 +117,52 @@ export function cautaDisponibilitate({ checkin, checkout, adulti, copii }) {
 
 /* Creează rezervarea.
  *
+ * Trece printr-o funcție edge, nu direct prin RPC ca înainte: acolo se
+ * verifică jetonul Turnstile (cere o cheie secretă și un apel către
+ * Cloudflare, două lucruri pe care PostgREST nu le poate face) și tot
+ * acolo pleacă emailul prin care clientul confirmă. Validările au rămas
+ * unde erau, în funcția din bază — funcția edge e poartă, nu autoritate.
+ *
  * `cheieIdempotenta` trebuie să fie ACEEAȘI pentru toate reîncercările
  * aceleiași intenții de rezervare. Dacă cererea ajunge de două ori
  * (dublu-click, timeout urmat de retry), serverul întoarce rezervarea
  * deja creată în loc să facă a doua.
  *
  * Prețul NU se trimite: e calculat de server. Ce vede clientul pe ecran
- * până aici e informativ; totalul care contează vine în răspuns. */
+ * până aici e informativ; totalul care contează vine în răspuns.
+ *
+ * Răspunsul poate veni cu `status: "pending"` — camera e doar ținută
+ * până la `holdExpiresAt`, iar confirmarea se face din emailul primit. */
 export function creeazaRezervare({
-  cheieIdempotenta, checkin, checkout, camere, oaspete, cerinte,
+  cheieIdempotenta, checkin, checkout, camere, oaspete, cerinte, jetonTurnstile,
 }) {
-  return rpc("create_public_booking", {
-    p_idempotency_key: cheieIdempotenta,
-    p_checkin: checkin,
-    p_checkout: checkout,
-    p_last_name: oaspete.nume,
-    p_first_name: oaspete.prenume,
-    /* Numarul pleaca in forma internationala, nu asa cum a fost tastat:
-       receptia il suna direct din PMS, iar „0722…" fara prefix nu spune
-       din ce tara e. Vezi `telefonInternational`. */
-    p_phone: telefonInternational(oaspete.prefix, oaspete.telefon),
-    p_email: oaspete.email || null,
-    p_city: oaspete.oras,
-    p_county: oaspete.judet,
-    p_country: oaspete.tara,
-    p_rooms: camere,
-    p_notes: cerinte || null,
+  return functie("booking-create", {
+    idempotencyKey: cheieIdempotenta,
+    checkin, checkout,
+    rooms: camere,
+    notes: cerinte || null,
+    turnstileToken: jetonTurnstile || null,
+    guest: {
+      nume: oaspete.nume,
+      prenume: oaspete.prenume,
+      /* Numarul pleaca in forma internationala, nu asa cum a fost tastat:
+         receptia il suna direct din PMS, iar „0722…" fara prefix nu spune
+         din ce tara e. Vezi `telefonInternational`. */
+      telefon: telefonInternational(oaspete.prefix, oaspete.telefon),
+      email: oaspete.email || null,
+      oras: oaspete.oras,
+      judet: oaspete.judet,
+      tara: oaspete.tara,
+    },
   });
+}
+
+/* Confirmarea din linkul primit pe email: rezervarea ținută devine fermă.
+   Idempotentă — un link deschis de două ori nu e o eroare. Poate întoarce
+   `status: "expired"`, ceea ce nu e o defecțiune, ci un rezultat: holdul
+   a trecut și camera s-a eliberat. */
+export function confirmaRezervare(token) {
+  return rpc("confirm_public_booking", { p_token: token });
 }
 
 /* Pagina de confirmare. Tokenul e singura cheie — id-urile interne nu

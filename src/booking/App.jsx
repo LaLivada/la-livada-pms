@@ -28,10 +28,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   cautaDisponibilitate, creeazaRezervare, citesteRezervare, citesteCapacitatea,
-  anuleazaRezervare, trimiteEmailConfirmare, COD_INDISPONIBIL,
+  anuleazaRezervare, trimiteEmailConfirmare, confirmaRezervare, COD_INDISPONIBIL,
 } from "./api.js";
 import { STILURI } from "./styles.js";
 import { JUDETE, TARI, PREFIXE_TELEFON, PREFIX_IMPLICIT, telefonInternational } from "./nomenclatoare.js";
+import { Turnstile } from "./Turnstile.jsx";
 
 /* Aceleași denumiri ca în PMS (vezi ROOM_TYPES din pms-app.jsx), ca
    recepția și clientul să vorbească despre același lucru. */
@@ -68,6 +69,21 @@ const noptiIntre = (a, b) =>
 const fmtData = (iso) =>
   new Date(iso).toLocaleDateString("ro-RO", { day: "numeric", month: "long", year: "numeric" });
 const fmtBani = (n) => new Intl.NumberFormat("ro-RO", { maximumFractionDigits: 0 }).format(n) + " lei";
+
+/* Cât mai ține camera, spus în cuvinte. Ceasul din browser poate fi
+   nepotrivit față de al serverului, deci nu numărăm secundele pe ecran:
+   o valoare rotunjită nu devine falsă dacă cele două ceasuri diferă cu
+   un minut. Adevărul rămâne la server, care refuză confirmarea târzie. */
+const minuteRamase = (iso) => {
+  if (!iso) return "un timp scurt";
+  const m = Math.round((new Date(iso) - Date.now()) / 60000);
+  if (m <= 1) return "încă un minut";
+  /* „30 de minute", dar „5 minute": în română, numeralele al căror rest
+     la 100 e între 1 și 19 se leagă direct de substantiv, restul cer
+     „de". Fără regula asta ar fi ieșit „încă 5 de minute". */
+  const rest = m % 100;
+  return `încă ${m}${rest >= 1 && rest <= 19 ? "" : " de"} minute`;
+};
 
 /* Datele din formular sunt zile calendaristice; le trimitem cu orele de
    check-in/check-out ale pensiunii, ca intervalul să fie cel real. */
@@ -111,6 +127,9 @@ export default function App({ valoriInitiale }) {
      șterge rezervări de unul singur. */
   const [cereAnulare, setCereAnulare] = useState(false);
   const [anuleazaAcum, setAnuleazaAcum] = useState(false);
+  /* Jetonul Turnstile. Gol cât timp widgetul nu e configurat sau n-a
+     terminat — trimiterea nu se blochează pentru asta; vezi Turnstile.jsx. */
+  const [jeton, setJeton] = useState("");
 
   /* Cheia de idempotență se generează O SINGURĂ DATĂ per intenție de
      rezervare. Dacă s-ar regenera la fiecare click pe „Trimite", un retry
@@ -119,12 +138,30 @@ export default function App({ valoriInitiale }) {
   const [cheie, setCheie] = useState(() => crypto.randomUUID());
 
   /* Pagina de confirmare: /?token=… — deschisă din emailul de confirmare
-     sau salvată de client. */
+     sau salvată de client.
+     Cu &confirma=1 vine din emailul „mai e un pas": rezervarea ținută
+     devine fermă. Confirmarea o face JAVASCRIPTUL de aici, nu deschiderea
+     linkului — clienții de email preîncarcă adresele din mesaj, dar nu
+     rulează scripturi, deci o preîncărcare nu confirmă nimic singură. */
   useEffect(() => {
     const token = params.get("token");
     if (!token) return;
     setStare("incarca-confirmare");
-    citesteRezervare(token)
+
+    const intai = params.get("confirma") === "1"
+      /* Un eșec la confirmare nu oprește afișarea: citim oricum starea
+         reală și lăsăm ecranul să spună ce s-a întâmplat. */
+      ? confirmaRezervare(token).catch(() => null)
+      : Promise.resolve(null);
+
+    intai
+      .then((rez) => {
+        /* Abia acum, după ce rezervarea a devenit fermă, pleacă emailul
+           cu numărul și linkul de anulare. Înainte de confirmare n-ar fi
+           avut ce confirma. */
+        if (rez?.status === "confirmed" && !rez?.repeat) trimiteEmailConfirmare(token);
+        return citesteRezervare(token);
+      })
       .then((d) => {
         if (!d) { setEroare("Rezervarea nu a fost găsită."); setStare("cautare"); return; }
         setConfirmare({ ...d, publicToken: token });
@@ -243,9 +280,14 @@ export default function App({ valoriInitiale }) {
   const prefixCunoscut = PREFIXE_TELEFON.some((p) => p.cod === oaspete.prefix);
   const prefixValid = /^\+\d{1,4}$/.test(oaspete.prefix.trim());
   const numarValid = oaspete.telefon.replace(/\D/g, "").length >= 6;
+  /* Emailul e obligatoriu: pe el vine linkul prin care rezervarea devine
+     fermă. Fără adresă, camera ar fi ținută degeaba și ar expira. Regula
+     e impusă și în baza de date — aici e doar ca omul să afle înainte de
+     a apăsa, nu după. */
+  const emailValid = /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(oaspete.email.trim());
   const dateValide =
     oaspete.nume.trim() && oaspete.prenume.trim() &&
-    prefixValid && numarValid && oaspete.oras.trim();
+    prefixValid && numarValid && emailValid && oaspete.oras.trim();
 
   async function trimite() {
     setEroare("");
@@ -263,22 +305,26 @@ export default function App({ valoriInitiale }) {
         cheieIdempotenta: cheie,
         checkin: laSosire(cautare.checkin),
         checkout: laPlecare(cautare.checkout),
-        camere, oaspete, cerinte,
+        camere, oaspete, cerinte, jetonTurnstile: jeton,
       });
       setConfirmare({
         confirmationNumber: d.confirmationNumber,
         checkIn: laSosire(cautare.checkin),
         checkOut: laPlecare(cautare.checkout),
         rooms: d.rooms, total: d.total, status: d.status,
+        holdExpiresAt: d.holdExpiresAt,
         guestName: `${oaspete.prenume} ${oaspete.nume}`.trim(),
         publicToken: d.publicToken,
-        canCancel: true,
+        /* Cât e doar ținută, nu se anulează: n-a apucat să existe ca
+           rezervare fermă, iar dacă omul se răzgândește e destul să nu
+           confirme. */
+        canCancel: d.status === "confirmed",
       });
       setStare("confirmat");
-      /* Emailul se cere DUPĂ ce rezervarea există. Nu îl așteptăm și nu
-         îi verificăm rezultatul: dacă eșuează, rezervarea rămâne validă,
-         iar clientul are numărul pe ecran. */
-      if (oaspete.email?.trim()) trimiteEmailConfirmare(d.publicToken);
+      /* Emailul cu numărul și linkul de anulare pleacă doar pentru o
+         rezervare fermă. Când e ținută, oaspetele a primit deja alt
+         mesaj — cel prin care confirmă — trimis de funcția edge. */
+      if (d.status === "confirmed") trimiteEmailConfirmare(d.publicToken);
     } catch (e) {
       if (e.cod === COD_INDISPONIBIL) {
         /* Nu e o defecțiune — între căutare și confirmare s-a ocupat
@@ -541,8 +587,9 @@ export default function App({ valoriInitiale }) {
                 </div>
               </div>
               <label className="ldv-camp">
-                <span>Email</span>
+                <span>Email *</span>
                 <input type="email" value={oaspete.email} autoComplete="email" maxLength={200}
+                  placeholder="pe el primești confirmarea"
                   onChange={(e) => setOaspete((o) => ({ ...o, email: e.target.value }))} />
               </label>
             </div>
@@ -574,6 +621,9 @@ export default function App({ valoriInitiale }) {
             </label>
           </div>
 
+          {/* Nu apare decât dacă e configurată cheia Cloudflare. */}
+          <Turnstile onJeton={setJeton} />
+
           <div className="ldv-actiuni">
             <button className="ldv-btn ldv-btn-simplu"
               onClick={() => { setEroare(""); setStare("rezultate"); }}
@@ -593,8 +643,9 @@ export default function App({ valoriInitiale }) {
       {stare === "confirmat" && confirmare && (
         <div className="ldv-card">
           <div className="ldv-confirmare">
-            <h2>{confirmare.status === "cancelled"
-              ? "Rezervarea a fost anulată"
+            <h2>{confirmare.status === "cancelled" ? "Rezervarea a fost anulată"
+              : confirmare.status === "pending" ? "Mai e un pas"
+              : confirmare.status === "expired" ? "Rezervarea nu a mai fost confirmată"
               : "Rezervarea e înregistrată"}</h2>
             <div className="ldv-numar-confirmare">{confirmare.confirmationNumber}</div>
             <p className="ldv-mic">Notează numărul — îl folosim când ne suni.</p>
@@ -620,6 +671,22 @@ export default function App({ valoriInitiale }) {
             <div className="ldv-alerta ldv-alerta-info" style={{ marginTop: 4 }}>
               Camerele au fost eliberate. Dacă a fost o greșeală, sună-ne —
               putem verifica dacă mai sunt disponibile.
+            </div>
+          ) : confirmare.status === "pending" ? (
+            <div className="ldv-alerta ldv-alerta-info" style={{ marginTop: 4 }}>
+              <strong>Ți-am trimis un email la {oaspete.email || "adresa dată"}.</strong>
+              <p style={{ margin: "6px 0 0" }}>
+                Apasă butonul din mesaj ca rezervarea să devină fermă. Ținem
+                camerele {minuteRamase(confirmare.holdExpiresAt)}; dacă nu
+                confirmi, se eliberează singure și poți relua căutarea
+                oricând. Verifică și în Spam.
+              </p>
+            </div>
+          ) : confirmare.status === "expired" ? (
+            <div className="ldv-alerta ldv-alerta-info" style={{ marginTop: 4 }}>
+              Confirmarea a venit prea târziu și camerele s-au eliberat.
+              Nu s-a reținut nimic — caută din nou perioada dorită sau
+              sună-ne și îți facem rezervarea pe loc.
             </div>
           ) : (
             <div className="ldv-alerta ldv-alerta-info" style={{ marginTop: 4 }}>
@@ -658,7 +725,7 @@ export default function App({ valoriInitiale }) {
             </div>
           )}
 
-          {confirmare.publicToken && confirmare.status !== "cancelled" && (
+          {confirmare.publicToken && confirmare.status === "confirmed" && (
             <p className="ldv-mic">
               Poți revedea sau anula rezervarea oricând la{" "}
               <a href={`?token=${confirmare.publicToken}`}>acest link</a> — păstrează-l.

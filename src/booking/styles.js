@@ -114,6 +114,10 @@ export const STILURI = `
 .ldv-tel-3{ grid-template-columns:118px 78px minmax(0,1fr); }
 .ldv-tel-numar{ font-variant-numeric:tabular-nums; }
 
+/* Widgetul Turnstile isi aduce propriile dimensiuni intr-un iframe; noi
+   ii dam doar loc si il centram pe latimea cardului. */
+.ldv-turnstile{ margin-top:14px; display:flex; justify-content:center; min-height:0; }
+
 .ldv-camp textarea{ min-height:76px; resize:vertical; }
 .ldv-camp input:focus,.ldv-camp select:focus,.ldv-camp textarea:focus{
   outline:none; border-color:var(--ldv-accent);
