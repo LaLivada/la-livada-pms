@@ -114,6 +114,63 @@ export const STILURI = `
 .ldv-tel-3{ grid-template-columns:118px 78px minmax(0,1fr); }
 .ldv-tel-numar{ font-variant-numeric:tabular-nums; }
 
+/* ---------- calendarul de perioada ---------- */
+.ldv-cal{ border:1px solid var(--ldv-line); border-radius:12px; padding:10px 10px 4px; }
+.ldv-cal-bara{ display:flex; align-items:center; gap:8px; }
+.ldv-cal-titluri{ flex:1; display:grid; grid-template-columns:1fr; text-align:center; }
+.ldv-cal-titlu{ font-weight:600; font-size:.95em; text-transform:capitalize; }
+/* A doua luna si al doilea titlu apar doar cand e loc pentru ele. */
+.ldv-cal-titlu:nth-child(2), .ldv-cal-luna:nth-child(2){ display:none; }
+.ldv-cal-nav{
+  flex:0 0 auto; width:38px; height:38px; border-radius:9px;
+  border:1px solid var(--ldv-line); background:var(--ldv-surface);
+  color:var(--ldv-ink); font:inherit; font-size:20px; line-height:1;
+  cursor:pointer;
+}
+.ldv-cal-nav:disabled{ opacity:.35; cursor:not-allowed; }
+.ldv-cal-nav:hover:not(:disabled){ border-color:var(--ldv-accent); }
+
+.ldv-cal-luni{ display:grid; grid-template-columns:1fr; gap:18px; margin-top:8px; }
+.ldv-cal-luna{ width:100%; border-collapse:collapse; table-layout:fixed; }
+.ldv-cal-luna th{
+  font-size:11px; font-weight:600; color:var(--ldv-muted);
+  text-transform:uppercase; padding-bottom:4px;
+}
+.ldv-cal-luna td{ padding:1px; }
+
+.ldv-zi{
+  width:100%; aspect-ratio:1; min-height:36px;
+  display:flex; align-items:center; justify-content:center;
+  border:0; border-radius:9px; background:transparent;
+  font:inherit; font-size:.95em; color:var(--ldv-ink);
+  cursor:pointer; transition:background .12s, color .12s;
+}
+.ldv-zi:hover:not(:disabled){ background:var(--ldv-accent-soft); }
+.ldv-zi:disabled{ color:var(--ldv-muted); opacity:.4; cursor:not-allowed; }
+.ldv-zi:focus-visible{ outline:2px solid var(--ldv-accent); outline-offset:1px; }
+/* Zilele dintre capete: fundal continuu, colturi drepte, ca sa arate a
+   interval, nu a sir de patratele. Capetele isi pastreaza rotunjirea. */
+.ldv-zi-intre{ background:var(--ldv-accent-soft); border-radius:0; }
+.ldv-zi-sosire, .ldv-zi-plecare{
+  background:var(--ldv-accent); color:#fff; font-weight:600;
+}
+.ldv-zi-sosire:hover, .ldv-zi-plecare:hover{ background:var(--ldv-accent); }
+.ldv-cal-indiciu{ margin:6px 2px 4px; text-align:center; }
+
+/* Doar pentru cititoarele de ecran: numele lunii ca legenda a tabelului.
+   Vizual el e deja in bara de sus, deci ar fi aparut de doua ori. */
+.ldv-doar-citit{
+  position:absolute; width:1px; height:1px; overflow:hidden;
+  clip-path:inset(50%); white-space:nowrap;
+}
+
+@media (min-width:620px){
+  .ldv-cal-titluri{ grid-template-columns:1fr 1fr; }
+  .ldv-cal-luni{ grid-template-columns:1fr 1fr; gap:22px; }
+  .ldv-cal-titlu:nth-child(2), .ldv-cal-luna:nth-child(2){ display:revert; }
+  .ldv-cal-luna:nth-child(2){ display:table; }
+}
+
 /* Galeria tipului ales, la pasul de alegere a camerei.
    Acelasi idiom ca galeria din subsolul paginii: fasie orizontala cu
    scroll-snap, nu grila. O grila ar fi impins butonul de continuare sub
