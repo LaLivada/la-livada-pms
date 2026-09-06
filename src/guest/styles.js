@@ -59,9 +59,16 @@ body{
 .g-salut-ora{ margin:0; font-size:15px; color:var(--g-muted); }
 
 /* space-between tine sigla lipita de marginea din dreapta indiferent cat de
-   scurt e numele; align-items center e chiar alinierea ceruta. */
+   scurt e numele.
+
+   Alinierea e pe LINIA DE BAZA, nu pe centru. Sigla e mai inalta decat banda
+   literelor (27px fata de 17px cat are inaltimea majusculelor la 23px), deci
+   centrata ea cobora cu ~6px sub baza textului — adica fix cat coada lui ț
+   din „Duță". Ochiul citea sigla ca aliniata cu coada, nu cu textul.
+   Cu baseline, marginea ei de jos sta exact pe linia pe care stau literele.
+   Masurat: decalajul fata de baza trece de la 5,7px la 0. */
 .g-salut-rand{
-  display:flex; align-items:center; justify-content:space-between; gap:10px;
+  display:flex; align-items:baseline; justify-content:space-between; gap:10px;
 }
 .g-salut-nume{
   margin:0; min-width:0; font-family:var(--editorial); font-weight:400;
@@ -112,8 +119,25 @@ body{
   background:#22221f; color:#f5f1e8;
   border-radius:var(--g-radius); padding:20px 20px 18px;
 }
+/* Numarul camerei, scris ca sa se vada. Era 13,5px la 66% opacitate, adica
+   lucrul cel mai stins de pe card — dar omul care tocmai a coborat din masina
+   cauta exact numarul, ca sa stie la ce usa sa se duca.
+   Felul casutei ramane eticheta mica de langa el: „Tiny house" nu ajuta pe
+   nimeni sa gaseasca usa, numarul da. */
 .g-hero-camera{
-  margin:0 0 14px; font-size:13.5px; color:rgba(245,241,232,.66);
+  margin:0 0 16px; display:flex; align-items:baseline; flex-wrap:wrap;
+  gap:3px 9px;
+}
+.g-hero-camera-fel{
+  font-size:11px; font-weight:600; letter-spacing:.12em;
+  text-transform:uppercase; color:rgba(245,241,232,.55);
+}
+/* Sampanie si serif, nu ivoriu si monospatiat: codul de dedesubt e deja o
+   insiruire mare de cifre, iar doua numere identice ca infatisare pe acelasi
+   card ar cere o clipa de gandit care e care. */
+.g-hero-camera-nr{
+  font-family:var(--editorial); font-weight:400; font-size:30px;
+  line-height:1; color:var(--champagne); font-variant-numeric:tabular-nums;
 }
 .g-eticheta{
   margin:0; font-size:11px; font-weight:600; letter-spacing:.12em;

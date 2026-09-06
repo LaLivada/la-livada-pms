@@ -531,7 +531,12 @@ export default function App() {
   }
   if (stare === "refuzat") return <Refuz motiv={motiv} />;
 
-  const camera = `${TIP[sejur.roomType] || sejur.roomType || ""} ${sejur.roomName || ""}`.trim();
+  /* Felul camerei si numarul ei, separat — nu un singur sir. Omul care
+     tocmai a ajuns cauta NUMARUL, ca sa stie la ce usa sa se duca; „Tiny
+     house" ii spune doar ce fel de casuta e. Asa numarul poate fi scris
+     mare, iar felul ramane eticheta mica de langa el. */
+  const felCamera = TIP[sejur.roomType] || sejur.roomType || "";
+  const nrCamera = sejur.roomName || "";
 
   /* „Important" incepe cu ce depinde de rezervarea asta si continua cu
      regulile generale din continut.js. Ora de plecare scrisa de mana in
@@ -576,7 +581,12 @@ export default function App() {
       </div>
 
       <div className="g-hero">
-        {camera && <p className="g-hero-camera">{camera}</p>}
+        {(felCamera || nrCamera) && (
+          <p className="g-hero-camera">
+            {felCamera && <span className="g-hero-camera-fel">{felCamera}</span>}
+            {nrCamera && <span className="g-hero-camera-nr">{nrCamera}</span>}
+          </p>
+        )}
         <p className="g-eticheta">Cod de acces</p>
         {acces?.code ? (
           <>
