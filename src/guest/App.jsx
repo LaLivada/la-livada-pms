@@ -260,7 +260,7 @@ function ContinutAcces() {
    trebuie sa merg acum", deci stau impreuna. */
 function CumAjungi({ deschideAcces }) {
   return (
-    <div className="g-card">
+    <div className="g-card g-drum">
       <h2>Cum ajungi</h2>
       <p className="g-legaturi">
         {/* Perechea si bara dintre ele sunt un singur element de asezare:

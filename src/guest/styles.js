@@ -233,9 +233,28 @@ body{
    problema masurata: cele trei etichete ca butoane cereau 399px, iar pe un
    telefon de 390px raman 316px in card. Ca text, se rup firesc pe randuri —
    nimeni nu se asteapta ca un rand de text sa stea intreg pe o linie. */
+/* Cardul devine unitate de masura pentru ce e in el. Cu asta, marimile de
+   mai jos se pot exprima in cqi — procente din latimea cardului — deci
+   randul de legaturi creste si scade odata cu el, fara praguri scrise de
+   mana pentru fiecare latime de telefon. */
+.g-drum{ container-type:inline-size; }
+
 .g-legaturi{
+  /* Ruperea randului e permisa, desi randul e gandit sa stea intreg: sub 344px marimea da
+     de pragul de jos al clamp-ului si textul nu mai poate fi micsorat.
+     Fara plasa asta se revarsa in afara cardului — masurat, 28px
+     afara la 320px. Asa, in loc sa iasa din card, se rupe. */
   margin:0; display:flex; flex-wrap:wrap; align-items:center;
-  gap:6px 7px; line-height:1.5;
+  /* space-between intinde randul pe toata latimea cardului: spatiul
+     ramas se imparte intre elemente, nu se aduna la capat. */
+  justify-content:space-between; gap:6px; line-height:1.5;
+  /* Prima valoare e rezerva, pentru browserele fara container queries —
+     acolo randul ramane la marimea fixa de dinainte. A doua o inlocuieste
+     acolo unde cqi e inteles: 4.3% din latimea cardului, oprita intre
+     10.5 si 15px ca sa nu ajunga nici ilizibila pe ecrane inguste, nici
+     disproportionata pe tableta. */
+  font-size:12.5px;
+  font-size:clamp(10.5px, 4.3cqi, 15px);
 }
 /* Marimile de aici sunt rezultatul unei masuratori facute in browser, nu al
    gustului. Cele trei legaturi cereau 357px la 14px, iar in card sunt 316
@@ -249,14 +268,15 @@ body{
    aceea eticheta e scurtata in App.jsx, iar marimea a putut urca inapoi la
    13px, unde textul chiar se citeste. */
 .g-leg{
-  display:inline-flex; align-items:center; gap:4px;
-  font:inherit; font-size:12.5px; font-weight:600;
+  display:inline-flex; align-items:center; gap:.38em;
+  font:inherit; font-size:inherit; font-weight:600;
+  white-space:nowrap;
   color:var(--olive); background:none; border:0; padding:0;
   cursor:pointer; text-decoration:underline; text-underline-offset:3px;
   touch-action:manipulation;
 }
 .g-leg svg{
-  width:15px; height:15px; flex-shrink:0; stroke:var(--olive); fill:none;
+  width:1.2em; height:1.2em; flex-shrink:0; stroke:var(--olive); fill:none;
   stroke-width:1.7; stroke-linecap:round; stroke-linejoin:round;
 }
 /* Marcile Google Maps si Waze: nerecolorate si neatinse de filtre, nici in
@@ -268,13 +288,13 @@ body{
    adica 17%). Netaiate, colturile alea se vad ca patru pete albe pe cardul
    inchis din tema de noapte. Un procent, nu pixeli, ca sa ramana corect
    daca marimea se schimba. */
-.g-leg img{ width:15px; height:15px; flex-shrink:0; display:block; border-radius:20%; }
-.g-pereche{ display:inline-flex; align-items:center; gap:8px; }
+.g-leg img{ width:1.2em; height:1.2em; flex-shrink:0; display:block; border-radius:20%; }
+.g-pereche{ display:inline-flex; align-items:center; gap:.7em; }
 /* Punctul dintre harti si accesul in curte. Marginile lui sunt negative pe
    jumatate din spatiul randului: separatorul are nevoie de aer, dar nu de
    doua ori cat spatiul dintre celelalte elemente — iar aici fiecare pixel
    in plus scoate tot randul de pe o singura linie. */
-.g-sep{ color:var(--g-faint); font-size:13px; margin:0 -3px; }
+.g-sep{ color:var(--g-faint); font-size:inherit; }
 
 /* ---------- fereastra suprapusa ---------- */
 .g-fundal{
