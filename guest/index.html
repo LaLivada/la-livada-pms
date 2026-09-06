@@ -7,6 +7,11 @@
     <link rel="icon" type="image/png" sizes="16x16" href="/brand/favicon-16.png" />
     <link rel="icon" type="image/png" sizes="512x512" href="/brand/favicon.png" />
     <link rel="apple-touch-icon" href="/brand/apple-touch-icon.png" />
+    <!-- Numele de sub iconul salvat pe ecranul principal. Fara asta, iOS ia
+         <title>, iar „Sejurul tău — Complex La Livada" se taie la primele
+         cateva litere. Manifestul face acelasi lucru pe Android, prin
+         short_name; el se scrie la rulare, in src/guest/instalare.js. -->
+    <meta name="apple-mobile-web-app-title" content="La Livadă" />
     <title>Sejurul tău — Complex La Livada</title>
     <!-- Spre deosebire de rezervari.lalivada.ro, pagina asta NU trebuie
          indexata: in capatul fiecarui link e o cazare, cu codul ei de

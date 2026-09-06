@@ -109,6 +109,8 @@ export const BUN_VENIT = {
     {
       titlu: "Salvează pagina pe telefon",
       text: "Codul și butonul de deschidere rămân la îndemână tot sejurul.",
+      // Sub punctul asta apare butonul de adaugare pe ecranul principal.
+      actiune: "instalare",
     },
   ],
 };

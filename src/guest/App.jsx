@@ -21,6 +21,9 @@ import {
   ATRACTII, ATRACTII_PE_PAGINA, linkHarta,
   LINK_MAPS, LINK_WAZE, ACCES_CAMERE, HARTA_INCORPORATA,
 } from "./continut.js";
+import {
+  promptDisponibil, asculta, cheamaPrompt, esteInstalata, esteIOS,
+} from "./instalare.js";
 
 /* Codul se ia din fragment, nu din calea adresei.
  *
@@ -141,6 +144,85 @@ const Telefon = () => (
     <path d="M6.6 3h-2A1.6 1.6 0 0 0 3 4.6C3 13.1 10.9 21 19.4 21a1.6 1.6 0 0 0 1.6-1.6v-2a1 1 0 0 0-.8-1l-3.4-.7a1 1 0 0 0-1 .4l-1 1.3a13 13 0 0 1-5.2-5.2l1.3-1a1 1 0 0 0 .4-1l-.7-3.4a1 1 0 0 0-1-.8z" />
   </svg>
 );
+
+/* Telefon cu plus: aceeasi idee ca pictograma sistemului pentru „adauga pe
+   ecranul principal", desenata cu linia celorlalte iconite de aici. */
+const Adauga = () => (
+  <svg viewBox="0 0 24 24" aria-hidden="true">
+    <rect x="5" y="2.6" width="14" height="18.8" rx="2.6" />
+    <path d="M12 8.7v6.6M8.7 12h6.6" />
+  </svg>
+);
+
+/* Pasii scrisi cu numele exacte pe care oaspetele le vede pe ecran. Traduse
+   gresit, instructiunile sunt mai rele decat lipsa lor: omul cauta un buton
+   care nu exista si conchide ca pagina e stricata. */
+const PASI_IOS = [
+  <>Apasă <b>Partajare</b> — pătratul cu săgeata în sus, în bara de jos.</>,
+  <>Derulează și alege <b>Adaugă la ecranul principal</b>.</>,
+  <>Confirmă cu <b>Adaugă</b>, sus în dreapta.</>,
+];
+const PASI_ANDROID = [
+  <>Apasă <b>⋮</b> în colțul din dreapta sus.</>,
+  <>Alege <b>Adaugă la ecranul principal</b> sau <b>Instalează aplicația</b>.</>,
+  <>Confirmă cu <b>Adaugă</b>.</>,
+];
+
+/* Butonul de adaugare pe ecranul principal.
+ *
+ * Pe Android deschide dialogul sistemului, dintr-o apasare. Pe iPhone nu
+ * are cum — Safari nu da paginii niciun mijloc — deci acolo arata pasii.
+ * Diferenta e in instalare.js; aici ramane doar alegerea intre cele doua.
+ *
+ * Cand pagina e deja deschisa din icon, butonul dispare: n-are ce oferi. */
+function Instaleaza() {
+  const [nativ, setNativ] = useState(promptDisponibil);
+  const [pasi, setPasi] = useState(false);
+  const [gata, setGata] = useState(esteInstalata);
+
+  useEffect(() => asculta(() => {
+    setNativ(promptDisponibil());
+    if (esteInstalata()) setGata(true);
+  }), []);
+
+  if (gata) return null;
+
+  const apasa = async () => {
+    if (nativ) {
+      const raspuns = await cheamaPrompt();
+      if (raspuns === "accepted") { setGata(true); return; }
+      // A refuzat dialogul: nu-l intampinam imediat cu instructiuni pentru
+      // acelasi lucru. Evenimentul s-a consumat, deci a doua apasare
+      // ajunge oricum la pasii de mai jos.
+      if (raspuns !== "indisponibil") return;
+    }
+    setPasi((p) => !p);
+  };
+
+  return (
+    <div className="g-instalare">
+      <button type="button" className="g-instaleaza" onClick={apasa}
+        aria-expanded={pasi} aria-controls="g-pasi-instalare">
+        <Adauga />
+        Adaugă iconul pe ecran
+      </button>
+      {pasi && (
+        <div id="g-pasi-instalare">
+          <ol className="g-pasi">
+            {(esteIOS() ? PASI_IOS : PASI_ANDROID).map((p, i) => (
+              <li key={i}>{p}</li>
+            ))}
+          </ol>
+          <p className="g-pasi-nota">
+            Nu găsești opțiunea? Deschide pagina în{" "}
+            {esteIOS() ? "Safari" : "Chrome"} — în browserul din WhatsApp nu
+            apare.
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
 
 /* Pictogramele de vreme. Aceleasi sase stari din vreme.js. */
 const VREME = {
@@ -775,7 +857,10 @@ export default function App() {
           {BUN_VENIT.puncte.length > 0 && (
             <ul className="g-puncte" style={{ marginTop: 12 }}>
               {BUN_VENIT.puncte.map((p, i) => (
-                <li key={i}><b>{p.titlu}</b> — {p.text}</li>
+                <li key={i}>
+                  <b>{p.titlu}</b> — {p.text}
+                  {p.actiune === "instalare" && <Instaleaza />}
+                </li>
               ))}
             </ul>
           )}

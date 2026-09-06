@@ -874,3 +874,51 @@ sosire în 2028 `prea-devreme`; plecat din 2020 și încă `checkedin`
 `prea-tarziu`; la 10 minute după plecare `ok`; la 40 de minute
 `prea-tarziu` — și o dată în producție, mutând temporar sosirea rezervării
 de test în 2028.
+
+## 11. Adăugarea pe ecranul principal
+
+În „Bun venit", sub punctul *Salvează pagina pe telefon*, stă butonul
+**Adaugă iconul pe ecran** (`src/guest/instalare.js` + componenta
+`Instaleaza` din `App.jsx`).
+
+**Cele două sisteme nu se comportă la fel, și nu se poate ascunde asta.**
+Android/Chrome anunță prin `beforeinstallprompt` că pagina se poate instala;
+evenimentul, oprit din drum cu `preventDefault` și ținut deoparte, poate fi
+redeschis mai târziu dintr-un buton — deci acolo o apăsare duce direct în
+dialogul sistemului. iOS nu are niciun echivalent: Safari nu dă paginii
+niciun mijloc de a-și pune singură iconul. Acolo butonul deschide pașii,
+scriși cu numele exacte de pe ecran (*Partajare* → *Adaugă la ecranul
+principal*), plus nota că în browserul din WhatsApp opțiunea nu apare.
+
+**Ascultătorul stă la încărcarea modulului, nu în componentă.** Evenimentul
+vine la câteva sute de milisecunde după deschiderea paginii, cu mult înainte
+ca oaspetele să apese pe „Bun venit". Pus în componentă, ar fi ratat de
+fiecare dată și butonul ar cădea inutil pe instrucțiuni.
+
+**Manifestul se scrie la rulare, nu ca fișier în `public-guest/`.** Motivul e
+`start_url`: iconul instalat deschide adresa scrisă acolo, iar ea trebuie să
+păstreze codul sejurului. Un manifest static ar trimite la
+`guest.lalivada.ro` fără fragment, adică în ecranul de link invalid — un icon
+care nu duce nicăieri e mai rău decât lipsa lui. Se folosește un `blob:`, nu
+un `data:`, fiindcă blobul moștenește originea documentului și trece
+verificarea Chrome că `start_url` e pe același domeniu; adresele iconițelor
+sunt absolute, fiindcă baza de rezolvare e adresa manifestului, nu a paginii.
+
+Iconițele cerute de Chrome: `brand/icon-192.png` (nouă, tăiată din
+`favicon.png`) și `favicon.png` la 512. Pe iOS numele de sub icon vine din
+`<meta name="apple-mobile-web-app-title">` — fără el, iOS ia `<title>` și
+taie „Sejurul tău — Complex La Livada" la primele litere.
+
+**Dacă ceva din lanțul de instalare nu ține** — manifest respins, pagină
+deschisă într-un browser încorporat, iOS — Chrome pur și simplu nu trimite
+`beforeinstallprompt`, iar butonul cade pe instrucțiuni. Nu se strică nimic;
+se pierde doar apăsarea unică. De aceea instrucțiunile sunt partea care
+trebuie să fie bună, nu dialogul nativ.
+
+Butonul dispare când pagina e deja deschisă din icon (`display-mode:
+standalone` pe Android, `navigator.standalone` pe iOS) — n-are ce oferi.
+
+Ramura de iPhone e testată în `src/guest-instalare.test.js`, nu în browser:
+user-agentul nu poate fi falsificat din afara paginii, orice încercare rămâne
+în „isolated world"-ul uneltei în timp ce aplicația citește navigatorul
+adevărat.

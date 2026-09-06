@@ -61,7 +61,8 @@ describe("foaia de stil, încărcată", () => {
     const { STILURI } = await import("./guest/styles.js");
     for (const bucata of [".g-hero", ".g-usa", ".g-cod", ".g-scurtatura",
                           ".g-fereastra", ".g-vreme", ".g-leg", ".g-atractie",
-                          ".g-harta-cadru", ".g-harta-rama"]) {
+                          ".g-harta-cadru", ".g-harta-rama",
+                          ".g-instaleaza", ".g-pasi"]) {
       expect(STILURI).toContain(bucata);
     }
   });
