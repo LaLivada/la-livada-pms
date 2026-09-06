@@ -629,14 +629,72 @@ Ce depinde de rezervare — ora de plecare, valabilitatea codului — **nu** e
 acolo: vine din bază, pentru fiecare sejur în parte. Scris de mână ar fi
 fost corect până la prima excepție și greșit după.
 
-**Ce lipsește din conținut și nu inventez:** lista de atracții din zonă e
-goală, iar „Important" are doar punctele care se pot deduce din datele
-proprietății (plecarea, valabilitatea codului, ce faci dacă ușa nu se
-deschide). Fumatul, animalele de companie, ora de liniște și accesul în
-zonele comune se adaugă când sunt confirmate. Minibarul e gol cât timp
-niciun produs nu e marcat `public_visible` în PMS. Butoanele rămân, dar
-panourile spun cinstit de ce n-au ce arăta — un panou gol ar părea o eroare
-de încărcare.
+**Ce lipsește din conținut și nu inventez:** „Important" are doar punctele
+care se pot deduce din datele proprietății (plecarea, valabilitatea codului,
+ce faci dacă ușa nu se deschide). Fumatul, animalele de companie, ora de
+liniște și accesul în zonele comune se adaugă când sunt confirmate.
+Minibarul e gol cât timp niciun produs nu e marcat `public_visible` în PMS.
+Butoanele rămân, dar panourile spun cinstit de ce n-au ce arăta — un panou
+gol ar părea o eroare de încărcare.
+
+### Pasul 4c — vremea, atracțiile și restul cererilor de design ✅ făcut (6 septembrie 2026)
+
+**Butonul de ușă s-a desprins de codul de acces.** Era legat de el, iar asta
+însemna că exact în cazul în care generarea codului eșuează la yală
+oaspetele rămânea și fără cifre, și fără buton — cele două lucruri care
+l-ar fi băgat în cameră. Acum butonul e mereu acolo; textul de deasupra
+spune, când nu există cod, că se poate intra oricum de aici.
+
+**Diezul după cod.** Se afișează `9541#`, cu diezul ceva mai stins: face
+parte din ce se tastează pe yală, dar nu din secret. Lăsat pe seama
+memoriei, e taxa pe care o plătește cineva care stă în fața ușii pe
+întuneric.
+
+**Emblema** umple acum tot cercul (imaginea are propriul inel auriu, deci
+chenarul containerului a dispărut ca să nu dubleze conturul) și e link către
+lalivada.ro.
+
+**Vremea** (`src/guest/vreme.js`) — Open-Meteo, pentru coordonatele
+complexului: gratuit, fără cheie, cu CORS deschis, deci merge dintr-o pagină
+statică fără server la mijloc. Un widget gata făcut, lipit ca `<iframe>`, ar
+fi adus reclame, urmărire și un al doilea design în mijlocul paginii.
+Serviciul află doar că cineva a cerut vremea pentru coordonatele noastre;
+codul sejurului stă în fragment și nu pleacă nicăieri. Dacă cererea eșuează,
+blocul nu se afișează deloc — vremea e podoabă, nu motivul pentru care s-a
+deschis pagina.
+
+**Clipirea la deschidere** — cinci pulsuri de o jumătate de secundă pe
+buton. `opacity` revine explicit la 1 în starea „deschis", altfel regula de
+`:disabled` (butonul e blocat șase secunde după reușită) l-ar fi stins fix
+când trebuie să se vadă. Sub `prefers-reduced-motion` rămâne același semnal,
+staționar.
+
+**Atracțiile** (`ATRACTII` în `src/guest/continut.js`), zece obiective,
+paginate câte cinci, ordonate după distanță:
+
+- **selecția** e din liste independente despre județ (Știrile ProTV,
+  bunadimineata.ro, Travelminit), nu o alegere proprie;
+- **distanțele sunt pe șosea**, calculate cu OSRM de la coordonatele
+  complexului (46.6225, 27.7552 — punctul numit „La Livadă" în
+  OpenStreetMap), nu în linie dreaptă. Diferența e mare și e exact cea care
+  contează pentru cineva care conduce;
+- **pozele** sunt de pe Wikimedia Commons, cu licență liberă, descărcate în
+  `public-guest/atractii/` (720×450, ~476 KB total) — nu legate direct de
+  acolo: pagina nu trimite IP-ul oaspetelui la un server străin doar pentru
+  o poză, iar o imagine ștearsă mâine nu lasă un pătrat gol aici. Autorul și
+  licența se afișează, fiindcă asta cer CC BY și CC BY-SA;
+- **trei obiective n-au poză** — muzeul județean din Vaslui, muzeul
+  caricaturii din Huși și grădina zoologică din Bârlad. Pe Commons nu există
+  nicio fotografie liberă a lor (căutat și după nume, și prin categoriile
+  orașelor). Lăsate fără imagine, nu cu poza altui loc: o fotografie a
+  centrului Hușiului sub titlul „Muzeul Caricaturii" e o minciună mică pe
+  care oaspetele o descoperă la fața locului;
+- **paginarea nu e doar așezare în pagină**: pozele se încarcă leneș, deci
+  cine nu trece la pagina a doua nu descarcă niciodată ultimele cinci
+  imagini. Pe date mobile, în curte, asta se simte;
+- **descrierea conacului de la Solești spune că e în ruină.** Cine face 21
+  de km așteptându-se la un conac restaurat se întoarce supărat; ce merită
+  drumul e parcul, biserica și mormântul Elenei Cuza.
 
 ### Pasul 5 — livrarea linkului către oaspete
 

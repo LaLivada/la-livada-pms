@@ -50,21 +50,42 @@ body{
 }
 
 /* ---------- salutul ---------- */
-.g-salut{ display:flex; align-items:center; gap:14px; }
+.g-salut{ display:flex; align-items:center; gap:10px; }
 .g-salut-text{ min-width:0; flex:1; }
 .g-salut-ora{ margin:0; font-size:15px; color:var(--g-muted); }
 .g-salut-nume{
   margin:1px 0 0; font-family:var(--editorial); font-weight:400;
-  font-size:26px; line-height:1.15;
-  /* Numele unui grup poate fi lung; se taie, nu impinge emblema afara. */
-  overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  font-size:25px; line-height:1.15;
+  /* Numele unui grup poate fi lung. Se rupe pe doua randuri si abia apoi
+     se taie — pe langa vreme si emblema a mai ramas putina latime, iar un
+     nume taiat la jumatate de cuvant e mai rau decat unul pe doua randuri. */
+  display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical;
+  overflow:hidden; overflow-wrap:anywhere;
 }
+.g-mana{ font-family:var(--ui); font-size:19px; }
+
+/* Emblema: imaginea are deja inelul ei auriu, deci umple tot cercul, fara
+   chenar sau fundal in plus care ar dubla conturul. */
 .g-emblema{
-  width:48px; height:48px; border-radius:50%; flex-shrink:0;
-  background:var(--g-card); border:1px solid var(--g-line);
-  display:flex; align-items:center; justify-content:center; overflow:hidden;
+  width:52px; height:52px; border-radius:50%; flex-shrink:0;
+  display:block; overflow:hidden; background:#fff;
 }
-.g-emblema img{ width:34px; height:34px; object-fit:contain; }
+.g-emblema img{ width:100%; height:100%; object-fit:cover; display:block; }
+
+/* ---------- vremea ---------- */
+.g-vreme{ flex-shrink:0; text-align:right; line-height:1.25; }
+.g-vreme-loc{
+  margin:0; font-size:10.5px; letter-spacing:.04em; text-transform:uppercase;
+  color:var(--g-faint); white-space:nowrap;
+}
+.g-vreme-grade{
+  margin:2px 0 0; display:flex; align-items:center; justify-content:flex-end; gap:4px;
+  font-size:16px; font-weight:600; font-variant-numeric:tabular-nums;
+}
+.g-vreme-grade svg{
+  width:17px; height:17px; stroke:var(--olive); fill:none;
+  stroke-width:1.7; stroke-linecap:round; stroke-linejoin:round;
+}
 
 /* ---------- cardul inchis: codul si usa ---------- */
 /* Culorile de aici sunt scrise ca valori, nu ca jetoane, si e intentionat.
@@ -94,6 +115,10 @@ body{
   margin:6px 0 5px; line-height:1.1;
   user-select:all; -webkit-user-select:all;
 }
+/* Diezul e ce se apasa dupa cifre pe tastatura yalei. Ceva mai stins decat
+   ele, fiindca nu e parte din secret — dar prezent, fiindca fara el usa nu
+   se deschide, iar asta nu se tine minte in fata usii. */
+.g-diez{ color:rgba(245,241,232,.5); margin-left:.06em; }
 .g-valabil{ margin:0; font-size:13px; color:rgba(245,241,232,.62); }
 .g-valabil b{ color:var(--ivory); font-weight:600; }
 .g-cod-lipsa{ margin:8px 0 0; font-size:14px; color:rgba(245,241,232,.75); }
@@ -107,6 +132,20 @@ body{
   touch-action:manipulation;
 }
 .g-usa:disabled{ opacity:.5; cursor:default; }
+/* Clipirea de la deschidere. Butonul e si blocat in acest interval, deci
+   opacitatea coborata de mai sus l-ar fi stins tocmai cand trebuie sa se
+   vada — de aceea starea „deschis" si-o ia inapoi. */
+.g-usa[data-stare="deschis"]{ opacity:1; animation:g-clipire .5s steps(1) 5; }
+@keyframes g-clipire{
+  0%,49%  { background:#eadcc4; box-shadow:0 0 0 4px rgba(200,177,138,.35); }
+  50%,100%{ background:var(--champagne); box-shadow:0 0 0 0 rgba(200,177,138,0); }
+}
+/* Cine a cerut mai putina miscare primeste acelasi semnal, dar stationar. */
+@media (prefers-reduced-motion: reduce){
+  .g-usa[data-stare="deschis"]{
+    animation:none; background:#eadcc4; box-shadow:0 0 0 4px rgba(200,177,138,.35);
+  }
+}
 .g-usa svg{ width:19px; height:19px; stroke:currentColor; fill:none;
   stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
 .g-usa-stare{
@@ -176,6 +215,53 @@ body{
 .g-nota{ margin:12px 0 0; font-size:13px; color:var(--g-muted); }
 .g-gol{ margin:0; font-size:14px; color:var(--g-muted); }
 
+/* ---------- atractii ---------- */
+.g-atractii{ list-style:none; margin:0; padding:0; }
+.g-atractie{ padding:16px 0 0; border-top:1px solid var(--g-hair); }
+.g-atractie:first-child{ border-top:0; padding-top:0; }
+.g-atractie h3{ margin:0; font-size:16px; font-weight:600; line-height:1.3; }
+.g-atractie-drum{
+  margin:3px 0 0; font-size:12.5px; color:var(--g-muted);
+  font-variant-numeric:tabular-nums;
+}
+.g-atractie-text{ margin:8px 0 0; font-size:14px; }
+
+.g-atractie-foto{ margin:0 0 11px; }
+.g-atractie-foto img{
+  display:block; width:100%; height:auto; border-radius:12px;
+  /* Raportul e scris in atribute (720x450), deci browserul rezerva locul
+     inainte sa vina imaginea si textul de dedesubt nu mai sare. */
+  background:var(--beige);
+}
+.g-atractie-foto figcaption{
+  margin:5px 2px 0; font-size:11px; color:var(--g-faint);
+}
+.g-atractie-foto figcaption a{ color:inherit; }
+
+.g-harta{
+  display:inline-flex; align-items:center; gap:6px; margin-top:10px;
+  font-size:13.5px; font-weight:600; color:var(--olive); text-decoration:none;
+}
+.g-harta svg{
+  width:15px; height:15px; stroke:currentColor; fill:none;
+  stroke-width:1.7; stroke-linecap:round; stroke-linejoin:round;
+}
+
+.g-paginatie{
+  display:flex; align-items:center; justify-content:space-between; gap:10px;
+  margin-top:18px; padding-top:14px; border-top:1px solid var(--g-hair);
+}
+.g-paginatie span{
+  font-size:12.5px; color:var(--g-muted); font-variant-numeric:tabular-nums;
+}
+.g-paginatie button{
+  font:inherit; font-size:13.5px; font-weight:600;
+  background:var(--beige); color:var(--g-text);
+  border:1px solid var(--g-line); border-radius:10px;
+  padding:9px 13px; cursor:pointer; touch-action:manipulation;
+}
+.g-paginatie button:disabled{ opacity:.4; cursor:default; }
+
 /* ---------- ecranele de refuz ---------- */
 .g-mesaj{ text-align:center; padding:28px 20px; }
 .g-mesaj h1{
@@ -200,7 +286,9 @@ body{
   /* Cardul principal ramane inchis pe fond inchis — se desparte prin
      conturul de accent, nu prin contrast de luminozitate. */
   .g-hero{ background:#0e100a; border:1px solid rgba(200,177,138,.22); }
-  .g-scurtatura svg{ stroke:var(--champagne); }
+  .g-scurtatura svg,
+  .g-vreme-grade svg{ stroke:var(--champagne); }
+  .g-harta{ color:var(--champagne); }
   .g-buton{ background:var(--champagne); color:#15170f; }
 }
 `;

@@ -11,12 +11,14 @@
  * mai des stand in fata usii, cu o mana ocupata. Deci codul si butonul de
  * deschidere sunt primele si mari; restul vine sub ele, pliat in butoane.
  */
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   citesteSejurul, citesteCodulDeAcces, citesteMinibarul, deschideUsa,
 } from "./api.js";
+import { citesteVremea } from "./vreme.js";
 import {
-  TELEFON, TELEFON_SCRIS, BUN_VENIT, IMPORTANT, ATRACTII,
+  TELEFON, TELEFON_SCRIS, ACASA, BUN_VENIT, IMPORTANT,
+  ATRACTII, ATRACTII_PE_PAGINA, linkHarta,
 } from "./continut.js";
 
 /* Codul se ia din fragment, nu din calea adresei.
@@ -91,7 +93,7 @@ const REFUZURI = {
 };
 
 /* Pictogramele sunt scrise aici, nu importate dintr-o biblioteca: sunt
-   patru, iar lucide-react ar fi adus un pachet intreg pentru ele. */
+   cateva, iar lucide-react ar fi adus un pachet intreg pentru ele. */
 const Casa = () => (
   <svg viewBox="0 0 24 24" aria-hidden="true">
     <path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z" />
@@ -124,6 +126,52 @@ const Cheie = () => (
   </svg>
 );
 
+/* Pictogramele de vreme. Aceleasi sase stari din vreme.js. */
+const VREME = {
+  senin: (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <circle cx="12" cy="12" r="4.2" />
+      <path d="M12 2.6v2.2M12 19.2v2.2M2.6 12h2.2M19.2 12h2.2M5.4 5.4l1.6 1.6M17 17l1.6 1.6M18.6 5.4 17 7M7 17l-1.6 1.6" />
+    </svg>
+  ),
+  parcial: (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <circle cx="8.5" cy="8.5" r="3.2" />
+      <path d="M8.5 2.6v1.6M2.6 8.5h1.6M4.3 4.3l1.2 1.2M12.7 4.3l-1.2 1.2" />
+      <path d="M9 19.5h8.4a3.1 3.1 0 0 0 .3-6.2 4.4 4.4 0 0 0-8.4-.8A3.5 3.5 0 0 0 9 19.5z" />
+    </svg>
+  ),
+  innorat: (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M7.4 19h9.3a3.4 3.4 0 0 0 .3-6.8 4.8 4.8 0 0 0-9.2-.9A3.8 3.8 0 0 0 7.4 19z" />
+    </svg>
+  ),
+  ceata: (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M7.4 15h9.3a3.4 3.4 0 0 0 .3-6.8 4.8 4.8 0 0 0-9.2-.9A3.8 3.8 0 0 0 7.4 15z" />
+      <path d="M5 18.4h14M7.5 21.4h9" />
+    </svg>
+  ),
+  ploaie: (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M7.4 15.4h9.3a3.4 3.4 0 0 0 .3-6.8 4.8 4.8 0 0 0-9.2-.9 3.8 3.8 0 0 0-.4 7.7z" />
+      <path d="M9 18.4 8.2 21M13 18.4 12.2 21M17 18.4 16.2 21" />
+    </svg>
+  ),
+  ninsoare: (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M7.4 15.4h9.3a3.4 3.4 0 0 0 .3-6.8 4.8 4.8 0 0 0-9.2-.9 3.8 3.8 0 0 0-.4 7.7z" />
+      <path d="M8.6 19.4h.01M12.4 19.4h.01M16.2 19.4h.01M10.5 21.8h.01M14.3 21.8h.01" />
+    </svg>
+  ),
+  furtuna: (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M7.4 15.4h9.3a3.4 3.4 0 0 0 .3-6.8 4.8 4.8 0 0 0-9.2-.9 3.8 3.8 0 0 0-.4 7.7z" />
+      <path d="m12.8 17.4-2.4 3.2h3l-2 3" />
+    </svg>
+  ),
+};
+
 function Refuz({ motiv }) {
   const m = REFUZURI[motiv] || REFUZURI.eroare;
   return (
@@ -134,6 +182,29 @@ function Refuz({ motiv }) {
         <a className="g-buton" href={`tel:${TELEFON}`}>Sună recepția</a>
       </div>
       <p className="g-subsol">Complex La Livada · {TELEFON_SCRIS}</p>
+    </div>
+  );
+}
+
+/* Vremea de la complex. Cere singura, o data, la deschiderea paginii.
+   Cat timp n-a raspuns sau daca a esuat, nu ocupa loc pe ecran. */
+function Vremea() {
+  const [v, setV] = useState(null);
+
+  useEffect(() => {
+    const ctrl = new AbortController();
+    citesteVremea(ACASA, ctrl.signal).then(setV).catch(() => { /* tacut */ });
+    return () => ctrl.abort();
+  }, []);
+
+  if (!v) return null;
+  return (
+    <div className="g-vreme" title={v.text}>
+      <p className="g-vreme-loc">{ACASA.localitate}</p>
+      <p className="g-vreme-grade">
+        {VREME[v.fel] || VREME.innorat}
+        <span>{v.grade}°</span>
+      </p>
     </div>
   );
 }
@@ -170,6 +241,7 @@ function ButonUsa({ cod }) {
     <>
       <button
         className="g-usa"
+        data-stare={stare}
         onClick={apasa}
         disabled={stare !== "gata"}
         type="button"
@@ -200,6 +272,73 @@ function Sectiune({ cheie, deschis, alege, iconita, eticheta }) {
       {iconita}
       <span>{eticheta}</span>
     </button>
+  );
+}
+
+/* Atractiile, cinci pe pagina, ordonate dupa distanta.
+ *
+ * Paginarea nu e doar de asezare in pagina: pozele se incarca lenes, deci
+ * cine nu trece la pagina a doua nu descarca niciodata ultimele cinci
+ * imagini. Pe date mobile, in curte, asta se simte. */
+function Atractii() {
+  const [pagina, setPagina] = useState(0);
+  const capul = useRef(null);
+  const pagini = Math.ceil(ATRACTII.length / ATRACTII_PE_PAGINA);
+  const de = pagina * ATRACTII_PE_PAGINA;
+  const feliile = ATRACTII.slice(de, de + ATRACTII_PE_PAGINA);
+
+  /* La schimbarea paginii, inapoi la primul obiectiv. Altfel, cine apasa
+     „Înainte" stand jos ramane cu ecranul la subsolul listei noi. */
+  function mergiLa(p) {
+    setPagina(p);
+    capul.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  return (
+    <div className="g-card" ref={capul}>
+      <h2>Atracții în județul Vaslui</h2>
+      <ul className="g-atractii">
+        {feliile.map((a) => (
+          <li className="g-atractie" key={a.cheie}>
+            {a.foto ? (
+              <figure className="g-atractie-foto">
+                <img src={`/atractii/${a.foto}`} alt={a.nume}
+                     width="720" height="450" loading="lazy" decoding="async" />
+                {/* Autorul si licenta nu sunt politete, sunt conditia sub
+                    care avem voie sa folosim poza. */}
+                <figcaption>
+                  foto: {a.credit.autor} ·{" "}
+                  <a href={a.credit.pagina} target="_blank" rel="noopener noreferrer">
+                    {a.credit.licenta}
+                  </a>
+                </figcaption>
+              </figure>
+            ) : null}
+            <h3>{a.nume}</h3>
+            <p className="g-atractie-drum">
+              {a.loc} · {a.km} km · {a.minute} min cu mașina
+            </p>
+            <p className="g-atractie-text">{a.text}</p>
+            <a className="g-harta" href={linkHarta(a)}
+               target="_blank" rel="noopener noreferrer">
+              <Reper /> Deschide în Google Maps
+            </a>
+          </li>
+        ))}
+      </ul>
+
+      <div className="g-paginatie">
+        <button type="button" onClick={() => mergiLa(pagina - 1)} disabled={pagina === 0}>
+          ← Înapoi
+        </button>
+        <span>{de + 1}–{de + feliile.length} din {ATRACTII.length}</span>
+        <button type="button" onClick={() => mergiLa(pagina + 1)}
+                disabled={pagina >= pagini - 1}>
+          Înainte →
+        </button>
+      </div>
+      <p className="g-nota">Distanțele sunt pe șosea, de la complex.</p>
+    </div>
   );
 }
 
@@ -270,7 +409,7 @@ export default function App() {
     { titlu: "Plecarea", text: `Camera se eliberează ${ziSiOra(sejur.checkOut)}.` },
     acces?.code && {
       titlu: "Cât ține codul",
-      text: `Codul ${acces.code} funcționează până ${ziSiOra(acces.validUntil)}.`,
+      text: `Codul ${acces.code}# funcționează până ${ziSiOra(acces.validUntil)}.`,
     },
     {
       titlu: "Dacă ușa nu se deschide",
@@ -284,33 +423,41 @@ export default function App() {
       <div className="g-salut">
         <div className="g-salut-text">
           <p className="g-salut-ora">{salut(new Date().getHours())}</p>
-          <h1 className="g-salut-nume">{sejur.guestName || "bun venit"}</h1>
+          <h1 className="g-salut-nume">
+            {sejur.guestName || "bun venit"}{" "}
+            <span className="g-mana" role="img" aria-label="salut">👋</span>
+          </h1>
         </div>
-        <div className="g-emblema">
+        <Vremea />
+        <a className="g-emblema" href="https://lalivada.ro"
+           target="_blank" rel="noopener noreferrer">
           <img src="/brand/favicon.png" alt="Complex La Livada" />
-        </div>
+        </a>
       </div>
 
       <div className="g-hero">
         {camera && <p className="g-hero-camera">{camera}</p>}
+        <p className="g-eticheta">Cod de acces</p>
         {acces?.code ? (
           <>
-            <p className="g-eticheta">Cod de acces</p>
-            <p className="g-cod">{acces.code}</p>
+            {/* Diezul face parte din ce se tasteaza pe yala, deci se
+                afiseaza langa cifre, nu se lasa pe seama memoriei. */}
+            <p className="g-cod">{acces.code}<span className="g-diez">#</span></p>
             <p className="g-valabil">
               Valabil până <b>{ziSiOra(acces.validUntil)}</b>
             </p>
-            <ButonUsa cod={cod} />
           </>
         ) : (
-          <>
-            <p className="g-eticheta">Cod de acces</p>
-            <p className="g-cod-lipsa">
-              Codul nu e încă pregătit. Reîncarcă pagina în câteva minute sau
-              sună-ne.
-            </p>
-          </>
+          <p className="g-cod-lipsa">
+            Codul nu e încă pregătit. Reîncarcă pagina în câteva minute sau
+            sună-ne — între timp, poți intra cu butonul de mai jos.
+          </p>
         )}
+        {/* Butonul NU depinde de cod. Cand generarea codului esueaza la
+            yala, oaspetele ramane fara cifre — si atunci deschiderea de
+            aici e singurul lucru care il baga in camera. Legat de cod,
+            ar fi lipsit exact cand e mai necesar. */}
+        <ButonUsa cod={cod} />
       </div>
 
       <div className="g-scurtaturi">
@@ -389,26 +536,7 @@ export default function App() {
         </div>
       )}
 
-      {deschis === "atractii" && (
-        <div className="g-card">
-          <h2>Atracții</h2>
-          {ATRACTII.length > 0 ? (
-            <ul className="g-puncte">
-              {ATRACTII.map((a, i) => (
-                <li key={i}>
-                  <b>{a.titlu}</b>{a.distanta ? ` · ${a.distanta}` : ""} — {a.text}
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="g-gol">
-              Pregătim lista locurilor din jur. Până atunci, sună-ne la{" "}
-              <a href={`tel:${TELEFON}`}>{TELEFON_SCRIS}</a> și îți spunem ce
-              merită văzut în zilele astea.
-            </p>
-          )}
-        </div>
-      )}
+      {deschis === "atractii" && <Atractii />}
 
       <p className="g-subsol">
         Complex La Livada · <a href={`tel:${TELEFON}`}>{TELEFON_SCRIS}</a>
