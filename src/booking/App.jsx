@@ -214,11 +214,22 @@ export default function App({ valoriInitiale }) {
      pasul anterior — dacă cineva alege o cameră derulat jos în „Camerele",
      ajunge pe „Datele tale" tot jos, sub primele câmpuri, nu la începutul
      cardului. Aducem cardul la vedere la fiecare schimbare de pas, dar nu
-     și la montare (`intaiRandare`), ca pagina să nu sară singură la deschidere. */
+     și la montare (`intaiRandare`), ca pagina să nu sară singură la deschidere.
+
+     Ținta e cardul pasului, nu începutul widgetului. „Rezultate" e singurul
+     pas care nu înlocuiește cardul de dinainte: căutarea rămâne pe ecran, iar
+     camerele apar sub ea. Ducerea la începutul lui `.ldv` îl urca deci pe om
+     deasupra calendarului — taman departe de ce tocmai ceruse. La ceilalți
+     pași cardul pasului e oricum primul, deci ținta e aceeași ca înainte. */
   const intaiRandare = useRef(true);
+  const cardRezultate = useRef(null);
   useEffect(() => {
     if (intaiRandare.current) { intaiRandare.current = false; return; }
-    document.querySelector(".ldv")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    /* Ref-ul e null oriunde în afară de „rezultate”: React îl golește la
+       demontarea cardului. Exact asta face distincția, fără o a doua
+       condiție pe `stare` care ar fi putut rămâne în urmă. */
+    const tinta = cardRezultate.current || document.querySelector(".ldv");
+    tinta?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, [stare]);
 
   const maxPers  = Number(capacitate?.maxGuests) || 2;
@@ -457,7 +468,7 @@ export default function App({ valoriInitiale }) {
 
       {/* ---------------- REZULTATE ---------------- */}
       {stare === "rezultate" && rezultate && (
-        <div className="ldv-card">
+        <div className="ldv-card" ref={cardRezultate}>
           <h2>Camere disponibile</h2>
           <p className="ldv-sub">
             {fmtData(cautare.checkin)} → {fmtData(cautare.checkout)} ·{" "}

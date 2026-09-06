@@ -50,6 +50,9 @@ export const STILURI = `
   border:1px solid var(--ldv-line);
   border-radius:var(--ldv-radius);
   padding:20px;
+  /* Aceeasi marja ca la .ldv: cardul pasului e adus la vedere cu
+     scrollIntoView, iar fara ea ar ateriza chiar sub bara fixa. */
+  scroll-margin-top:calc(var(--hdr-h, 4.25rem) + 1rem);
 }
 .ldv-card + .ldv-card{ margin-top:14px; }
 
