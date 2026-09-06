@@ -3054,12 +3054,26 @@ revoke execute on function pune_guest_code() from public, anon, authenticated;
 -- nu ies datele altor rezervari, lock_id-ul yalei, preturi interne sau
 -- notele receptiei.
 
+-- Numele afisat in pagina oaspetelui: doua cazuri, nu o cascada de rezerve.
+--
+-- FARA GRUP, numele de pe rezervare e si al ocupantului — regula spusa de
+-- proprietar, si singura care se tine: campurile de ocupant al camerei se
+-- pot edita DOAR din ecranul de grup, deci pe o rezervare fara grup ele nu
+-- se vad si nu se pot corecta din aplicatie. Daca ar avea intaietate, un
+-- nume ramas acolo (de pe o rezervare scoasa candva dintr-un grup) ar sta
+-- lipit pentru totdeauna pe ecranul oaspetelui, fara nicio cale de reparat
+-- in afara de SQL. S-a intamplat, pe 6 septembrie 2026.
+--
+-- CU GRUP, ocupantul camerei, iar daca lipseste, eticheta grupului.
+-- NICIODATA titularul: intr-un grup el e o persoana straina de camera
+-- asta, iar datele lui n-au ce cauta pe ecranul altcuiva.
 create or replace function guest_stay_by_cod(p_cod text)
 returns jsonb language plpgsql volatile security definer
 set search_path = public as $$
 declare
   v_p record;
   v_nume text;
+  v_ocupant text;
   v_camera record;
 begin
   select * into v_p from guest_poarta(p_cod);
@@ -3069,22 +3083,20 @@ begin
 
   select r.name, r.type into v_camera from rooms r where r.id = (v_p.rezervare).room_id;
 
-  -- Numele afisat. Ocupantul camerei daca e trecut; altfel eticheta
-  -- grupului. NU numele platitorului cand ocupantul e altcineva — intr-un
-  -- grup, titularul e o persoana straina de camera asta, iar datele lui
-  -- n-au ce cauta pe ecranul altcuiva.
-  v_nume := nullif(trim(concat_ws(' ',
+  v_ocupant := nullif(trim(concat_ws(' ',
     (v_p.rezervare).occupant_first_name, (v_p.rezervare).occupant_last_name)), '');
 
-  if v_nume is null and (v_p.rezervare).group_id is not null then
-    select nullif(trim(g.name), '') into v_nume
-      from res_groups g where g.id = (v_p.rezervare).group_id;
-  end if;
-
-  -- Fara ocupant si fara grup, platitorul CHIAR e ocupantul.
-  if v_nume is null and (v_p.rezervare).group_id is null then
+  if (v_p.rezervare).group_id is null then
     select nullif(trim(concat_ws(' ', gu.first_name, gu.last_name)), '') into v_nume
       from guests gu where gu.id = (v_p.rezervare).guest_id;
+    -- Ocupantul ramane doar ca rezerva, pentru o rezervare fara client.
+    v_nume := coalesce(v_nume, v_ocupant);
+  else
+    v_nume := v_ocupant;
+    if v_nume is null then
+      select nullif(trim(g.name), '') into v_nume
+        from res_groups g where g.id = (v_p.rezervare).group_id;
+    end if;
   end if;
 
   return jsonb_build_object(

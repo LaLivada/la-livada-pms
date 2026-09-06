@@ -789,6 +789,31 @@ roșie, în loc să afle utilizatorul dintr-o pagină albă. Testul verifică ș
 acoladele sunt în echilibru și că `.g-hero` nu-și ia culorile din jetoane —
 regresia de temă întunecată de la 4b, prinsă de data asta automat.
 
+### Regula numelui afișat — corectată 6 septembrie 2026
+
+`guest_stay_by_cod` alegea numele printr-o cascadă: ocupantul camerei, apoi
+eticheta grupului, apoi clientul. Acum sunt **două cazuri explicite**:
+
+- **fără grup** → numele de pe rezervare (clientul) e și al ocupantului;
+  câmpurile de ocupant rămân doar ca rezervă, pentru o rezervare fără client;
+- **cu grup** → ocupantul camerei, iar dacă lipsește, eticheta grupului.
+  Niciodată titularul: într-un grup el e o persoană străină de camera aia.
+
+**De ce contează.** Câmpurile `occupant_*` se editează **doar din ecranul de
+grup**. Pe o rezervare fără grup nu se văd nicăieri în aplicație, deci nu se
+pot corecta. Cu vechea ordine, un nume rămas acolo — de pe o rezervare
+scoasă cândva dintr-un grup — stătea lipit pentru totdeauna pe ecranul
+oaspetelui, iar schimbarea clientului în PMS nu avea niciun efect. Exact
+asta s-a văzut pe rezervarea de test, unde câmpurile fuseseră completate
+prin SQL.
+
+**Verificat înainte de aplicare** pe toate rezervările din bază: niciuna
+nu-și schimbă numele afișat, deci schimbarea închide cazul, nu repară un
+ecran greșit de azi. **Verificat după**, pe cele patru combinații, cu
+tranzacții anulate: fără grup + ocupant vechi → clientul; fără grup și fără
+client → ocupantul; în grup + ocupant → ocupantul; în grup fără ocupant →
+eticheta grupului.
+
 ### Pasul 5 — livrarea linkului către oaspete
 
 Se adaugă `{{guest_link}}` în șablonul mesajului de acces, lângă
