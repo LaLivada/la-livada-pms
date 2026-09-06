@@ -152,6 +152,11 @@ create table reservations (
   external_uid          text,               -- UID din iCal-ul OTA
   external_source       text,               -- 'booking', 'airbnb', ...
   hold_expires_at       timestamptz,
+  -- Codul din linkul de guest app: lalivada.ro/guest/Ajh6k. Cinci caractere
+  -- din 62, puse de triggerul de mai jos. Vezi sectiunea GUEST APP de la
+  -- finalul fisierului si docs/guest-app.md 4.1 — cu un cod atat de scurt,
+  -- plafonul de cautari esuate nu e o imbunatatire, e lacatul.
+  guest_code            text,
   seeded                boolean not null default false,
   created_at            timestamptz not null default now(),
   -- Vezi triggerul de mai jos: e mecanismul care împiedică doi
@@ -2820,3 +2825,191 @@ create policy "citeste audit acces" on access_audit
 -- Scrierea se face DOAR din Edge Function (service_role): nicio politică de
 -- insert/update pentru `authenticated`. Altfel un cod ar putea fi inventat
 -- din browser, fără ca yala să știe de el.
+
+
+-- =====================================================================
+-- GUEST APP — codul de sejur si poarta de acces
+-- =====================================================================
+-- Pagina proprie fiecarei cazari, deschisa de oaspete dintr-un link, activa
+-- doar pe durata sejurului. Plan complet: docs/guest-app.md.
+--
+-- Adresa are forma lalivada.ro/guest/Ajh6k — cinci caractere, ceruta asa.
+-- Alegerea muta securitatea din lungimea codului in limitarea de rata, si
+-- merita spus pe fata, fiindca in capatul linkului e o usa:
+--
+--   62^5              = 916.132.832 de coduri
+--   valabile deodata  = cate sejururi sunt in curs (azi 18)
+--   ghiciri pt. 50%   = ~40 de milioane
+--
+-- A doua cifra salveaza schema: nu se cauta un cod valid dintr-un milion
+-- emise vreodata, ci unul din cateva zeci intr-un spatiu de un miliard.
+-- La 200 de cautari esuate pe ora, cele 40 de milioane cer 22 de ani.
+
+create or replace function guest_code_nou()
+returns text language plpgsql volatile
+set search_path = public as $$
+declare
+  ALFABET constant text := 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  v_cod   text;
+  v_octet int;
+begin
+  loop
+    v_cod := '';
+    while length(v_cod) < 5 loop
+      -- gen_random_bytes, nu random(): random() e previzibil daca ii afli
+      -- starea, iar un cod ghicibil din context ar anula toata socoteala
+      -- de mai sus — acolo se presupune ca singura cale e ghicirea oarba.
+      --
+      -- Calificat cu `extensions.`, fiindca acolo sta pgcrypto in Supabase,
+      -- iar functia isi fixeaza search_path la public. Defaulturile din
+      -- fisierul asta il gasesc fara calificare doar fiindca ele se
+      -- evalueaza cu search_path-ul sesiunii.
+      v_octet := get_byte(extensions.gen_random_bytes(1), 0);
+      -- Respingere, nu modulo pe tot intervalul: 256 nu se imparte la 62,
+      -- deci un `% 62` aplicat oricarui octet ar face primele 8 litere ale
+      -- alfabetului mai probabile decat restul. Aruncam octetii de la 248
+      -- in sus (4 x 62 = 248) si pastram distributia uniforma. Verificat pe
+      -- 4000 de coduri: chi-patrat 49,7 la un prag de 1% de ~89.
+      if v_octet < 248 then
+        v_cod := v_cod || substr(ALFABET, 1 + (v_octet % 62), 1);
+      end if;
+    end loop;
+    -- Coliziunile sunt rare la 916 milioane, dar nu imposibile; se reia.
+    exit when not exists (select 1 from reservations where guest_code = v_cod);
+  end loop;
+  return v_cod;
+end $$;
+
+create unique index reservations_guest_code on reservations (guest_code);
+
+-- Rezervarile noi isi primesc codul singure. Trigger, nu `default`: un
+-- insert care trimite explicit null ar ocoli un default, nu si triggerul.
+create or replace function pune_guest_code()
+returns trigger language plpgsql set search_path = public as $$
+begin
+  if new.guest_code is null then
+    new.guest_code := guest_code_nou();
+  end if;
+  return new;
+end $$;
+create trigger reservations_pune_guest_code
+  before insert on reservations
+  for each row execute function pune_guest_code();
+
+-- Contorul de cautari esuate. RLS activat fara nicio politica: nimeni nu
+-- ajunge la el prin API — se scrie doar din guest_poarta, care fiind
+-- security definer ocoleste RLS pentru propriile query-uri. Acelasi tipar
+-- ca booking_attempts.
+create table guest_code_attempts (
+  id         bigint generated always as identity primary key,
+  -- Codul incercat, retinut pentru analiza: o insiruire de coduri apropiate
+  -- arata enumerare, nu greseli de tastare.
+  cod        text,
+  ip         text,
+  created_at timestamptz not null default now()
+);
+create index guest_code_attempts_created on guest_code_attempts (created_at desc);
+create index guest_code_attempts_ip      on guest_code_attempts (ip, created_at desc);
+alter table guest_code_attempts enable row level security;
+
+-- Poarta: intoarce rezervarea SI motivul, in loc sa arunce exceptie.
+--
+-- Nu e preferinta de stil, e necesitate. O exceptie face rollback la toata
+-- tranzactia, deci ar sterge chiar randul de contorizare tocmai scris —
+-- plafonul n-ar mai numara niciodata nimic si ar sta degeaba pe usa
+-- deschisa. In create_public_booking rollback-ul e DORIT, fiindca acolo se
+-- numara reusitele; aici se numara esecurile, deci regula se inverseaza.
+create or replace function guest_poarta(
+  p_cod text,
+  out rezervare reservations,
+  out motiv text)
+language plpgsql volatile security definer
+set search_path = public as $$
+declare
+  PLAFON_GLOBAL constant int := 200;   -- esecuri pe ora, din orice sursa
+  PLAFON_IP     constant int := 20;    -- esecuri pe ora, de la o adresa
+  v_esecuri int;
+  v_ip      text;
+begin
+  begin
+    v_ip := nullif(split_part(coalesce(
+      current_setting('request.headers', true)::json ->> 'x-forwarded-for', ''
+    ), ',', 1), '');
+  exception when others then
+    v_ip := null;
+  end;
+
+  delete from guest_code_attempts where created_at < now() - interval '1 day';
+
+  -- Plafonul GLOBAL e cel care conteaza: un atac vine de pe mii de adrese,
+  -- deci unul pus doar pe IP se ocoleste prin imprastiere.
+  select count(*) into v_esecuri from guest_code_attempts
+    where created_at > now() - interval '1 hour';
+  if v_esecuri >= PLAFON_GLOBAL then
+    motiv := 'prea-multe';
+    return;
+  end if;
+
+  if v_ip is not null then
+    select count(*) into v_esecuri from guest_code_attempts
+      where ip = v_ip and created_at > now() - interval '1 hour';
+    if v_esecuri >= PLAFON_IP then
+      motiv := 'prea-multe';
+      return;
+    end if;
+  end if;
+
+  if p_cod is null or p_cod !~ '^[A-Za-z0-9]{5}$' then
+    insert into guest_code_attempts (cod, ip) values (left(coalesce(p_cod, ''), 16), v_ip);
+    motiv := 'necunoscut';
+    return;
+  end if;
+
+  select * into rezervare from reservations where guest_code = p_cod;
+
+  if not found then
+    -- Singurul caz numarat ca esec. Un cod care EXISTA, dar al carui sejur
+    -- n-a inceput sau s-a terminat, e un oaspete, nu un atacator — daca ar
+    -- intra la socoteala, cineva care isi reincarca pagina cu o zi inainte
+    -- de sosire ar consuma din bugetul care tine usile inchise.
+    insert into guest_code_attempts (cod, ip) values (p_cod, v_ip);
+    rezervare := null;
+    motiv := 'necunoscut';
+    return;
+  end if;
+
+  -- Fereastra de valabilitate: legata de status, nu de o comparatie de date.
+  -- Codul de acces are deja o regula gandita pentru check-in devreme (vezi
+  -- src/lib/acces.js), iar legand linkul de status mostenim acea decizie in
+  -- loc sa inventam a doua definitie a lui „e cazat acum". La celalalt
+  -- capat, check-out-ul omoara linkul in aceeasi clipa in care moare codul.
+  --
+  -- Starile distincte nu sunt doar pentru mesaje frumoase: guest app-ul
+  -- trebuie sa spuna „sejurul n-a inceput inca" altfel decat „link gresit".
+  -- Da, asta dezvaluie ca un cod exista — dar numai cuiva care il are deja.
+  if rezervare.status = 'checkedin' then
+    motiv := 'ok';
+  elsif rezervare.status in ('pending', 'confirmed', 'protocol') then
+    motiv := 'neinceput';
+    rezervare := null;
+  elsif rezervare.status = 'checkedout' then
+    motiv := 'incheiat';
+    rezervare := null;
+  else
+    motiv := 'anulat';
+    rezervare := null;
+  end if;
+end $$;
+
+-- Fiecare functie noua primeste EXECUTE pentru PUBLIC — o revocare scrisa
+-- doar pentru `anon` arata corect si nu face nimic. Poarta e interna:
+-- functiile de citire ale guest app-ului o cheama din interior, iar ele
+-- fiind security definer ruleaza ca proprietar, deci n-au nevoie de drept.
+revoke execute on function guest_poarta(text) from public, anon, authenticated;
+revoke execute on function guest_code_nou() from public, anon, authenticated;
+-- Si functia de trigger. Ea nu se poate chema oricum din afara (Postgres
+-- refuza: „trigger functions can only be called as triggers"), dar n-are
+-- motiv sa aiba EXECUTE pentru toata lumea doar fiindca asa e implicit.
+-- Drepturile pe o functie de trigger se verifica la CREATE TRIGGER, nu la
+-- fiecare declansare, deci revocarea nu opreste triggerul.
+revoke execute on function pune_guest_code() from public, anon, authenticated;

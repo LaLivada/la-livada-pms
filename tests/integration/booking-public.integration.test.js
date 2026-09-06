@@ -36,45 +36,57 @@ describe.skipIf(!auConfig)("Suprafața publică de rezervări", () => {
     });
   });
 
+  /* Funcția nu mai întoarce o listă de TIPURI cu câte camere sunt libere,
+     ci o listă de PROPUNERI: pentru fiecare tip care poate găzdui grupul,
+     o repartizare completă, cu prețul ei. Numărătoarea de camere nu se mai
+     face în browser. Testele de mai jos au fost rescrise pe forma nouă —
+     rămăseseră pe `roomTypes`, care nu mai există. */
   describe("public_availability", () => {
-    it("întoarce tipurile de cameră disponibile, cu preț", async () => {
+    it("întoarce propuneri complete, cu preț", async () => {
       const { data, error } = await anon.rpc("public_availability", {
         p_checkin: peste(200), p_checkout: peste(202),
         p_adults: 2, p_children: 0,
       });
       expect(error).toBeNull();
-      expect(data.roomTypes).toBeInstanceOf(Array);
+      expect(data.options).toBeInstanceOf(Array);
       expect(data.nights).toBe(2);
-      for (const t of data.roomTypes) {
-        expect(t).toHaveProperty("roomType");
-        expect(t).toHaveProperty("available");
-        expect(t.price).toBeGreaterThan(0);
+      for (const o of data.options) {
+        expect(o).toHaveProperty("roomType");
+        expect(o.roomsNeeded).toBeGreaterThan(0);
+        expect(o.total).toBeGreaterThan(0);
+        expect(o.rooms).toHaveLength(o.roomsNeeded);
       }
     });
 
-    /* Camerele au capacități diferite ÎN INTERIORUL aceluiași tip, deci
-       filtrarea trebuie făcută pe capacitate, nu pe tip. */
-    it("nu oferă camere mai mici decât numărul de persoane", async () => {
+    /* Camerele au capacități diferite ÎN INTERIORUL aceluiași tip, iar o
+       propunere poate împărți grupul în mai multe camere. Nu mai există un
+       `maxGuests` de comparat; ce trebuie să rămână adevărat e că
+       repartizarea chiar duce tot grupul, nu o parte din el. */
+    it("propunerile duc tot grupul, nu o parte din el", async () => {
       const { data } = await anon.rpc("public_availability", {
         p_checkin: peste(200), p_checkout: peste(202),
         p_adults: 3, p_children: 0,
       });
-      for (const t of data.roomTypes) {
-        expect(t.maxGuests).toBeGreaterThanOrEqual(3);
+      for (const o of data.options) {
+        const adulti = o.rooms.reduce((s, c) => s + c.adults, 0);
+        expect(adulti).toBe(3);
       }
     });
 
     /* Verificare pe structură, nu pe potrivire de text: un regex de tipul
-       /guest/ ar prinde și `maxGuests`, care e o informație legitimă. */
+       /guest/ ar prinde și `guests`, care e o informație legitimă. */
     it("expune STRICT câmpurile necesare, nimic altceva", async () => {
       const { data } = await anon.rpc("public_availability", {
         p_checkin: peste(200), p_checkout: peste(202), p_adults: 2,
       });
       expect(Object.keys(data).sort())
-        .toEqual(["checkIn", "checkOut", "nights", "roomTypes"]);
-      for (const t of data.roomTypes) {
-        expect(Object.keys(t).sort())
-          .toEqual(["available", "maxGuests", "price", "roomType"]);
+        .toEqual(["checkIn", "checkOut", "guests", "nights", "options"]);
+      for (const o of data.options) {
+        expect(Object.keys(o).sort())
+          .toEqual(["roomType", "rooms", "roomsNeeded", "total"]);
+        for (const c of o.rooms) {
+          expect(Object.keys(c).sort()).toEqual(["adults", "children", "roomType"]);
+        }
       }
     });
 
@@ -89,83 +101,58 @@ describe.skipIf(!auConfig)("Suprafața publică de rezervări", () => {
       expect(data.error).toMatch(tipar);
     });
 
-    it("respinge grupurile prea mari, cu îndrumare spre recepție", async () => {
-      const { data } = await anon.rpc("public_availability", {
-        p_checkin: peste(200), p_checkout: peste(202), p_adults: 8,
-      });
-      expect(data.error).toMatch(/recepția/i);
-    });
+    /* Aici era un test care cerea ca un grup de 8 să fie REFUZAT, cu
+       îndrumare spre recepție. Nu mai e adevărat, și nu din greșeală: de
+       când funcția întoarce propuneri, un grup mare nu mai e o problemă, e
+       o repartizare — 8 adulți primesc patru tiny houses. Testul a fost
+       scos, nu rescris ca să treacă: comportamentul pe care îl apăra a fost
+       înlocuit intenționat.
+
+       ATENȚIE, gaură cunoscută, verificată pe 6 septembrie 2026: la 30 de
+       adulți funcția propune senin 15 camere, dar `create_public_booking`
+       refuză orice peste 5. Cine cheamă RPC-ul direct primește deci o
+       propunere care nu se poate rezerva niciodată. Din formular nu se
+       ajunge acolo, fiindcă selectorul de persoane e plafonat de setările
+       de capacitate — dar RPC-ul e public, iar formularul nu e singura
+       cale spre el. De rezolvat separat: ori propunerile se opresc la 5
+       camere, ori grupurile peste plafon primesc înapoi îndrumarea spre
+       recepție. E o decizie de produs, nu una tehnică. */
   });
 
-  describe("create_public_booking — validări (fără a crea nimic)", () => {
-    /* Fiecare caz e respins ÎNAINTE de orice inserare, deci nu atinge
-       baza. Cheia de idempotență e nouă de fiecare dată, ca respingerea
-       să vină de la validare, nu de la o cerere anterioară. */
-    const cheie = () => crypto.randomUUID();
-    const bazaCerere = {
-      p_checkin: peste(200), p_checkout: peste(202),
-      p_last_name: "Test", p_first_name: "Integrare",
-      p_phone: "+40700000123", p_email: null,
-      p_city: "Cluj", p_county: "Cluj", p_country: "România",
-      p_rooms: [{ roomType: "tiny", adults: 2, children: 0 }],
-    };
+  /* Aici stăteau validările lui create_public_booking, apelate direct cu
+     cheia anonimă. Nu mai pot sta: funcția a fost închisă și lăsată doar
+     pe `service_role`, fiindcă rezervările trec acum prin funcția edge
+     `booking-create`, care verifică întâi captcha și ține camera pe hold.
+     Chemată din browser, ocolea exact pașii aceia.
 
-    it("refuză fără nume sau telefon", async () => {
+     Testele rămăseseră scrise pe drumul vechi. Patru dintre ele picau
+     zgomotos, cu „permission denied" în loc de mesajul de validare — dar
+     două treceau, fiindcă cereau doar ca `error` să nu fie null, iar un
+     refuz de permisiune e și el o eroare. Alea două erau mai rele decât
+     cele picate: ar fi rămas verzi și dacă validarea dispărea cu totul.
+     De-asta nu le-am rescris ca să treacă, ci le-am înlocuit cu ce chiar
+     are sens să verificăm de aici: că poarta e închisă.
+
+     Validările propriu-zise nu se pot muta în fișierul ăsta fără să-i
+     încalce regula de aur — ar însemna cereri către o funcție care, dacă
+     validarea chiar e stricată, creează o rezervare adevărată în calendar.
+     Ele se verifică în suita E2E, pe un proiect separat. */
+  describe("create_public_booking — poarta închisă", () => {
+    it("nu poate fi apelată cu cheia anonimă", async () => {
       const { error } = await anon.rpc("create_public_booking", {
-        ...bazaCerere, p_idempotency_key: cheie(),
-        p_last_name: "", p_first_name: "", p_phone: "",
+        p_checkin: peste(200), p_checkout: peste(202),
+        p_last_name: "Test", p_first_name: "Integrare",
+        p_phone: "+40700000123", p_email: null,
+        p_city: "Cluj", p_county: "Cluj", p_country: "România",
+        p_rooms: [{ roomType: "tiny", adults: 2, children: 0 }],
+        p_idempotency_key: crypto.randomUUID(),
       });
       expect(error).not.toBeNull();
-      expect(error.message).toMatch(/obligatorii/i);
-    });
-
-    it("refuză un email invalid", async () => {
-      const { error } = await anon.rpc("create_public_booking", {
-        ...bazaCerere, p_idempotency_key: cheie(), p_email: "nu-e-email",
-      });
-      expect(error).not.toBeNull();
-      expect(error.message).toMatch(/email/i);
-    });
-
-    it("refuză o dată în trecut", async () => {
-      const { error } = await anon.rpc("create_public_booking", {
-        ...bazaCerere, p_idempotency_key: cheie(),
-        p_checkin: peste(-10), p_checkout: peste(-8),
-      });
-      expect(error).not.toBeNull();
-      expect(error.message).toMatch(/trecut/i);
-    });
-
-    it("refuză mai mult de 5 camere", async () => {
-      const { error } = await anon.rpc("create_public_booking", {
-        ...bazaCerere, p_idempotency_key: cheie(),
-        p_rooms: Array.from({ length: 6 }, () => ({ roomType: "tiny", adults: 2 })),
-      });
-      expect(error).not.toBeNull();
-      expect(error.message).toMatch(/1 și 5 camere/i);
-    });
-
-    it("refuză o listă goală de camere", async () => {
-      const { error } = await anon.rpc("create_public_booking", {
-        ...bazaCerere, p_idempotency_key: cheie(), p_rooms: [],
-      });
-      expect(error).not.toBeNull();
-    });
-
-    it("refuză un tip de cameră inventat", async () => {
-      const { error } = await anon.rpc("create_public_booking", {
-        ...bazaCerere, p_idempotency_key: cheie(),
-        p_rooms: [{ roomType: "penthouse", adults: 2 }],
-      });
-      expect(error).not.toBeNull();
-      expect(error.message).toMatch(/tip de cameră/i);
-    });
-
-    it("refuză fără cheie de idempotență", async () => {
-      const { error } = await anon.rpc("create_public_booking", {
-        ...bazaCerere, p_idempotency_key: null,
-      });
-      expect(error).not.toBeNull();
+      /* Refuzul trebuie să fie lipsa dreptului, nu o validare care se
+         întâmplă să pice. Altfel testul ar trece și dacă funcția redevine
+         apelabilă, doar fiindcă datele de test sunt invalide. */
+      expect(`${error.message} ${error.code || ""}`.toLowerCase())
+        .toMatch(/permission|denied|42501|pgrst202/);
     });
   });
 
