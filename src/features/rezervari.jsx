@@ -12,7 +12,8 @@ import {
   CalendarDays, Users, DoorOpen, Plus, X, Search, ChevronLeft, ChevronRight,
   Sparkles, Check, Trash2, Pencil, UsersRound, LogIn, LogOut, Printer, Eye,
   ArrowRight, MoveRight, XCircle, MessageSquare, AlertTriangle, RefreshCw,
-  Undo2, Copy, Info, Wrench, Tag as TagIcon, Rows2, Rows3, Zap, Flame, Wind, Snowflake, UserCheck, Clock,
+  Undo2, Copy, Info, Wrench, Tag as TagIcon, Rows2, Rows3, Columns2, Columns3,
+  Zap, Flame, Wind, Snowflake, UserCheck, Clock,
 } from "lucide-react";
 import { uid } from "../lib/uid.js";
 import { mesajEroare } from "../lib/errors.js";
@@ -211,6 +212,10 @@ export function CalendarView({ core, updateCore, reservations, updateReservation
   const [offset, setOffset] = useState(0);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [dense, setDense] = useState(false);
+  /* Zile mai late, ca sa incapa numele intreg pe bara. Separat de `dense`:
+     acela schimba inaltimea randului, asta latimea coloanei, si se pot
+     folosi si impreuna — multe camere pe ecran, cu nume citibile. */
+  const [larg, setLarg] = useState(false);
   const [actionRes, setActionRes] = useState(null);
   const [blockInfo, setBlockInfo] = useState(null);
   const [moveId, setMoveId] = useState(null);
@@ -448,6 +453,15 @@ export function CalendarView({ core, updateCore, reservations, updateReservation
         >
           {dense ? <Rows3 size={16} /> : <Rows2 size={16} />}
         </button>
+        <button
+          className={"icon-btn" + (larg ? " active" : "")}
+          onClick={() => setLarg((v) => !v)}
+          aria-pressed={larg}
+          title={larg ? "Zile înguste" : "Zile late — numele întreg"}
+          aria-label={larg ? "Treci la zile înguste" : "Lărgește zilele ca să se vadă numele întreg"}
+        >
+          {larg ? <Columns3 size={16} /> : <Columns2 size={16} />}
+        </button>
         {!doarCitire && (
           <button className="btn btn-primary" style={{ width: "auto" }} onClick={() => setModal({ reservation: null })}>
             <Plus size={15} />
@@ -466,7 +480,7 @@ export function CalendarView({ core, updateCore, reservations, updateReservation
         </div>
       ) : null}
 
-      <div className={"cal-scroll" + (dense ? " dense" : "")}>
+      <div className={"cal-scroll" + (dense ? " dense" : "") + (larg ? " larg" : "")}>
         <div className="cal-grid" style={{ "--days": DAYS }}>
           <div className="cal-row cal-head">
             <div className="cal-roomcell"><div className="cal-roomcell-inner" style={{ fontWeight: 700, fontSize: 12 }}>Cameră</div></div>

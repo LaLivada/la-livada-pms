@@ -438,8 +438,12 @@
 /* Latimea minima se calculeaza din numarul de zile, nu e o cifra fixa:
    inainte era 1060px, calibrata pentru 14 zile, si ar fi ramas o valoare
    care minte de indata ce fereastra se schimba. */
-.cal-grid{ display:grid; min-width:calc(78px + var(--days) * 66px); }
-.cal-row{ display:grid; grid-template-columns:78px repeat(var(--days), minmax(66px, 1fr)); }
+/* Latimea unei zile e un singur jeton, fiindca o foloseau doua reguli care
+   trebuie sa spuna mereu la fel: latimea minima a grilei si coloanele
+   randului. Doua cifre 66px scrise separat s-ar fi despartit la prima
+   schimbare. */
+.cal-grid{ display:grid; min-width:calc(78px + var(--days) * var(--zi-w, 66px)); }
+.cal-row{ display:grid; grid-template-columns:78px repeat(var(--days), minmax(var(--zi-w, 66px), 1fr)); }
 .cal-row + .cal-row{ border-top:1px solid var(--border-soft); }
 /* Separator band marking where one room type ends and the next starts. */
 .cal-typerow{
@@ -561,6 +565,19 @@
 }
 .occ-num{ font-size:var(--fs-base); font-weight:700; line-height:1; }
 .occ-pct{ font-size:var(--fs-xs); color:var(--text-muted); line-height:1; }
+/* Vedere lata: zilele se largesc ca sa incapa numele intreg pe bara.
+   190px e masurat, nu ales din ochi. Cazul cel mai strans e o sedere de o
+   noapte: bara are atunci exact o coloana, din care pierde 6px de margini
+   si ~30px pe padding si glifa de stare. Numele cel mai lung din baza (22
+   caractere) cere 148px de text in Inter 12px semibold, iar 190px e prima
+   valoare la care incape fara sa fie taiat — la 180px mai lipseau 5px.
+   Sederile de doua nopti in sus au oricum de doua ori atat.
+
+   Nu e o garantie pentru orice nume din lume: unul mai lung de atat tot se
+   va taia, iar intreg ramane in tooltip si in fisa. E calibrarea pe ce
+   exista, nu o promisiune fara capat. */
+.cal-scroll.larg{ --zi-w:190px; }
+
 .cal-scroll.dense .cal-cell{ min-height:38px; }
 .cal-scroll.dense .cal-bar{ top:4px; bottom:4px; font-size:var(--fs-xs); padding:3px 7px; }
 .cal-scroll.dense .cal-roomcell{ padding:5px 6px; }
