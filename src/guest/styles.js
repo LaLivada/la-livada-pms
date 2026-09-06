@@ -69,6 +69,14 @@ body{
    Masurat: decalajul fata de baza trece de la 5,7px la 0. */
 .g-salut-rand{
   display:flex; align-items:baseline; justify-content:space-between; gap:10px;
+  /* Sigla e mai inalta decat partea de deasupra liniei de baza a numelui
+     (33px fata de 22px, la 25px marime de font), iar alinierea pe linia de
+     baza face diferenta asta sa impinga numele in jos: sub „buna seara"
+     ramanea un gol de 18px in loc de 7. Marginea negativa ridica randul
+     intreg, sigla cu tot, si pune numele inapoi la distanta ceruta de gap.
+     Numarul e diferenta masurata; se schimba odata cu latimea siglei, deci
+     are pereche in media query-ul de mai jos. */
+  margin-top:-11px;
 }
 .g-salut-nume{
   margin:0; min-width:0; font-family:var(--editorial); font-weight:400;
@@ -91,6 +99,9 @@ body{
 @media (max-width: 359px){
   .g-emblema{ width:108px; }
   .g-salut-nume{ font-size:23px; }
+  /* Sigla mai mica (27px inalta) si textul mai mic (20px deasupra liniei de
+     baza) — depasirea scade de la 11 la 7. */
+  .g-salut-rand{ margin-top:-7px; }
 }
 
 /* ---------- vremea ---------- */
@@ -99,8 +110,14 @@ body{
    (white-space:nowrap): altfel „Vaslui" ramane singur deasupra si arata ca
    doua lucruri fara legatura. */
 .g-vreme{
-  margin:0; display:flex; align-items:center; justify-content:flex-end; gap:6px;
-  line-height:1.25; white-space:nowrap;
+  /* Marginea negativa o ridica fix sub sigla. Randul de deasupra e inalt cat
+     cutia numelui, care coboara sub linia de baza cu coada lui ț — iar sigla
+     se opreste chiar pe linia aia. Fara corectie, vremea statea la 7px sub
+     coada, nu sub sigla, si parea desprinsa de ea.
+     Nu se ciocnesc: vremea e aliniata la dreapta, sub sigla, iar numele
+     ramane in stanga si nu trece niciodata pe sub ea. */
+  margin:-7px 0 0; display:flex; align-items:center; justify-content:flex-end;
+  gap:6px; line-height:1.25; white-space:nowrap;
 }
 .g-vreme-loc{ font-size:12.5px; color:var(--g-muted); }
 .g-vreme-grade{ font-size:15px; font-weight:600; font-variant-numeric:tabular-nums; }
@@ -126,7 +143,7 @@ body{
    nimeni sa gaseasca usa, numarul da. */
 .g-hero-camera{
   margin:0 0 16px; display:flex; align-items:baseline; flex-wrap:wrap;
-  gap:3px 9px;
+  justify-content:flex-end; gap:3px 9px;
 }
 .g-hero-camera-fel{
   font-size:11px; font-weight:600; letter-spacing:.12em;
