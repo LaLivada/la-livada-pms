@@ -108,13 +108,18 @@ export const WIFI = {
 /* „Bun venit". Un rand de intampinare si cateva lucruri de stiut din prima
    clipa. Punctele sunt perechi titlu/text. */
 export const BUN_VENIT = {
-  intro: "Ne bucurăm că ești aici.",
+  intro: "Ne bucurăm că ești aici și ne dorim să ai o ședere plăcută.",
   /* Wi-Fi-ul sta deasupra: e primul lucru cautat la intrarea in camera, iar
      salvarea paginii are sens abia dupa ce telefonul are internet. */
   puncte: [
     {
       titlu: "Wi-Fi gratuit",
-      text: `Rețeaua ${WIFI.retea}, fără parolă.`,
+      /* Numele retelei se ingroasa, deci textul vine taiat in trei. JSX n-are
+         ce cauta aici: fisierul e .js, iar pluginul de React nu-l transforma
+         — ar cadea build-ul. */
+      inainte: "Rețeaua ",
+      tare: WIFI.retea,
+      dupa: ", fără parolă.",
       // Sub punctele astea doua apar butoanele lor; vezi App.jsx.
       actiune: "wifi",
     },

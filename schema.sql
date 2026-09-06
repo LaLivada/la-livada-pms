@@ -3199,7 +3199,14 @@ begin
       'checkOut',  (v_p.rezervare).checkout,
       'nights',    greatest(1, ((v_p.rezervare).checkout::date - (v_p.rezervare).checkin::date)),
       'adults',    (v_p.rezervare).adults,
-      'children',  (v_p.rezervare).children
+      'children',  (v_p.rezervare).children,
+      -- Aceeasi regula ca in src/lib/pricing.js: suprascrierea manuala bate
+      -- pretul inghetat la creare. Al treilea nivel de acolo — calculul live
+      -- din tarife — n-are corespondent aici si nici nu-i trebuie: PMS-ul
+      -- completeaza booked_price la fiecare incarcare, iar in baza nu exista
+      -- nicio rezervare activa fara pret. NULL cand lipsesc amandoua, iar
+      -- pagina ascunde randul in loc sa arate 0 lei.
+      'total',     coalesce((v_p.rezervare).price_override, (v_p.rezervare).booked_price)
     ));
 end $$;
 

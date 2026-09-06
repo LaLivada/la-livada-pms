@@ -965,3 +965,25 @@ liniștit către o rețea inexistentă.
 - Sub jsdom, `URL` global e implementarea lui jsdom, pe care `fs` n-o
   recunoaște ca URL de fișier — o transformă în șir și caută o cale
   inexistentă.
+
+## 13. Totalul de plată în pagina oaspetelui
+
+`guest_stay_by_cod` întoarce și `total`, iar panoul „Bun venit" îl arată
+aliniat la dreapta, sub datele rezervării.
+
+**De unde vine numărul.** `coalesce(price_override, booked_price)` — aceleași
+două niveluri, în aceeași ordine, ca `reservationTotal` din
+`src/lib/pricing.js`: suprascrierea manuală bate prețul înghețat la creare.
+Al treilea nivel de acolo, calculul live din tarife, n-are corespondent în
+funcție și nici nu-i trebuie: PMS-ul completează `booked_price` la fiecare
+încărcare (`src/pms-app.jsx:492`), iar la momentul schimbării niciuna dintre
+cele 101 rezervări active nu era fără preț (1 cu override, 100 cu booked).
+
+**Ce se întâmplă dacă totuși lipsesc amândouă.** Funcția întoarce `null` și
+pagina ascunde rândul. Nu „0 lei" — ar fi un răspuns greșit la o întrebare
+despre bani, și încă unul pe care oaspetele l-ar crede.
+
+Drepturile au fost verificate după `create or replace`: `anon` da,
+`authenticated` nu, `service_role` da — exact ca înainte. Postgres păstrează
+ACL-ul la înlocuirea unei funcții, dar în proiectul ăsta o presupunere despre
+drepturi a costat deja o zi de producție (vezi 4), deci se verifică.

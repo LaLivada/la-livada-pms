@@ -912,8 +912,10 @@ export default function App() {
 
       {deschis === "venit" && (
         <div className="g-card">
-          <h2>Bun venit</h2>
+          <h2>Bun venit la Livadă</h2>
           <p className="g-intro">{BUN_VENIT.intro}</p>
+
+          <h3 className="g-eticheta-sectiune">Datele rezervării</h3>
           <dl className="g-lista">
             <div className="g-rand"><dt>Sosire</dt><dd>{ziSiOra(sejur.checkIn)}</dd></div>
             <div className="g-rand"><dt>Plecare</dt><dd>{ziSiOra(sejur.checkOut)}</dd></div>
@@ -926,11 +928,22 @@ export default function App() {
               </dd>
             </div>
           </dl>
+          {/* Ascuns, nu zero: o rezervare fara pret in baza inseamna ca nu se
+              stie cat e de plata, iar „0 lei" ar fi un raspuns gresit la o
+              intrebare despre bani. */}
+          {sejur.total != null && (
+            <p className="g-total">
+              <span>Total de plată</span>
+              <b>{pret(sejur.total)}</b>
+            </p>
+          )}
+
           {BUN_VENIT.puncte.length > 0 && (
-            <ul className="g-puncte" style={{ marginTop: 12 }}>
+            <ul className="g-puncte">
               {BUN_VENIT.puncte.map((p, i) => (
                 <li key={i}>
-                  <b>{p.titlu}</b> — {p.text}
+                  <b>{p.titlu}</b> —{" "}
+                  {p.tare ? <>{p.inainte}<b>{p.tare}</b>{p.dupa}</> : p.text}
                   {p.actiune === "wifi" && <ConectareWifi />}
                   {p.actiune === "instalare" && <Instaleaza />}
                 </li>

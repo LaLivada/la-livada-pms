@@ -267,6 +267,16 @@ body{
 .g-rand dd{ margin:0; font-weight:600; font-size:14px; text-align:right; }
 .g-lista{ margin:0; }
 
+/* Totalul, aliniat la dreapta sub datele rezervarii — acolo unde se citesc
+   si sumele din dreptul randurilor de mai sus. Cifre tabulare, ca sa nu
+   danseze latimea intre doua rezervari. */
+.g-total{
+  margin:11px 0 0;
+  display:flex; align-items:baseline; justify-content:flex-end; gap:10px;
+}
+.g-total span{ font-size:14px; color:var(--g-muted); }
+.g-total b{ font-size:17px; font-weight:600; font-variant-numeric:tabular-nums; }
+
 .g-produs{
   display:flex; justify-content:space-between; align-items:baseline; gap:12px;
   padding:9px 0; border-top:1px solid var(--g-hair);
@@ -279,7 +289,12 @@ body{
   margin:0 0 12px; font-family:var(--editorial); font-size:19px;
   line-height:1.4;
 }
-.g-puncte{ margin:0; padding:0; list-style:none; }
+/* Linia de sus desparte doua subiecte: pana aici e vorba despre rezervare
+   si despre bani, de aici incolo despre sejur. */
+.g-puncte{
+  margin:16px 0 0; padding:13px 0 0; list-style:none;
+  border-top:1px solid var(--g-line);
+}
 .g-puncte li{
   padding:9px 0; border-top:1px solid var(--g-hair); font-size:14px;
 }
@@ -344,10 +359,14 @@ body{
 .g-asistenta{ margin-top:16px; padding-top:14px; border-top:1px solid var(--g-line); }
 /* Aceeasi eticheta mica si distantata ca titlurile de card, ca sa se citeasca
    drept sectiune, nu drept titlu nou de pagina. */
-.g-asistenta h3{
+.g-asistenta h3,
+.g-eticheta-sectiune{
   margin:0 0 3px; font-size:11px; font-weight:600; letter-spacing:.12em;
   text-transform:uppercase; color:var(--g-faint);
 }
+/* Titlul de deasupra datelor rezervarii are nevoie de aer sub el, spre
+   deosebire de cel din blocul de asistenta, care sta lipit de randul lui. */
+.g-eticheta-sectiune{ margin:0 0 8px; }
 .g-asistenta-cine{ margin:0 0 11px; font-size:14px; color:var(--g-muted); }
 .g-asistenta-cine b{ color:var(--g-text); font-weight:600; }
 
