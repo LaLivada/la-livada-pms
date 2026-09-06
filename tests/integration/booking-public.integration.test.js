@@ -108,15 +108,33 @@ describe.skipIf(!auConfig)("Suprafața publică de rezervări", () => {
        scos, nu rescris ca să treacă: comportamentul pe care îl apăra a fost
        înlocuit intenționat.
 
-       ATENȚIE, gaură cunoscută, verificată pe 6 septembrie 2026: la 30 de
-       adulți funcția propune senin 15 camere, dar `create_public_booking`
-       refuză orice peste 5. Cine cheamă RPC-ul direct primește deci o
-       propunere care nu se poate rezerva niciodată. Din formular nu se
-       ajunge acolo, fiindcă selectorul de persoane e plafonat de setările
-       de capacitate — dar RPC-ul e public, iar formularul nu e singura
-       cale spre el. De rezolvat separat: ori propunerile se opresc la 5
-       camere, ori grupurile peste plafon primesc înapoi îndrumarea spre
-       recepție. E o decizie de produs, nu una tehnică. */
+       Testele de mai jos apără regula care l-a înlocuit, la amândouă
+       capetele. Merită apărată explicit fiindcă un plafon fix de camere e
+       ușor de reintrodus din neatenție, iar atunci grupurile mari s-ar lovi
+       de el fără ca nimeni să observe: din formular nu se ajunge acolo
+       decât cu un grup adevărat, mare, adică exact clientul pe care nu
+       vrei să-l pierzi. */
+    it("mai multe persoane înseamnă mai multe camere, fără plafon fix", async () => {
+      const { data } = await anon.rpc("public_availability", {
+        p_checkin: peste(200), p_checkout: peste(202), p_adults: 30,
+      });
+      expect(data.error).toBeUndefined();
+      expect(data.options.length).toBeGreaterThan(0);
+      // Un plafon fix de 5 camere ar tăia exact aici.
+      expect(Math.max(...data.options.map((o) => o.roomsNeeded))).toBeGreaterThan(5);
+      for (const o of data.options) {
+        expect(o.rooms.reduce((s, c) => s + c.adults, 0)).toBe(30);
+      }
+    });
+
+    /* Capătul celălalt. Fără el, „fără plafon fix" s-ar putea citi drept
+       „fără nicio limită", iar cineva ar putea scoate și limita reală. */
+    it("peste locurile pensiunii trimite la telefon", async () => {
+      const { data } = await anon.rpc("public_availability", {
+        p_checkin: peste(200), p_checkout: peste(202), p_adults: 500,
+      });
+      expect(data.error).toMatch(/sună-ne/i);
+    });
   });
 
   /* Aici stăteau validările lui create_public_booking, apelate direct cu
