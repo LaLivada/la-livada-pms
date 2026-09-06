@@ -2176,10 +2176,39 @@ alter table online_pricing_tiers enable row level security;
 alter table staff        enable row level security;
 alter table app_state    enable row level security;
 
--- CITIRE: tot personalul autentificat vede tot. Nemodificat de auditul
--- de securitate — separarea pe roluri se aplică la scriere, mai jos.
+-- CITIRE: tot personalul autentificat vede tot, CU O EXCEPȚIE — `guests`,
+-- imediat mai jos. În rest separarea pe roluri se aplică la scriere.
 create policy "staff citeste" on rooms        for select to authenticated using (true);
-create policy "staff citeste" on guests       for select to authenticated using (true);
+
+-- OASPEȚII: doar adminul și recepționerul.
+--
+-- Avea și el `using (true)`, fără nicio condiție de rol. Nu s-a scurs nimic —
+-- în `staff` există doar admin și recepționer — dar rolul `housekeeping` e
+-- cablat prin toată aplicația, iar în ziua în care se face un cont de
+-- curățenie, acela ar fi citit numele, telefonul, emailul și adresa fiecărui
+-- om care a trecut vreodată pe la pensiune.
+--
+-- CE ÎNCHIDE, ȘI CE NU. Verificat adversarial, nu presupus:
+--   Închide ARHIVA. `guests` e singurul loc cu telefon, email și adresă
+--   pentru toți oaspeții dintotdeauna.
+--   NU închide numele sejururilor: `res_groups` și `reservations` rămân
+--   deschise mai jos și duc numele grupului și `occupant_name` în același
+--   loadAll(); `guest_stay_by_cod` e `security definer` și deschisă lui anon
+--   (o cere guest app-ul), iar `guest_code` stă chiar în rândul rezervării.
+--   O cameristă vede oricum cine e cazat — intră în camere. Diferența e
+--   între „cine stă acum în 1003" și „arhiva de contacte a pensiunii".
+--
+-- Funcțiile sunt învelite în `(select ...)`: altfel Postgres le tratează ca
+-- volatile față de rând și le reevaluează O DATĂ PE RÂND la citirea întregului
+-- tabel. Așa devin InitPlan, calculat o dată. Nu contează pentru housekeeping,
+-- care primește zero rânduri — contează pentru cine le citește pe toate.
+--
+-- La modificare se folosește ALTER POLICY, nu DROP + CREATE: între cele două
+-- comenzi tabelul rămâne fără nicio politică de SELECT, deci gol pentru TOATĂ
+-- lumea, inclusiv admin, și fără nicio eroare — doar liste goale.
+create policy "staff citeste" on guests       for select to authenticated
+  using ((select is_admin()) or (select staff_role()) = 'receptionist');
+
 create policy "staff citeste" on res_groups   for select to authenticated using (true);
 create policy "staff citeste" on reservations for select to authenticated using (true);
 create policy "staff citeste" on rates        for select to authenticated using (true);
