@@ -656,9 +656,19 @@ function PMSApp() {
   }, [currentUser]);
 
   useEffect(() => {
-    if (currentUser) {
-      setView(defaultViewFor(currentUser.role));
-    }
+    if (!currentUser) return;
+    /* Un refresh cerut din pastila de sus lasa in urma un bilet cu ecranul
+       de atunci, ca reincarcarea sa nu arunce omul inapoi acasa. Biletul se
+       consuma aici, o singura data. Trece tot prin `mayView`: intre timp
+       rolul se poate fi schimbat, iar un ecran salvat nu e o permisiune. */
+    let pastrat = null;
+    try {
+      pastrat = sessionStorage.getItem(CHEIE_ECRAN_REFRESH);
+      sessionStorage.removeItem(CHEIE_ECRAN_REFRESH);
+    } catch { /* fila fara sessionStorage — pornim de acasa, ca inainte */ }
+    setView(pastrat && mayView(pastrat, currentUser.role)
+      ? pastrat
+      : defaultViewFor(currentUser.role));
   }, [currentUser]);
 
   /* Ceas propriu pentru night audit. Aplicatia nu are realtime si nici
@@ -919,6 +929,13 @@ const VIEW_ROLES = {
 };
 const mayView = (view, role) => (VIEW_ROLES[view] || []).includes(role);
 
+/* Ecranul de pe care s-a cerut reincarcarea din pastila de sus. Se scrie
+   doar acolo si se consuma o singura data la pornire, deci o deschidere
+   obisnuita porneste tot de acasa — nu e o memorie a ultimului ecran, e un
+   bilet pentru un singur refresh. sessionStorage, nu localStorage: biletul
+   priveste fila aceasta, nu toate filele si nici maine. */
+const CHEIE_ECRAN_REFRESH = "pms:ecran-la-refresh";
+
 function defaultViewFor(role) {
   return role === "housekeeping" ? "housekeeping" : "today";
 }
@@ -958,13 +975,51 @@ function Shell({ user, view, setView, onLogout, core, updateCore, reservations, 
   const safeView = mayView(view, user.role) ? view : homeView;
   const [title] = VIEW_TITLES[safeView] || ["", ""];
 
+  /* Dublu tap pe pastila din stanga reincarca pagina, ramanand pe ecranul
+     curent. Pe telefon, in aplicatia adaugata pe ecranul de start, nu exista
+     bara de adresa, deci nu exista nici butonul de refresh — asta il
+     inlocuieste.
+
+     Numarat de mana, nu prin `onDoubleClick`: pe touch, `dblclick` e
+     sintetizat inconsecvent de la un motor la altul, adica tocmai cazul cerut.
+
+     Pastila e doar buton de reincarcare, deci clicul ei nu mai urca la
+     butonul-parinte: altfel prima apasare din pereche ar duce acasa, iar
+     refreshul ar aduce alt ecran decat cel de pe care a fost cerut. Numele
+     „La Livada" si subtitlul de alaturi raman drumul spre acasa. */
+  const ultimulTap = useRef(-Infinity);
+  const dubluTap = (e) => {
+    e.stopPropagation();
+    /* Un singur ceas, al nostru. `event.timeStamp` are baze de timp diferite
+       de la un motor la altul — undeva de la incarcarea paginii, altundeva
+       din epoca — iar o scadere intre doua baze amestecate ar da o diferenta
+       fara sens. `performance.now()` e monoton si mereu aceeasi origine.
+
+       Pornit de la -Infinity, nu de la 0: `performance.now()` se numara de la
+       incarcarea paginii, deci in prima jumatate de secunda de viata a filei
+       e el insusi sub 400. Cu 0 la pornire, o singura apasare de atunci ar fi
+       trecut drept pereche si ar fi reincarcat pagina — care iar ar fi pornit
+       de la zero. Prins la verificare, exact asa. */
+    const acum = performance.now();
+    if (acum - ultimulTap.current < 400) {
+      ultimulTap.current = -Infinity;
+      try { sessionStorage.setItem(CHEIE_ECRAN_REFRESH, safeView); } catch { /* fara bilet, pornim de acasa */ }
+      window.location.reload();
+      return;
+    }
+    ultimulTap.current = acum;
+  };
+
   return (
     <div className="shell">
       <div className="main">
         <header className={"topbar" + (safeView === "calendar" ? " topbar-cal" : "")}>
           <button className="brand-block" onClick={() => setView(homeView)}
             title={`Înapoi la ${VIEW_TITLES[homeView]?.[0] || "Azi"}`}>
-            <span className="brand-mark"><DoorOpen size={16} /></span>
+            <span className="brand-mark" onClick={dubluTap}
+              title="Dublu tap — reîncarcă pagina, rămânând aici">
+              <DoorOpen size={16} />
+            </span>
             <span className="brand-text">
               <span className="brand-name">La Livada</span>
               <span className="sub">{title}</span>
