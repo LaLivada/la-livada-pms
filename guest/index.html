@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="ro">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/brand/favicon-32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/brand/favicon-16.png" />
+    <link rel="icon" type="image/png" sizes="512x512" href="/brand/favicon.png" />
+    <link rel="apple-touch-icon" href="/brand/apple-touch-icon.png" />
+    <title>Sejurul tău — Complex La Livada</title>
+    <!-- Spre deosebire de rezervari.lalivada.ro, pagina asta NU trebuie
+         indexata: in capatul fiecarui link e o cazare, cu codul ei de
+         acces. public-guest/robots.txt spune acelasi lucru pentru
+         crawlerele care ignora meta tag-ul, iar in robots.txt-ul lui
+         lalivada.ro se adauga si `Disallow: /guest/`, fiindca acolo e
+         adresa pe care o vede lumea. -->
+    <meta name="robots" content="noindex, nofollow, noarchive, nosnippet" />
+    <!-- Un link de cazare trimis pe WhatsApp nu trebuie sa arate in
+         previzualizare cine sta in camera. Fara og:*, nu are ce prelua. -->
+    <meta name="referrer" content="no-referrer" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Instrument+Serif&family=Manrope:wght@400;500;600&display=swap" />
+  </head>
+  <body>
+    <div id="oaspete"></div>
+    <script type="module" src="./main.jsx"></script>
+  </body>
+</html>

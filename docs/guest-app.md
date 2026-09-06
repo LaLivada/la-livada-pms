@@ -148,8 +148,18 @@ prindă orice cod după `/guest/`, nu doar `/guest/` gol:
 ```apache
 # lalivada-site/public/.htaccess
 RewriteEngine On
-RewriteRule ^guest/([A-Za-z0-9]{5})/?$ https://guest.lalivada.ro/$1 [R=302,L]
+RewriteRule ^guest/([A-Za-z0-9]{5})/?$ https://guest.lalivada.ro/#$1 [R=302,L,NE]
 ```
+
+**Codul ajunge în fragment, nu în calea de pe Vercel** — asta s-a hotărât la
+implementare și rezolvă două lucruri deodată. Întâi, Vercel nu mai are nevoie
+de nicio rescriere SPA: el servește doar `/`, iar `guest.lalivada.ro/Ajh6k`
+n-ar fi existat ca fișier și ar fi dat 404. Apoi, codul nu mai ajunge nici în
+logurile Vercel — fragmentul nu se trimite niciodată serverului. Rămâne în
+logurile hostingului obișnuit, unde intră inevitabil, fiindcă acolo e calea.
+
+`NE` (noescape) e obligatoriu: fără el, Apache scrie `%23` în loc de `#`, iar
+adresa devine una fără fragment.
 
 `mod_rewrite` e practic mereu activ pe cPanel, spre deosebire de `mod_proxy` —
 de-asta redirectare, nu proxy. **De verificat totuși la prima livrare**, plus
@@ -542,19 +552,35 @@ nici ocupant, nici grup — adică atunci când plătitorul chiar e ocupantul.
 numit chiar „Minibar", fără băuturi sub el. Structura e gata; grila se
 introduce din PMS.
 
-### Pasul 3 — guest app-ul
+### Pasul 3 — guest app-ul ✅ făcut (6 septembrie 2026)
 
-- `vite.guest.config.js` + `src/guest/`, pe tiparul booking-ului, dar cu
-  ieșirea în `lalivada-site/public/guest/` (3.1);
-- aceeași identitate vizuală: `booking/brand.css` se refolosește;
-- patru secțiuni: sejurul, codul, ușa (dacă pasul 0 permite), minibarul;
-- stări explicite pentru link invalid, sejur neînceput și sejur încheiat
-   — fiecare cu ce trebuie să facă omul mai departe, nu doar „eroare";
-- codul citit din calea adresei (`/Ajh6k`), plus rescrierea către
-  `index.html` pe Vercel, altfel orice cod dă 404;
-- în repo-ul site-ului, o singură dată: regula de rescriere din 3.1 și
-  `Disallow: /guest/` în `app/robots.ts`, apoi `npm run build` și
-  `node scripts/publica.mjs --live`.
+Făcut pe 6 septembrie 2026, cu trei abateri de la planul de mai sus, fiecare
+cu motivul ei:
+
+- `vite.guest.config.js` + `guest/` + `src/guest/` + `public-guest/`, pe
+  tiparul booking-ului. Ieșirea e `dist-guest/`, servit de Vercel — **nu**
+  în repo-ul site-ului, cum spunea varianta de dimineață;
+- stiluri proprii, cu aceleași jetoane ca `brand.css`, nu `brand.css`
+  însuși: pagina se deschide pe date mobile, în fața ușii, iar foaia
+  întreagă a site-ului (antet, subsol, galerie) ar fi fost cărată degeaba
+  pentru trei carduri. Se vede că e aceeași casă fără să coste atât;
+- **trei secțiuni, nu patru.** Ușa lipsește cu totul: funcția edge
+  `guest-unlock` vine la pasul 4, iar un buton care nu deschide nimic e mai
+  rău decât niciunul, mai ales în fața ușii. Documentul prevedea oricum
+  ordinea asta (secțiunea 9);
+- cinci stări de refuz, fiecare cu ce are omul de făcut mai departe: sejur
+  neînceput, sejur încheiat, rezervare anulată, link nefuncțional, link fără
+  cod. Un singur „link invalid" pentru toate ar fi trimis la recepție și
+  oaspeții care n-au nicio problemă — doar au deschis linkul cu o zi mai
+  devreme;
+- codul citit din fragment, cu calea drept rezervă pentru cine scrie adresa
+  de mână;
+- secțiunea de minibar lipsește de pe ecran cât timp meniul e gol, în loc să
+  arate un titlu urmat de nimic.
+
+Rămâne de făcut, în repo-ul site-ului, o singură dată: regula de rescriere
+din 3.1 și `Disallow: /guest/` în `app/robots.ts`, apoi `npm run build` și
+`node scripts/publica.mjs --live`.
 
 ### Pasul 4 — deschiderea ușii
 

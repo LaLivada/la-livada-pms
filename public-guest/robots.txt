@@ -1,0 +1,8 @@
+# In capatul fiecarui link de aici e o cazare, cu codul ei de acces —
+# adica, practic, o usa. Un link ajuns intr-un index de cautare e un link
+# public catre acea usa, deci pagina nu se indexeaza deloc.
+#
+# Regula asta acopera subdomeniul. Adresa pe care o vede lumea,
+# lalivada.ro/guest/, e acoperita separat, din app/robots.ts al site-ului.
+User-agent: *
+Disallow: /

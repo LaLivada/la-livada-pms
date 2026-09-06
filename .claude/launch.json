@@ -12,6 +12,12 @@
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev:booking"],
       "port": 5174
+    },
+    {
+      "name": "guest",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev:guest"],
+      "port": 5175
     }
   ]
 }

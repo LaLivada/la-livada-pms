@@ -33,12 +33,15 @@ supabase/.temp/
 # Playwright
 test-results/
 playwright-report/
+# Capturi si jurnale lasate de verificarile prin MCP
+.playwright-mcp/
 
 # Raportul de audit, generat local (binar, publicat si ca artifact)
 La Livada PMS - Audit.pdf
 
 # Build-uri
 dist-booking/
+dist-guest/
 
 # Backup-uri: contin date personale ale clientilor
 backup-*.sql

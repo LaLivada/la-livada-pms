@@ -15,7 +15,9 @@
     "test:integration": "vitest run --config vite.integration.config.js",
     "test:e2e": "playwright test",
     "dev:booking": "vite --config vite.booking.config.js",
-    "build:booking": "vite build --config vite.booking.config.js"
+    "build:booking": "vite build --config vite.booking.config.js",
+    "dev:guest": "vite --config vite.guest.config.js",
+    "build:guest": "vite build --config vite.guest.config.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.112.3",
