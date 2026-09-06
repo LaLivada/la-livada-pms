@@ -15,6 +15,31 @@ lipsește e marcat explicit ca lipsă, nu presupus rezolvat.
 
 ---
 
+## 0. Decizii luate (6 septembrie 2026)
+
+Documentul lăsa deschise trei întrebări. Două au primit răspuns.
+
+**Minibarul: doar meniu.** Se afișează lista cu prețuri, atât. Consumul îl
+trece recepția, ca acum. Varianta cu auto-declarare din secțiunea 5.2 nu se
+face — nicio scriere pe facturare dintr-un link public.
+
+**Adresa: `lalivada.ro/guest/`.** Nu subdomeniu. Vezi secțiunea 3.1, adăugată
+pentru asta: alegerea schimbă modul de livrare, fiindcă `lalivada.ro` nu e pe
+Vercel, ca celelalte două aplicații.
+
+Rămâne deschisă a treia: ce se face cu camerele fără gateway. Nu se poate
+răspunde înainte de pasul 0.
+
+Corecție la textul de mai jos, verificată în cod pe 6 septembrie:
+**`unlock` nu mai e rezervat adminilor.** Toate rolurile pot deschide o ușă;
+doar într-o cameră **cazată** a rămas restricția de admin
+([access-provider/index.ts:177](../supabase/functions/access-provider/index.ts)).
+Cum guest app-ul deschide exact o cameră cazată, el e o excepție asumată de
+la regula aceea — încă un motiv pentru funcția edge separată din secțiunea 7,
+nu pentru o ramură nouă în funcția existentă.
+
+---
+
 ## 1. Rezumat
 
 - **Nu e o aplicație nouă.** E un al treilea build Vite în același repo,
@@ -75,8 +100,58 @@ Munca reală e în poarta de autorizare pe token și în deschiderea ușii.
    linkul de confirmare/anulare, alt scop.
 2. **O poartă de acces anonim la deschiderea ușii.** Azi `unlock` cere
    JWT de personal cu rol `admin`.
-3. **Minibarul.** Nicio urmă în cod.
+3. **Minibarul.** Nicio urmă în cod. Mai mult decât atât, verificat în baza
+   reală pe 6 septembrie: `products` are **două rânduri în total** — „Cazare"
+   și unul numit chiar „Minibar", fără produse sub el. Structura se poate
+   scrie oricând; meniul are nevoie de conținut introdus de om, altfel
+   pagina afișează o listă goală.
 4. **Buildul propriu-zis** al guest app-ului.
+
+---
+
+## 3.1 Unde stă `lalivada.ro/guest/`
+
+Adresa cerută schimbă livrarea, fiindcă cele trei site-uri nu stau în același
+loc:
+
+| Adresă | Unde | Cum ajunge acolo |
+|---|---|---|
+| `pms.lalivada.ro` | Vercel | push pe `main` |
+| `rezervari.lalivada.ro` | Vercel | push pe `main` |
+| `lalivada.ro` | hosting obișnuit, `cloud608.c-f.ro` | FTPS, `node scripts/publica.mjs --live` din `lalivada-site` |
+
+`lalivada.ro` e un export static Next (`output: "export"`, `next.config.ts`),
+urcat ca fișiere. **Nu există server care să rescrie sau să facă proxy**, deci
+`lalivada.ro/guest/` nu poate fi o rescriere către un deploy Vercel separat.
+Guest app-ul trebuie să ajungă fizic pe hostingul acela.
+
+Vestea bună: tiparul există deja acolo. `public/statistici/index.php` e servit
+la `lalivada.ro/statistici/` și e scos din indexare cu `Disallow: /statistici/`
+în `app/robots.ts`. Guest app-ul urmează exact aceeași cale, ca
+`public/guest/`.
+
+Ce presupune concret:
+
+- buildul Vite al guest app-ului scrie în `lalivada-site/public/guest/`;
+- Next copiază `public/` în `out/` la build, iar scriptul de publicare urcă
+  doar fișierele schimbate;
+- în `app/robots.ts` se adaugă `Disallow: /guest/`, lângă `/statistici/`.
+  Asta înlocuiește nevoia de `public-guest/robots.txt` din secțiunea 4.6:
+  pe un domeniu servit de un singur host, robots.txt e unul singur, al
+  domeniului;
+- `trailingSlash: true` e deja pus, deci `/guest/` servește `/guest/index.html`
+  fără nicio regulă de server.
+
+**Costul, spus limpede:** guest app-ul locuiește în repo-ul PMS, dar se
+publică din repo-ul site-ului. O schimbare cere două comenzi în două locuri,
+iar cine uită a doua comandă crede că a livrat. E prețul adresei cerute; un
+subdomeniu pe Vercel s-ar fi publicat singur la push.
+
+**Tokenul trece în fragment, nu în query string.** Adresa devine
+`lalivada.ro/guest/#TOKEN`, nu `?t=TOKEN`. Fragmentul nu e trimis niciodată
+serverului, deci tokenul nu ajunge în logurile de acces ale unui hosting
+partajat, pe care nu-l administrăm noi. Secțiunea 7 cerea deja ca tokenul să
+nu circule prin query string; pe hostingul ăsta motivul e și mai apăsat.
 
 ---
 
@@ -182,12 +257,18 @@ contează.
 
 ### 4.6 Indexabilitate
 
-Guest app-ul primește propriul `public-guest/robots.txt` cu
-`Disallow: /`, plus `<meta name="robots" content="noindex">`. Motivul e
-același pentru care PMS-ul e blocat: un link de cazare ajuns în index e
-un link public către o ușă. Asta cere **folder public propriu**, ca la
-booking ([vite.booking.config.js:24](../vite.booking.config.js)) — un
-`publicDir` comun nu poate da fiecărui build alt `robots.txt`.
+Un link de cazare ajuns în index e un link public către o ușă, deci pagina
+se ține în afara motoarelor de căutare, ca PMS-ul.
+
+Cum se face depinde de unde stă, iar asta s-a hotărât între timp (3.1):
+fiind sub `lalivada.ro`, robots.txt e unul singur, al domeniului, generat din
+`app/robots.ts` în repo-ul site-ului. Acolo se adaugă `Disallow: /guest/`,
+lângă `/statistici/` care e deja acolo. `<meta name="robots" content="noindex">`
+rămâne în pagina însăși, ca plasă.
+
+(Varianta inițială — `public-guest/robots.txt` propriu, pe modelul
+[vite.booking.config.js](../vite.booking.config.js) — ar fi fost calea dacă
+guest app-ul primea subdomeniu propriu. Nu mai e cazul.)
 
 ---
 
@@ -223,8 +304,10 @@ Cerința spune „de a vedea meniul de mini bar". Aici se ramifică:
   discuție separată: ce se întâmplă la o declarare greșită, cine o
   anulează, ce se vede pe factură.
 
-Documentul propune **prima variantă** și lasă a doua ca pas ulterior,
-explicit, nu ca extindere tăcută.
+Documentul propunea **prima variantă**, iar pe 6 septembrie asta s-a și
+hotărât (secțiunea 0): minibarul e doar meniu. A doua variantă nu se face —
+nici ca pas ulterior tăcut. Dacă se răzgândește cineva, se redeschide
+discuția, cu întrebările de mai sus puse din nou.
 
 ---
 
@@ -326,13 +409,18 @@ Nimic vizibil pentru utilizator încă. Se poate livra separat.
 
 ### Pasul 3 — guest app-ul
 
-- `vite.guest.config.js` + `guest/` + `public-guest/`, pe tiparul
-  booking-ului; `robots.txt` cu `Disallow: /`;
+- `vite.guest.config.js` + `src/guest/`, pe tiparul booking-ului, dar cu
+  ieșirea în `lalivada-site/public/guest/` (3.1);
 - aceeași identitate vizuală: `booking/brand.css` se refolosește;
 - patru secțiuni: sejurul, codul, ușa (dacă pasul 0 permite), minibarul;
 - stări explicite pentru link invalid, sejur neînceput și sejur încheiat
    — fiecare cu ce trebuie să facă omul mai departe, nu doar „eroare";
-- proiect Vercel nou, subdomeniu propriu.
+- `base: "/guest/"` în configul Vite, altfel fișierele se cer de la rădăcina
+  domeniului și pagina rămâne albă;
+- token citit din fragment (`location.hash`), nu din query string;
+- în repo-ul site-ului: `Disallow: /guest/` în `app/robots.ts`, apoi
+  `npm run build` și `node scripts/publica.mjs --live`.
+  Fără proiect Vercel nou și fără subdomeniu.
 
 ### Pasul 4 — deschiderea ușii
 
