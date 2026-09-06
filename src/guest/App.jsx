@@ -11,7 +11,7 @@
  * mai des stand in fata usii, cu o mana ocupata. Deci codul si butonul de
  * deschidere sunt primele si mari; restul vine sub ele, pliat in butoane.
  */
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
   citesteSejurul, citesteCodulDeAcces, citesteMinibarul, deschideUsa,
 } from "./api.js";
@@ -19,7 +19,7 @@ import { citesteVremea } from "./vreme.js";
 import {
   TELEFON, TELEFON_SCRIS, ACASA, BUN_VENIT, IMPORTANT,
   ATRACTII, ATRACTII_PE_PAGINA, linkHarta,
-  LINK_MAPS, LINK_WAZE, ACCES_CAMERE,
+  LINK_MAPS, LINK_WAZE, ACCES_CAMERE, HARTA_INCORPORATA,
 } from "./continut.js";
 
 /* Codul se ia din fragment, nu din calea adresei.
@@ -258,10 +258,68 @@ function ContinutAcces() {
 /* Randul de sub butoane: cum ajungi la complex si, o data ajuns, cum
    gasesti camera. Sunt lucruri diferite, dar amandoua raspund la „unde
    trebuie sa merg acum", deci stau impreuna. */
+/* Inaltimea hartii se MASOARA, nu se ghiceste.
+ *
+ * Cerinta e ca tot cardul sa incapa pe primul ecran. Cat loc ramane pentru
+ * harta nu e o fractiune din inaltimea ecranului, ci exact ce nu ocupa deja
+ * ce e deasupra — iar aia variaza: un nume lung urca salutul pe doua randuri,
+ * rezervarea fara cod pregatit scoate randul „valabil pana", iar pe un telefon
+ * ingust textul butoanelor se rupe si creste grila. O valoare in svh ar fi
+ * nimerit un singur telefon si l-ar fi ratat pe urmatorul.
+ *
+ * Masuratoarea se reface si la rotirea telefonului, si cand barele browserului
+ * se ascund la derulare (`innerHeight` se schimba), si cand se schimba
+ * continutul de deasupra — de aici ResizeObserver pe pagina.
+ *
+ * Nu intra in bucla: valoarea calculata nu depinde de inaltimea paginii, ci de
+ * `innerHeight` si de pozitia cardului, iar scrierea se face doar cand
+ * rezultatul chiar difera.
+ *
+ * CSS-ul are oricum un clamp propriu — daca JS-ul asta n-ar rula deloc, harta
+ * ar avea o inaltime rezonabila, nu zero. */
+/* Pragul de jos e un compromis masurat, nu o cifra rotunda. Cu 96px cardul
+   depasea cu exact 1px pe un Android de 360x680 — cel mai strans ecran obisnuit
+   de azi. Cu 84 incape acolo, iar banda din satelit e inca destul de inalta cat
+   sa se vada drumul si complexul. Mai jos de atat harta n-ar mai spune nimic,
+   si atunci e mai cinstit sa iasa cardul putin sub pliu decat sa lasam o dunga
+   inutila. */
+const HARTA_MIN = 84;
+const HARTA_MAX = 220;
+const HARTA_AER = 6;     // cardul sa nu stea lipit de marginea de jos
+
+function useInaltimeaHartii(refCard, refHarta) {
+  useLayoutEffect(() => {
+    const potriveste = () => {
+      const card = refCard.current, harta = refHarta.current;
+      if (!card || !harta) return;
+      const susCard = card.getBoundingClientRect().top + window.scrollY;
+      const fara = card.offsetHeight - harta.offsetHeight;   // cardul fara harta
+      const liber = window.innerHeight - susCard - fara - HARTA_AER;
+      const noua = Math.round(Math.max(HARTA_MIN, Math.min(HARTA_MAX, liber)));
+      if (harta.style.height !== noua + "px") harta.style.height = noua + "px";
+    };
+
+    potriveste();
+    window.addEventListener("resize", potriveste);
+    window.addEventListener("orientationchange", potriveste);
+    const ochi = new ResizeObserver(potriveste);
+    if (refCard.current?.parentElement) ochi.observe(refCard.current.parentElement);
+    return () => {
+      window.removeEventListener("resize", potriveste);
+      window.removeEventListener("orientationchange", potriveste);
+      ochi.disconnect();
+    };
+  }, [refCard, refHarta]);
+}
+
 function CumAjungi({ deschideAcces }) {
+  const refCard = useRef(null);
+  const refHarta = useRef(null);
+  useInaltimeaHartii(refCard, refHarta);
+
   return (
-    <div className="g-card g-drum">
-      <h2>Cum ajungi</h2>
+    <div className="g-card g-drum" ref={refCard}>
+      <h2>Cum ajungi la noi</h2>
       <p className="g-legaturi">
         {/* Perechea si bara dintre ele sunt un singur element de asezare:
             altfel „/" se rupe pe rand propriu si ramane atarnata la capat,
@@ -298,6 +356,18 @@ function CumAjungi({ deschideAcces }) {
           <Usa />Acces camere
         </button>
       </p>
+      {/* Harta sub legaturi: intai butoanele cu care pornesti la drum, apoi
+          imaginea locului, pentru cine vrea sa vada unde vine. */}
+      <div className="g-harta-cadru" ref={refHarta}>
+        <iframe
+          className="g-harta-rama"
+          src={HARTA_INCORPORATA}
+          title="Harta către Complex La Livada"
+          loading="lazy"
+          referrerPolicy="no-referrer-when-downgrade"
+          allowFullScreen
+        />
+      </div>
     </div>
   );
 }

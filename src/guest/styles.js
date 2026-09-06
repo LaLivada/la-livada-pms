@@ -356,6 +356,24 @@ body{
    in plus scoate tot randul de pe o singura linie. */
 .g-sep{ color:var(--g-faint); font-size:inherit; }
 
+/* ---------- harta din cardul „cum ajungi la noi" ---------- */
+/* Inaltimea e legata de ecran, nu fixa. Cerinta e ca TOT cardul sa incapa pe
+   primul ecran al unui telefon, iar cat ramane pentru harta e exact ce nu
+   ocupa deja restul paginii — care difera de la un telefon la altul.
+   Unitatea e svh (small viewport height): inaltimea vizibila cu barele
+   browserului AFISATE, adica cel mai putin spatiu pe care il are pagina.
+   Cu vh, harta s-ar calcula pentru ecranul fara bare si ar impinge cardul sub
+   pliu exact pe telefonul unde conteaza. Marginile clamp-ului o tin utila pe
+   ecrane inalte si o strang, fara sa dispara, pe cele mici.
+   Fundalul e pus ca sa nu clipeasca alb inainte sa vina imaginea de la
+   Google — cardul e crem, un dreptunghi alb ar sari in ochi. */
+.g-harta-cadru{
+  margin-top:11px; height:clamp(104px, 19svh, 190px);
+  border-radius:11px; overflow:hidden;
+  border:1px solid var(--g-line); background:var(--beige);
+}
+.g-harta-rama{ display:block; width:100%; height:100%; border:0; }
+
 /* ---------- fereastra suprapusa ---------- */
 .g-fundal{
   position:fixed; inset:0; z-index:50;

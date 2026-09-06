@@ -44,6 +44,27 @@ export const LINK_MAPS =
 export const LINK_WAZE =
   `https://www.waze.com/ul?q=${encodeURIComponent(ADRESA)}&navigate=yes`;
 
+/* Harta din card.
+ *
+ * `t=h` inseamna HIBRID: imagine din satelit CU drumurile si numele lor peste
+ * ea. `t=k` ar da satelitul curat, frumos si inutil — cine se uita la harta
+ * vrea sa vada pe unde vine, iar de pe satelitul gol nu se citeste niciun drum.
+ *
+ * DE CE ADRESA ASTA SI NU API-UL OFICIAL. Google are un Maps Embed API
+ * documentat (maps.googleapis.com/maps/embed/v1/), dar cere o cheie. Forma de
+ * mai jos, cu `output=embed`, merge fara cheie si e cea folosita de ani de
+ * zile peste tot; in schimb nu e documentata, deci daca intr-o zi harta apare
+ * goala, aici trebuie cautat, nu in CSS. Alternativa e o cheie de la Google.
+ *
+ * Coordonatele, nu adresa scrisa: complexul e pe un drum national, iar
+ * cautarea dupa text nimerea reperul „Muntenii de Jos", la vreun kilometru.
+ *
+ * De stiut: iframe-ul incarca de la Google, deci Google vede fiecare
+ * deschidere a paginii de catre oaspete. */
+export const HARTA_INCORPORATA =
+  `https://maps.google.com/maps?q=${ACASA.lat},${ACASA.lon}` +
+  `&t=h&z=16&hl=ro&ie=UTF8&output=embed`;
+
 /* „Acces către camere" — cum se orienteaza omul in curtea interioara, dupa
    ce a ajuns la poarta.
  *

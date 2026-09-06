@@ -60,7 +60,8 @@ describe("foaia de stil, încărcată", () => {
   it("conține regulile de care depinde pagina", async () => {
     const { STILURI } = await import("./guest/styles.js");
     for (const bucata of [".g-hero", ".g-usa", ".g-cod", ".g-scurtatura",
-                          ".g-fereastra", ".g-vreme", ".g-leg", ".g-atractie"]) {
+                          ".g-fereastra", ".g-vreme", ".g-leg", ".g-atractie",
+                          ".g-harta-cadru", ".g-harta-rama"]) {
       expect(STILURI).toContain(bucata);
     }
   });
