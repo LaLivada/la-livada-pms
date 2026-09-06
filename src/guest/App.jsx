@@ -535,13 +535,20 @@ function Atractii() {
                 <img src={`/atractii/${a.foto}`} alt={a.nume}
                      width="720" height="450" loading="lazy" decoding="async" />
                 {/* Autorul si licenta nu sunt politete, sunt conditia sub
-                    care avem voie sa folosim poza. */}
-                <figcaption>
-                  foto: {a.credit.autor} ·{" "}
-                  <a href={a.credit.pagina} target="_blank" rel="noopener noreferrer">
-                    {a.credit.licenta}
-                  </a>
-                </figcaption>
+                    care avem voie sa folosim poza — de aceea pozele luate de
+                    pe Wikimedia au mereu `credit`.
+                    Pozele proprii ale pensiunii n-au: nu datoram atribuire
+                    noua insine, iar o legenda „foto: undefined" ar fi fost
+                    ceea ce apuca sa vada oaspetele. Fara garda de mai jos,
+                    `a.credit.autor` chiar arunca si cade tot panoul. */}
+                {a.credit ? (
+                  <figcaption>
+                    foto: {a.credit.autor} ·{" "}
+                    <a href={a.credit.pagina} target="_blank" rel="noopener noreferrer">
+                      {a.credit.licenta}
+                    </a>
+                  </figcaption>
+                ) : null}
               </figure>
             ) : null}
             <h3>{a.nume}</h3>

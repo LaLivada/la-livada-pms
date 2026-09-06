@@ -157,7 +157,11 @@ export const ATRACTII = [
     km: 3, minute: 5,
     text: "Colecția de bază a județului: istorie, arheologie, etnografie, artă populară și artă modernă, din antichitate până azi.",
     cauta: "Muzeul Județean Ștefan cel Mare Vaslui",
-    foto: null,
+    /* Poza vine de la pensiune, nu de pe Wikimedia — de aceea n-are `credit`.
+       Nu exista nicio fotografie liber licentiata a cladirii: cautata pe
+       Commons dupa nume, prin categoriile Vaslui si prin geosearch pe
+       coordonatele muzeului, zero rezultate. */
+    foto: "muzeuvs.jpg",
   },
   {
     cheie: "copou",
@@ -192,7 +196,9 @@ export const ATRACTII = [
        trimite pe cineva degeaba, intr-o zi in care e inchis. */
     text: "Peste 30 de dinozauri în mărime naturală, pe 2,2 hectare la marginea pădurii Crasna, cu poteci de peste 1,5 km, punți suspendate și un tunel. Deschis în 2026. Verifică programul pe Google Maps înainte să pornești.",
     cauta: "Dino Parc Moldova Secuia Vaslui",
-    foto: null,
+    /* Tot de la pensiune. Parcul s-a deschis in 2026 si nu are nicio poza
+       libera nicaieri — de asta a stat o vreme fara. */
+    foto: "dino.jpg",
   },
   {
     cheie: "solesti",
