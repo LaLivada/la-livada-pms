@@ -23,10 +23,11 @@ Documentul lăsa deschise trei întrebări. Două au primit răspuns.
 trece recepția, ca acum. Varianta cu auto-declarare din secțiunea 5.2 nu se
 face — nicio scriere pe facturare dintr-un link public.
 
-**Adresa: `lalivada.ro/guest/`, aplicația pe Vercel lângă PMS.** Cele două
-cerințe par să se bată cap în cap, fiindcă `lalivada.ro` nu e pe Vercel. Se
-împacă printr-o redirectare: linkul dat oaspetelui e cel cerut, iar aplicația
-stă unde stau celelalte două și se publică la push. Vezi 3.1.
+**Adresa: `https://guest.lalivada.ro/#Ajh6k`.** A trecut prin trei forme
+într-o zi — întâi subdomeniu, apoi `lalivada.ro/guest/Ajh6k` cu redirectare
+de pe hostingul obișnuit, în final direct pe subdomeniu, fără redirectare.
+Ultima variantă scoate din schemă tot ce ținea de repo-ul site-ului. Vezi 3.1,
+inclusiv de ce codul stă în fragment și nu în cale.
 
 **Pasul 0 e făcut: toate cele 16 butoane de deschidere merg** (verificat de
 Ovidiu, 6 septembrie 2026). Nu există camere fără gateway, deci a treia
@@ -116,75 +117,50 @@ Munca reală e în poarta de autorizare pe token și în deschiderea ușii.
 
 ---
 
-## 3.1 Unde stă `lalivada.ro/guest/`
+## 3.1 Unde stă guest app-ul și ce formă are linkul
 
-Adresa cerută schimbă livrarea, fiindcă cele trei site-uri nu stau în același
-loc:
+Unde stă fiecare lucru, fiindcă nu toate stau în același loc — și de aici a
+venit toată discuția despre forma linkului:
 
 | Adresă | Unde | Cum ajunge acolo |
 |---|---|---|
 | `pms.lalivada.ro` | Vercel | push pe `main` |
 | `rezervari.lalivada.ro` | Vercel | push pe `main` |
+| `guest.lalivada.ro` | Vercel | push pe `main` |
 | `lalivada.ro` | hosting obișnuit, `cloud608.c-f.ro` | FTPS, `node scripts/publica.mjs --live` din `lalivada-site` |
 
-`lalivada.ro` e un export static Next (`output: "export"`, `next.config.ts`),
-urcat ca fișiere. **Nu există server care să rescrie sau să facă proxy**, deci
-`lalivada.ro/guest/` nu poate fi o rescriere transparentă către Vercel.
-
-Cerința e însă dublă: adresa aceea, **și** aplicația lângă PMS, publicată la
-push. Se împacă printr-o **redirectare**, nu printr-un proxy:
+**Linkul e direct pe subdomeniu, fără redirectare** (hotărât 6 septembrie
+2026, după ce subdomeniul a fost pus în funcțiune):
 
 ```
-lalivada.ro/guest/Ajh6k
-   │  302, servit de hostingul obisnuit (.htaccess, mod_rewrite)
-   ▼
-guest.lalivada.ro/Ajh6k           ← proiect Vercel, din acest repo
+https://guest.lalivada.ro/#Ajh6k
 ```
 
-Codul stă **în cale**: `lalivada.ro/guest/Ajh6k`. Redirectarea îl duce mai
-departe, iar hostingul obișnuit are nevoie de o regulă de rescriere ca să
-prindă orice cod după `/guest/`, nu doar `/guest/` gol:
+Varianta dinainte trecea prin `lalivada.ro/guest/Ajh6k`, redirectat cu 302 de
+pe hostingul obișnuit — `lalivada.ro` e un export static Next
+(`output: "export"`), fără server care să rescrie sau să facă proxy, deci o
+rescriere transparentă n-ar fi fost posibilă oricum. Renunțarea la redirectare
+scoate din schemă tot ce ținea de celălalt repo: regula `.htaccess`,
+dependența de `mod_rewrite`, `Disallow: /guest/` în `app/robots.ts` și pasul
+manual de publicare prin FTPS. Rămâne o singură aplicație, publicată la push.
 
-```apache
-# lalivada-site/public/.htaccess
-RewriteEngine On
-RewriteRule ^guest/([A-Za-z0-9]{5})/?$ https://guest.lalivada.ro/#$1 [R=302,L,NE]
-```
+### De ce fragment, și nu `guest.lalivada.ro/Ajh6k`
 
-**Codul ajunge în fragment, nu în calea de pe Vercel** — asta s-a hotărât la
-implementare și rezolvă două lucruri deodată. Întâi, Vercel nu mai are nevoie
-de nicio rescriere SPA: el servește doar `/`, iar `guest.lalivada.ro/Ajh6k`
-n-ar fi existat ca fișier și ar fi dat 404. Apoi, codul nu mai ajunge nici în
-logurile Vercel — fragmentul nu se trimite niciodată serverului. Rămâne în
-logurile hostingului obișnuit, unde intră inevitabil, fiindcă acolo e calea.
+O cale ar arăta mai bine, dar costă mai mult decât pare. Verificat pe
+6 septembrie: `guest.lalivada.ro/Ajh6k` întoarce **404** — fișierul nu există,
+iar o aplicație de o singură pagină are nevoie de o rescriere către
+`index.html` ca să-l servească. Rescrierea aceea se scrie în `vercel.json`,
+care se citește din **rădăcina repo-ului** — adică ar fi fost citit și de
+proiectul PMS, și de cel de rezervări, transformându-le 404-urile în pagini
+de aplicație. Trei aplicații ar fi ajuns să împartă o regulă de rutare de care
+doar una are nevoie.
 
-`NE` (noescape) e obligatoriu: fără el, Apache scrie `%23` în loc de `#`, iar
-adresa devine una fără fragment.
+Fragmentul evită tot asta și mai aduce ceva: **nu se trimite niciodată
+serverului**, deci codul nu apare în logurile de acces ale Vercel. O cale ar fi
+ajuns acolo la fiecare deschidere de pagină.
 
-`mod_rewrite` e practic mereu activ pe cPanel, spre deosebire de `mod_proxy` —
-de-asta redirectare, nu proxy. **De verificat totuși la prima livrare**, plus
-că scriptul de publicare chiar urcă un fișier al cărui nume începe cu punct.
-
-**302, nu 301.** O redirectare permanentă rămâne în cache-ul browserelor
-oaspeților și nu mai poate fi schimbată dacă mutăm vreodată aplicația.
-
-Pe partea Vercel, `guest.lalivada.ro/Ajh6k` e tot o cale, deci buildul are
-nevoie de rescriere către `index.html` — altfel orice cod dă 404, fiindcă
-fișierul acela nu există.
-
-### Prețul adresei frumoase: codul intră în loguri
-
-Un cod în cale se trimite serverului, deci apare în logurile de acces — și pe
-hostingul partajat, pe care nu-l administrăm noi, și la Vercel. Varianta
-dinainte, cu tokenul în fragment (`/guest/#TOKEN`), nu avea neajunsul ăsta:
-fragmentul nu pleacă niciodată de la browser. Verificat pe 6 septembrie în
-Chromium — o redirectare 302 păstrează fragmentul intact la destinație — deci
-acela rămâne montajul de rezervă dacă se răzgândește cineva.
-
-Ce ține riscul în frâu, cu codul în cale: linkul e mort în afara sejurului
-(4.2). Un cod scurs dintr-un log e, peste câteva zile, un șir fără nicio
-putere. Asta nu-l face inofensiv cât ține sejurul — dar mută problema din
-„pentru totdeauna" în „câteva zile".
+Ce rămâne adevărat în ambele variante: linkul e mort în afara sejurului (4.2),
+deci un cod scurs e, peste câteva zile, un șir fără nicio putere.
 
 ### De ce subdomeniu propriu, nu `pms.lalivada.ro/guest/`
 
@@ -201,31 +177,16 @@ repo.
 
 ### Ce presupune concret
 
-În acest repo:
+Totul în acest repo, nimic în `lalivada-site`:
 
-- `vite.guest.config.js` + `src/guest/`, pe tiparul booking-ului;
+- `vite.guest.config.js` + `guest/` + `src/guest/` + `public-guest/`, pe
+  tiparul booking-ului;
 - `public-guest/robots.txt` cu `Disallow: /`, plus `noindex` în pagină;
-- proiect Vercel nou pe `dist-guest/`, subdomeniu `guest.lalivada.ro`.
+- proiect Vercel pe `dist-guest/`, subdomeniu `guest.lalivada.ro`.
 
-În `lalivada-site`, o singură dată — un fișier de trei rânduri, pe modelul lui
-`public/statistici/index.php` care e deja acolo:
-
-```php
-<?php // public/guest/index.php
-header("Location: https://guest.lalivada.ro/", true, 302);
-exit;
-```
-
-**302, nu 301.** O redirectare permanentă rămâne în cache-ul browserelor
-oaspeților și nu mai poate fi schimbată dacă mutăm vreodată aplicația.
-
-Plus `Disallow: /guest/` în `app/robots.ts`, lângă `/statistici/`: un link de
-cazare ajuns în index e un link public către o ușă, iar aici se blochează chiar
-adresa pe care o vede lumea.
-
-**Ce cere de la tine:** un record DNS pentru `guest.lalivada.ro` și proiectul
-Vercel. Redirectul se publică o singură dată, apoi nu se mai atinge — după
-aceea guest app-ul se livrează la push, ca PMS-ul.
+Făcut pe 6 septembrie 2026: proiectul `la-livada-guest` și CNAME-ul către
+`0239bd290b77e1f2.vercel-dns-017.com`. De atunci se livrează la push, ca
+PMS-ul.
 
 ---
 
@@ -236,7 +197,7 @@ Partea cea mai delicată: un link care deschide o ușă.
 ### 4.1 Codul de cinci caractere
 
 Coloană nouă pe `reservations`, cu un cod scurt aleatoriu din cele 62 de
-litere și cifre — forma cerută, `lalivada.ro/guest/Ajh6k`:
+litere și cifre — forma cerută, `guest.lalivada.ro/#Ajh6k`:
 
 ```sql
 alter table reservations add column guest_code text unique;
@@ -283,7 +244,7 @@ Deci, ca cerință fermă, nu ca recomandare: **guest app-ul nu se livrează fă
 plafonul global de căutări eșuate.** Dacă la implementare se dovedește că
 plafonul nu se poate face cum trebuie, se mărește codul la opt caractere
 (62^8 = 218.000 de miliarde, adică de 238.000 de ori mai mult) — aceeași formă
-de link, `lalivada.ro/guest/Ajh6k2Qw`, doar puțin mai lung.
+de link, `guest.lalivada.ro/#Ajh6k2Qw`, doar puțin mai lung.
 
 #### Generarea
 
@@ -382,15 +343,18 @@ contează.
 Un link de cazare ajuns în index e un link public către o ușă, deci pagina
 se ține în afara motoarelor de căutare, ca PMS-ul.
 
-Cum se face depinde de unde stă, iar asta s-a hotărât între timp (3.1):
-fiind sub `lalivada.ro`, robots.txt e unul singur, al domeniului, generat din
-`app/robots.ts` în repo-ul site-ului. Acolo se adaugă `Disallow: /guest/`,
-lângă `/statistici/` care e deja acolo. `<meta name="robots" content="noindex">`
-rămâne în pagina însăși, ca plasă.
+Stând pe subdomeniu propriu (3.1), are și robots.txt propriu:
+`public-guest/robots.txt` cu `Disallow: /`, pe modelul folderului public
+separat de la booking ([vite.booking.config.js](../vite.booking.config.js)).
+`<meta name="robots" content="noindex, nofollow, noarchive, nosnippet">` stă
+și în pagină, ca plasă pentru crawlerele care ignoră fișierul.
 
-(Varianta inițială — `public-guest/robots.txt` propriu, pe modelul
-[vite.booking.config.js](../vite.booking.config.js) — ar fi fost calea dacă
-guest app-ul primea subdomeniu propriu. Nu mai e cazul.)
+Pagina n-are nici `og:*`, dinadins: un link trimis pe WhatsApp n-are ce
+previzualizare să genereze, deci nu poate arăta cine stă în cameră înainte ca
+cineva să-l deschidă. Plus `referrer: no-referrer`, ca fragmentul cu codul să
+nu plece mai departe la vreun click.
+
+Verificat pe producție, 6 septembrie: `robots.txt` întoarce `Disallow: /`.
 
 ---
 
@@ -578,9 +542,13 @@ cu motivul ei:
 - secțiunea de minibar lipsește de pe ecran cât timp meniul e gol, în loc să
   arate un titlu urmat de nimic.
 
-Rămâne de făcut, în repo-ul site-ului, o singură dată: regula de rescriere
-din 3.1 și `Disallow: /guest/` în `app/robots.ts`, apoi `npm run build` și
-`node scripts/publica.mjs --live`.
+În repo-ul site-ului nu mai e nimic de făcut: linkul e direct pe subdomeniu,
+fără redirectare (3.1). Indexarea e oprită din `public-guest/robots.txt` și
+din `noindex` în pagină, amândouă pe subdomeniu.
+
+Livrat pe `guest.lalivada.ro` în aceeași zi. Verificat pe producție cu un cod
+real: pagina arată sejurul și codul de acces, `robots.txt` întoarce
+`Disallow: /`, iar consola e curată.
 
 ### Pasul 4 — deschiderea ușii
 
