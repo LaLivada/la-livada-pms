@@ -553,8 +553,9 @@ export default function App() {
   return (
     <div className="g-pagina">
       <div className="g-salut">
-        <div className="g-salut-text">
-          <p className="g-salut-ora">{salut(new Date().getHours())}</p>
+        <p className="g-salut-ora">{salut(new Date().getHours())}</p>
+        {/* Numele si sigla pe acelasi rand, centrate unul pe altul. */}
+        <div className="g-salut-rand">
           {/* Spatiu neintrerupt inaintea emoji-ului: cu unul obisnuit, pe un
               telefon de 320px mana ramanea singura pe randul urmator, ca o
               greseala. Asa, ori sta langa ultimul cuvant, ori coboara
@@ -563,17 +564,15 @@ export default function App() {
             {sejur.guestName || "bun venit"}{"\u00A0"}
             <span className="g-mana" role="img" aria-label="salut">👋</span>
           </h1>
-        </div>
-        {/* Sigla si vremea, una sub alta. Fisierul e chiar cel folosit de
+          {/* Fisierul siglei e chiar cel folosit de
             rezervari.lalivada.ro — aceeasi marca, nu o refacere. */}
-        <div className="g-marca">
           <a className="g-emblema" href="https://lalivada.ro"
              target="_blank" rel="noopener noreferrer">
             <img src="/brand/livada-text.svg" alt="Complex La Livada"
                  width="132" height="33" />
           </a>
-          <Vremea />
         </div>
+        <Vremea />
       </div>
 
       <div className="g-hero">

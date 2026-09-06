@@ -50,15 +50,21 @@ body{
 }
 
 /* ---------- salutul ---------- */
-/* Aliniate sus, nu la mijloc: coloana din dreapta (sigla plus vremea) e mai
-   inalta decat salutul, iar centrarea impingea salutul in jos cu vreo sase
-   pixeli fata de sigla — destul cat sa para nepotrivit, prea putin cat sa
-   se vada de ce. */
-.g-salut{ display:flex; align-items:flex-start; gap:10px; }
-.g-salut-text{ min-width:0; flex:1; }
+/* Trei etaje, unul sub altul: ora zilei, apoi randul cu numele si sigla,
+   apoi vremea.
+   Sigla sta pe ACELASI rand cu numele si centrata pe el — nu langa blocul
+   intreg de text, unde se alinia cu „buna dimineata" si parea agatata de
+   randul gresit. */
+.g-salut{ display:flex; flex-direction:column; gap:7px; }
 .g-salut-ora{ margin:0; font-size:15px; color:var(--g-muted); }
+
+/* space-between tine sigla lipita de marginea din dreapta indiferent cat de
+   scurt e numele; align-items center e chiar alinierea ceruta. */
+.g-salut-rand{
+  display:flex; align-items:center; justify-content:space-between; gap:10px;
+}
 .g-salut-nume{
-  margin:1px 0 0; font-family:var(--editorial); font-weight:400;
+  margin:0; min-width:0; font-family:var(--editorial); font-weight:400;
   font-size:25px; line-height:1.15;
   /* Numele unui grup poate fi lung. Se rupe pe doua randuri si abia apoi
      se taie — pe langa vreme si emblema a mai ramas putina latime, iar un
@@ -68,27 +74,23 @@ body{
 }
 .g-mana{ font-family:var(--ui); font-size:19px; }
 
-/* Sigla si, sub ea, localitatea cu vremea. Coloana are latime fixa: altfel
-   temperatura care trece de la „9°" la „-12°" ar muta sigla in fiecare
-   dimineata de iarna. */
-.g-marca{
-  flex-shrink:0; display:flex; flex-direction:column;
-  align-items:flex-end; gap:7px; width:132px;
-}
-.g-emblema{ display:block; }
+/* Latime fixa, nu procentuala: sigla e un desen cu litere, iar daca s-ar
+   intinde dupa cat de lung e numele ar arata altfel la fiecare oaspete. */
+.g-emblema{ display:block; flex-shrink:0; width:132px; }
 .g-emblema img{ display:block; width:100%; height:auto; }
 /* Pe telefoanele mici sigla se strange, ca sa nu manance latimea numelui.
    Sub 108px cuvintele „LA LIVADĂ" incep sa se inchida, deci acolo se
    opreste. */
 @media (max-width: 359px){
-  .g-marca{ width:108px; }
+  .g-emblema{ width:108px; }
   .g-salut-nume{ font-size:23px; }
 }
 
 /* ---------- vremea ---------- */
-/* Localitatea si temperatura pe acelasi rand, sub sigla. Randul nu se rupe
-   niciodata (white-space:nowrap): altfel „Vaslui" ramane singur deasupra si
-   arata ca doua lucruri fara legatura. */
+/* Localitatea si temperatura pe acelasi rand, sub randul cu numele si sigla,
+   aliniate la dreapta ca sa cada sub sigla. Randul nu se rupe niciodata
+   (white-space:nowrap): altfel „Vaslui" ramane singur deasupra si arata ca
+   doua lucruri fara legatura. */
 .g-vreme{
   margin:0; display:flex; align-items:center; justify-content:flex-end; gap:6px;
   line-height:1.25; white-space:nowrap;
