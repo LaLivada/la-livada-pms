@@ -37,3 +37,23 @@ async function rpc(nume, parametri) {
 export const citesteSejurul = (cod) => rpc("guest_stay_by_cod", { p_cod: cod });
 export const citesteCodulDeAcces = (cod) => rpc("guest_access_code_by_cod", { p_cod: cod });
 export const citesteMinibarul = () => rpc("guest_minibar", {});
+
+/* Deschiderea usii nu e un RPC, ci o functie edge: ea vorbeste cu yala,
+   ceea ce PostgreSQL n-are cum sa faca. Autorizarea sta tot in baza —
+   functia cheama `guest_poate_deschide` inainte sa atinga incuietoarea.
+ *
+ * Aici nu se arunca la raspuns de eroare, ca la `rpc`: serverul intoarce
+ * 403 cu un motiv anume („sejurul n-a inceput", „prea multe incercari"),
+ * iar mesajul ala trebuie sa ajunga la om. O exceptie l-ar fi inlocuit cu
+ * un „ceva n-a mers" generic, exact cand explicatia conteaza mai mult. */
+export async function deschideUsa(cod) {
+  const raspuns = await fetch(`${URL_BAZA}/functions/v1/guest-unlock`, {
+    method: "POST",
+    headers: { apikey: CHEIE, "Content-Type": "application/json" },
+    body: JSON.stringify({ cod }),
+  });
+  let corp = null;
+  try { corp = await raspuns.json(); } catch { /* raspuns fara corp */ }
+  if (corp?.ok) return { ok: true };
+  return { ok: false, mesaj: corp?.error || "Ușa n-a răspuns. Mai încearcă o dată." };
+}

@@ -1,124 +1,206 @@
 /* Stiluri pentru pagina oaspetelui.
  *
- * Aceleasi jetoane ca la booking (src/booking/styles.js) si ca pe
- * lalivada.ro, ca sa fie evident ca e aceeasi casa. Diferenta de fond e ca
- * pagina asta se deschide aproape numai pe telefon, adesea in fata usii,
- * uneori pe intuneric: de-aceea codul de acces e mare, contrastat si
- * singur pe rand, iar restul sta in jurul lui.
+ * Culorile si fonturile sunt luate din lalivada.ro, nu apropiate de ele:
+ * aceleasi valori din booking/brand.css, care e la randul lui portat din
+ * site. Ivory pentru fundal, charcoal pentru cardul principal, champagne
+ * pentru butonul din el — exact rolurile pe care le au si acolo.
+ *
+ * Asezarea urmeaza macheta ceruta: salut cu emblema in dreapta, un card
+ * inchis la culoare care tine lucrul cel mai important, un rand de butoane
+ * si abia apoi restul.
+ *
+ * Diferenta de fond fata de restul aplicatiilor: pagina asta se deschide
+ * aproape numai pe telefon, adesea in fata usii, uneori pe intuneric. De
+ * aceea codul si butonul de deschidere stau primele si sunt mari.
  */
 /* ATENTIE: tot ce urmeaza e un template literal. Fara backticks in
    comentariile CSS — inchid sirul, iar build-ul cade cu un mesaj despre
    punct si virgula lipsa, care nu trimite deloc la cauza reala. */
 export const STILURI = `
 :root{
-  --g-ink:#22221f;
-  --g-muted:rgba(34,34,31,.68);
-  --g-faint:rgba(34,34,31,.45);
-  --g-line:rgba(63,74,61,.2);
-  --g-surface:#ffffff;
-  --g-fundal:#f4f2ec;
-  --g-accent:#3f4a3d;
-  --g-accent-soft:rgba(63,74,61,.09);
-  --g-danger:#a33a2f;
-  --g-radius:10px;
+  /* Jetoanele de pe lalivada.ro (booking/brand.css). */
+  --ivory:#f5f1e8;
+  --beige:#e7dfd1;
+  --olive:#3f4a3d;
+  --olive-deep:#333d31;
+  --charcoal:#22221f;
+  --champagne:#c8b18a;
+
+  --ui:"Manrope",system-ui,-apple-system,sans-serif;
+  --editorial:"Instrument Serif","Iowan Old Style",Georgia,serif;
+
+  --g-text:#22221f;
+  --g-muted:rgba(34,34,31,.62);
+  --g-faint:rgba(34,34,31,.42);
+  --g-line:rgba(63,74,61,.16);
+  --g-hair:rgba(63,74,61,.09);
+  --g-card:#fffdf8;
+  --g-radius:18px;
 }
 *,*::before,*::after{ box-sizing:border-box; }
 body{
-  margin:0; background:var(--g-fundal); color:var(--g-ink);
-  font-family:'Manrope',system-ui,-apple-system,sans-serif;
-  line-height:1.55; -webkit-text-size-adjust:100%;
+  margin:0; background:var(--ivory); color:var(--g-text);
+  font-family:var(--ui); line-height:1.55;
+  -webkit-font-smoothing:antialiased; -webkit-text-size-adjust:100%;
 }
 .g-pagina{
-  max-width:520px; margin:0 auto;
-  padding:24px 16px calc(40px + env(safe-area-inset-bottom));
-  display:grid; gap:14px;
+  max-width:480px; margin:0 auto;
+  padding:22px 18px calc(36px + env(safe-area-inset-bottom));
+  display:grid; gap:16px;
 }
 
-.g-cap{ text-align:center; margin-bottom:2px; }
-.g-cap h1{
-  font-family:'Instrument Serif',Georgia,serif; font-weight:400;
-  font-size:30px; line-height:1.15; margin:0 0 4px;
+/* ---------- salutul ---------- */
+.g-salut{ display:flex; align-items:center; gap:14px; }
+.g-salut-text{ min-width:0; flex:1; }
+.g-salut-ora{ margin:0; font-size:15px; color:var(--g-muted); }
+.g-salut-nume{
+  margin:1px 0 0; font-family:var(--editorial); font-weight:400;
+  font-size:26px; line-height:1.15;
+  /* Numele unui grup poate fi lung; se taie, nu impinge emblema afara. */
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
 }
-.g-cap p{ margin:0; color:var(--g-muted); font-size:14px; }
+.g-emblema{
+  width:48px; height:48px; border-radius:50%; flex-shrink:0;
+  background:var(--g-card); border:1px solid var(--g-line);
+  display:flex; align-items:center; justify-content:center; overflow:hidden;
+}
+.g-emblema img{ width:34px; height:34px; object-fit:contain; }
 
-.g-card{
-  background:var(--g-surface); border:1px solid var(--g-line);
-  border-radius:var(--g-radius); padding:18px;
+/* ---------- cardul inchis: codul si usa ---------- */
+/* Culorile de aici sunt scrise ca valori, nu ca jetoane, si e intentionat.
+   Cardul e inchis la culoare in ambele teme — asta e decizia de design —
+   iar --ivory / --charcoal se inverseaza in blocul de mai jos. Luat din
+   jetoane, textul ar fi devenit aproape negru pe fond negru cand telefonul
+   e pe tema intunecata. */
+.g-hero{
+  background:#22221f; color:#f5f1e8;
+  border-radius:var(--g-radius); padding:20px 20px 18px;
 }
-.g-card h2{
-  font-size:12px; font-weight:600; letter-spacing:.08em; text-transform:uppercase;
-  color:var(--g-faint); margin:0 0 12px;
+.g-hero-camera{
+  margin:0 0 14px; font-size:13.5px; color:rgba(245,241,232,.66);
 }
-
+.g-eticheta{
+  margin:0; font-size:11px; font-weight:600; letter-spacing:.12em;
+  text-transform:uppercase; color:rgba(245,241,232,.55);
+}
 /* Codul: singurul lucru de pe pagina care se citeste de la un metru, cu o
    mana pe clanta. Cifre monospatiate si distantate, ca 8 si 0 sa nu se
-   confunde la lumina slaba a unei terase. */
+   confunde la lumina slaba a unei terase. Doar fonturi de sistem — un al
+   treilea font, cerut pentru patru cifre, ar fi inca o descarcare inainte
+   ca omul sa vada codul. */
 .g-cod{
-  /* Doar fonturi de sistem. Pagina incarca Instrument Serif si Manrope; un
-     al treilea font, cerut pentru patru cifre, ar fi inca o descarcare
-     inainte ca omul sa vada codul. Iar numit fara sa fie incarcat, ar fi
-     aratat altfel pe calculatoarele care il au instalat local decat pe
-     restul. */
   font-family:ui-monospace,'SF Mono',Menlo,Consolas,monospace;
-  font-size:44px; font-weight:600; letter-spacing:.14em;
-  text-align:center; margin:2px 0 10px; color:var(--g-accent);
-  /* Codul se tine minte sau se copiaza; nu e text de selectat din greseala
-     la primul tap, dar trebuie sa poata fi selectat deliberat. */
+  font-size:46px; font-weight:600; letter-spacing:.16em;
+  margin:6px 0 5px; line-height:1.1;
   user-select:all; -webkit-user-select:all;
 }
-.g-cod-valabil{ text-align:center; font-size:13px; color:var(--g-muted); margin:0; }
-.g-cod-valabil b{ color:var(--g-ink); font-weight:600; }
-.g-cod-lipsa{
-  text-align:center; color:var(--g-muted); font-size:14px; margin:0;
-  padding:10px 0;
-}
+.g-valabil{ margin:0; font-size:13px; color:rgba(245,241,232,.62); }
+.g-valabil b{ color:var(--ivory); font-weight:600; }
+.g-cod-lipsa{ margin:8px 0 0; font-size:14px; color:rgba(245,241,232,.75); }
 
+.g-usa{
+  margin-top:18px; width:100%; border:0; border-radius:12px;
+  background:var(--champagne); color:var(--charcoal);
+  font:inherit; font-size:16px; font-weight:600;
+  padding:15px 18px; cursor:pointer;
+  display:flex; align-items:center; justify-content:center; gap:9px;
+  touch-action:manipulation;
+}
+.g-usa:disabled{ opacity:.5; cursor:default; }
+.g-usa svg{ width:19px; height:19px; stroke:currentColor; fill:none;
+  stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
+.g-usa-stare{
+  margin:10px 0 0; font-size:13.5px; text-align:center;
+  color:rgba(245,241,232,.72); min-height:1.3em;
+}
+.g-usa-stare[data-fel="bine"]{ color:var(--champagne); font-weight:600; }
+.g-usa-stare[data-fel="rau"]{ color:#eeb0a4; }
+
+/* ---------- cele patru butoane ---------- */
+/* Doua pe rand, nu patru: pe un telefon de 320px patru coloane lasa sub
+   65px de eticheta, iar „Bun venit" s-ar rupe in doua randuri. */
+.g-scurtaturi{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+.g-scurtatura{
+  background:var(--g-card); border:1px solid var(--g-line);
+  border-radius:14px; padding:13px 14px; cursor:pointer;
+  font:inherit; color:var(--g-text); text-align:left;
+  display:flex; align-items:center; gap:10px;
+  touch-action:manipulation;
+}
+.g-scurtatura[aria-expanded="true"]{
+  background:var(--beige); border-color:rgba(63,74,61,.35);
+}
+.g-scurtatura svg{
+  width:21px; height:21px; flex-shrink:0;
+  stroke:var(--olive); fill:none;
+  stroke-width:1.6; stroke-linecap:round; stroke-linejoin:round;
+}
+.g-scurtatura span{ font-size:14px; font-weight:500; }
+
+/* ---------- carduri ---------- */
+.g-card{
+  background:var(--g-card); border:1px solid var(--g-line);
+  border-radius:var(--g-radius); padding:17px 18px;
+}
+.g-card h2{
+  font-size:11px; font-weight:600; letter-spacing:.12em; text-transform:uppercase;
+  color:var(--g-faint); margin:0 0 12px;
+}
 .g-rand{
   display:flex; justify-content:space-between; gap:12px;
-  padding:7px 0; border-top:1px solid rgba(63,74,61,.1);
+  padding:7px 0; border-top:1px solid var(--g-hair);
 }
-.g-rand:first-of-type{ border-top:0; padding-top:0; }
+.g-rand:first-child{ border-top:0; padding-top:0; }
 .g-rand dt{ color:var(--g-muted); font-size:14px; margin:0; }
 .g-rand dd{ margin:0; font-weight:600; font-size:14px; text-align:right; }
 .g-lista{ margin:0; }
 
-.g-minibar{ display:grid; gap:0; }
 .g-produs{
   display:flex; justify-content:space-between; align-items:baseline; gap:12px;
-  padding:9px 0; border-top:1px solid rgba(63,74,61,.1);
+  padding:9px 0; border-top:1px solid var(--g-hair);
 }
 .g-produs:first-child{ border-top:0; padding-top:0; }
-.g-produs-nume{ font-weight:500; }
-.g-produs-desc{ display:block; font-size:13px; color:var(--g-muted); font-weight:400; }
+.g-produs-desc{ display:block; font-size:13px; color:var(--g-muted); }
 .g-produs-pret{ white-space:nowrap; font-variant-numeric:tabular-nums; font-weight:600; }
 
-.g-gol{ color:var(--g-muted); font-size:14px; margin:0; }
-
-/* Ecranele de refuz. Nu doar „eroare": fiecare spune ce s-a intamplat si
-   ce are omul de facut mai departe, fiindca el sta undeva cu telefonul in
-   mana si nu are de unde sti daca a gresit el ceva. */
-.g-mesaj{ text-align:center; padding:26px 18px; }
-.g-mesaj h1{
-  font-family:'Instrument Serif',Georgia,serif; font-weight:400;
-  font-size:26px; margin:0 0 8px;
+.g-intro{
+  margin:0 0 12px; font-family:var(--editorial); font-size:19px;
+  line-height:1.4;
 }
-.g-mesaj p{ margin:0 0 16px; color:var(--g-muted); }
+.g-puncte{ margin:0; padding:0; list-style:none; }
+.g-puncte li{
+  padding:9px 0; border-top:1px solid var(--g-hair); font-size:14px;
+}
+.g-puncte li:first-child{ border-top:0; padding-top:0; }
+.g-puncte b{ font-weight:600; }
+.g-nota{ margin:12px 0 0; font-size:13px; color:var(--g-muted); }
+.g-gol{ margin:0; font-size:14px; color:var(--g-muted); }
+
+/* ---------- ecranele de refuz ---------- */
+.g-mesaj{ text-align:center; padding:28px 20px; }
+.g-mesaj h1{
+  font-family:var(--editorial); font-weight:400; font-size:26px; margin:0 0 8px;
+}
+.g-mesaj p{ margin:0 0 18px; color:var(--g-muted); }
 .g-buton{
-  display:inline-block; background:var(--g-accent); color:#fff;
-  text-decoration:none; padding:12px 20px; border-radius:8px;
+  display:inline-block; background:var(--olive); color:var(--ivory);
+  text-decoration:none; padding:12px 22px; border-radius:12px;
   font-weight:600; font-size:15px;
 }
-.g-subsol{
-  text-align:center; font-size:13px; color:var(--g-faint); margin:4px 0 0;
-}
+.g-subsol{ text-align:center; font-size:13px; color:var(--g-faint); margin:2px 0 0; }
 .g-subsol a{ color:var(--g-muted); }
 
 @media (prefers-color-scheme: dark){
   :root{
-    --g-ink:#ece9e2; --g-muted:rgba(236,233,226,.7); --g-faint:rgba(236,233,226,.45);
-    --g-line:rgba(236,233,226,.16); --g-surface:#1d211c; --g-fundal:#141712;
-    --g-accent:#a9bfa1; --g-accent-soft:rgba(169,191,161,.12);
+    --ivory:#15170f; --beige:#2a2e22; --g-card:#1d2018;
+    --g-text:#ece9e2;
+    --g-muted:rgba(236,233,226,.66); --g-faint:rgba(236,233,226,.42);
+    --g-line:rgba(236,233,226,.14); --g-hair:rgba(236,233,226,.09);
   }
-  .g-buton{ color:#141712; }
+  /* Cardul principal ramane inchis pe fond inchis — se desparte prin
+     conturul de accent, nu prin contrast de luminozitate. */
+  .g-hero{ background:#0e100a; border:1px solid rgba(200,177,138,.22); }
+  .g-scurtatura svg{ stroke:var(--champagne); }
+  .g-buton{ background:var(--champagne); color:#15170f; }
 }
 `;

@@ -550,15 +550,93 @@ Livrat pe `guest.lalivada.ro` în aceeași zi. Verificat pe producție cu un cod
 real: pagina arată sejurul și codul de acces, `robots.txt` întoarce
 `Disallow: /`, iar consola e curată.
 
-### Pasul 4 — deschiderea ușii
+### Pasul 4 — deschiderea ușii ✅ făcut (6 septembrie 2026)
 
-- funcția edge `guest-unlock`, deployată `--no-verify-jwt` (ca
-  `ical-feed`), fiindcă cererea nu poartă JWT;
-- limitare de rată (4.4);
-- scriere în `access_audit` cu actor de tip oaspete (4.5);
-- în interfață: confirmare înainte de apăsare și stare de așteptare —
-  deschiderea prin gateway nu e instantanee, iar un buton care pare mort
-  se apasă de cinci ori.
+Livrat împreună cu redesenarea paginii, cerută în aceeași zi.
+
+**Poarta, în bază** — `guest_poate_deschide(p_cod, p_ip)`, peste
+`guest_poarta`, plus tabelul `guest_unlock_attempts`:
+
+- 10 deschideri pe oră per rezervare, 30 pe oră per adresă IP;
+- **contorizarea se face înainte de a atinge yala.** O deschidere care
+  eșuează la furnizor tot a costat o încercare; dacă s-ar număra doar
+  reușitele, cine dă de un TTLock căzut ar putea apăsa la nesfârșit;
+- camera fără yala asociată primește motivul separat `fara-yala`, nu un
+  refuz: e configurare lipsă, nu o încercare de ocolire;
+- funcția e revocată de la `public, anon, authenticated`. O cheamă doar
+  funcția edge, cu cheia de serviciu.
+
+**Funcția edge** — `supabase/functions/guest-unlock`, deployată
+`--no-verify-jwt`, funcție separată de `access-provider`. Motivul stă scris
+în capul fișierului: `access-provider` pornește cu o gardă care cere JWT de
+personal, iar ca să accepte și coduri de oaspete ar fi trebuit să țină două
+modele de autorizare în același fișier de ~600 de linii, unde o ramificație
+greșită de mâine dă unui oaspete acțiunile de admin — inclusiv
+`passage-mode-set`, care lasă ușa descuiată la nesfârșit. Adaptoarele TTLock
+**nu** sunt copiate, ci importate din `access-provider/providers/`.
+
+IP-ul se ia din `x-forwarded-for`, nu din corpul cererii: altfel plafonul pe
+IP s-ar ocoli trimițând altă valoare la fiecare apăsare. În `access_audit`
+se scrie cu `actor = "oaspete (<reservationId>)"`. Înapoi la pagină pleacă
+doar `{ok:true}` — nici `lockId`, nici `roomId`.
+
+**În interfață**, o abatere de la planul de mai sus: **fără confirmare
+înainte de apăsare.** Un pas în plus între om și ușă costă exact acolo unde
+pagina se folosește — în fața ușii, cu o mână ocupată — iar apăsarea nu e
+distructivă: deschide o ușă la care oaspetele are oricum drept. Ce s-a
+păstrat e restul: stare de așteptare („Se deschide…"), butonul blocat șase
+secunde după reușită (yala are nevoie de o clipă, iar cine nu aude clicul
+apasă din nou și-și consumă plafonul degeaba) și mesajul serverului afișat
+ca atare, nu înlocuit cu un „ceva n-a mers" generic.
+
+**Verificat** pe funcția deployată, pe cele patru căi de refuz — cod
+inventat, sejur neînceput, sejur încheiat, cerere fără cod — toate `403` cu
+motivul și mesajul corecte. Calea de succes **nu** e testată de mine și nu
+va fi: poarta cere `status = 'checkedin'`, deci fiecare reușită deschide o
+cameră cu oaspeți în ea. În pagină, ambele ramuri (reușită și refuz) sunt
+verificate cu `fetch` interceptat în browser, fără ca vreo cerere să
+plece — s-a confirmat adresa, metoda, codul în corp (nu în URL) și textul
+afișat.
+
+### Pasul 4b — designul paginii ✅ făcut (6 septembrie 2026)
+
+Cerut pe baza unei machete de referință, cu culorile și fonturile de pe
+lalivada.ro:
+
+- **jetoanele sunt cele reale**, copiate din `booking/brand.css`: ivory
+  `#f5f1e8` pe fundal, charcoal `#22221f` pentru cardul principal, champagne
+  `#c8b18a` pentru butonul de ușă, Manrope pentru interfață și Instrument
+  Serif pentru nume;
+- **salut după ceasul telefonului** („Bună dimineața / ziua / seara"), nu
+  după al serverului: oaspetele și casa sunt în același fus;
+- **emblema** din macheta de referință e favicon-ul (`/brand/favicon.png`);
+- **cardul închis** ține tot ce se citește în fața ușii: camera, codul mare
+  și monospațiat, valabilitatea și butonul de deschidere;
+- **patru butoane** — Bun venit, Important, Minibar, Atracții — care deschid
+  câte un panou, unul singur o dată. Patru panouri desfăcute simultan ar
+  împinge codul sub linia ecranului, adică fix lucrul după care s-a intrat
+  în pagină. Două pe rând, nu patru: pe un telefon de 320px patru coloane
+  lasă sub 65px de etichetă, iar „Bun venit" s-ar rupe în două rânduri;
+- **culorile cardului închis sunt scrise ca valori, nu ca jetoane.** Cardul
+  e închis în ambele teme — asta e decizia de design — iar `--ivory` și
+  `--charcoal` se inversează în blocul pentru tema întunecată. Luat din
+  jetoane, textul devenea aproape negru pe fond negru când telefonul e pe
+  temă întunecată. Prins la verificare, nu la scriere.
+
+**Conținutul redacțional stă în `src/guest/continut.js`**, separat de
+interfață, ca să poată fi schimbat fără să deschizi un fișier de React.
+Ce depinde de rezervare — ora de plecare, valabilitatea codului — **nu** e
+acolo: vine din bază, pentru fiecare sejur în parte. Scris de mână ar fi
+fost corect până la prima excepție și greșit după.
+
+**Ce lipsește din conținut și nu inventez:** lista de atracții din zonă e
+goală, iar „Important" are doar punctele care se pot deduce din datele
+proprietății (plecarea, valabilitatea codului, ce faci dacă ușa nu se
+deschide). Fumatul, animalele de companie, ora de liniște și accesul în
+zonele comune se adaugă când sunt confirmate. Minibarul e gol cât timp
+niciun produs nu e marcat `public_visible` în PMS. Butoanele rămân, dar
+panourile spun cinstit de ce n-au ce arăta — un panou gol ar părea o eroare
+de încărcare.
 
 ### Pasul 5 — livrarea linkului către oaspete
 
