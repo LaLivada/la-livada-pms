@@ -558,7 +558,11 @@ export default function App() {
   return (
     <div className="g-pagina">
       <div className="g-salut">
-        <p className="g-salut-ora">{salut(new Date().getHours())}</p>
+        {/* Ora zilei la stanga, vremea la dreapta — deasupra siglei. */}
+        <div className="g-salut-sus">
+          <p className="g-salut-ora">{salut(new Date().getHours())}</p>
+          <Vremea />
+        </div>
         {/* Numele si sigla pe acelasi rand, centrate unul pe altul. */}
         <div className="g-salut-rand">
           {/* Spatiu neintrerupt inaintea emoji-ului: cu unul obisnuit, pe un
@@ -577,7 +581,6 @@ export default function App() {
                  width="132" height="33" />
           </a>
         </div>
-        <Vremea />
       </div>
 
       <div className="g-hero">

@@ -56,6 +56,15 @@ body{
    intreg de text, unde se alinia cu „buna dimineata" si parea agatata de
    randul gresit. */
 .g-salut{ display:flex; flex-direction:column; gap:7px; }
+/* Ora zilei la stanga, vremea la dreapta, deasupra siglei.
+   Aliniate la INCEPUT, nu la mijloc: sigla de sub ele urca 11px in banda asta
+   (vezi marginea negativa de la .g-salut-rand), deci vremea trebuie tinuta cat
+   mai sus ca sa nu intre peste ea. Randul e inalt cat ora zilei, care e mai
+   inalta decat vremea — asa adaugarea vremii nu misca nimic dedesubt. */
+.g-salut-sus{
+  display:flex; align-items:flex-start; justify-content:space-between;
+  gap:10px;
+}
 .g-salut-ora{ margin:0; font-size:15px; color:var(--g-muted); }
 
 /* space-between tine sigla lipita de marginea din dreapta indiferent cat de
@@ -110,13 +119,14 @@ body{
    (white-space:nowrap): altfel „Vaslui" ramane singur deasupra si arata ca
    doua lucruri fara legatura. */
 .g-vreme{
-  /* Marginea negativa o ridica fix sub sigla. Randul de deasupra e inalt cat
-     cutia numelui, care coboara sub linia de baza cu coada lui ț — iar sigla
-     se opreste chiar pe linia aia. Fara corectie, vremea statea la 7px sub
-     coada, nu sub sigla, si parea desprinsa de ea.
-     Nu se ciocnesc: vremea e aliniata la dreapta, sub sigla, iar numele
-     ramane in stanga si nu trece niciodata pe sub ea. */
-  margin:-7px 0 0; display:flex; align-items:center; justify-content:flex-end;
+  /* Ridicata deasupra salutului, in marginea de sus a paginii — singurul loc
+     liber. Pagina are 22px de padding sus; -16 lasa vremea sa inceapa la 6px
+     de marginea de sus, adica intreaga deasupra literelor din „buna seara".
+     Nu misca nimic: intr-un rand flex cu align-items:flex-start, marginea
+     negativa micsoreaza cutia exterioara a elementului, deci inaltimea
+     randului ramane data de ora zilei, care e mai inalta. Verificat — sigla,
+     numele si cardul stau la acelasi pixel ca inainte. */
+  margin:-16px 0 0; display:flex; align-items:center; justify-content:flex-end;
   gap:6px; line-height:1.25; white-space:nowrap;
 }
 .g-vreme-loc{ font-size:12.5px; color:var(--g-muted); }
