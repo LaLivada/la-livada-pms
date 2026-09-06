@@ -7,7 +7,7 @@
  * dupa ora la care ruleaza suita.
  */
 
-import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import React, { useState, useEffect, useLayoutEffect, useMemo, useCallback, useRef } from "react";
 import {
   CalendarDays, Users, DoorOpen, Plus, X, Search, ChevronLeft, ChevronRight,
   Sparkles, Check, Trash2, Pencil, UsersRound, LogIn, LogOut, Printer, Eye,
@@ -235,46 +235,108 @@ export function CalendarView({ core, updateCore, reservations, updateReservation
      o grila de mii de noduri. Patru luni acopera orice planificare; mai
      departe se merge cu butoanele, care muta fereastra in loc s-o lungeasca. */
   const MAX_ZILE = 120;
+  /* Inapoi se merge doar cu cinci zile, si atat. Spre trecut ai nevoie de
+     context — ce s-a intamplat zilele astea — nu de rasfoit istoricul; iar
+     fereastra porneste de la ziua de azi, deci tot ce e la stanga e trecut.
+     Cine chiar vrea mai mult are butonul de 30 de zile inapoi. */
+  const ZILE_INAINTE = 5;
   /* Cat de aproape de capat trebuie sa fii ca sa se adauge. */
   const PRAG_CAPAT = 60;
 
   /* Zilele adaugate prin derulare, tinute separat de pasul butoanelor: ele
      pasesc mai departe cu 30, ca eticheta lor sa nu inceapa sa minta. */
   const [inPlus, setInPlus] = useState(0);
-  const DAYS = PAS_FEREASTRA + inPlus;
+  const [inainte, setInainte] = useState(0);
+  const DAYS = inainte + PAS_FEREASTRA + inPlus;
 
   /* Orice navigare readuce fereastra la lungimea ei normala. Efect pe
      `offset`, nu cate o linie in fiecare buton: sunt patru locuri care muta
      fereastra (inapoi, inainte, saltul la data, „inapoi la azi"), iar unul
      uitat ar fi lasat fereastra lunga pe termen nedefinit. */
-  useEffect(() => { setInPlus(0); }, [offset]);
+  /* Cresterea prin derulare e doar pentru ecranele atinse cu degetul.
+     Pe desktop derularea orizontala vine din trackpad sau din roata
+     mouse-ului si porneste usor din greseala, iar acolo butoanele sunt la
+     indemana oricum. Intrebarea e despre felul de a atinge, nu despre
+     latime: o tableta in landscape e lata cat un laptop, dar tot deget e,
+     iar o fereastra de desktop ingustata are tot mouse. */
+  const INTREBARE_TACTIL = "(hover: none) and (pointer: coarse)";
+  const [eTactil, setETactil] = useState(
+    () => window.matchMedia?.(INTREBARE_TACTIL).matches ?? false);
+  useEffect(() => {
+    const mq = window.matchMedia?.(INTREBARE_TACTIL);
+    if (!mq) return;
+    const asculta = (e) => setETactil(e.matches);
+    mq.addEventListener("change", asculta);
+    return () => mq.removeEventListener("change", asculta);
+  }, []);
+
+  /* Si la schimbarea felului de atins, nu doar la navigare: altfel o
+     fereastra lungita pe tableta ar ramane asa dupa ce se ataseaza o
+     tastatura cu trackpad. */
+  useEffect(() => { setInPlus(0); setInainte(0); }, [offset, eTactil]);
 
   const zonaDerulare = useRef(null);
+  /* Latimea grilei chiar inainte de a adauga zile la stanga, ca sa stim cu
+     cat s-a lungit dupa ce React redeseneaza. Vezi useLayoutEffect-ul de mai
+     jos. Null cand nu e nicio adaugare in curs. */
+  const latimeInainteDeAdaugare = useRef(null);
+
   const laDerulare = () => {
+    if (!eTactil) return;
     const el = zonaDerulare.current;
     if (!el) return;
     /* Doar cand chiar exista ce derula. Pe un ecran mai lat decat grila,
-       scrollWidth === clientWidth, iar conditia de capat ar fi mereu
-       adevarata: fereastra ar creste singura, fara ca nimeni sa fi derulat,
-       pana in plafon. */
+       scrollWidth === clientWidth, iar ambele conditii de capat ar fi
+       adevarate deodata: fereastra ar creste singura, fara ca nimeni sa fi
+       derulat, pana in plafon. */
     if (el.scrollWidth <= el.clientWidth) return;
-    if (el.scrollLeft + el.clientWidth < el.scrollWidth - PRAG_CAPAT) return;
-    setInPlus((n) => Math.min(n + ZILE_IN_PLUS, MAX_ZILE - PAS_FEREASTRA));
+
+    if (el.scrollLeft + el.clientWidth >= el.scrollWidth - PRAG_CAPAT) {
+      setInPlus((n) => Math.min(n + ZILE_IN_PLUS, MAX_ZILE - PAS_FEREASTRA));
+      return;
+    }
+    if (el.scrollLeft <= PRAG_CAPAT && inainte < ZILE_INAINTE) {
+      latimeInainteDeAdaugare.current = el.scrollWidth;
+      setInainte(ZILE_INAINTE);
+    }
   };
+
+  /* Zilele adaugate la stanga impinge spre dreapta tot ce era vizibil, iar
+     browserul pastreaza acelasi scrollLeft — adica privirea ar aluneca in
+     trecut cu exact cat s-a adaugat, desi omul n-a mai derulat. Mutam
+     scroll-ul cu latimea castigata, ca zilele de sub ochi sa ramana pe loc.
+     useLayoutEffect, nu useEffect: corectia trebuie facuta inainte ca
+     browserul sa deseneze, altfel saltul se vede. */
+  useLayoutEffect(() => {
+    const el = zonaDerulare.current;
+    const inaintea = latimeInainteDeAdaugare.current;
+    if (!el || inaintea === null) return;
+    latimeInainteDeAdaugare.current = null;
+    el.scrollLeft += el.scrollWidth - inaintea;
+  }, [inainte]);
   const [modal, setModal] = useState(null); // { reservation | null, defaultRoomId, defaultDate }
   const [viewModal, setViewModal] = useState(null); // rezervarea afișată doar-vizualizare, sau null
 
   const days = useMemo(() => {
-    const start = new Date(); start.setHours(0, 0, 0, 0); start.setDate(start.getDate() + offset);
+    const start = new Date(); start.setHours(0, 0, 0, 0);
+    /* `- inainte`: zilele castigate prin derulare la stanga se adauga
+       inaintea ferestrei, deci mut inceputul cu atat in urma. */
+    start.setDate(start.getDate() + offset - inainte);
     return Array.from({ length: DAYS }, (_, i) => {
       const d = new Date(start); d.setDate(start.getDate() + i); return d;
     });
     /* `DAYS` in dependinte, nu doar `offset`: cat timp a fost constanta nu
        conta, dar acum creste la derulare, iar fara ea lista de zile ar fi
        ramas la lungimea de la prima randare — grila n-ar creste niciodata. */
-  }, [offset, DAYS]);
+  }, [offset, DAYS, inainte]);
 
   const rangeStart = days[0], rangeEnd = new Date(days[DAYS - 1].getTime() + 86400000);
+  /* Ziua la care e ancorata fereastra — cea de care asculta butoanele si
+     saltul la data. Nu e neaparat days[0]: derularea la stanga adauga zile
+     inaintea ei. Eticheta si selectorul de data arata ancora, altfel ar fi
+     inceput sa afiseze o data cu cinci zile mai devreme decat cea la care
+     te-ai dus, iar un salt „la aceeasi data" ar fi alunecat de fiecare data. */
+  const ziAncora = days[inainte];
 
   const moveReservation = async (resId, targetRoomId, targetDay) => {
     const res = reservations.find((r) => r.id === resId);
@@ -456,7 +518,7 @@ export function CalendarView({ core, updateCore, reservations, updateReservation
           <div className="jump-wrap">
             <button className={offset === 0 ? "on" : ""} onClick={(e) => { e.stopPropagation(); setPickerOpen((v) => !v); }}>
               <CalendarDays size={14} />
-              <span>{offset === 0 ? "Azi" : fmtDate(days[0])}</span>
+              <span>{offset === 0 ? "Azi" : fmtDate(ziAncora)}</span>
             </button>
             {pickerOpen && (
               <div className="jump-pop" onClick={(e) => e.stopPropagation()}>
@@ -464,7 +526,7 @@ export function CalendarView({ core, updateCore, reservations, updateReservation
                 <input
                   type="date"
                   autoFocus
-                  value={toDateInput(days[0])}
+                  value={toDateInput(ziAncora)}
                   onChange={(e) => {
                     if (!e.target.value) return;
                     jumpTo(new Date(e.target.value + "T00:00:00"));
