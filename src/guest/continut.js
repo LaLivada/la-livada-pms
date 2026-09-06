@@ -171,6 +171,30 @@ export const ATRACTII = [
       pagina: "https://commons.wikimedia.org/wiki/File:Parcul_Copou.jpg" },
   },
   {
+    cheie: "statuie",
+    nume: "Statuia ecvestră a lui Ștefan cel Mare",
+    loc: "Băcăoani, com. Muntenii de Jos",
+    km: 6, minute: 10,
+    text: "Călărețul de bronz de 6,90 m, ridicat în 1975 pe un soclu de 8 m, la 500 de ani de la bătălia de la Podul Înalt din 10 ianuarie 1475. Sculptor: Mircea Ștefănescu. Se urcă pe 27 de trepte, iar la bază arde o flacără veșnică.",
+    cauta: "Statuia ecvestră Ștefan cel Mare Podul Înalt Băcăoani",
+    foto: "statuie.jpg",
+    credit: { autor: "Cezar Suceveanu", licenta: "CC BY 3.0",
+      pagina: "https://ro.wikipedia.org/wiki/Fi%C8%99ier:Statuia_ecvestra_a_lui_Stefan_cel_Mare_de_la_Podu_Inalt6.jpg" },
+  },
+  {
+    cheie: "dinoparc",
+    nume: "Dino Parc Moldova",
+    loc: "Secuia, com. Muntenii de Jos",
+    km: 8, minute: 13,
+    /* Fara program scris aici: parcul e deschis din 2026 si orele s-au
+       schimbat deja o data intre sursele publice. Linkul catre Google Maps
+       arata programul de azi; un orar scris de mana in fisierul asta ar
+       trimite pe cineva degeaba, intr-o zi in care e inchis. */
+    text: "Peste 30 de dinozauri în mărime naturală, pe 2,2 hectare la marginea pădurii Crasna, cu poteci de peste 1,5 km, punți suspendate și un tunel. Deschis în 2026. Verifică programul pe Google Maps înainte să pornești.",
+    cauta: "Dino Parc Moldova Secuia Vaslui",
+    foto: null,
+  },
+  {
     cheie: "solesti",
     nume: "Conacul Rosetti-Solescu",
     loc: "Solești",
