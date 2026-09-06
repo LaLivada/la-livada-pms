@@ -669,7 +669,7 @@ buton. `opacity` revine explicit la 1 în starea „deschis", altfel regula de
 când trebuie să se vadă. Sub `prefers-reduced-motion` rămâne același semnal,
 staționar.
 
-**Atracțiile** (`ATRACTII` în `src/guest/continut.js`), zece obiective,
+**Atracțiile** (`ATRACTII` în `src/guest/continut.js`), unsprezece obiective,
 paginate câte cinci, ordonate după distanță:
 
 - **selecția** e din liste independente despre județ (Știrile ProTV,
@@ -678,17 +678,25 @@ paginate câte cinci, ordonate după distanță:
   complexului (46.6225, 27.7552 — punctul numit „La Livadă" în
   OpenStreetMap), nu în linie dreaptă. Diferența e mare și e exact cea care
   contează pentru cineva care conduce;
-- **pozele** sunt de pe Wikimedia Commons, cu licență liberă, descărcate în
-  `public-guest/atractii/` (720×450, ~476 KB total) — nu legate direct de
-  acolo: pagina nu trimite IP-ul oaspetelui la un server străin doar pentru
-  o poză, iar o imagine ștearsă mâine nu lasă un pătrat gol aici. Autorul și
-  licența se afișează, fiindcă asta cer CC BY și CC BY-SA;
-- **trei obiective n-au poză** — muzeul județean din Vaslui, muzeul
-  caricaturii din Huși și grădina zoologică din Bârlad. Pe Commons nu există
-  nicio fotografie liberă a lor (căutat și după nume, și prin categoriile
-  orașelor). Lăsate fără imagine, nu cu poza altui loc: o fotografie a
-  centrului Hușiului sub titlul „Muzeul Caricaturii" e o minciună mică pe
+- **pozele** stau local în `public-guest/atractii/` (720×450), nu legate
+  direct de la sursă: pagina nu trimite IP-ul oaspetelui la un server străin
+  doar pentru o poză, iar o imagine ștearsă mâine nu lasă un pătrat gol aici;
+- **șapte sunt de pe Wikimedia Commons**, cu licență liberă. Autorul și
+  licența se afișează, fiindcă asta cer CC BY și CC BY-SA — nu e politețe, e
+  condiția de folosire;
+- **patru vin de la pensiune** (muzeul județean Vaslui, grădina zoologică
+  Bârlad, Dino Parc, statuia de la Băcăoani). Pentru niciunul nu există vreo
+  fotografie liberă: căutat pe Commons după nume, prin categoriile orașelor
+  și prin **geosearch pe coordonatele fiecărui obiectiv**, care găsește orice
+  poză geoetichetată indiferent cum se numește fișierul. Intrările astea n-au
+  `credit`, iar legenda din `App.jsx` e de aceea pusă sub o condiție — fără
+  ea, `a.credit.autor` aruncă și cade tot panoul, nu doar legenda;
+- **cât au stat fără poză, au stat fără** — nu s-a pus imaginea altui loc. O
+  fotografie a centrului unui oraș sub numele unui muzeu e o minciună mică pe
   care oaspetele o descoperă la fața locului;
+- **poza statuii a fost înlocuită** cu una de după reabilitare. Cea de pe
+  Wikimedia (CC BY 3.0) arăta treptele crăpate, dinainte de renovare —
+  corectă ca licență, dar nu mai semăna cu ce găsește omul acolo;
 - **paginarea nu e doar așezare în pagină**: pozele se încarcă leneș, deci
   cine nu trece la pagina a doua nu descarcă niciodată ultimele cinci
   imagini. Pe date mobile, în curte, asta se simte;

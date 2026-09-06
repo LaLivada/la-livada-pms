@@ -127,12 +127,17 @@ export const IMPORTANT = [];
  * gol aici. Autorul si licenta se afiseaza, fiindca asa cer CC BY si
  * CC BY-SA — nu e politete, e conditia de folosire.
  *
- * TREI OBIECTIVE N-AU POZA: muzeul judetean din Vaslui, muzeul caricaturii
- * din Husi si gradina zoologica din Barlad. Pe Commons nu exista nicio
- * fotografie libera a lor (cautat si dupa nume, si prin categoriile
- * oraselor). Am preferat sa le las fara imagine decat sa pun poza altui
- * loc — o fotografie a centrului Husiului sub titlul „Muzeul Caricaturii"
- * e o minciuna mica pe care oaspetele o descopera abia la fata locului.
+ * PATRU POZE VIN DE LA PENSIUNE, nu de pe Wikimedia: muzeul judetean din
+ * Vaslui, gradina zoologica din Barlad, Dino Parc si statuia de la Bacaoani.
+ * Pentru niciunul nu exista vreo fotografie libera — cautat dupa nume, prin
+ * categoriile oraselor si prin geosearch pe coordonatele fiecarui obiectiv,
+ * care gaseste orice poza geoetichetata indiferent cum se numeste fisierul.
+ * Intrarile astea n-au `credit`, si de aceea legenda din App.jsx e pusa sub
+ * o conditie: fara ea, `a.credit.autor` arunca si cade tot panoul.
+ *
+ * Cat au stat fara poza, au stat fara — nu s-a pus imaginea altui loc. O
+ * fotografie a centrului unui oras sub numele unui muzeu e o minciuna mica
+ * pe care oaspetele o descopera abia la fata locului.
  *
  * LINKUL catre Google Maps e o cautare dupa nume, nu un pin pe coordonate:
  * geocodarea Google pentru locurile astea e mai buna decat a mea, iar
@@ -238,22 +243,16 @@ export const ATRACTII = [
       pagina: "https://commons.wikimedia.org/wiki/File:Casa_memorial%C4%83_Emil_Racovi%C8%9B%C4%83.jpg" },
   },
   {
-    cheie: "husi",
-    nume: "Muzeul Caricaturii",
-    loc: "Huși",
-    km: 39, minute: 49,
-    text: "Unul dintre puținele muzee de caricatură din țară, deschis în 2006, cu lucrări din salonul de grafică satirică „Damigenius”.",
-    cauta: "Muzeul Caricaturii Huși",
-    foto: null,
-  },
-  {
     cheie: "zoo",
     nume: "Grădina Zoologică",
     loc: "Bârlad",
     km: 48, minute: 50,
     text: "Șase hectare de pădure veche la marginea orașului, cu zeci de specii de mamifere, păsări și pești, printre care lei și tigri. Deschisă din 1959.",
     cauta: "Grădina Zoologică Bârlad",
-    foto: null,
+    /* Tot de la pensiune, deci fara `credit`. Nici pentru zoo nu exista vreo
+       poza libera — cautata pe Commons dupa nume, prin categoriile Barladului
+       si prin geosearch pe coordonate. */
+    foto: "zoo.jpg",
   },
   {
     cheie: "parvan",
