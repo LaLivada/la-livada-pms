@@ -288,6 +288,39 @@ body{
 .g-nota{ margin:12px 0 0; font-size:13px; color:var(--g-muted); }
 .g-gol{ margin:0; font-size:14px; color:var(--g-muted); }
 
+/* ---------- contact asistenta ---------- */
+/* Linia de sus il desparte de restul panoului: e alt fel de continut decat
+   datele sejurului de deasupra — o actiune, nu o informatie. */
+.g-asistenta{ margin-top:16px; padding-top:14px; border-top:1px solid var(--g-line); }
+/* Aceeasi eticheta mica si distantata ca titlurile de card, ca sa se citeasca
+   drept sectiune, nu drept titlu nou de pagina. */
+.g-asistenta h3{
+  margin:0 0 3px; font-size:11px; font-weight:600; letter-spacing:.12em;
+  text-transform:uppercase; color:var(--g-faint);
+}
+.g-asistenta-cine{ margin:0 0 11px; font-size:14px; color:var(--g-muted); }
+.g-asistenta-cine b{ color:var(--g-text); font-weight:600; }
+
+/* Doua butoane egale, pe un rand. La nevoie se rup unul sub altul, si atunci
+   fiecare ramane cat randul — un buton de contact ingust, la jumatate de
+   ecran, e greu de nimerit cu degetul mare. */
+.g-asistenta-butoane{ display:flex; flex-wrap:wrap; gap:9px; }
+.g-contact{
+  flex:1 1 130px; display:inline-flex; align-items:center; justify-content:center;
+  gap:8px; min-height:46px; padding:11px 14px; border-radius:12px;
+  background:var(--olive); color:var(--ivory);
+  font:inherit; font-size:15px; font-weight:600; text-decoration:none;
+}
+/* Sigla WhatsApp isi pastreaza culorile ei — e singurul strop de verde din
+   pagina si tocmai de aceea se recunoaste dintr-o privire. Butonul insa
+   ramane maslin, ca celalalt: doua butoane de culori diferite ar fi aratat
+   ca unul e cel bun si celalalt o rezerva. */
+.g-contact img{ width:18px; height:18px; display:block; flex-shrink:0; }
+.g-contact svg{
+  width:18px; height:18px; flex-shrink:0; display:block;
+  fill:currentColor; stroke:none;
+}
+
 /* ---------- cum ajungi ---------- */
 /* Text cu link, nu butoane. Pe langa ca asa s-a cerut, rezolva si o
    problema masurata: cele trei etichete ca butoane cereau 399px, iar pe un

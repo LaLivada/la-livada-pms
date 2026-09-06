@@ -17,7 +17,7 @@ import {
 } from "./api.js";
 import { citesteVremea } from "./vreme.js";
 import {
-  TELEFON, TELEFON_SCRIS, ACASA, BUN_VENIT, IMPORTANT,
+  TELEFON, TELEFON_SCRIS, ASISTENTA, ACASA, BUN_VENIT, IMPORTANT,
   ATRACTII, ATRACTII_PE_PAGINA, linkHarta,
   LINK_MAPS, LINK_WAZE, ACCES_CAMERE, HARTA_INCORPORATA,
 } from "./continut.js";
@@ -130,6 +130,15 @@ const Usa = () => (
   <svg viewBox="0 0 24 24" aria-hidden="true">
     <path d="M6 21V4.4a1 1 0 0 1 .8-1l9-1.8a1 1 0 0 1 1.2 1V21" />
     <path d="M3.5 21h17M13.6 12.2h.01" />
+  </svg>
+);
+/* Receptorul e desenat aici, nu luat ca sigla: un telefon nu e marca nimanui.
+   WhatsApp, in schimb, are semnul lui si se pune ca fisier, ca la Maps si
+   Waze — unul desenat de mana ar fi si mai putin recunoscut, si in raspar cu
+   regulile lor de marca. */
+const Telefon = () => (
+  <svg viewBox="0 0 24 24" aria-hidden="true">
+    <path d="M6.6 3h-2A1.6 1.6 0 0 0 3 4.6C3 13.1 10.9 21 19.4 21a1.6 1.6 0 0 0 1.6-1.6v-2a1 1 0 0 0-.8-1l-3.4-.7a1 1 0 0 0-1 .4l-1 1.3a13 13 0 0 1-5.2-5.2l1.3-1a1 1 0 0 0 .4-1l-.7-3.4a1 1 0 0 0-1-.8z" />
   </svg>
 );
 
@@ -659,7 +668,9 @@ export default function App() {
     },
     {
       titlu: "Dacă ușa nu se deschide",
-      text: `Încearcă întâi codul pe tastatură, apoi sună-ne la ${TELEFON_SCRIS}. Răspundem non-stop.`,
+      /* Numarul de asistenta, nu cel general de la subsol: cine sta in fata
+         unei usi inchise are nevoie de omul care raspunde in cateva minute. */
+      text: `Încearcă întâi codul pe tastatură, apoi sună-l pe ${ASISTENTA.nume} la ${ASISTENTA.scris}. Răspundem non-stop.`,
     },
     ...IMPORTANT,
   ].filter(Boolean);
@@ -768,6 +779,31 @@ export default function App() {
               ))}
             </ul>
           )}
+
+          {/* Contactul sta la SFARSITUL panoului, nu la inceput: cine deschide
+              „Bun venit" vrea intai sa-si vada sejurul. Butonul de ajutor e
+              ultimul lucru pe care il vede, adica exact acolo unde il cauta
+              cineva care n-a gasit ce-i trebuia mai sus. */}
+          <div className="g-asistenta">
+            <h3>Contact asistență</h3>
+            <p className="g-asistenta-cine">
+              <b>{ASISTENTA.nume}</b> — {ASISTENTA.raspuns}
+            </p>
+            <div className="g-asistenta-butoane">
+              {/* wa.me, nu api.whatsapp.com: prima deschide direct aplicatia
+                  daca e instalata si cade pe web doar daca nu e. */}
+              <a className="g-contact g-contact-wa"
+                 href={`https://wa.me/${ASISTENTA.wa}`}
+                 target="_blank" rel="noopener noreferrer">
+                <img src="/brand/logo-whatsapp.svg" alt="" width="18" height="18" />
+                WhatsApp
+              </a>
+              <a className="g-contact" href={`tel:${ASISTENTA.telefon}`}>
+                <Telefon />
+                Sună
+              </a>
+            </div>
+          </div>
         </div>
       )}
 

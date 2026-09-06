@@ -10,9 +10,24 @@
  * pana la prima exceptie si gresite dupa.
  */
 
-/* Numarul de la receptie, singurul punct de contact din pagina. */
+/* Numarul general al complexului: subsolul paginii si ecranul de refuz. */
 export const TELEFON = "+40722899899";
 export const TELEFON_SCRIS = "+40 722 899 899";
+
+/* ASISTENTA — omul pe care il suna oaspetele cand ceva nu merge ACUM.
+ *
+ * Alt numar decat cel de mai sus, si deliberat: la subsol sta numarul
+ * complexului, aici sta cineva anume, cu numele lui. Un oaspete inchis pe
+ * dinafara la miezul noptii suna mai usor un „Razvan" decat un numar.
+ *
+ * `wa` e formatul cerut de wa.me: prefix de tara fara plus si fara zero. */
+export const ASISTENTA = {
+  nume: "Răzvan",
+  raspuns: "răspunde în câteva minute",
+  telefon: "+40725259999",
+  scris: "+40 725 259 999",
+  wa: "40725259999",
+};
 
 /* Complexul, la DN24 nr. 743, Muntenii de Jos, judetul Vaslui.
    Coordonatele sunt cele din OpenStreetMap, unde punctul e chiar numit
@@ -87,14 +102,13 @@ export const ACCES_CAMERE = {
    clipa. Punctele sunt perechi titlu/text. */
 export const BUN_VENIT = {
   intro: "Ne bucurăm că ești aici.",
+  /* Un singur punct. Al doilea trimitea la telefon, iar acum contactul are
+     blocul lui la sfarsitul panoului, cu butoane — scris de doua ori, ar fi
+     fost si mai lung, si mai putin clar. */
   puncte: [
     {
-      titlu: "Pagina asta rămâne a ta",
-      text: "Salveaz-o pe ecranul telefonului: ține codul de acces și butonul de deschidere pentru tot sejurul.",
-    },
-    {
-      titlu: "Orice, la un telefon distanță",
-      text: `Dacă ceva nu merge sau ai nevoie de ceva, sună-ne la ${TELEFON_SCRIS}.`,
+      titlu: "Salvează pagina pe telefon",
+      text: "Codul și butonul de deschidere rămân la îndemână tot sejurul.",
     },
   ],
 };
