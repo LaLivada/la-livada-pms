@@ -19,6 +19,7 @@ import { citesteVremea } from "./vreme.js";
 import {
   TELEFON, TELEFON_SCRIS, ACASA, BUN_VENIT, IMPORTANT,
   ATRACTII, ATRACTII_PE_PAGINA, linkHarta,
+  LINK_MAPS, LINK_WAZE, ACCES_CAMERE,
 } from "./continut.js";
 
 /* Codul se ia din fragment, nu din calea adresei.
@@ -125,6 +126,12 @@ const Cheie = () => (
     <path d="M12 12h9M18 12v3.5M15.5 12v2.5" />
   </svg>
 );
+const Usa = () => (
+  <svg viewBox="0 0 24 24" aria-hidden="true">
+    <path d="M6 21V4.4a1 1 0 0 1 .8-1l9-1.8a1 1 0 0 1 1.2 1V21" />
+    <path d="M3.5 21h17M13.6 12.2h.01" />
+  </svg>
+);
 
 /* Pictogramele de vreme. Aceleasi sase stari din vreme.js. */
 const VREME = {
@@ -172,6 +179,119 @@ const VREME = {
   ),
 };
 
+/* Fereastra suprapusa, folosita deocamdata doar de „Acces către camere".
+ *
+ * Scrisa de mana, nu adusa dintr-o biblioteca: are de facut patru lucruri
+ * — Escape, clic pe fundal, blocarea derularii in spate si intoarcerea
+ * focusului la butonul care a deschis-o — iar pentru atat n-are rost inca
+ * un pachet intr-un bundle deschis pe date mobile.
+ *
+ * Intoarcerea focusului nu e podoaba de accesibilitate: cine navigheaza cu
+ * tastatura sau cu VoiceOver ar fi aruncat la inceputul paginii la fiecare
+ * inchidere, si ar trebui sa refaca tot drumul pana la butoane. */
+function Fereastra({ titlu, onInchide, children }) {
+  const butonInchide = useRef(null);
+
+  useEffect(() => {
+    const deUnde = document.activeElement;
+    const laTasta = (e) => { if (e.key === "Escape") onInchide(); };
+    const derulareVeche = document.body.style.overflow;
+
+    document.addEventListener("keydown", laTasta);
+    document.body.style.overflow = "hidden";
+    butonInchide.current?.focus();
+
+    return () => {
+      document.removeEventListener("keydown", laTasta);
+      document.body.style.overflow = derulareVeche;
+      if (deUnde instanceof HTMLElement) deUnde.focus();
+    };
+  }, [onInchide]);
+
+  return (
+    <div className="g-fundal" onClick={onInchide}>
+      {/* Clicul dinauntru nu se propaga la fundal, altfel orice apasare pe
+          o poza ar inchide fereastra. */}
+      <div className="g-fereastra" role="dialog" aria-modal="true" aria-label={titlu}
+           onClick={(e) => e.stopPropagation()}>
+        <div className="g-fereastra-cap">
+          <h2>{titlu}</h2>
+          <button ref={butonInchide} type="button" onClick={onInchide}
+                  className="g-inchide" aria-label="Închide">×</button>
+        </div>
+        <div className="g-fereastra-corp">{children}</div>
+      </div>
+    </div>
+  );
+}
+
+function ContinutAcces() {
+  const { poze, pasi } = ACCES_CAMERE;
+  /* Cat timp continutul nu e pus, fereastra spune de ce e goala si da
+     numarul — nu se preface ca indruma pe cineva prin curte. */
+  if (!poze.length && !pasi.length) {
+    return (
+      <p className="g-gol">
+        Îndrumarea prin curte nu e încă pusă aici. Dacă nu găsești camera,
+        sună-ne la <a href={`tel:${TELEFON}`}>{TELEFON_SCRIS}</a> și te
+        conducem noi.
+      </p>
+    );
+  }
+  return (
+    <>
+      {poze.map((p) => (
+        <figure className="g-acces-foto" key={p.fisier}>
+          <img src={`/acces/${p.fisier}`} alt={p.descriere} loading="lazy" decoding="async" />
+          {p.descriere && <figcaption>{p.descriere}</figcaption>}
+        </figure>
+      ))}
+      {pasi.length > 0 && (
+        <ol className="g-pasi">
+          {pasi.map((t, i) => <li key={i}>{t}</li>)}
+        </ol>
+      )}
+    </>
+  );
+}
+
+/* Randul de sub butoane: cum ajungi la complex si, o data ajuns, cum
+   gasesti camera. Sunt lucruri diferite, dar amandoua raspund la „unde
+   trebuie sa merg acum", deci stau impreuna. */
+function CumAjungi({ deschideAcces }) {
+  return (
+    <div className="g-card">
+      <h2>Cum ajungi</h2>
+      <p className="g-legaturi">
+        {/* Perechea si bara dintre ele sunt un singur element de asezare:
+            altfel „/" se rupe pe rand propriu si ramane atarnata la capat,
+            aratand ca o greseala de tipar. */}
+        <span className="g-pereche">
+          {/* Marcile oficiale, luate din proiectul site-ului
+              (public/assets/logo-*.webp), nu desenate de noi. Un pin si o
+              sageata facute de mana ar fi fost si mai putin recunoscute, si
+              in raspar cu regulile de marca ale celor doua companii. */}
+          <a className="g-leg" href={LINK_MAPS} target="_blank" rel="noopener noreferrer">
+            <img src="/brand/logo-google-maps.webp" alt="" width="17" height="17" />
+            Google Maps
+          </a>
+          <span className="g-sep" aria-hidden="true">/</span>
+          <a className="g-leg" href={LINK_WAZE} target="_blank" rel="noopener noreferrer">
+            <img src="/brand/logo-waze.webp" alt="" width="17" height="17" />
+            Waze
+          </a>
+        </span>
+        {/* Ramane `button`, desi arata ca un link: nu duce nicaieri, deschide
+            ceva pe loc. Un <a href="#"> ar minti cititorul de ecran si ar
+            strica clicul cu rotita. Aspectul il face CSS-ul, nu eticheta. */}
+        <button className="g-leg" type="button" onClick={deschideAcces}>
+          <Usa />Acces către camere
+        </button>
+      </p>
+    </div>
+  );
+}
+
 function Refuz({ motiv }) {
   const m = REFUZURI[motiv] || REFUZURI.eroare;
   return (
@@ -199,13 +319,11 @@ function Vremea() {
 
   if (!v) return null;
   return (
-    <div className="g-vreme" title={v.text}>
-      <p className="g-vreme-loc">{ACASA.localitate}</p>
-      <p className="g-vreme-grade">
-        {VREME[v.fel] || VREME.innorat}
-        <span>{v.grade}°</span>
-      </p>
-    </div>
+    <p className="g-vreme" title={v.text}>
+      <span className="g-vreme-loc">{ACASA.localitate}</span>
+      {VREME[v.fel] || VREME.innorat}
+      <span className="g-vreme-grade">{v.grade}°</span>
+    </p>
   );
 }
 
@@ -350,6 +468,10 @@ export default function App() {
   const [acces, setAcces] = useState(null);
   const [minibar, setMinibar] = useState([]);
   const [deschis, setDeschis] = useState(null);
+  /* Numit `aratAcces`, nu `acces`: acela e deja codul de acces al camerei,
+     iar doua lucruri diferite cu acelasi nume in acelasi fisier e exact
+     felul de confuzie care se plateste peste sase luni. */
+  const [aratAcces, setAratAcces] = useState(false);
 
   /* Codul stand in fragment, trecerea de la un link la altul in aceeasi
      fila NU e o navigare: browserul schimba doar adresa, nimic nu se
@@ -423,16 +545,25 @@ export default function App() {
       <div className="g-salut">
         <div className="g-salut-text">
           <p className="g-salut-ora">{salut(new Date().getHours())}</p>
+          {/* Spatiu neintrerupt inaintea emoji-ului: cu unul obisnuit, pe un
+              telefon de 320px mana ramanea singura pe randul urmator, ca o
+              greseala. Asa, ori sta langa ultimul cuvant, ori coboara
+              impreuna cu el. */}
           <h1 className="g-salut-nume">
-            {sejur.guestName || "bun venit"}{" "}
+            {sejur.guestName || "bun venit"}{"\u00A0"}
             <span className="g-mana" role="img" aria-label="salut">👋</span>
           </h1>
         </div>
-        <Vremea />
-        <a className="g-emblema" href="https://lalivada.ro"
-           target="_blank" rel="noopener noreferrer">
-          <img src="/brand/favicon.png" alt="Complex La Livada" />
-        </a>
+        {/* Sigla si vremea, una sub alta. Fisierul e chiar cel folosit de
+            rezervari.lalivada.ro — aceeasi marca, nu o refacere. */}
+        <div className="g-marca">
+          <a className="g-emblema" href="https://lalivada.ro"
+             target="_blank" rel="noopener noreferrer">
+            <img src="/brand/livada-text.svg" alt="Complex La Livada"
+                 width="132" height="33" />
+          </a>
+          <Vremea />
+        </div>
       </div>
 
       <div className="g-hero">
@@ -470,6 +601,11 @@ export default function App() {
         <Sectiune cheie="atractii" deschis={deschis} alege={setDeschis}
           iconita={<Reper />} eticheta="Atracții" />
       </div>
+
+      {/* Sub butoane, cum s-a cerut, si mereu la vedere — nu ascuns intr-un
+          panou care trebuie deschis. Panourile vin dupa el; butonul apasat
+          ramane marcat, deci legatura dintre buton si panou se vede. */}
+      <CumAjungi deschideAcces={() => setAratAcces(true)} />
 
       {deschis === "venit" && (
         <div className="g-card">
@@ -541,6 +677,12 @@ export default function App() {
       <p className="g-subsol">
         Complex La Livada · <a href={`tel:${TELEFON}`}>{TELEFON_SCRIS}</a>
       </p>
+
+      {aratAcces && (
+        <Fereastra titlu="Acces către camere" onInchide={() => setAratAcces(false)}>
+          <ContinutAcces />
+        </Fereastra>
+      )}
     </div>
   );
 }

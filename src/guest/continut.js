@@ -18,7 +18,49 @@ export const TELEFON_SCRIS = "+40 722 899 899";
    Coordonatele sunt cele din OpenStreetMap, unde punctul e chiar numit
    „La Livada" — nu centrul comunei. Le foloseste widget-ul de vreme si
    calculul distantelor catre atractii. */
-export const ACASA = { lat: 46.6225253, lon: 27.7551750, localitate: "Muntenii de Jos" };
+/* `localitate` e doar eticheta de sub siglă, si scrie „Vaslui", nu comuna
+   reala. Nu e o scapare: complexul e la 3 km de oras, iar oaspetele care se
+   uita la temperatura stie unde e Vasluiul, nu unde e Muntenii de Jos.
+   Coordonatele raman ale complexului — vremea si distantele se calculeaza
+   din ele, nu din eticheta. */
+export const ACASA = { lat: 46.6225253, lon: 27.7551750, localitate: "Vaslui" };
+
+/* Navigatia catre complex.
+ *
+ * Aceleasi adrese ca pe lalivada.ro (components/HartaContact.tsx), litera
+ * cu litera — cautare dupa adresa, nu dupa coordonate. Am inceput cu
+ * coordonatele, ca fiind mai precise, si m-am intors: cautarea dupa adresa
+ * cade pe fisa firmei din Google, unde reperul e cel intretinut de ei. Daca
+ * il corecteaza vreodata, se corecteaza in amandoua locurile deodata; cu
+ * coordonate scrise de mana, aici ar fi ramas cel vechi.
+ *
+ * `www.waze.com`, nu `waze.com`: al doilea intoarce 301 catre primul, iar o
+ * saritura in plus pe un telefon cu semnal prost e exact ce nu-ti trebuie
+ * cand esti deja pe drum. `navigate=yes` porneste navigarea, nu doar arata
+ * reperul — cine apasa aici vrea sa ajunga, nu sa se uite. */
+const ADRESA = "Complex La Livada, DN24, nr. 743, Muntenii de Jos, jud. Vaslui";
+export const LINK_MAPS =
+  `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(ADRESA)}`;
+export const LINK_WAZE =
+  `https://www.waze.com/ul?q=${encodeURIComponent(ADRESA)}&navigate=yes`;
+
+/* „Acces către camere" — cum se orienteaza omul in curtea interioara, dupa
+   ce a ajuns la poarta.
+ *
+ * GOL PANA CAND E COMPLETAT. Textul si pozele vin de la proprietar; un
+ * traseu inventat prin curtea altcuiva ar trimite oaspetii aiurea, noaptea,
+ * cu bagajele in mana. Pana atunci, fereastra spune cinstit ca indrumarea
+ * inca nu e pusa si da numarul de la receptie.
+ *
+ * Forma:
+ *   poze:  [{ fisier: "curte-1.jpg", descriere: "Poarta dinspre DN24" }]
+ *          fisierele se pun in `public-guest/acces/`
+ *   pasi:  ["Intri pe poarta din dreapta clădirii…", "…"]
+ */
+export const ACCES_CAMERE = {
+  poze: [],
+  pasi: [],
+};
 
 /* „Bun venit". Un rand de intampinare si cateva lucruri de stiut din prima
    clipa. Punctele sunt perechi titlu/text. */

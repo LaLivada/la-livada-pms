@@ -64,26 +64,35 @@ body{
 }
 .g-mana{ font-family:var(--ui); font-size:19px; }
 
-/* Emblema: imaginea are deja inelul ei auriu, deci umple tot cercul, fara
-   chenar sau fundal in plus care ar dubla conturul. */
-.g-emblema{
-  width:52px; height:52px; border-radius:50%; flex-shrink:0;
-  display:block; overflow:hidden; background:#fff;
+/* Sigla si, sub ea, localitatea cu vremea. Coloana are latime fixa: altfel
+   temperatura care trece de la „9°" la „-12°" ar muta sigla in fiecare
+   dimineata de iarna. */
+.g-marca{
+  flex-shrink:0; display:flex; flex-direction:column;
+  align-items:flex-end; gap:7px; width:132px;
 }
-.g-emblema img{ width:100%; height:100%; object-fit:cover; display:block; }
+.g-emblema{ display:block; }
+.g-emblema img{ display:block; width:100%; height:auto; }
+/* Pe telefoanele mici sigla se strange, ca sa nu manance latimea numelui.
+   Sub 108px cuvintele „LA LIVADĂ" incep sa se inchida, deci acolo se
+   opreste. */
+@media (max-width: 359px){
+  .g-marca{ width:108px; }
+  .g-salut-nume{ font-size:23px; }
+}
 
 /* ---------- vremea ---------- */
-.g-vreme{ flex-shrink:0; text-align:right; line-height:1.25; }
-.g-vreme-loc{
-  margin:0; font-size:10.5px; letter-spacing:.04em; text-transform:uppercase;
-  color:var(--g-faint); white-space:nowrap;
+/* Localitatea si temperatura pe acelasi rand, sub sigla. Randul nu se rupe
+   niciodata (white-space:nowrap): altfel „Vaslui" ramane singur deasupra si
+   arata ca doua lucruri fara legatura. */
+.g-vreme{
+  margin:0; display:flex; align-items:center; justify-content:flex-end; gap:6px;
+  line-height:1.25; white-space:nowrap;
 }
-.g-vreme-grade{
-  margin:2px 0 0; display:flex; align-items:center; justify-content:flex-end; gap:4px;
-  font-size:16px; font-weight:600; font-variant-numeric:tabular-nums;
-}
-.g-vreme-grade svg{
-  width:17px; height:17px; stroke:var(--olive); fill:none;
+.g-vreme-loc{ font-size:12.5px; color:var(--g-muted); }
+.g-vreme-grade{ font-size:15px; font-weight:600; font-variant-numeric:tabular-nums; }
+.g-vreme svg{
+  width:16px; height:16px; flex-shrink:0; stroke:var(--olive); fill:none;
   stroke-width:1.7; stroke-linecap:round; stroke-linejoin:round;
 }
 
@@ -215,6 +224,81 @@ body{
 .g-nota{ margin:12px 0 0; font-size:13px; color:var(--g-muted); }
 .g-gol{ margin:0; font-size:14px; color:var(--g-muted); }
 
+/* ---------- cum ajungi ---------- */
+/* Text cu link, nu butoane. Pe langa ca asa s-a cerut, rezolva si o
+   problema masurata: cele trei etichete ca butoane cereau 399px, iar pe un
+   telefon de 390px raman 316px in card. Ca text, se rup firesc pe randuri —
+   nimeni nu se asteapta ca un rand de text sa stea intreg pe o linie. */
+.g-legaturi{
+  margin:0; display:flex; flex-wrap:wrap; align-items:center;
+  gap:4px 10px; line-height:1.5;
+}
+.g-leg{
+  display:inline-flex; align-items:center; gap:6px;
+  font:inherit; font-size:14px; font-weight:600;
+  color:var(--olive); background:none; border:0; padding:0;
+  cursor:pointer; text-decoration:underline; text-underline-offset:3px;
+  touch-action:manipulation;
+}
+.g-leg svg{
+  width:15px; height:15px; flex-shrink:0; stroke:var(--olive); fill:none;
+  stroke-width:1.7; stroke-linecap:round; stroke-linejoin:round;
+}
+/* Marcile Google Maps si Waze: nerecolorate si neatinse de filtre, nici in
+   tema intunecata. Amandoua companiile cer explicit sa nu li se modifice
+   sigla, iar una recolorata nici nu s-ar mai recunoaste dintr-o privire —
+   ceea ce e tot rostul ei aici. */
+/* Colturile taiate, nu culorile schimbate: sigla Waze vine ca patrat opac,
+   cu alb in colturi (masurat: cyanul incepe la 8px dintr-o latura de 48,
+   adica 17%). Netaiate, colturile alea se vad ca patru pete albe pe cardul
+   inchis din tema de noapte. Un procent, nu pixeli, ca sa ramana corect
+   daca marimea se schimba. */
+.g-leg img{ width:17px; height:17px; flex-shrink:0; display:block; border-radius:20%; }
+.g-pereche{ display:inline-flex; align-items:center; gap:10px; }
+.g-sep{ color:var(--g-faint); font-size:14px; }
+
+/* ---------- fereastra suprapusa ---------- */
+.g-fundal{
+  position:fixed; inset:0; z-index:50;
+  background:rgba(20,20,16,.55);
+  display:flex; align-items:flex-end; justify-content:center;
+  padding:16px;
+  /* Pe telefon urca de jos, unde ajunge degetul; pe ecrane mari se
+     centreaza (vezi mai jos). */
+}
+.g-fereastra{
+  background:var(--g-card); border-radius:18px;
+  width:100%; max-width:460px; max-height:88vh;
+  display:flex; flex-direction:column; overflow:hidden;
+  box-shadow:0 18px 50px rgba(0,0,0,.3);
+}
+.g-fereastra-cap{
+  display:flex; align-items:center; justify-content:space-between; gap:12px;
+  padding:15px 16px 13px; border-bottom:1px solid var(--g-hair);
+}
+.g-fereastra-cap h2{
+  margin:0; font-family:var(--editorial); font-weight:400; font-size:20px;
+  letter-spacing:0; text-transform:none; color:var(--g-text);
+}
+.g-inchide{
+  border:0; background:transparent; color:var(--g-muted);
+  font-size:26px; line-height:1; cursor:pointer;
+  width:38px; height:38px; border-radius:9px; flex-shrink:0;
+  touch-action:manipulation;
+}
+.g-fereastra-corp{
+  padding:16px; overflow-y:auto; -webkit-overflow-scrolling:touch;
+}
+.g-acces-foto{ margin:0 0 14px; }
+.g-acces-foto img{ display:block; width:100%; height:auto; border-radius:12px; }
+.g-acces-foto figcaption{ margin:6px 2px 0; font-size:12.5px; color:var(--g-muted); }
+.g-pasi{ margin:0; padding-left:20px; }
+.g-pasi li{ padding:5px 0; font-size:14px; }
+
+@media (min-height: 620px) and (min-width: 420px){
+  .g-fundal{ align-items:center; }
+}
+
 /* ---------- atractii ---------- */
 .g-atractii{ list-style:none; margin:0; padding:0; }
 .g-atractie{ padding:16px 0 0; border-top:1px solid var(--g-hair); }
@@ -287,8 +371,11 @@ body{
      conturul de accent, nu prin contrast de luminozitate. */
   .g-hero{ background:#0e100a; border:1px solid rgba(200,177,138,.22); }
   .g-scurtatura svg,
-  .g-vreme-grade svg{ stroke:var(--champagne); }
+  .g-vreme svg,
+  .g-leg svg{ stroke:var(--champagne); }
+  .g-leg,
   .g-harta{ color:var(--champagne); }
   .g-buton{ background:var(--champagne); color:#15170f; }
+  .g-fundal{ background:rgba(0,0,0,.68); }
 }
 `;

@@ -738,6 +738,57 @@ fel ca la succes, iar apelantul mergea liniștit mai departe la toast și la
 locuri care le apelează ignoră valoarea, ca înainte — schimbarea nu le
 atinge.
 
+### Pasul 4d — antetul, navigarea și fereastra de acces ✅ făcut (6 septembrie 2026)
+
+- **Sigla** rotundă (favicon-ul) e înlocuită cu marca de pe lalivada.ro,
+  `livada-text.svg` — chiar fișierul folosit de rezervari.lalivada.ro, cu o
+  singură schimbare: aurul `#CEA446` al site-ului devine `#c8b18a`, culoarea
+  butonului de deschidere. Pe pagina asta cele două stau la două degete unul
+  de altul, iar două aururi apropiate dar diferite se citesc ca o greșeală de
+  tipar, nu ca o intenție.
+- **Localitatea și temperatura** au coborât sub siglă, pe un singur rând.
+  Eticheta spune „Vaslui", nu „Muntenii de Jos": complexul e la 3 km de oraș,
+  iar oaspetele care se uită la temperatură știe unde e Vasluiul. Coordonatele
+  rămân ale complexului — vremea și distanțele se calculează din ele.
+- **„Cum ajungi"**, sub butoane: Google Maps / Waze, plus „Acces către
+  camere". **Text cu link, nu butoane** — pe lângă că așa s-a cerut, rezolvă
+  și o problemă măsurată: aceleași trei etichete ca butoane cereau 399px, iar
+  pe un telefon de 390px rămân 316px în card. Ca text, se rup firesc pe
+  rânduri.
+- **Pictogramele sunt mărcile oficiale**, luate din proiectul site-ului
+  (`lalivada-site/public/assets/logo-google-maps.webp`, `logo-waze.webp`), nu
+  desenate de noi și nerecolorate — ambele companii cer să nu li se modifice
+  sigla, iar una recolorată nici nu s-ar mai recunoaște dintr-o privire, adică
+  tot rostul ei aici. Sigla Waze vine ca pătrat opac cu alb în colțuri
+  (cyanul începe la 8px dintr-o latură de 48, adică 17%), deci se taie cu
+  `border-radius: 20%` — altfel colțurile se văd ca patru pete albe pe cardul
+  închis din tema de noapte.
+- **Adresele de navigare sunt cele de pe site**, literă cu literă: căutare
+  după adresă, nu după coordonate. Am început cu coordonatele, ca fiind mai
+  precise, și m-am întors — căutarea cade pe fișa firmei din Google, unde
+  reperul e cel întreținut de ei; corectat acolo, se corectează în amândouă
+  locurile. `www.waze.com`, nu `waze.com`, care întoarce 301.
+- **Fereastra „Acces către camere"** e scrisă de mână, nu adusă dintr-o
+  bibliotecă: are de făcut patru lucruri — Escape, clic pe fundal, blocarea
+  derulării în spate și întoarcerea focusului la elementul care a
+  deschis-o — iar pentru atât n-are rost încă un pachet într-un bundle
+  deschis pe date mobile. Toate patru verificate în browser, plus faptul că
+  un clic înăuntru **nu** o închide.
+  **Conținutul lipsește** (`ACCES_CAMERE` în `continut.js`): pozele și pașii
+  vin de la proprietar. Până atunci fereastra spune cinstit că îndrumarea nu
+  e pusă și dă numărul recepției — un traseu inventat prin curtea altcuiva
+  ar trimite oaspeții aiurea, noaptea, cu bagajele în mână.
+
+**A patra oară cu aceeași capcană**: un backtick scris într-un comentariu CSS
+din `styles.js` închide template literal-ul, iar eroarea care apare nu spune
+asta — e un 500 pe modul sau un mesaj despre un punct și virgulă lipsă, la
+sute de linii distanță. Fișierul nu era importat de niciun test (se încarcă
+doar în `main.jsx`, la rulare), deci nimic din suită nu-l atingea. Acum
+`src/guest-stiluri.test.js` îl importă: dacă șirul e rupt, suita devine
+roșie, în loc să afle utilizatorul dintr-o pagină albă. Testul verifică și că
+acoladele sunt în echilibru și că `.g-hero` nu-și ia culorile din jetoane —
+regresia de temă întunecată de la 4b, prinsă de data asta automat.
+
 ### Pasul 5 — livrarea linkului către oaspete
 
 Se adaugă `{{guest_link}}` în șablonul mesajului de acces, lângă
