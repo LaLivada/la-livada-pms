@@ -1912,17 +1912,33 @@ begin
     raise exception 'Prea multe rezervări cu acest număr de telefon astăzi. Sună recepția.';
   end if;
 
-  -- Pragurile pe IP rămân largi: rețelele mobile din România pun mulți
-  -- abonați în spatele aceleiași adrese, deci o limită strânsă ar opri
-  -- oameni fără nicio legătură între ei.
+  -- Pragurile pe IP stau între două cerințe care trag în sensuri opuse.
+  --
+  -- LARGI, fiindcă rețelele mobile din România pun mulți abonați în spatele
+  -- aceleiași adrese: o limită strânsă ar opri oameni fără nicio legătură
+  -- între ei.
+  --
+  -- Dar STRICT SUB PLAFONUL GLOBAL de 25/zi. Cât erau 30/zi, o singură
+  -- adresă putea consuma toate rezervările online ale zilei, iar site-ul
+  -- începea să răspundă tuturor „Rezervările online sunt oprite temporar" —
+  -- plasa de siguranță se transforma în butonul de oprire al atacatorului.
+  --
+  -- 12/zi împarte diferența: e nevoie de cel puțin trei adrese ca să se
+  -- ajungă la plafonul global, și e mult peste câte rezervări poate face
+  -- într-o zi un grup de abonați care chiar împarte un IP, la o pensiune cu
+  -- sub 25 de rezervări online pe zi în total.
+  --
+  -- Nimic din toate astea nu înlocuiește Turnstile: fără TURNSTILE_SECRET,
+  -- `booking-create` lasă să treacă orice cerere, iar plafoanele rămân
+  -- singura apărare.
   if v_ip is not null and (select count(*) from booking_attempts
        where fingerprint = 'ip:' || v_ip
-         and created_at > now() - interval '1 hour') >= 20 then
+         and created_at > now() - interval '1 hour') >= 10 then
     raise exception 'Prea multe cereri de la această adresă. Încearcă mai târziu.';
   end if;
   if v_ip is not null and (select count(*) from booking_attempts
        where fingerprint = 'ip:' || v_ip
-         and created_at > now() - interval '1 day') >= 30 then
+         and created_at > now() - interval '1 day') >= 12 then
     raise exception 'Prea multe cereri de la această adresă. Încearcă mâine sau sună recepția.';
   end if;
 
@@ -1947,9 +1963,21 @@ begin
   -- o rezervare abandonată acum o oră ar bloca una reală.
   perform expira_rezervari_neconfirmate();
 
-  -- 5. OASPETE, recunoscut după telefon ca în restul PMS-ului
+  -- 5. OASPETE, recunoscut după telefon ȘI nume.
+  --
+  -- Cu telefonul singur, cine află numărul cuiva putea face o rezervare
+  -- atașată fișei aceluia, iar pagina cu token îi arăta înapoi numele real
+  -- al proprietarului numărului — un oracol nume-din-telefon, ieftin de
+  -- pornit. În plus, rezervarea murdărea fișa unui client adevărat.
+  --
+  -- Clientul fidel care își scrie numele la fel e recunoscut ca înainte.
+  -- Cine îl scrie altfel primește o fișă nouă, pe care recepția o poate uni
+  -- la loc — o dublă în listă supără mult mai puțin decât datele unui om
+  -- arătate altcuiva.
   select id into v_guest_id from guests
-   where lower(phone) = lower(trim(p_phone)) limit 1;
+   where lower(phone) = lower(trim(p_phone))
+     and lower(coalesce(last_name,'')) = lower(trim(p_last_name))
+   limit 1;
   if v_guest_id is null then
     v_guest_id := 'g-' || encode(gen_random_bytes(6),'hex');
     insert into guests (id, last_name, first_name, phone, email, city, county, country)
@@ -2483,12 +2511,11 @@ create policy "sterge permisiuni facturare" on billing_permissions for delete to
   using (is_admin());
 
 
--- SUPRAFAȚA PUBLICĂ — exact patru funcții, nimic altceva.
+-- SUPRAFAȚA PUBLICĂ — exact cinci funcții, nimic altceva.
 --
 -- Site-ul public de rezervări nu are acces la niciun tabel: tot ce poate
 -- face trece prin funcțiile de mai jos, fiecare `security definer` și
 -- fiecare cu propriile validări și limite.
-grant execute on function available_rooms(timestamptz, timestamptz, int) to anon;
 grant execute on function public_availability(timestamptz, timestamptz, int, int) to anon;
 grant execute on function public_capacity() to anon, authenticated, service_role;
 -- Crearea rezervarii NU e apelabila cu cheia publica.
@@ -2512,6 +2539,40 @@ grant execute on function create_public_booking(uuid, timestamptz, timestamptz, 
 grant execute on function public_booking_by_token(text) to anon;
 grant execute on function cancel_public_booking(text) to anon;
 grant execute on function confirm_public_booking(text) to anon, authenticated, service_role;
+
+-- CE A FOST SCOS DIN SUPRAFAȚA PUBLICĂ, și de ce.
+--
+-- `available_rooms` arată exact ce cameră e ocupată în ce zile — harta
+-- ocupării pensiunii, servită oricui o cere. Site-ul folosește
+-- `public_availability`, care întoarce variante de cazare, nu harta;
+-- căutare în ambele proiecte (PMS și site): zero apeluri către ea.
+revoke execute on function available_rooms(timestamptz, timestamptz, int) from anon;
+
+-- `expira_rezervari_neconfirmate` SCRIE. E chemată dinăuntru de
+-- `create_public_booking` și de `confirm_public_booking`, amândouă
+-- `security definer` — deci rulează ca proprietar, iar revocarea nu atinge
+-- drumul real al rezervărilor.
+--
+-- Revocarea e de la PUBLIC, nu doar de la `anon`: prima încercare a tăiat
+-- doar de la anon, iar verificarea de după a arătat că tot putea executa —
+-- orice funcție nouă primește EXECUTE pentru PUBLIC și rolurile moștenesc
+-- de acolo. (`available_rooms` a mers din prima fiindcă avea un grant
+-- explicit către anon, nu unul moștenit.)
+revoke execute on function expira_rezervari_neconfirmate() from public, anon, authenticated;
+grant  execute on function expira_rezervari_neconfirmate() to service_role;
+
+-- `acorda_permisiuni_facturare_implicite` rămâne DELIBERAT deschisă.
+--
+-- E funcția unui trigger pe `staff`. Revocarea ar fi fost pură curățenie:
+-- Postgres refuză oricum apelul direct al unei funcții de trigger. Dar exact
+-- zona asta a produs deja o pană de 12 ore aici — migrația
+-- `guest_app_revoca_functia_de_trigger` a tăiat EXECUTE pe o funcție chemată
+-- dintr-un trigger și fiecare creare de rezervare a început să cadă cu
+-- 42501. Regula spune că pentru funcția de trigger dreptul se verifică la
+-- CREATE TRIGGER, nu la fiecare declanșare; am mai crezut o regulă despre
+-- triggere în proiectul ăsta și m-a costat o zi de producție.
+--
+-- Beneficiu zero, risc cunoscut: se lasă în pace.
 
 -- Datele pentru email conțin adresa clientului: doar service_role, adică
 -- doar funcția edge care trimite mesajul.

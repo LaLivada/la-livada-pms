@@ -54,21 +54,6 @@ const corsPentru = (req: Request) => ({
   "Access-Control-Max-Age": "86400",
 });
 
-/* `raspuns` e apelat din zeci de locuri; pastram semnatura si punem
-   anteturile de la cererea curenta printr-o variabila de modul, setata la
-   inceputul fiecarei invocari. Deno ruleaza o cerere per instanta de
-   handler, deci nu se amesteca intre ele. */
-let corsCurent: Record<string, string> = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, apikey, content-type, x-client-info, x-region",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
-
-const raspuns = (corp: unknown, status = 200) =>
-  new Response(JSON.stringify(corp), {
-    status, headers: { "Content-Type": "application/json", ...corsCurent },
-  });
-
 const FUS = FUS_HOTEL;
 
 /* Setările de acces. Implicit 11:00 + 30 de minute de grație — ora reală de
@@ -127,7 +112,22 @@ async function jurnal(admin: any, r: Record<string, unknown>) {
 }
 
 Deno.serve(async (req) => {
-  corsCurent = corsPentru(req);
+  /* Anteturile CORS si `raspuns` se construiesc PER CERERE, in closure.
+   *
+   * Inainte stateau intr-o variabila de modul, rescrisa la inceputul
+   * fiecarei invocari, pe motivul ca "Deno ruleaza o cerere per instanta
+   * de handler". Nu e adevarat: `Deno.serve` serveste cereri concurente in
+   * acelasi isolate, deci doua cereri suprapuse isi puteau lua anteturile
+   * una alteia. Paguba reala era mica — doar ce anteturi are voie
+   * browserul sa trimita, iar originea e oricum `*` — dar invariantul era
+   * fals, si urmatorul care s-ar fi sprijinit pe el pentru ceva ce chiar
+   * conteaza ar fi platit mult mai scump. */
+  const corsCurent = corsPentru(req);
+  const raspuns = (corp: unknown, status = 200) =>
+    new Response(JSON.stringify(corp), {
+      status, headers: { "Content-Type": "application/json", ...corsCurent },
+    });
+
   if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: corsCurent });
   if (req.method !== "POST") return raspuns({ error: "Metodă nepermisă." }, 405);
 
