@@ -19,7 +19,7 @@ import { citesteVremea } from "./vreme.js";
 import {
   TELEFON, TELEFON_SCRIS, ASISTENTA, ACASA, BUN_VENIT, IMPORTANT,
   ATRACTII, ATRACTII_PE_PAGINA, linkHarta,
-  LINK_MAPS, LINK_WAZE, ACCES_CAMERE, HARTA_INCORPORATA,
+  LINK_MAPS, LINK_WAZE, ACCES_CAMERE, HARTA_INCORPORATA, WIFI,
 } from "./continut.js";
 import {
   promptDisponibil, asculta, cheamaPrompt, esteInstalata, esteIOS,
@@ -154,6 +154,18 @@ const Adauga = () => (
   </svg>
 );
 
+/* Undele de Wi-Fi. Punctul de dedesubt e o linie de lungime zero cu capat
+   rotund — un <circle> ar iesi inel, fiindca regula de stil pune fill:none
+   pe tot ce e in butoanele astea. */
+const Semnal = () => (
+  <svg viewBox="0 0 24 24" aria-hidden="true">
+    <path d="M2.6 8.9a14.4 14.4 0 0 1 18.8 0" />
+    <path d="M5.9 12.6a9.4 9.4 0 0 1 12.2 0" />
+    <path d="M9.1 16.3a4.5 4.5 0 0 1 5.8 0" />
+    <path className="g-punct" d="M12 19.8h.01" />
+  </svg>
+);
+
 /* Pasii scrisi cu numele exacte pe care oaspetele le vede pe ecran. Traduse
    gresit, instructiunile sunt mai rele decat lipsa lor: omul cauta un buton
    care nu exista si conchide ca pagina e stricata. */
@@ -167,6 +179,66 @@ const PASI_ANDROID = [
   <>Alege <b>Adaugă la ecranul principal</b> sau <b>Instalează aplicația</b>.</>,
   <>Confirmă cu <b>Adaugă</b>.</>,
 ];
+
+const PASI_WIFI_IOS = [
+  <>Deschide <b>Setări</b> → <b>Wi-Fi</b>.</>,
+  <>Alege <b>{WIFI.retea}</b> din listă.</>,
+  <>Gata — rețeaua nu cere parolă.</>,
+];
+const PASI_WIFI_ANDROID = [
+  <>Trage în jos bara de sus și ține apăsat pe <b>Wi-Fi</b>.</>,
+  <>Alege <b>{WIFI.retea}</b> din listă.</>,
+  <>Gata — rețeaua nu cere parolă.</>,
+];
+
+/* Conectarea la Wi-Fi.
+ *
+ * Nu exista niciun mijloc prin care o pagina web sa conecteze telefonul la o
+ * retea, nici pe iOS, nici pe Android. Nu e o lipsa de API — e o granita de
+ * securitate a sistemului, si nu are cum sa cada.
+ *
+ * Ce se poate: codul QR standard „WIFI:S:...;T:nopass;;", pe care camera
+ * ambelor sisteme il recunoaste si il ofera drept „conecteaza-te la retea".
+ * Scanarea o face camera sistemului, nu pagina, deci un telefon nu-si poate
+ * citi propriul ecran; codul e pentru al doilea telefon din camera, care il
+ * scaneaza de pe ecranul primului. Pentru telefonul care tine pagina raman
+ * pasii de dedesubt.
+ *
+ * QR-ul e fisier static, generat o data si pus in public-guest/: numele
+ * retelei e constanta, iar un generator adus in bundle ar fi zeci de
+ * kiloocteti pentru o imagine care nu se schimba niciodata. */
+function ConectareWifi() {
+  const [deschis, setDeschis] = useState(false);
+
+  return (
+    <div className="g-actiune-loc">
+      <button type="button" className="g-actiune"
+        onClick={() => setDeschis((d) => !d)}
+        aria-expanded={deschis} aria-controls="g-wifi-cum">
+        <Semnal />
+        Conectează-te la Wi-Fi
+      </button>
+      {deschis && (
+        <div id="g-wifi-cum">
+          <div className="g-qr">
+            <img src="/wifi-qr.svg" width="128" height="128"
+              alt={`Cod QR pentru rețeaua ${WIFI.retea}`} />
+            <p>
+              <b>Scanează cu camera altui telefon</b> — se conectează singur,
+              fără parolă.
+            </p>
+          </div>
+          <p className="g-pasi-titlu">Sau, de pe telefonul ăsta:</p>
+          <ol className="g-pasi">
+            {(esteIOS() ? PASI_WIFI_IOS : PASI_WIFI_ANDROID).map((p, i) => (
+              <li key={i}>{p}</li>
+            ))}
+          </ol>
+        </div>
+      )}
+    </div>
+  );
+}
 
 /* Butonul de adaugare pe ecranul principal.
  *
@@ -200,8 +272,8 @@ function Instaleaza() {
   };
 
   return (
-    <div className="g-instalare">
-      <button type="button" className="g-instaleaza" onClick={apasa}
+    <div className="g-actiune-loc">
+      <button type="button" className="g-actiune" onClick={apasa}
         aria-expanded={pasi} aria-controls="g-pasi-instalare">
         <Adauga />
         Adaugă iconul pe ecran
@@ -859,6 +931,7 @@ export default function App() {
               {BUN_VENIT.puncte.map((p, i) => (
                 <li key={i}>
                   <b>{p.titlu}</b> — {p.text}
+                  {p.actiune === "wifi" && <ConectareWifi />}
                   {p.actiune === "instalare" && <Instaleaza />}
                 </li>
               ))}

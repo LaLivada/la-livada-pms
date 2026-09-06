@@ -98,18 +98,29 @@ export const ACCES_CAMERE = {
   pasi: [],
 };
 
+/* Reteaua de oaspeti. Deschisa, fara parola — de aceea nu exista aici niciun
+   camp de parola si nici nu trebuie sa apara vreodata unul: o parola scrisa
+   in bundle-ul public ar fi o parola publica. */
+export const WIFI = {
+  retea: "La Livada WiFi",
+};
+
 /* „Bun venit". Un rand de intampinare si cateva lucruri de stiut din prima
    clipa. Punctele sunt perechi titlu/text. */
 export const BUN_VENIT = {
   intro: "Ne bucurăm că ești aici.",
-  /* Un singur punct. Al doilea trimitea la telefon, iar acum contactul are
-     blocul lui la sfarsitul panoului, cu butoane — scris de doua ori, ar fi
-     fost si mai lung, si mai putin clar. */
+  /* Wi-Fi-ul sta deasupra: e primul lucru cautat la intrarea in camera, iar
+     salvarea paginii are sens abia dupa ce telefonul are internet. */
   puncte: [
+    {
+      titlu: "Wi-Fi gratuit",
+      text: `Rețeaua ${WIFI.retea}, fără parolă.`,
+      // Sub punctele astea doua apar butoanele lor; vezi App.jsx.
+      actiune: "wifi",
+    },
     {
       titlu: "Salvează pagina pe telefon",
       text: "Codul și butonul de deschidere rămân la îndemână tot sejurul.",
-      // Sub punctul asta apare butonul de adaugare pe ecranul principal.
       actiune: "instalare",
     },
   ],

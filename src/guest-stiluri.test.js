@@ -62,7 +62,7 @@ describe("foaia de stil, încărcată", () => {
     for (const bucata of [".g-hero", ".g-usa", ".g-cod", ".g-scurtatura",
                           ".g-fereastra", ".g-vreme", ".g-leg", ".g-atractie",
                           ".g-harta-cadru", ".g-harta-rama",
-                          ".g-instaleaza", ".g-pasi"]) {
+                          ".g-actiune", ".g-pasi", ".g-qr"]) {
       expect(STILURI).toContain(bucata);
     }
   });

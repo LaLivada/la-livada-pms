@@ -922,3 +922,46 @@ Ramura de iPhone e testată în `src/guest-instalare.test.js`, nu în browser:
 user-agentul nu poate fi falsificat din afara paginii, orice încercare rămâne
 în „isolated world"-ul uneltei în timp ce aplicația citește navigatorul
 adevărat.
+
+## 12. Wi-Fi
+
+Primul punct din „Bun venit" — deasupra salvării paginii, fiindcă e primul
+lucru căutat la intrarea în cameră, iar salvarea are sens abia după ce
+telefonul are internet. Rețeaua e în `WIFI` din `continut.js`, deschisă, fără
+parolă. **Nu trebuie să apară vreodată un câmp de parolă acolo**: bundle-ul e
+public, deci o parolă scrisă în el e o parolă publică.
+
+**Ce nu se poate.** O pagină web nu poate conecta telefonul la o rețea. Nu e
+o lipsă de API pe care s-o ocolim — e o graniță de securitate a sistemului,
+la fel pe iOS și pe Android, și nu are cum să cadă. Orice buton care ar
+pretinde altceva ar minți.
+
+**Ce se poate.** Codul QR standard `WIFI:S:<rețea>;T:nopass;P:;;`, pe care
+camera ambelor sisteme îl recunoaște și îl oferă drept „conectează-te la
+rețea". Scanarea o face camera sistemului, nu pagina — deci un telefon nu-și
+poate citi propriul ecran. Codul e pentru **al doilea telefon din cameră**,
+care îl scanează de pe ecranul primului; scenariul e obișnuit la un cuplu sau
+o familie. Pentru telefonul care ține pagina rămân pașii de dedesubt, scriși
+cu numele exacte de pe ecran, diferite pe iOS și pe Android.
+
+**QR-ul e fișier static**, `public-guest/wifi-qr.svg`, 1,6 kB. Numele rețelei
+e constantă; un generator adus în bundle ar fi însemnat zeci de kiloocteți
+pentru o imagine care nu se schimbă niciodată. Se regenerează cu
+`scripts/wifi-qr.mjs`, care își verifică singur rezultatul: rasterizează
+SVG-ul și îl decodează înapoi, fiindcă un QR greșit e mai rău decât niciunul
+— omul îl scanează, nu se întâmplă nimic și conchide că rețeaua e căzută.
+
+Legătura dintre nume și imagine e ținută de `src/guest-wifi.test.js`: numele
+rețelei e scris și acolo, deci schimbarea lui pică testul, care spune ce
+comandă să rulezi. Fără sârma asta, o redenumire ar lăsa un QR care trimite
+liniștit către o rețea inexistentă.
+
+**Două capcane întâlnite la scrierea testului**, amândouă tăcute:
+
+- `new URL("../fișier", import.meta.url)` **nu** dă o cale în acest proiect:
+  Vite recunoaște tiparul ca referință la un asset, îl rezolvă la build și îl
+  înlocuiește cu conținutul fișierului ca `data:`. Calea se face din
+  `process.cwd()`.
+- Sub jsdom, `URL` global e implementarea lui jsdom, pe care `fs` n-o
+  recunoaște ca URL de fișier — o transformă în șir și caută o cale
+  inexistentă.

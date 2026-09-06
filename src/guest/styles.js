@@ -285,21 +285,47 @@ body{
 }
 .g-puncte li:first-child{ border-top:0; padding-top:0; }
 .g-puncte b{ font-weight:600; }
-/* Butonul de adaugare pe ecranul principal, sub punctul lui din „Bun venit".
-   Contur, nu plin: e o unealta, iar plin ar fi concurat cu butonul mare de
-   deschidere a usii, care trebuie sa ramana singurul lucru evident. */
-.g-instalare{ margin-top:9px; }
-.g-instaleaza{
+/* Butoanele mici de sub punctele din „Bun venit" — Wi-Fi si adaugarea pe
+   ecranul principal. Contur, nu plin: sunt unelte, iar pline ar fi concurat
+   cu butonul mare de deschidere a usii, care trebuie sa ramana singurul
+   lucru evident din pagina. */
+.g-actiune-loc{ margin-top:9px; }
+.g-actiune{
   display:inline-flex; align-items:center; gap:8px;
   min-height:40px; padding:9px 14px;
   border:1px solid var(--g-line); border-radius:11px;
   background:var(--g-card); color:var(--g-text);
   font:inherit; font-size:14px; font-weight:600; cursor:pointer;
 }
-.g-instaleaza svg{
+.g-actiune svg{
   width:17px; height:17px; flex-shrink:0; display:block;
   fill:none; stroke:currentColor; stroke-width:1.7;
   stroke-linecap:round; stroke-linejoin:round;
+}
+/* Punctul de sub undele de Wi-Fi: linie de lungime zero, deci se vede numai
+   prin grosimea ei si prin capatul rotund. */
+.g-actiune svg .g-punct{ stroke-width:2.6; }
+
+/* Codul QR al retelei. Sta pe acelasi rand cu explicatia lui cat incape, si
+   trece sub ea pe ecranele foarte inguste. */
+.g-qr{
+  margin-top:11px; padding:11px;
+  display:flex; align-items:center; flex-wrap:wrap; gap:11px 13px;
+  border:1px solid var(--g-line); border-radius:12px;
+}
+.g-qr img{
+  width:128px; height:128px; flex-shrink:0; display:block;
+  border-radius:6px;
+}
+.g-qr p{
+  margin:0; flex:1 1 150px;
+  font-size:13.5px; line-height:1.5; color:var(--g-muted);
+}
+.g-qr b{ color:var(--g-text); font-weight:600; }
+
+.g-pasi-titlu{
+  margin:13px 0 0; font-size:11px; font-weight:600;
+  letter-spacing:.1em; text-transform:uppercase; color:var(--g-faint);
 }
 .g-pasi{
   margin:10px 0 0; padding-left:19px;
