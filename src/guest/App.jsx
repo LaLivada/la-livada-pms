@@ -266,26 +266,36 @@ function CumAjungi({ deschideAcces }) {
         {/* Perechea si bara dintre ele sunt un singur element de asezare:
             altfel „/" se rupe pe rand propriu si ramane atarnata la capat,
             aratand ca o greseala de tipar. */}
+        {/* Cele doua harti stau impreuna, ca un singur element de asezare:
+            sunt acelasi lucru facut in doua aplicatii, deci daca randul se
+            rupe, se rup amandoua odata, nu una sus si una jos. */}
         <span className="g-pereche">
           {/* Marcile oficiale, luate din proiectul site-ului
               (public/assets/logo-*.webp), nu desenate de noi. Un pin si o
               sageata facute de mana ar fi fost si mai putin recunoscute, si
               in raspar cu regulile de marca ale celor doua companii. */}
           <a className="g-leg" href={LINK_MAPS} target="_blank" rel="noopener noreferrer">
-            <img src="/brand/logo-google-maps.webp" alt="" width="17" height="17" />
+            <img src="/brand/logo-google-maps.webp" alt="" width="15" height="15" />
             Google Maps
           </a>
-          <span className="g-sep" aria-hidden="true">/</span>
           <a className="g-leg" href={LINK_WAZE} target="_blank" rel="noopener noreferrer">
-            <img src="/brand/logo-waze.webp" alt="" width="17" height="17" />
+            <img src="/brand/logo-waze.webp" alt="" width="15" height="15" />
             Waze
           </a>
         </span>
+        <span className="g-sep" aria-hidden="true">•</span>
         {/* Ramane `button`, desi arata ca un link: nu duce nicaieri, deschide
             ceva pe loc. Un <a href="#"> ar minti cititorul de ecran si ar
             strica clicul cu rotita. Aspectul il face CSS-ul, nu eticheta. */}
-        <button className="g-leg" type="button" onClick={deschideAcces}>
-          <Usa />Acces către camere
+        {/* Scris „Acces camere", nu „Acces către camere", si e o masuratoare,
+            nu o preferinta: cu numele intreg randul nu incape pe un telefon
+            de 375 sau 360px nici la 12px, marime la care textul deja nu se
+            mai citeste comod in fata usii, seara. Numele intreg ramane in
+            titlul ferestrei si in `aria-label`, deci un cititor de ecran il
+            aude intreg. */}
+        <button className="g-leg" type="button" onClick={deschideAcces}
+                aria-label="Acces către camere">
+          <Usa />Acces camere
         </button>
       </p>
     </div>
@@ -602,10 +612,11 @@ export default function App() {
           iconita={<Reper />} eticheta="Atracții" />
       </div>
 
-      {/* Sub butoane, cum s-a cerut, si mereu la vedere — nu ascuns intr-un
-          panou care trebuie deschis. Panourile vin dupa el; butonul apasat
-          ramane marcat, deci legatura dintre buton si panou se vede. */}
-      <CumAjungi deschideAcces={() => setAratAcces(true)} />
+      {/* Numai pe prima pagina: cand se deschide un panou, cardul dispare.
+          Pe langa ca asa s-a cerut, asta repara si o scapare de asezare —
+          cu el intre butoane si panou, continutul aparea despartit de
+          butonul care l-a deschis. Acum panoul urca imediat sub buton. */}
+      {!deschis && <CumAjungi deschideAcces={() => setAratAcces(true)} />}
 
       {deschis === "venit" && (
         <div className="g-card">

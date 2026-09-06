@@ -235,11 +235,22 @@ body{
    nimeni nu se asteapta ca un rand de text sa stea intreg pe o linie. */
 .g-legaturi{
   margin:0; display:flex; flex-wrap:wrap; align-items:center;
-  gap:4px 10px; line-height:1.5;
+  gap:6px 7px; line-height:1.5;
 }
+/* Marimile de aici sunt rezultatul unei masuratori facute in browser, nu al
+   gustului. Cele trei legaturi cereau 357px la 14px, iar in card sunt 316
+   pe un telefon de 390px. Ca sa intre pe un rand s-au taiat 41: bara „/"
+   dintre Maps si Waze (26px cu spatiile ei), pictogramele de la 17 la 15
+   (6px) si textul de la 14 la 12px.
+   Cautarea marimii s-a facut micsorand pas cu pas si numarand randurile in
+   pagina, nu socotind pe hartie. Cu numele intreg „Acces catre camere",
+   randul intra doar de la 390px in sus, si numai la 12px; la 375 si 360 —
+   adica iPhone SE si jumatate din telefoanele Android — tot se rupea. De
+   aceea eticheta e scurtata in App.jsx, iar marimea a putut urca inapoi la
+   13px, unde textul chiar se citeste. */
 .g-leg{
-  display:inline-flex; align-items:center; gap:6px;
-  font:inherit; font-size:14px; font-weight:600;
+  display:inline-flex; align-items:center; gap:4px;
+  font:inherit; font-size:12.5px; font-weight:600;
   color:var(--olive); background:none; border:0; padding:0;
   cursor:pointer; text-decoration:underline; text-underline-offset:3px;
   touch-action:manipulation;
@@ -257,9 +268,13 @@ body{
    adica 17%). Netaiate, colturile alea se vad ca patru pete albe pe cardul
    inchis din tema de noapte. Un procent, nu pixeli, ca sa ramana corect
    daca marimea se schimba. */
-.g-leg img{ width:17px; height:17px; flex-shrink:0; display:block; border-radius:20%; }
-.g-pereche{ display:inline-flex; align-items:center; gap:10px; }
-.g-sep{ color:var(--g-faint); font-size:14px; }
+.g-leg img{ width:15px; height:15px; flex-shrink:0; display:block; border-radius:20%; }
+.g-pereche{ display:inline-flex; align-items:center; gap:8px; }
+/* Punctul dintre harti si accesul in curte. Marginile lui sunt negative pe
+   jumatate din spatiul randului: separatorul are nevoie de aer, dar nu de
+   doua ori cat spatiul dintre celelalte elemente — iar aici fiecare pixel
+   in plus scoate tot randul de pe o singura linie. */
+.g-sep{ color:var(--g-faint); font-size:13px; margin:0 -3px; }
 
 /* ---------- fereastra suprapusa ---------- */
 .g-fundal{
