@@ -66,6 +66,7 @@ import * as datePersonal from "./data/personal.js";
 import * as dateAcces from "./data/acces.js";
 import { uid } from "./lib/uid.js";
 import { mesajEroare } from "./lib/errors.js";
+import { eDubluTap, FARA_TAP } from "./lib/gest.js";
 import React, { useState, useEffect, useMemo, useCallback, useRef, lazy, Suspense } from "react";
 import { createPortal } from "react-dom";
 
@@ -987,22 +988,16 @@ function Shell({ user, view, setView, onLogout, core, updateCore, reservations, 
      butonul-parinte: altfel prima apasare din pereche ar duce acasa, iar
      refreshul ar aduce alt ecran decat cel de pe care a fost cerut. Numele
      „La Livada" si subtitlul de alaturi raman drumul spre acasa. */
-  const ultimulTap = useRef(-Infinity);
+  const ultimulTap = useRef(FARA_TAP);
   const dubluTap = (e) => {
     e.stopPropagation();
     /* Un singur ceas, al nostru. `event.timeStamp` are baze de timp diferite
        de la un motor la altul — undeva de la incarcarea paginii, altundeva
        din epoca — iar o scadere intre doua baze amestecate ar da o diferenta
-       fara sens. `performance.now()` e monoton si mereu aceeasi origine.
-
-       Pornit de la -Infinity, nu de la 0: `performance.now()` se numara de la
-       incarcarea paginii, deci in prima jumatate de secunda de viata a filei
-       e el insusi sub 400. Cu 0 la pornire, o singura apasare de atunci ar fi
-       trecut drept pereche si ar fi reincarcat pagina — care iar ar fi pornit
-       de la zero. Prins la verificare, exact asa. */
+       fara sens. `performance.now()` e monoton si mereu aceeasi origine. */
     const acum = performance.now();
-    if (acum - ultimulTap.current < 400) {
-      ultimulTap.current = -Infinity;
+    if (eDubluTap(ultimulTap.current, acum)) {
+      ultimulTap.current = FARA_TAP;
       try { sessionStorage.setItem(CHEIE_ECRAN_REFRESH, safeView); } catch { /* fara bilet, pornim de acasa */ }
       window.location.reload();
       return;

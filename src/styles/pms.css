@@ -191,7 +191,15 @@
      Fara asta, iOS trateaza dublul tap ca zoom si il mananca inainte sa
      ajunga a doua apasare la pagina. */
   touch-action:manipulation;
+  position:relative;
 }
+/* Zona de atins, nu si cea desenata. Pastila are 34px, iar degetul e mai
+   lat de atat; o atingere care cadea la un pas alaturi nimerea butonul din
+   spate si ducea acasa in loc sa numere spre reincarcare. Suprafata creste
+   la 44px — minimul recomandat pentru o tinta atinsa cu degetul — fara ca
+   pastila sa se mareasca vizual. Fiind pozitionata absolut, nu intra in
+   asezarea flex a parintelui. */
+.brand-mark::after{ content:""; position:absolute; inset:-5px; border-radius:inherit; }
 .brand-text{ min-width:0; }
 .brand-name{
   display:block; font-size:var(--fs-xl); font-weight:650; letter-spacing:-0.025em; color:var(--text);
