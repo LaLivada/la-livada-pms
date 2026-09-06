@@ -284,8 +284,27 @@ function ContinutAcces() {
    si atunci e mai cinstit sa iasa cardul putin sub pliu decat sa lasam o dunga
    inutila. */
 const HARTA_MIN = 84;
-const HARTA_MAX = 220;
+/* Plafonul e o plasa pentru ecrane inalte (un laptop), nu o limita pentru
+   telefoane. Cu 220 ramanea loc gol jos pe un iPhone mare — verificat pe
+   dispozitiv, nu in emulator. */
+const HARTA_MAX = 340;
 const HARTA_AER = 6;     // cardul sa nu stea lipit de marginea de jos
+
+/* Inaltimea REALA vizibila.
+ *
+ * Pe iOS Safari `innerHeight` da inaltimea de asezare, care include si fasia
+ * de sub bara de jos — deci calculul iese cu cativa zeci de pixeli pe langa,
+ * intr-un sens sau altul, exact pe telefonul unde conteaza. `visualViewport`
+ * da ce se vede cu adevarat.
+ *
+ * Doar la scara 1: cand omul apropie cu doua degete, visualViewport se
+ * micsoreaza si n-are nicio legatura cu spatiul de asezare — atunci harta
+ * n-are de ce sa se schimbe, deci ramanem pe innerHeight. */
+function inaltimeaVizibila() {
+  const vv = window.visualViewport;
+  if (vv && Math.abs(vv.scale - 1) < 0.01) return vv.height;
+  return window.innerHeight;
+}
 
 function useInaltimeaHartii(refCard, refHarta) {
   useLayoutEffect(() => {
@@ -294,19 +313,32 @@ function useInaltimeaHartii(refCard, refHarta) {
       if (!card || !harta) return;
       const susCard = card.getBoundingClientRect().top + window.scrollY;
       const fara = card.offsetHeight - harta.offsetHeight;   // cardul fara harta
-      const liber = window.innerHeight - susCard - fara - HARTA_AER;
+      const liber = inaltimeaVizibila() - susCard - fara - HARTA_AER;
       const noua = Math.round(Math.max(HARTA_MIN, Math.min(HARTA_MAX, liber)));
       if (harta.style.height !== noua + "px") harta.style.height = noua + "px";
     };
 
     potriveste();
+    /* Doua momente in care asezarea se schimba fara sa emita `resize`:
+       cand se aseaza fonturile (serif-ul din salut si din numarul camerei
+       schimba inaltimea a ce e deasupra cardului) si cand iframe-ul termina
+       de incarcat. Fara ele, prima masuratoare ramane cea facuta pe fontul
+       de rezerva, si e gresita cu cativa pixeli chiar pe incarcarea initiala —
+       singura pe care o vede oaspetele. */
+    document.fonts?.ready?.then(potriveste).catch(() => { /* fara fonturi, ramane cum e */ });
+    window.addEventListener("load", potriveste);
     window.addEventListener("resize", potriveste);
     window.addEventListener("orientationchange", potriveste);
+    /* Barele Safari se ascund si reapar la derulare fara sa emita `resize` pe
+       window — dar visualViewport isi anunta schimbarea. */
+    window.visualViewport?.addEventListener("resize", potriveste);
     const ochi = new ResizeObserver(potriveste);
     if (refCard.current?.parentElement) ochi.observe(refCard.current.parentElement);
     return () => {
+      window.removeEventListener("load", potriveste);
       window.removeEventListener("resize", potriveste);
       window.removeEventListener("orientationchange", potriveste);
+      window.visualViewport?.removeEventListener("resize", potriveste);
       ochi.disconnect();
     };
   }, [refCard, refHarta]);
