@@ -581,13 +581,19 @@ export default function App() {
       </div>
 
       <div className="g-hero">
-        {(felCamera || nrCamera) && (
-          <p className="g-hero-camera">
-            {felCamera && <span className="g-hero-camera-fel">{felCamera}</span>}
-            {nrCamera && <span className="g-hero-camera-nr">{nrCamera}</span>}
-          </p>
-        )}
-        <p className="g-eticheta">Cod de acces</p>
+        {/* Eticheta codului in stanga, camera in dreapta, pe acelasi rand.
+            Randul de sus al cardului raspunde astfel la amandoua intrebarile
+            omului din fata usii — la ce usa si cu ce cod — fara sa coste
+            doua randuri. */}
+        <div className="g-hero-sus">
+          <p className="g-eticheta">Cod de acces</p>
+          {(felCamera || nrCamera) && (
+            <p className="g-hero-camera">
+              {felCamera && <span className="g-hero-camera-fel">{felCamera}</span>}
+              {nrCamera && <span className="g-hero-camera-nr">{nrCamera}</span>}
+            </p>
+          )}
+        </div>
         {acces?.code ? (
           <>
             {/* Diezul face parte din ce se tasteaza pe yala, deci se

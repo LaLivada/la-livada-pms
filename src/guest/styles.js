@@ -141,8 +141,15 @@ body{
    cauta exact numarul, ca sa stie la ce usa sa se duca.
    Felul casutei ramane eticheta mica de langa el: „Tiny house" nu ajuta pe
    nimeni sa gaseasca usa, numarul da. */
+/* Eticheta codului si camera, pe acelasi rand: una la stanga, cealalta la
+   dreapta, asezate pe aceeasi linie de baza — asa eticheta mica de 11px sta
+   pe linia numarului de 30px, nu plutind la mijlocul lui. */
+.g-hero-sus{
+  display:flex; align-items:baseline; justify-content:space-between;
+  flex-wrap:wrap; gap:2px 12px; margin-bottom:2px;
+}
 .g-hero-camera{
-  margin:0 0 16px; display:flex; align-items:baseline; flex-wrap:wrap;
+  margin:0; display:flex; align-items:baseline; flex-wrap:wrap;
   justify-content:flex-end; gap:3px 9px;
 }
 .g-hero-camera-fel{
