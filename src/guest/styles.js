@@ -50,7 +50,11 @@ body{
 }
 
 /* ---------- salutul ---------- */
-.g-salut{ display:flex; align-items:center; gap:10px; }
+/* Aliniate sus, nu la mijloc: coloana din dreapta (sigla plus vremea) e mai
+   inalta decat salutul, iar centrarea impingea salutul in jos cu vreo sase
+   pixeli fata de sigla — destul cat sa para nepotrivit, prea putin cat sa
+   se vada de ce. */
+.g-salut{ display:flex; align-items:flex-start; gap:10px; }
 .g-salut-text{ min-width:0; flex:1; }
 .g-salut-ora{ margin:0; font-size:15px; color:var(--g-muted); }
 .g-salut-nume{
