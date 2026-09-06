@@ -265,17 +265,6 @@ export const ATRACTII = [
     credit: { autor: "ElaG", licenta: "CC BY-SA 3.0 RO",
       pagina: "https://commons.wikimedia.org/wiki/File:Muzeul_%22Vasile_Parvan%22_Barlad.jpg" },
   },
-  {
-    cheie: "sturdza",
-    nume: "Casa Sturdza",
-    loc: "Bârlad",
-    km: 50, minute: 53,
-    text: "Casă boierească din 1812, una dintre cele mai bine păstrate clădiri de epocă din județ. Găzduiește Muzeul Colecțiilor, șase colecții donate de-a lungul a peste optzeci de ani.",
-    cauta: "Casa Sturdza Bârlad",
-    foto: "sturdza.jpg",
-    credit: { autor: "Bogdan29roman", licenta: "CC BY-SA 3.0",
-      pagina: "https://commons.wikimedia.org/wiki/File:Casa_Sturdza_-_Muzeul_Colectiilor_Barlad.jpg" },
-  },
 ];
 
 /* Cate atractii pe pagina. Cinci, cum s-a cerut — si tot cinci e numarul

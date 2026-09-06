@@ -669,7 +669,7 @@ buton. `opacity` revine explicit la 1 în starea „deschis", altfel regula de
 când trebuie să se vadă. Sub `prefers-reduced-motion` rămâne același semnal,
 staționar.
 
-**Atracțiile** (`ATRACTII` în `src/guest/continut.js`), unsprezece obiective,
+**Atracțiile** (`ATRACTII` în `src/guest/continut.js`), zece obiective,
 paginate câte cinci, ordonate după distanță:
 
 - **selecția** e din liste independente despre județ (Știrile ProTV,
@@ -681,7 +681,7 @@ paginate câte cinci, ordonate după distanță:
 - **pozele** stau local în `public-guest/atractii/` (720×450), nu legate
   direct de la sursă: pagina nu trimite IP-ul oaspetelui la un server străin
   doar pentru o poză, iar o imagine ștearsă mâine nu lasă un pătrat gol aici;
-- **șapte sunt de pe Wikimedia Commons**, cu licență liberă. Autorul și
+- **șase sunt de pe Wikimedia Commons**, cu licență liberă. Autorul și
   licența se afișează, fiindcă asta cer CC BY și CC BY-SA — nu e politețe, e
   condiția de folosire;
 - **patru vin de la pensiune** (muzeul județean Vaslui, grădina zoologică
