@@ -51,7 +51,23 @@ const MESAJE: Record<string, string> = {
   "prea-multe": "Prea multe încercări. Așteaptă câteva minute.",
   "prea-des": "Ușa a fost deschisă de prea multe ori în ultima oră. Sună recepția.",
   "fara-yala": "Camera nu are încuietoare conectată. Folosește codul de acces.",
+  "prea-devreme": "Ușa se deschide de la ora sosirii.",
+  "prea-tarziu": "Ora plecării a trecut, ușa nu se mai deschide. Sună recepția.",
 };
+
+/* Ora de sosire, scrisa pentru cineva care sta in fata usii.
+ * Fusul e cel al casei, nu al serverului: oaspetele si camera sunt in
+ * acelasi loc, iar Deno ruleaza in UTC. */
+function candSeDeschide(iso: string | undefined): string | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  return new Intl.DateTimeFormat("ro-RO", {
+    timeZone: "Europe/Bucharest",
+    weekday: "long", day: "numeric", month: "long",
+    hour: "2-digit", minute: "2-digit",
+  }).format(d);
+}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: cors });
@@ -76,7 +92,14 @@ Deno.serve(async (req) => {
   if (eroarePoarta) return raspuns({ ok: false, error: "Serverul n-a putut verifica linkul." }, 500);
   if (!poarta?.ok) {
     const motiv = String(poarta?.motiv || "necunoscut");
-    return raspuns({ ok: false, motiv, error: MESAJE[motiv] || MESAJE.necunoscut }, 403);
+    let mesaj = MESAJE[motiv] || MESAJE.necunoscut;
+    /* La „prea devreme" spunem si DE CAND. „Nu inca" fara o ora e exact
+       raspunsul care trimite omul la receptie degeaba. */
+    if (motiv === "prea-devreme") {
+      const cand = candSeDeschide(poarta?.deLa);
+      if (cand) mesaj = `Ușa se deschide de la ora sosirii — ${cand}.`;
+    }
+    return raspuns({ ok: false, motiv, error: mesaj }, 403);
   }
 
   /* Furnizorul se citeste din setari, ca in access-provider — ca sa nu

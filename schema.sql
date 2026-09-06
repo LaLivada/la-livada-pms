@@ -3208,10 +3208,36 @@ declare
   v_p record;
   v_n int;
   v_camera record;
+  v_gratie int;
 begin
   select * into v_p from guest_poarta(p_cod);
   if v_p.motiv <> 'ok' then
     return jsonb_build_object('ok', false, 'motiv', v_p.motiv);
+  end if;
+
+  -- FEREASTRA DE TIMP. Butonul merge intre sosire si plecare, si atat.
+  --
+  -- Se citeste din REZERVARE, nu din `access_codes`: butonul e deliberat
+  -- desprins de cod (codul poate lipsi, poate intarzia, poate esua la yala),
+  -- deci fereastra lui nu are voie sa atarne de existenta codului.
+  --
+  -- Statusul nu e suficient. `checkedin` se pune de la recepate si ramane
+  -- asa pana apasa cineva check-out — deci un oaspete cazat cu doua zile
+  -- inainte ar fi putut deschide usa din prima clipa, iar unul care a plecat
+  -- ar fi putut deschide-o si a doua zi. Ora decide, nu statusul.
+  select coalesce(
+           (select case when (value ->> 'graceMinutes') ~ '^[0-9]{1,4}$'
+                        then (value ->> 'graceMinutes')::int end
+              from app_state where key = 'pms:access:v1'), 30)
+    into v_gratie;
+
+  if now() < (v_p.rezervare).checkin then
+    return jsonb_build_object('ok', false, 'motiv', 'prea-devreme',
+                              'deLa', (v_p.rezervare).checkin);
+  end if;
+
+  if now() > (v_p.rezervare).checkout + make_interval(mins => v_gratie) then
+    return jsonb_build_object('ok', false, 'motiv', 'prea-tarziu');
   end if;
 
   delete from guest_unlock_attempts where created_at < now() - interval '1 day';

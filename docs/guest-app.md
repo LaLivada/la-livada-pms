@@ -836,3 +836,33 @@ Pasul 4 se adaugă peste, când pasul 0 confirmă că are ce deschide.
 
 Asta înseamnă că, dacă gateway-urile se dovedesc a fi problema, proiectul
 nu stă blocat: se livrează restul și se așteaptă hardware-ul.
+
+---
+
+## 10. Fereastra de timp a butonului
+
+Butonul de deschidere merge **din momentul sosirii până la plecare**, plus
+minutele de grație din setări (`pms:access:v1.graceMinutes`, implicit 30).
+
+**De ce nu e de ajuns statusul.** `checkedin` se pune de la recepție și
+rămâne așa până apasă cineva check-out. Fără o verificare de oră, un oaspete
+cazat cu două zile înainte de sosire ar fi putut deschide ușa din prima
+clipă, iar unul care a plecat ar fi putut deschide-o și a doua zi — camera
+era deja a altcuiva. Ora decide, nu statusul.
+
+**De ce fereastra vine din rezervare, nu din `access_codes`.** Butonul e
+deliberat desprins de codul de acces (vezi 4): codul poate lipsi, poate
+întârzia, poate eșua la yală. Dacă fereastra butonului ar fi citită din
+codul de acces, butonul ar dispărea exact în situațiile în care e singura
+ieșire a oaspetelui.
+
+Regula stă în `guest_poate_deschide`, înaintea plafoanelor — o încercare
+prea devreme nu consumă din cele zece pe oră. Motivele noi sunt
+`prea-devreme` (răspunsul spune și **de când**: „Ușa se deschide de la ora
+sosirii — luni, 10 ianuarie la 14:00") și `prea-tarziu`.
+
+Verificat cu tranzacții anulate pe cele cinci cazuri — în sejur `ok`;
+sosire în 2028 `prea-devreme`; plecat din 2020 și încă `checkedin`
+`prea-tarziu`; la 10 minute după plecare `ok`; la 40 de minute
+`prea-tarziu` — și o dată în producție, mutând temporar sosirea rezervării
+de test în 2028.
