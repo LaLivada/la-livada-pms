@@ -2890,8 +2890,26 @@ create unique index reservations_guest_code on reservations (guest_code);
 
 -- Rezervarile noi isi primesc codul singure. Trigger, nu `default`: un
 -- insert care trimite explicit null ar ocoli un default, nu si triggerul.
+--
+-- SECURITY DEFINER, SI NU E OPTIONAL. `guest_code_nou` e revocata de la
+-- `authenticated` (mai jos), fiindca n-are ce cauta in API. Dar triggerul
+-- asta o cheama, iar fara `security definer` apelul ruleaza cu drepturile
+-- celui care insereaza — adica ale receptionerului logat in PMS. Efectul,
+-- vazut in productie pe 6 septembrie 2026: ORICE creare de rezervare din
+-- aplicatie pica cu 42501, „permission denied for function
+-- guest_code_nou", afisat drept „Nu ai dreptul sa faci aceasta
+-- modificare".
+--
+-- Capcana e ca Postgres verifica EXECUTE pe functia de trigger doar la
+-- CREATE TRIGGER, nu la fiecare declansare — deci triggerul pornea, si
+-- abia apelul dinauntru era refuzat. Verificarile facute cu cheia de
+-- serviciu nu prind asta niciodata: ea ocoleste tot.
+--
+-- `set search_path` nu mai e igiena, ci obligatoriu: intr-o functie
+-- definer, un search_path venit de la client ar putea indrepta apelul
+-- catre alta functie cu acelasi nume.
 create or replace function pune_guest_code()
-returns trigger language plpgsql set search_path = public as $$
+returns trigger language plpgsql security definer set search_path = public as $$
 begin
   if new.guest_code is null then
     new.guest_code := guest_code_nou();
@@ -3012,12 +3030,19 @@ end $$;
 -- functiile de citire ale guest app-ului o cheama din interior, iar ele
 -- fiind security definer ruleaza ca proprietar, deci n-au nevoie de drept.
 revoke execute on function guest_poarta(text) from public, anon, authenticated;
+-- ATENTIE la revocarea de mai jos: `guest_code_nou` e chemata din
+-- `pune_guest_code`, triggerul de pe `reservations`. Revocarea e in regula
+-- DOAR fiindca triggerul e `security definer` si apelul ruleaza deci ca
+-- proprietar. Daca cineva scoate vreodata `security definer` de acolo,
+-- randul asta blocheaza crearea oricarei rezervari din PMS. S-a intamplat,
+-- pe 6 septembrie 2026, si a tinut pana seara.
 revoke execute on function guest_code_nou() from public, anon, authenticated;
 -- Si functia de trigger. Ea nu se poate chema oricum din afara (Postgres
 -- refuza: „trigger functions can only be called as triggers"), dar n-are
 -- motiv sa aiba EXECUTE pentru toata lumea doar fiindca asa e implicit.
 -- Drepturile pe o functie de trigger se verifica la CREATE TRIGGER, nu la
--- fiecare declansare, deci revocarea nu opreste triggerul.
+-- fiecare declansare, deci revocarea nu opreste triggerul. Ce NU se
+-- verifica la CREATE TRIGGER sunt apelurile dinauntrul ei — vezi mai sus.
 revoke execute on function pune_guest_code() from public, anon, authenticated;
 
 

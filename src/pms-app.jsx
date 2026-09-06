@@ -535,7 +535,14 @@ function PMSApp() {
   /* Fiecare functie trimite doar randurile schimbate. Starea locala
      se actualizeaza imediat, iar daca scrierea esueaza (de ex. camera
      tocmai a fost ocupata de altcineva) eroarea ajunge la utilizator
-     si datele se reincarca din baza. */
+     si datele se reincarca din baza.
+
+     INTORC `true` DACA S-A SCRIS, `false` DACA NU. Pana acum inghiteau
+     eroarea si se terminau la fel in ambele cazuri, iar apelantul mergea
+     linistit mai departe: la o rezervare respinsa de baza, recepția vedea
+     „Rezervare creată" langa mesajul de eroare, pentru o rezervare care nu
+     exista. Cine anunta un succes trebuie sa verifice valoarea; cine doar
+     salveaza in fundal poate sa o ignore, ca inainte. */
   const coreRef = useRef(core);
   useEffect(() => { coreRef.current = core; }, [core]);
   const resRef = useRef(reservations);
@@ -579,7 +586,8 @@ function PMSApp() {
       }
       const { rooms, guests, rates, onlinePricing, billingCustomers, vatRates, products, paymentMethods, ...settings } = next;
       await saveShared(K.core, settings);
-    } catch (e) { raporteazaEroare(e); }
+      return true;
+    } catch (e) { raporteazaEroare(e); return false; }
   }, [raporteazaEroare]);
 
   const updateReservations = useCallback(async (next) => {
@@ -601,14 +609,15 @@ function PMSApp() {
         resRef.current = actualizate;
         setReservations(actualizate);
       }
-    } catch (e) { raporteazaEroare(e); }
+      return true;
+    } catch (e) { raporteazaEroare(e); return false; }
   }, [raporteazaEroare]);
 
   const updateGroups = useCallback(async (next) => {
     const before = grRef.current;
     setGroups(next);
-    try { await syncTable("res_groups", before, next, snakeGroup); }
-    catch (e) { raporteazaEroare(e); }
+    try { await syncTable("res_groups", before, next, snakeGroup); return true; }
+    catch (e) { raporteazaEroare(e); return false; }
   }, [raporteazaEroare]);
 
   const updateBlocks = useCallback(async (next) => {
@@ -621,7 +630,8 @@ function PMSApp() {
         checkout: new Date(b.end).toISOString(),
         status: "confirmed", source: "blocaj", notes: b.reason || null,
       }));
-    } catch (e) { raporteazaEroare(e); }
+      return true;
+    } catch (e) { raporteazaEroare(e); return false; }
   }, [raporteazaEroare]);
 
   const updateHousekeeping = useCallback(async (next) => {

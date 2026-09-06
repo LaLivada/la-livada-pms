@@ -696,6 +696,48 @@ paginate câte cinci, ordonate după distanță:
   de km așteptându-se la un conac restaurat se întoarce supărat; ce merită
   drumul e parcul, biserica și mormântul Elenei Cuza.
 
+### Regresie introdusă și reparată — 6 septembrie 2026
+
+**Timp de o zi, nicio rezervare nu s-a mai putut crea din PMS.** Merită
+scris, fiindcă e o capcană care se poate repeta.
+
+Migrația `guest_app_revoca_functia_de_trigger` a revocat `EXECUTE` pe
+`guest_code_nou` de la toată lumea — corect ca intenție, funcția n-are ce
+căuta în API. Dar ea e chemată din `pune_guest_code`, trigger-ul `BEFORE
+INSERT` de pe `reservations`, iar acela nu era `SECURITY DEFINER`. Apelul
+rula deci cu drepturile celui care inserează: recepționerul logat în PMS.
+Orice `INSERT` pica cu `42501, permission denied for function
+guest_code_nou`, afișat în interfață drept „Nu ai dreptul să faci această
+modificare".
+
+**De ce n-a prins nicio verificare.** Două motive care se adună:
+
+1. Postgres verifică `EXECUTE` pe funcția de trigger doar la `CREATE
+   TRIGGER`, nu la fiecare declanșare. Deci trigger-ul pornea normal, și
+   abia apelul dinăuntru era refuzat — adică exact locul la care nu te
+   uiți când citești o listă de revocări.
+2. **Toate verificările mele de atunci s-au făcut cu cheia de serviciu**,
+   care ocolește și RLS, și drepturile pe funcții. Calea pe care umblă un
+   om logat n-a fost exercitată niciodată. Lecția, pentru orice revocare
+   de aici înainte: proba trebuie făcută cu rolul `authenticated` și un
+   `request.jwt.claims` pus de mână, într-o tranzacție anulată.
+
+Reparat prin `repara_triggerul_de_guest_code`: trigger-ul devine `SECURITY
+DEFINER` (cu `set search_path`, obligatoriu acum), iar revocările rămân
+neatinse. Verificat pe rolurile reale — admin, recepționer și un grup de
+trei camere trec; un utilizator din afara `staff` e în continuare respins.
+Căutat și restul clasei de greșeli — nicio altă funcție care rulează cu
+drepturile clientului nu cheamă înăuntru ceva revocat.
+
+**Al doilea bug, scos la iveală de primul.** Ecranul arăta simultan eroarea
+și „Rezervare creată · 1001", pentru o rezervare care nu exista: funcțiile
+`update*` din `pms-app.jsx` prindeau eroarea, o afișau și se terminau la
+fel ca la succes, iar apelantul mergea liniștit mai departe la toast și la
+închiderea ferestrei. Acum întorc `true`/`false`, iar salvarea rezervării
+(singulară și de grup) se oprește când scrierea n-a reușit. Celelalte 60 de
+locuri care le apelează ignoră valoarea, ca înainte — schimbarea nu le
+atinge.
+
 ### Pasul 5 — livrarea linkului către oaspete
 
 Se adaugă `{{guest_link}}` în șablonul mesajului de acces, lângă

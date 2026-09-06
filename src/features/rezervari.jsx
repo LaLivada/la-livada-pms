@@ -1290,8 +1290,12 @@ export function ReservationModal({ data, core, updateCore, reservations, updateR
           ? { ...base, priceOverride: null, bookedPrice: liveReservationTotalOnline(base, core, reservations) }
           : { ...base, priceOverride: coteGrup[idx], bookedPrice: null };
       });
-      await updateGroups([...groups, group]);
-      await updateReservations([...reservations, ...newRes]);
+      /* Fara verificarile astea, o scriere respinsa de baza (drepturi,
+         suprapunere) trecea neobservata aici: eroarea aparea intr-un toast,
+         dar imediat sub el se scria „Grup creat" si fereastra se inchidea.
+         Recepția ramanea convinsa ca are camerele blocate. */
+      if (!await updateGroups([...groups, group])) return;
+      if (!await updateReservations([...reservations, ...newRes])) return;
       await audit.push("Grup creat",
         `${group.name} · ${roomIds.length} camere · ${fmtDate(checkin)} → ${fmtDate(checkout)}`);
       onClose();
@@ -1325,7 +1329,12 @@ export function ReservationModal({ data, core, updateCore, reservations, updateR
       : { ...recordBase, priceOverride: Number(priceOverride), bookedPrice: null };
     const nextRes = editing ? reservations.map((r) => (r.id === editing.id ? record : r)) : [...reservations, record];
 
-    await updateReservations(nextRes);
+    /* Scrierea poate fi respinsa de baza — drepturi, suprapunere, conflict
+       de versiune. Daca a fost, ne oprim aici: mesajul de eroare l-a dat
+       deja `raporteazaEroare`, iar un „Rezervare creată" pe deasupra ar
+       spune exact pe dos fata de ce s-a intamplat. Fereastra ramane
+       deschisa, cu datele in ea, ca omul sa poata reincerca. */
+    if (!await updateReservations(nextRes)) return;
     const who = guestFullName(core.guests.find((g) => g.id === guestId)) || "Fără nume";
     const rn = core.rooms.find((r) => r.id === roomId)?.name;
     await audit.push(editing ? "Rezervare modificată" : "Rezervare creată",
