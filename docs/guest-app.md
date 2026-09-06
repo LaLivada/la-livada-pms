@@ -23,12 +23,17 @@ Documentul lăsa deschise trei întrebări. Două au primit răspuns.
 trece recepția, ca acum. Varianta cu auto-declarare din secțiunea 5.2 nu se
 face — nicio scriere pe facturare dintr-un link public.
 
-**Adresa: `lalivada.ro/guest/`.** Nu subdomeniu. Vezi secțiunea 3.1, adăugată
-pentru asta: alegerea schimbă modul de livrare, fiindcă `lalivada.ro` nu e pe
-Vercel, ca celelalte două aplicații.
+**Adresa: `lalivada.ro/guest/`, aplicația pe Vercel lângă PMS.** Cele două
+cerințe par să se bată cap în cap, fiindcă `lalivada.ro` nu e pe Vercel. Se
+împacă printr-o redirectare: linkul dat oaspetelui e cel cerut, iar aplicația
+stă unde stau celelalte două și se publică la push. Vezi 3.1.
 
-Rămâne deschisă a treia: ce se face cu camerele fără gateway. Nu se poate
-răspunde înainte de pasul 0.
+**Pasul 0 e făcut: toate cele 16 butoane de deschidere merg** (verificat de
+Ovidiu, 6 septembrie 2026). Nu există camere fără gateway, deci a treia
+întrebare deschisă a rămas fără obiect: deschiderea la distanță intră în
+prima versiune, pentru toate camerele, fără coloana `rooms.remote_unlock` și
+fără ecrane diferite de la o cameră la alta. Secțiunea 6 rămâne pentru
+istoric.
 
 Corecție la textul de mai jos, verificată în cod pe 6 septembrie:
 **`unlock` nu mai e rezervat adminilor.** Toate rolurile pot deschide o ușă;
@@ -45,11 +50,13 @@ nu pentru o ramură nouă în funcția existentă.
 - **Nu e o aplicație nouă.** E un al treilea build Vite în același repo,
   alături de PMS și de motorul de rezervări, pe modelul deja folosit —
   `vite.booking.config.js`, `dist-booking/`, deploy separat pe Vercel.
-- **Autentificarea e linkul însuși**, cu un token de 128 de biți pe
-  rezervare, exact tiparul de la `public_bookings.public_token`
-  ([schema.sql:1373](../schema.sql)). Fără cont, fără parolă: oaspetele
-  primește adresa prin același email/WhatsApp prin care primește azi
-  codul.
+- **Autentificarea e linkul însuși.** Fără cont, fără parolă: oaspetele
+  primește adresa prin același email/WhatsApp prin care primește azi codul.
+  Documentul propunea inițial un token de 128 de biți, pe tiparul lui
+  `public_bookings.public_token` ([schema.sql:1373](../schema.sql)); s-a
+  hotărât un cod de cinci caractere, de dragul unui link scurt. Schimbarea
+  nu e cosmetică — mută securitatea din lungimea codului în limitarea de
+  rată. Socoteala e făcută pe față în 4.1.
 - **Fereastra de valabilitate a linkului nu se ține în JavaScript**, ci
   în funcția de pe server, care refuză tokenul în afara sejurului. Un
   link expirat nu întoarce date pe care interfața să le ascundă — nu le
@@ -94,7 +101,7 @@ Munca reală e în poarta de autorizare pe token și în deschiderea ușii.
 
 ## 3. Ce lipsește
 
-1. **Tokenul de sejur.** `reservations` n-are coloană de token public.
+1. **Codul de sejur.** `reservations` n-are coloană de cod public.
    `public_bookings.public_token` există, dar e per *cerere de rezervare*
    (poate acoperi mai multe camere) și e valabil pentru totdeauna — e
    linkul de confirmare/anulare, alt scop.
@@ -122,36 +129,93 @@ loc:
 
 `lalivada.ro` e un export static Next (`output: "export"`, `next.config.ts`),
 urcat ca fișiere. **Nu există server care să rescrie sau să facă proxy**, deci
-`lalivada.ro/guest/` nu poate fi o rescriere către un deploy Vercel separat.
-Guest app-ul trebuie să ajungă fizic pe hostingul acela.
+`lalivada.ro/guest/` nu poate fi o rescriere transparentă către Vercel.
 
-Vestea bună: tiparul există deja acolo. `public/statistici/index.php` e servit
-la `lalivada.ro/statistici/` și e scos din indexare cu `Disallow: /statistici/`
-în `app/robots.ts`. Guest app-ul urmează exact aceeași cale, ca
-`public/guest/`.
+Cerința e însă dublă: adresa aceea, **și** aplicația lângă PMS, publicată la
+push. Se împacă printr-o **redirectare**, nu printr-un proxy:
 
-Ce presupune concret:
+```
+lalivada.ro/guest/Ajh6k
+   │  302, servit de hostingul obisnuit (.htaccess, mod_rewrite)
+   ▼
+guest.lalivada.ro/Ajh6k           ← proiect Vercel, din acest repo
+```
 
-- buildul Vite al guest app-ului scrie în `lalivada-site/public/guest/`;
-- Next copiază `public/` în `out/` la build, iar scriptul de publicare urcă
-  doar fișierele schimbate;
-- în `app/robots.ts` se adaugă `Disallow: /guest/`, lângă `/statistici/`.
-  Asta înlocuiește nevoia de `public-guest/robots.txt` din secțiunea 4.6:
-  pe un domeniu servit de un singur host, robots.txt e unul singur, al
-  domeniului;
-- `trailingSlash: true` e deja pus, deci `/guest/` servește `/guest/index.html`
-  fără nicio regulă de server.
+Codul stă **în cale**: `lalivada.ro/guest/Ajh6k`. Redirectarea îl duce mai
+departe, iar hostingul obișnuit are nevoie de o regulă de rescriere ca să
+prindă orice cod după `/guest/`, nu doar `/guest/` gol:
 
-**Costul, spus limpede:** guest app-ul locuiește în repo-ul PMS, dar se
-publică din repo-ul site-ului. O schimbare cere două comenzi în două locuri,
-iar cine uită a doua comandă crede că a livrat. E prețul adresei cerute; un
-subdomeniu pe Vercel s-ar fi publicat singur la push.
+```apache
+# lalivada-site/public/.htaccess
+RewriteEngine On
+RewriteRule ^guest/([A-Za-z0-9]{5})/?$ https://guest.lalivada.ro/$1 [R=302,L]
+```
 
-**Tokenul trece în fragment, nu în query string.** Adresa devine
-`lalivada.ro/guest/#TOKEN`, nu `?t=TOKEN`. Fragmentul nu e trimis niciodată
-serverului, deci tokenul nu ajunge în logurile de acces ale unui hosting
-partajat, pe care nu-l administrăm noi. Secțiunea 7 cerea deja ca tokenul să
-nu circule prin query string; pe hostingul ăsta motivul e și mai apăsat.
+`mod_rewrite` e practic mereu activ pe cPanel, spre deosebire de `mod_proxy` —
+de-asta redirectare, nu proxy. **De verificat totuși la prima livrare**, plus
+că scriptul de publicare chiar urcă un fișier al cărui nume începe cu punct.
+
+**302, nu 301.** O redirectare permanentă rămâne în cache-ul browserelor
+oaspeților și nu mai poate fi schimbată dacă mutăm vreodată aplicația.
+
+Pe partea Vercel, `guest.lalivada.ro/Ajh6k` e tot o cale, deci buildul are
+nevoie de rescriere către `index.html` — altfel orice cod dă 404, fiindcă
+fișierul acela nu există.
+
+### Prețul adresei frumoase: codul intră în loguri
+
+Un cod în cale se trimite serverului, deci apare în logurile de acces — și pe
+hostingul partajat, pe care nu-l administrăm noi, și la Vercel. Varianta
+dinainte, cu tokenul în fragment (`/guest/#TOKEN`), nu avea neajunsul ăsta:
+fragmentul nu pleacă niciodată de la browser. Verificat pe 6 septembrie în
+Chromium — o redirectare 302 păstrează fragmentul intact la destinație — deci
+acela rămâne montajul de rezervă dacă se răzgândește cineva.
+
+Ce ține riscul în frâu, cu codul în cale: linkul e mort în afara sejurului
+(4.2). Un cod scurs dintr-un log e, peste câteva zile, un șir fără nicio
+putere. Asta nu-l face inofensiv cât ține sejurul — dar mută problema din
+„pentru totdeauna" în „câteva zile".
+
+### De ce subdomeniu propriu, nu `pms.lalivada.ro/guest/`
+
+Ar fi fost mai simplu să iasă din același build cu PMS-ul, dar ar fi însemnat
+**aceeași origine** cu aplicația de recepție. PMS-ul ține sesiunea Supabase a
+angajatului în `localStorage`, iar `localStorage` e per origine: o pagină de
+oaspete servită de acolo ar sta, tehnic, lângă sesiunile personalului. Nu e o
+breșă în sine, dar șterge o graniță pe care nu avem niciun motiv s-o ștergem —
+guest app-ul e singura pagină din tot ansamblul pe care o deschid străini.
+
+Proiect Vercel separat înseamnă și origine separată, și e oricum tiparul deja
+folosit: `rezervari.lalivada.ro` e tot un al doilea proiect Vercel din același
+repo.
+
+### Ce presupune concret
+
+În acest repo:
+
+- `vite.guest.config.js` + `src/guest/`, pe tiparul booking-ului;
+- `public-guest/robots.txt` cu `Disallow: /`, plus `noindex` în pagină;
+- proiect Vercel nou pe `dist-guest/`, subdomeniu `guest.lalivada.ro`.
+
+În `lalivada-site`, o singură dată — un fișier de trei rânduri, pe modelul lui
+`public/statistici/index.php` care e deja acolo:
+
+```php
+<?php // public/guest/index.php
+header("Location: https://guest.lalivada.ro/", true, 302);
+exit;
+```
+
+**302, nu 301.** O redirectare permanentă rămâne în cache-ul browserelor
+oaspeților și nu mai poate fi schimbată dacă mutăm vreodată aplicația.
+
+Plus `Disallow: /guest/` în `app/robots.ts`, lângă `/statistici/`: un link de
+cazare ajuns în index e un link public către o ușă, iar aici se blochează chiar
+adresa pe care o vede lumea.
+
+**Ce cere de la tine:** un record DNS pentru `guest.lalivada.ro` și proiectul
+Vercel. Redirectul se publică o singură dată, apoi nu se mai atinge — după
+aceea guest app-ul se livrează la push, ca PMS-ul.
 
 ---
 
@@ -159,25 +223,69 @@ nu circule prin query string; pe hostingul ăsta motivul e și mai apăsat.
 
 Partea cea mai delicată: un link care deschide o ușă.
 
-### 4.1 Tokenul
+### 4.1 Codul de cinci caractere
 
-Coloană nouă pe `reservations`, cu aceeași generare ca la
-`public_bookings` și la `rooms.ical_token` — 16 octeți aleatori, hex:
+Coloană nouă pe `reservations`, cu un cod scurt aleatoriu din cele 62 de
+litere și cifre — forma cerută, `lalivada.ro/guest/Ajh6k`:
 
 ```sql
-alter table reservations
-  add column guest_token text unique
-    default encode(gen_random_bytes(16), 'hex');
+alter table reservations add column guest_code text unique;
+create unique index reservations_guest_code on reservations (guest_code);
 ```
 
-128 de biți nu se enumeră. Pentru comparație, la o rată imposibil de
-atins de 1.000 de încercări pe secundă, o singură ghicire corectă ar cere
-mai mult decât vârsta universului — iar limitarea de rată (4.4) taie
-oricum încercarea de la a doua.
+**Cod per rezervare, nu per oaspete.** Un oaspete care revine peste o lună
+primește alt link. Asta e intenționat: linkul e legat de sejur, nu de
+persoană, deci nu poate „rămâne bun" după plecare.
 
-**Token per rezervare, nu per oaspete.** Un oaspete care revine peste o
-lună primește alt link. Asta e intenționat: linkul e legat de sejur, nu
-de persoană, deci nu poate „rămâne bun" după plecare.
+#### Cât de tare e, de fapt
+
+Documentul propunea inițial 128 de biți, care nu se enumeră niciodată. Cinci
+caractere sunt cu totul altceva și merită socotit pe față, fiindcă în capătul
+linkului e o ușă:
+
+| | |
+|---|---|
+| Spațiul total, 62^5 | 916.132.832 de coduri |
+| Coduri valabile în orice clipă | cel mult 16 — atâtea camere sunt, iar linkul merge doar cât ține sejurul (4.2) |
+| Șansa unei singure ghiciri | ~1 la 57 de milioane |
+| Ghiciri pentru 50% șanse de reușită | ~40 de milioane |
+
+Cifra a doua e cea care salvează schema. Atacatorul nu caută „un cod valid
+dintr-un milion emise vreodată", ci unul din cel mult **șaisprezece**, într-un
+spațiu de aproape un miliard.
+
+#### Consecința: limitarea de rată nu mai e podoabă, e lacătul
+
+Cu 128 de biți, limitarea de rată era o măsură de bun-simț. Cu cinci
+caractere, **ea este securitatea**. Fără ea, cele 40 de milioane de încercări
+se fac într-o zi de pe o singură mașină.
+
+Plafonul se pune pe **căutări eșuate**, global, nu doar pe IP — un atac vine
+de pe mii de adrese, deci un plafon pe IP se ocolește prin împrăștiere. Un cod
+inexistent e aproape numai semnal de atac: oaspeții deschid linkuri care
+există, nu le tastează din memorie.
+
+La un plafon global de 200 de căutări eșuate pe oră, cele 40 de milioane de
+ghiciri cer aproape **22 de ani**. Asta e ce face cele cinci caractere
+acceptabile — nu lungimea lor.
+
+Deci, ca cerință fermă, nu ca recomandare: **guest app-ul nu se livrează fără
+plafonul global de căutări eșuate.** Dacă la implementare se dovedește că
+plafonul nu se poate face cum trebuie, se mărește codul la opt caractere
+(62^8 = 218.000 de miliarde, adică de 238.000 de ori mai mult) — aceeași formă
+de link, `lalivada.ro/guest/Ajh6k2Qw`, doar puțin mai lung.
+
+#### Generarea
+
+Cod aleatoriu, niciodată derivat din id-ul rezervării sau din dată — un cod
+ghicibil din context anulează tot calculul de mai sus. Coliziunile sunt rare,
+dar nu imposibile la un spațiu de un miliard, deci generarea se reia la
+încălcarea indexului unic, nu se presupune că nu se întâmplă.
+
+Alfabetul rămâne toate cele 62 de caractere, cu litere mari și mici, fiindcă
+linkul se apasă, nu se dictează. Dacă vreodată trebuie citit la telefon, se
+scot caracterele care se confundă (`0`/`O`, `l`/`I`/`1`) — cu prețul a
+jumătate din spațiu, deci atunci codul trebuie să crească.
 
 ### 4.2 Fereastra de valabilitate
 
@@ -186,12 +294,12 @@ pe server**, o singură dată, într-un helper folosit de toate funcțiile
 guest app-ului:
 
 ```sql
-create or replace function rezervare_din_token(p_token text)
+create or replace function rezervare_din_cod(p_cod text)
 returns reservations language plpgsql stable security definer
 set search_path = public as $$
 declare v_r reservations;
 begin
-  select * into v_r from reservations where guest_token = p_token;
+  select * into v_r from reservations where guest_code = p_cod;
   if not found then
     raise exception 'Link invalid.' using errcode = 'P0002';
   end if;
@@ -238,13 +346,17 @@ server:
 
 ### 4.4 Limitarea de rată
 
-Deschiderea ușii e o acțiune cu efect fizic. Două plafoane, pe modelul
+Deschiderea ușii e o acțiune cu efect fizic. Trei plafoane, pe modelul
 `booking_attempts`:
 
-- **pe token** — cel mult 10 deschideri pe oră. Un oaspete care apasă de
-  zece ori într-o oră are altă problemă, pe care o rezolvă recepția.
-- **pe IP** — cel mult 30 pe oră, ca un token scurs să nu poată fi
-  transformat într-o unealtă de deschis ușa la nesfârșit.
+- **global, pe căutări eșuate** — cel mult 200 pe oră, din orice sursă.
+  Ăsta e cel care ține codul de cinci caractere în picioare (4.1); fără el,
+  restul sunt decor. Depășirea nu e un incident de rutină: înseamnă că cineva
+  caută coduri, deci merită și o notificare, nu doar un refuz.
+- **pe cod** — cel mult 10 deschideri pe oră. Un oaspete care apasă de zece
+  ori într-o oră are altă problemă, pe care o rezolvă recepția.
+- **pe IP** — cel mult 30 pe oră, ca un cod scurs să nu poată fi transformat
+  într-o unealtă de deschis ușa la nesfârșit.
 
 ### 4.5 Audit
 
@@ -348,7 +460,7 @@ apăsa.
 
 ```
 Browser (guest app)
-   │  fetch cu guest_token în corp, niciodată în query string
+   │  fetch cu guest_code în corp, niciodată în query string
    ▼
 Supabase RPC (security definer)          ← citiri: rezervare, cod, minibar
    │
@@ -370,11 +482,11 @@ separată nu poate face decât un singur lucru: deschide ușa rezervării al
 cărei token l-a primit. Logica de TTLock rămâne partajată, prin import
 din același adaptor.
 
-**De ce tokenul nu circulă în query string.** Adresa cu tokenul e trimisă
-prin email/WhatsApp, deci ajunge inevitabil în bara de adrese — asta e
-acceptabil. Ce nu e acceptabil e să apară și în logurile de acces ale
-fiecărei cereri API. La citiri intră ca parametru de RPC (corp POST); în
-URL rămâne doar la deschiderea paginii.
+**De ce codul nu circulă prin query string la apeluri.** În adresa paginii
+apare oricum, o dată, fiindcă asta s-a cerut (3.1). Ce se poate evita e să
+mai apară și în logurile fiecărei cereri de API, la fiecare deschidere de
+pagină și la fiecare apăsare de buton. La citiri intră ca parametru de RPC,
+în corpul POST; în URL rămâne doar la deschiderea paginii.
 
 ---
 
@@ -385,23 +497,27 @@ URL rămâne doar la deschiderea paginii.
 Test manual pe cele 16 camere, din PMS. Rezultatul decide dacă pasul 4
 se face, se restrânge sau se amână. Nu se trece mai departe fără el.
 
-### Pasul 1 — tokenul și poarta de acces
+### Pasul 1 — codul și poarta de acces
 
-- migrație: `reservations.guest_token`, cu backfill pentru rândurile
-  existente (`update … set guest_token = encode(gen_random_bytes(16),'hex')
-  where guest_token is null`);
-- funcția `rezervare_din_token` (4.2);
-- teste în `src/guest-token.test.js`, pe modelul `src/acces.test.js`:
-  token inexistent → refuz; rezervare `confirmed` → refuz; `checkedin` →
-  acceptă; `checkedout` → refuz; `cancelled` → refuz.
+- migrație: `reservations.guest_code`, cu index unic și backfill pentru
+  rândurile existente;
+- generator de cod aleatoriu din 62 de caractere, cu reluare la coliziune
+  (4.1);
+- funcția `rezervare_din_cod` (4.2);
+- plafonul global de căutări eșuate (4.4) — **în același pas, nu mai
+  târziu.** Cu cinci caractere el nu e o îmbunătățire ulterioară, e lacătul
+  însuși; o poartă livrată fără el e o poartă deschisă;
+- teste în `src/guest-cod.test.js`, pe modelul `src/acces.test.js`: cod
+  inexistent → refuz; rezervare `confirmed` → refuz; `checkedin` → acceptă;
+  `checkedout` → refuz; `cancelled` → refuz.
 
 Nimic vizibil pentru utilizator încă. Se poate livra separat.
 
 ### Pasul 2 — citirile
 
-- `guest_stay_by_token(p_token)` → detaliile rezervării: camera, datele,
+- `guest_stay_by_cod(p_cod)` → detaliile rezervării: camera, datele,
   numărul de nopți, numele ocupantului, ora de plecare;
-- `guest_access_code_by_token(p_token)` → codul activ și valabilitatea
+- `guest_access_code_by_cod(p_cod)` → codul de acces activ și valabilitatea
   lui, citit din `access_codes` cu `status = 'active'`;
 - `guest_minibar()` → produsele cu `category = 'minibar'` și
   `public_visible = true`;
@@ -415,12 +531,11 @@ Nimic vizibil pentru utilizator încă. Se poate livra separat.
 - patru secțiuni: sejurul, codul, ușa (dacă pasul 0 permite), minibarul;
 - stări explicite pentru link invalid, sejur neînceput și sejur încheiat
    — fiecare cu ce trebuie să facă omul mai departe, nu doar „eroare";
-- `base: "/guest/"` în configul Vite, altfel fișierele se cer de la rădăcina
-  domeniului și pagina rămâne albă;
-- token citit din fragment (`location.hash`), nu din query string;
-- în repo-ul site-ului: `Disallow: /guest/` în `app/robots.ts`, apoi
-  `npm run build` și `node scripts/publica.mjs --live`.
-  Fără proiect Vercel nou și fără subdomeniu.
+- codul citit din calea adresei (`/Ajh6k`), plus rescrierea către
+  `index.html` pe Vercel, altfel orice cod dă 404;
+- în repo-ul site-ului, o singură dată: regula de rescriere din 3.1 și
+  `Disallow: /guest/` în `app/robots.ts`, apoi `npm run build` și
+  `node scripts/publica.mjs --live`.
 
 ### Pasul 4 — deschiderea ușii
 
