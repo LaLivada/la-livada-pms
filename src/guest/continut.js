@@ -181,9 +181,11 @@ export const ATRACTII = [
     km: 6, minute: 10,
     text: "Călărețul de bronz de 6,90 m, ridicat în 1975 pe un soclu de 8 m, la 500 de ani de la bătălia de la Podul Înalt din 10 ianuarie 1475. Sculptor: Mircea Ștefănescu. Se urcă pe 27 de trepte, iar la bază arde o flacără veșnică.",
     cauta: "Statuia ecvestră Ștefan cel Mare Podul Înalt Băcăoani",
+    /* Poza vine de la pensiune, deci fara `credit`. A inlocuit una de pe
+       Wikimedia (CC BY 3.0, Cezar Suceveanu) care arata ansamblul dinainte de
+       reabilitare, cu treptele crapate si buruieni printre ele — corecta ca
+       licenta, dar nu mai semana cu ce gaseste omul acolo. */
     foto: "statuie.jpg",
-    credit: { autor: "Cezar Suceveanu", licenta: "CC BY 3.0",
-      pagina: "https://ro.wikipedia.org/wiki/Fi%C8%99ier:Statuia_ecvestra_a_lui_Stefan_cel_Mare_de_la_Podu_Inalt6.jpg" },
   },
   {
     cheie: "dinoparc",
