@@ -78,6 +78,49 @@ describe.skipIf(!auConfig)("Guest app — codul de sejur, vazut din afara", () =
     if (!error) expect(data).toEqual([]);
   });
 
+  /* --------------------------------------------------------------
+     Citirile guest app-ului: astea TREI sunt singurele care ies la
+     vizitator. Cazul fericit nu se poate testa de aici — ar cere un cod
+     de sejur real, iar acela n-are ce cauta scris intr-un fisier din
+     repo (si oricum moare la check-out). Ce se poate verifica, si
+     conteaza mai mult, e ca refuzul nu scapa nimic.
+
+     Fiecare apel cu un cod inventat consuma din plafonul global de 200 de
+     esecuri pe ora. Cele cateva de aici sunt neglijabile, dar merita stiut
+     inainte de a inmulti testele care ghicesc coduri.
+  ----------------------------------------------------------------- */
+  const citiriPublice = ["guest_stay_by_cod", "guest_access_code_by_cod"];
+
+  it.each(citiriPublice)("%s e apelabila de vizitator", async (nume) => {
+    const { error } = await anon.rpc(nume, { p_cod: "Ajh6k" });
+    expect(error).toBeNull();
+  });
+
+  it.each(citiriPublice)("%s refuza un cod inventat fara sa spuna altceva", async (nume) => {
+    const { data } = await anon.rpc(nume, { p_cod: "Qw9Zx" });
+    expect(data.ok).toBe(false);
+    expect(data.motiv).toBe("necunoscut");
+    /* Refuzul e format DOAR din astea doua. Un `select *` strecurat mai
+       tarziu in functie s-ar vedea aici, nu peste un an, in productie. */
+    expect(Object.keys(data).sort()).toEqual(["motiv", "ok"]);
+  });
+
+  /* Yala nu iese niciodata din server: oaspetele apasa un buton, nu trimite
+     identificatorul unei incuietori. */
+  it("raspunsul de cod de acces nu contine identificatori de yala", async () => {
+    const { data } = await anon.rpc("guest_access_code_by_cod", { p_cod: "Qw9Zx" });
+    expect(JSON.stringify(data)).not.toMatch(/lock|external_?id|ttlock/i);
+  });
+
+  it("meniul de minibar e o lista, fara date interne", async () => {
+    const { data, error } = await anon.rpc("guest_minibar");
+    expect(error).toBeNull();
+    expect(data).toBeInstanceOf(Array);
+    for (const p of data) {
+      expect(Object.keys(p).sort()).toEqual(["description", "name", "price", "unit"]);
+    }
+  });
+
   /* Nici pe ocolite, prin functia publica de rezervari: ea intoarce un
      jsonb construit explicit, iar codul de sejur n-are ce cauta in el. */
   it("codul de sejur nu apare in raspunsul public de disponibilitate", async () => {

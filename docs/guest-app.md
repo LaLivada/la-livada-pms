@@ -497,7 +497,7 @@ pagină și la fiecare apăsare de buton. La citiri intră ca parametru de RPC,
 Test manual pe cele 16 camere, din PMS. Rezultatul decide dacă pasul 4
 se face, se restrânge sau se amână. Nu se trece mai departe fără el.
 
-### Pasul 1 — codul și poarta de acces
+### Pasul 1 — codul și poarta de acces ✅ făcut (6 septembrie 2026)
 
 - migrație: `reservations.guest_code`, cu index unic și backfill pentru
   rândurile existente;
@@ -513,15 +513,34 @@ se face, se restrânge sau se amână. Nu se trece mai departe fără el.
 
 Nimic vizibil pentru utilizator încă. Se poate livra separat.
 
-### Pasul 2 — citirile
+### Pasul 2 — citirile ✅ făcut (6 septembrie 2026)
 
-- `guest_stay_by_cod(p_cod)` → detaliile rezervării: camera, datele,
-  numărul de nopți, numele ocupantului, ora de plecare;
+- `guest_stay_by_cod(p_cod)` → camera, datele, numărul de nopți, numele
+  afișat, ocuparea;
 - `guest_access_code_by_cod(p_cod)` → codul de acces activ și valabilitatea
-  lui, citit din `access_codes` cu `status = 'active'`;
+  lui. Lipsa unui cod activ **nu** e eroare: codul se generează la check-in
+  și poate întârzia, iar pagina trebuie să poată spune „încă nu e gata" în
+  loc de „link stricat";
 - `guest_minibar()` → produsele cu `category = 'minibar'` și
-  `public_visible = true`;
-- `grant execute … to anon` pentru toate trei.
+  `public_visible = true`. Fără cod: e o listă de băuturi cu prețuri, care
+  nu spune nimic despre niciun oaspete. Prețurile sunt cu TVA inclus, ca
+  peste tot în aplicație (`calcAmounts`), deci nu se mai calculează nimic;
+- `products` a primit `public_description` și `public_visible`, implicit
+  fals — un produs nou nu apare pe ecranul nimănui până nu se cere anume;
+- revocare de la `public` **înaintea** grantului către `anon`: fără ea,
+  grantul n-ar schimba nimic, fiindcă `EXECUTE` pentru `PUBLIC` e deja
+  acolo, implicit.
+
+Numele afișat urmează regula din 4.3: ocupantul camerei dacă e trecut,
+altfel eticheta grupului, iar numele plătitorului **doar** când nu există
+nici ocupant, nici grup — adică atunci când plătitorul chiar e ocupantul.
+Într-un grup, titularul e o persoană străină de camera aceea.
+
+**Meniul e gol până i se dă conținut.** Verificat pe 6 septembrie:
+`guest_minibar()` întoarce `[]`, fiindcă niciun produs nu are
+`public_visible = true` — `products` are două rânduri, „Cazare" și unul
+numit chiar „Minibar", fără băuturi sub el. Structura e gata; grila se
+introduce din PMS.
 
 ### Pasul 3 — guest app-ul
 
