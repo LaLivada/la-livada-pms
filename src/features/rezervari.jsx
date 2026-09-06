@@ -224,9 +224,43 @@ export function CalendarView({ core, updateCore, reservations, updateReservation
      in lateral si se deruleaza — 30 de zile inseamna ~2060px, adica vreo
      doua ecrane de laptop. Alegerea e deliberata: mai bine derulezi si
      citesti numele oaspetilor, decat sa incapa luna intreaga cu bare fara
-     nume. Butoanele de navigare pasesc tot cu DAYS, ca sa nu sara peste
-     zile intre doua ferestre. */
-  const DAYS = 30;
+     nume. */
+  const PAS_FEREASTRA = 30;
+  /* Cat se adauga la capatul din dreapta, cand derularea ajunge acolo.
+     Cinci zile, nu inca treizeci: cine deruleaza pana la capat vrea de
+     obicei sa vada putin mai departe, nu sa sara o luna. */
+  const ZILE_IN_PLUS = 5;
+  /* Plafon pentru cresterea prin derulare. Fiecare zi inseamna cate o celula
+     pentru fiecare camera, deci o fereastra care creste la nesfarsit ajunge
+     o grila de mii de noduri. Patru luni acopera orice planificare; mai
+     departe se merge cu butoanele, care muta fereastra in loc s-o lungeasca. */
+  const MAX_ZILE = 120;
+  /* Cat de aproape de capat trebuie sa fii ca sa se adauge. */
+  const PRAG_CAPAT = 60;
+
+  /* Zilele adaugate prin derulare, tinute separat de pasul butoanelor: ele
+     pasesc mai departe cu 30, ca eticheta lor sa nu inceapa sa minta. */
+  const [inPlus, setInPlus] = useState(0);
+  const DAYS = PAS_FEREASTRA + inPlus;
+
+  /* Orice navigare readuce fereastra la lungimea ei normala. Efect pe
+     `offset`, nu cate o linie in fiecare buton: sunt patru locuri care muta
+     fereastra (inapoi, inainte, saltul la data, „inapoi la azi"), iar unul
+     uitat ar fi lasat fereastra lunga pe termen nedefinit. */
+  useEffect(() => { setInPlus(0); }, [offset]);
+
+  const zonaDerulare = useRef(null);
+  const laDerulare = () => {
+    const el = zonaDerulare.current;
+    if (!el) return;
+    /* Doar cand chiar exista ce derula. Pe un ecran mai lat decat grila,
+       scrollWidth === clientWidth, iar conditia de capat ar fi mereu
+       adevarata: fereastra ar creste singura, fara ca nimeni sa fi derulat,
+       pana in plafon. */
+    if (el.scrollWidth <= el.clientWidth) return;
+    if (el.scrollLeft + el.clientWidth < el.scrollWidth - PRAG_CAPAT) return;
+    setInPlus((n) => Math.min(n + ZILE_IN_PLUS, MAX_ZILE - PAS_FEREASTRA));
+  };
   const [modal, setModal] = useState(null); // { reservation | null, defaultRoomId, defaultDate }
   const [viewModal, setViewModal] = useState(null); // rezervarea afișată doar-vizualizare, sau null
 
@@ -235,7 +269,10 @@ export function CalendarView({ core, updateCore, reservations, updateReservation
     return Array.from({ length: DAYS }, (_, i) => {
       const d = new Date(start); d.setDate(start.getDate() + i); return d;
     });
-  }, [offset]);
+    /* `DAYS` in dependinte, nu doar `offset`: cat timp a fost constanta nu
+       conta, dar acum creste la derulare, iar fara ea lista de zile ar fi
+       ramas la lungimea de la prima randare — grila n-ar creste niciodata. */
+  }, [offset, DAYS]);
 
   const rangeStart = days[0], rangeEnd = new Date(days[DAYS - 1].getTime() + 86400000);
 
@@ -411,9 +448,10 @@ export function CalendarView({ core, updateCore, reservations, updateReservation
     <div className="cal-view">
       <div className="toolbar cal-toolbar">
         <div className="week-nav">
-          <button onClick={() => setOffset((o) => o - DAYS)} aria-label={`Cele ${DAYS} zile anterioare`}>
+          <button onClick={() => setOffset((o) => o - PAS_FEREASTRA)}
+            aria-label={`Cele ${PAS_FEREASTRA} zile anterioare`}>
             <ChevronLeft size={15} />
-            <span>{DAYS} zile</span>
+            <span>{PAS_FEREASTRA} zile</span>
           </button>
           <div className="jump-wrap">
             <button className={offset === 0 ? "on" : ""} onClick={(e) => { e.stopPropagation(); setPickerOpen((v) => !v); }}>
@@ -438,8 +476,9 @@ export function CalendarView({ core, updateCore, reservations, updateReservation
               </div>
             )}
           </div>
-          <button onClick={() => setOffset((o) => o + DAYS)} aria-label={`Următoarele ${DAYS} zile`}>
-            <span>{DAYS} zile</span>
+          <button onClick={() => setOffset((o) => o + PAS_FEREASTRA)}
+            aria-label={`Următoarele ${PAS_FEREASTRA} zile`}>
+            <span>{PAS_FEREASTRA} zile</span>
             <ChevronRight size={15} />
           </button>
         </div>
@@ -480,7 +519,8 @@ export function CalendarView({ core, updateCore, reservations, updateReservation
         </div>
       ) : null}
 
-      <div className={"cal-scroll" + (dense ? " dense" : "") + (larg ? " larg" : "")}>
+      <div className={"cal-scroll" + (dense ? " dense" : "") + (larg ? " larg" : "")}
+        ref={zonaDerulare} onScroll={laDerulare}>
         <div className="cal-grid" style={{ "--days": DAYS }}>
           <div className="cal-row cal-head">
             <div className="cal-roomcell"><div className="cal-roomcell-inner" style={{ fontWeight: 700, fontSize: 12 }}>Cameră</div></div>
