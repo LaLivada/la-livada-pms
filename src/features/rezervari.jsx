@@ -30,6 +30,7 @@ import { snakeRes } from "../data/mapari.js";
 import { syncTable } from "../data/nucleu.js";
 import { ORA_SOSIRE_IMPLICITA, ORA_PLECARE_IMPLICITA } from "../lib/acces.js";
 import { SectiuneAcces, cheamaAcces, reconciliazaAcces } from "./acces.jsx";
+import { SectiuneFisa } from "./fise.jsx";
 import { FolioPanel, InvoicePrint, BillingCustomerPicker, BillingCustomerModal, billingCustomerLabel } from "./facturare.jsx";
 import { GuestFields, GuestModal, ContactQuickActions, emptyGuest } from "./clienti.jsx";
 import { ArrivalForm } from "./documente.jsx";
@@ -937,6 +938,7 @@ export function ReservationViewModal({ reservation, core, updateCore, groups, up
       )}
 
       <SectiuneAcces res={reservation} core={core} />
+      <SectiuneFisa res={reservation} />
 
       <FolioPanel reservation={reservation} core={core} updateCore={updateCore}
         billingCustomerId={billingCustomerId} setBillingCustomerId={setBillingCustomerId}
@@ -1742,6 +1744,7 @@ export function ReservationModal({ data, core, updateCore, reservations, updateR
         )}
 
         {editing && !isBlock && <SectiuneAcces res={editing} core={core} />}
+        {editing && !isBlock && <SectiuneFisa res={editing} />}
 
         {error && <div className="error-text" role="alert" style={{ marginBottom: 10 }}>{error}</div>}
 

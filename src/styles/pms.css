@@ -1712,3 +1712,21 @@ label.field input, label.field select, label.field textarea{ cursor:auto; }
 @media (pointer: coarse){
   .pms input, .pms select, .pms textarea{ font-size:16px !important; }
 }
+
+/* ---------- fisa de cazare ---------- */
+.fisa-vedere{ margin:0; display:grid; gap:2px; }
+/* Semnatura se randeaza din traseul SVG salvat, la acelasi viewBox 600x200
+   pe care s-a desenat. Alt raport ar deforma-o, iar o semnatura deformata nu
+   mai e a nimanui. `currentColor` o lasa sa urmeze tema, inclusiv la print. */
+.fisa-semnatura{
+  display:block; width:100%; max-width:340px; height:auto; aspect-ratio:3/1;
+  margin-top:6px; border:1px solid var(--border); border-radius:10px;
+  background:var(--surface); color:var(--text);
+}
+/* Semnatura in coala tiparita. Inaltimea e legata de cea a casutei, nu
+   fixata in px: casuta creste la print fata de ecran, iar o semnatura de
+   marime fixa ar fi plutit intr-un colt al ei. */
+.fisa-semn-print{
+  display:block; width:100%; height:auto; max-height:34px;
+  color:#111; overflow:visible;
+}

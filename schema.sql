@@ -3438,11 +3438,18 @@ create table fise_cazare (
   anulata_de      text,
   anulata_motiv   text,
 
-  -- `<>` pe doua teste de null inseamna EXACT UNA. O fisa fara niciun autor
-  -- n-ar avea valoare; una cu amandoi ar spune doua povesti despre cine a
-  -- completat-o.
-  constraint fisa_are_un_autor check (
-    (semnatura_svg is not null) <> (completata_de is not null))
+  -- Motivul pentru care lipseste semnatura, cand lipseste.
+  fara_semnatura_motiv text,
+
+  -- O fisa e valida fie cu semnatura, fie fara ea DAR cu motivul scris.
+  --
+  -- Prima varianta cerea EXACT UN autor — ori semnatura, ori numele
+  -- receptionerului. Parea curata si era prea rigida: fluxul real e ca
+  -- receptionerul sa tasteze si oaspetele sa semneze pe tableta lui, caz in
+  -- care fisa are nevoie de amandoua. `completata_de` inseamna acum „cine a
+  -- tastat", independent de semnatura. Schimbat pe 7 septembrie 2026.
+  constraint fisa_semnata_sau_motivata check (
+    semnatura_svg is not null or fara_semnatura_motiv is not null)
 );
 
 -- Index partial, nu cheie unica: o fisa anulata trebuie sa lase loc alteia
@@ -3460,6 +3467,32 @@ alter table fise_cazare enable row level security;
 -- primeste 42501 „permission denied for table fise_cazare", si la citire, si
 -- la scriere (tests/integration/fisa-cazare.integration.test.js).
 revoke all on table fise_cazare from public, anon, authenticated;
+
+-- Receptia are nevoie de tabel direct — pentru indicator, pentru completarea
+-- in locul oaspetelui si pentru coala tiparita — deci grantul se pune inapoi
+-- pentru `authenticated`, iar RLS-ul face selectia. `anon` ramane in afara:
+-- pentru el singura cale sunt cele doua functii de mai jos.
+--
+-- `housekeeping` NU vede fisele: cine face curat n-are ce cauta in seriile de
+-- buletin. Acelasi tipar ca la `guests`, unde citirea e deja restransa la
+-- admin si receptioner.
+grant select, insert, update on table fise_cazare to authenticated;
+
+create policy "receptia citeste fise" on fise_cazare
+  for select to authenticated
+  using ((select is_admin()) or (select staff_role()) = 'receptionist');
+
+create policy "receptia scrie fise" on fise_cazare
+  for insert to authenticated
+  with check (is_admin() or staff_role() = 'receptionist');
+
+-- UPDATE e deschis doar cat sa treaca anularea: triggerul de mai jos respinge
+-- orice alta diferenta intre randul vechi si cel nou. Politica spune CINE
+-- poate incerca; triggerul spune CE poate trece.
+create policy "receptia anuleaza fise" on fise_cazare
+  for update to authenticated
+  using (is_admin() or staff_role() = 'receptionist')
+  with check (is_admin() or staff_role() = 'receptionist');
 
 -- Documentul nu se poate schimba dupa semnare. Fara trigger, „imuabil" e o
 -- promisiune, nu o proprietate — iar la un control conteaza proprietatea.

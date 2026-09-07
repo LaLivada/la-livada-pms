@@ -13,12 +13,30 @@ import { X, Printer } from "lucide-react";
 import { guestFullName, occupantName } from "../lib/nume.js";
 import { FMT_DATE_FULL, FMT_DATE } from "../lib/format.js";
 import { Dialog, useModalLock } from "../ui/primitive.jsx";
+import { ACT_TIPURI } from "../lib/fisa.js";
+import * as dateFise from "../data/fise.js";
 
-export function ArrivalSheet({ res, core, groups }) {
+/* Tipul actului, scris cum il citeste un om. Lista traieste in lib/fisa.js,
+   langa restul campurilor, ca sa nu existe doua definitii ale acelorasi trei
+   variante. */
+const tipActScris = (c) => ACT_TIPURI.find((t) => t.cheie === c)?.eticheta || "";
+
+/* `fisa` e randul din fise_cazare, cand exista. Cand nu, coala se tipareste
+   ca pana acum: precompletata din `guests` acolo unde se poate, goala in
+   rest, ca sa fie scrisa cu pixul. Asa ramane utila si pentru oaspetii care
+   n-au trecut prin guest app.
+
+   Cand exista, coala se umple din ea — inclusiv semnatura, randata din
+   traseul SVG salvat. Fara pasul asta ai date in baza si tot o coala goala
+   la tiparire, ceea ce nu ajuta pe nimeni la un control. */
+export function ArrivalSheet({ res, core, groups, fisa }) {
   const g = core.guests.find((x) => x.id === res.guestId) || {};
   const room = core.rooms.find((x) => x.id === res.roomId) || {};
   const d = (v) => FMT_DATE_FULL.format(new Date(v)).replace(/\./g, "-");
   const ds = (v) => FMT_DATE.format(new Date(v)).replace(/\.$/, "");
+  /* Data nasterii vine ca `date` din Postgres ("1980-05-14"), nu ca
+     timestamp; formatata cu acelasi format lung ca restul colii. */
+  const ds2 = (v) => (v ? FMT_DATE_FULL.format(new Date(v)).replace(/\./g, "-") : "");
 
   const Cell = ({ ro, en, value, wide }) => (
     <div className={"fc" + (wide ? " wide" : "")}>
@@ -49,27 +67,43 @@ export function ArrivalSheet({ res, core, groups }) {
             value={occupantName(res, core, groups)} wide />
         </div>
         <div className="frow c3">
-          <Cell ro="Data nașterii" en="Date of birth" />
-          <Cell ro="Locul nașterii" en="Place of birth" />
-          <Cell ro="Naționalitate" en="Nationality" value={g.country} />
+          <Cell ro="Data nașterii" en="Date of birth"
+            value={fisa ? ds2(fisa.data_nasterii) : ""} />
+          <Cell ro="Locul nașterii" en="Place of birth" value={fisa?.locul_nasterii} />
+          {/* Cand exista fisa, nationalitatea vine din ea. Fara ea ramane
+              `g.country`, care e TARA DE DOMICILIU si nu nationalitatea —
+              greseala veche a colii, pastrata doar acolo unde n-avem altceva.
+              Vezi docs/fisa-cazare.md 1. */}
+          <Cell ro="Naționalitate" en="Nationality"
+            value={fisa?.nationalitate || g.country} />
         </div>
         <div className="frow c3">
-          <Cell ro="Localitatea" en="City" value={g.city} />
-          <Cell ro="Strada" en="Street" value={g.address} />
-          <Cell ro="Țara" en="Country" value={g.country} />
+          <Cell ro="Localitatea" en="City" value={fisa?.localitate || g.city} />
+          <Cell ro="Strada" en="Street" value={fisa?.adresa || g.address} />
+          <Cell ro="Țara" en="Country" value={fisa?.tara || g.country} />
         </div>
         <div className="frow c3">
           <Cell ro="Data sosirii" en="Date of arrival" value={d(res.checkin)} />
           <Cell ro="Data plecării" en="Date of departure" value={d(res.checkout)} />
-          <Cell ro="Scopul călătoriei" en="Purpose of travelling" />
+          <Cell ro="Scopul călătoriei" en="Purpose of travelling" value={fisa?.scopul} />
         </div>
         <div className="frow c3">
-          <Cell ro="Act de identitate" en="Identity card" />
-          <Cell ro="Seria" en="Series" />
-          <Cell ro="Nr" en="No" />
+          <Cell ro="Act de identitate" en="Identity card" value={tipActScris(fisa?.act_tip)} />
+          <Cell ro="Seria" en="Series" value={fisa?.act_seria} />
+          <Cell ro="Nr" en="No" value={fisa?.act_numarul} />
         </div>
         <div className="frow c2">
-          <Cell ro="Semnătura turistului" en="Tourist's signature" />
+          <Cell ro="Semnătura turistului" en="Tourist's signature"
+            value={fisa?.semnatura_svg
+              ? (
+                /* Acelasi viewBox ca panza pe care s-a semnat (600x200):
+                   alt raport ar deforma semnatura. */
+                <svg viewBox="0 0 600 200" className="fisa-semn-print" aria-hidden="true">
+                  <path d={fisa.semnatura_svg} fill="none" stroke="currentColor"
+                    strokeWidth="6" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              )
+              : (fisa?.fara_semnatura_motiv || "")} />
           <Cell ro="Semnătura recepționerului" en="Receptionist's signature" />
         </div>
       </div>
@@ -87,6 +121,20 @@ export function ArrivalSheet({ res, core, groups }) {
 export function ArrivalForm({ res, core, groups, onClose }) {
   useModalLock();
   const scaleWrapRef = useRef(null);
+
+  /* Fisa se aduce AICI, nu se primeste ca prop, ca sa nu fie nevoie s-o
+     caute fiecare din cele trei locuri de unde se deschide coala. Cand
+     lipseste, coala se tipareste ca inainte: precompletata unde se poate,
+     goala in rest. Un esec de retea nu opreste tiparirea — o coala goala e
+     tot utila, iar receptionerul are hartia in mana. */
+  const [fisa, setFisa] = useState(null);
+  useEffect(() => {
+    let viu = true;
+    dateFise.fisaActiva(res.id)
+      .then((f) => { if (viu) setFisa(f); })
+      .catch((e) => console.error("citire fisa pentru coala", e));
+    return () => { viu = false; };
+  }, [res.id]);
 
   /* Coala e fixata la 794x1123px (proportia A4); pe ecran o scalam vizual,
      ca sa incapa in modal si pe telefon. La print, regulile din STYLES
@@ -127,9 +175,9 @@ export function ArrivalForm({ res, core, groups, onClose }) {
           <div className="arrival-scaler"
             style={{ transform: `scale(${scale})`, transformOrigin: "top left" }}>
             <div className="arrival-sheet fisa-duo">
-              <ArrivalSheet res={res} core={core} groups={groups} />
+              <ArrivalSheet res={res} core={core} groups={groups} fisa={fisa} />
               <div className="fisa-sep" />
-              <ArrivalSheet res={res} core={core} groups={groups} />
+              <ArrivalSheet res={res} core={core} groups={groups} fisa={fisa} />
             </div>
           </div>
         </div>
