@@ -870,7 +870,7 @@ export default function App() {
      fisierul de continut ar fi fost gresita pentru orice sejur cu alta
      intelegere; asa vine din baza. */
   const important = [
-    { titlu: "Plecarea", text: `Camera se eliberează ${ziSiOra(sejur.checkOut)}.` },
+    { titlu: "Decazarea", text: `Camera se eliberează ${ziSiOra(sejur.checkOut)}.` },
     acces?.code && {
       titlu: "Cât ține codul",
       text: `Codul ${acces.code}# funcționează până ${ziSiOra(acces.validUntil)}.`,
@@ -878,8 +878,18 @@ export default function App() {
     {
       titlu: "Dacă ușa nu se deschide",
       /* Numarul de asistenta, nu cel general de la subsol: cine sta in fata
-         unei usi inchise are nevoie de omul care raspunde in cateva minute. */
-      text: `Încearcă întâi codul pe tastatură, apoi sună-l pe ${ASISTENTA.nume} la ${ASISTENTA.scris}. Răspundem non-stop.`,
+         unei usi inchise are nevoie de omul care raspunde in cateva minute.
+         Si e legatura de telefon, nu text: exact aici oaspetele are o mana
+         pe clanta si cealalta pe telefon — un numar de copiat cu degetul e
+         un pas in plus fix in clipa in care nu are rabdare de el.
+         `text` primeste noduri, nu doar siruri; restul punctelor vin din
+         continut.js, care e .js si nu poate purta JSX. */
+      text: (
+        <>
+          Încearcă întâi codul pe tastatură, apoi sună-l pe {ASISTENTA.nume} la{" "}
+          <a href={`tel:${ASISTENTA.telefon}`}>{ASISTENTA.scris}</a>. Răspundem non-stop.
+        </>
+      ),
     },
     ...IMPORTANT,
   ].filter(Boolean);
@@ -1041,13 +1051,22 @@ export default function App() {
               <li key={i}><b>{p.titlu}</b> — {p.text}</li>
             ))}
           </ul>
-          {/* Buton, nu <a>: nu duce nicaieri, deschide o fereastra peste
-              pagina. Un link cu href="#" ar fi mintit si tastatura, si
-              cititoarele de ecran despre ce urmeaza sa se intample. */}
-          <button type="button" className="g-legatura"
-            onClick={() => setAratRegulament(true)}>
-            Regulamentul complexului
-          </button>
+          {/* Eticheta ingrosata, ca la punctele de deasupra: randul asta era
+              singurul din panou fara nume, si se citea ca o nota agatata la
+              sfarsit, nu ca inca o intrare din lista. */}
+          <p className="g-legatura-rand">
+            <b>Regulament:</b>{" "}
+            {/* Buton, nu <a>: nu duce nicaieri, deschide o fereastra peste
+                pagina. Un link cu href="#" ar fi mintit si tastatura, si
+                cititoarele de ecran despre ce urmeaza sa se intample.
+                Textul incepe cu verbul si din alt motiv: dupa eticheta
+                „Regulament:", un „Regulamentul complexului" repeta cuvantul
+                de care tocmai s-a agatat randul. */}
+            <button type="button" className="g-legatura"
+              onClick={() => setAratRegulament(true)}>
+              Deschide regulamentul complexului
+            </button>
+          </p>
         </div>
       )}
 

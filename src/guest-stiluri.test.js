@@ -63,7 +63,8 @@ describe("foaia de stil, încărcată", () => {
                           ".g-fereastra", ".g-vreme", ".g-leg", ".g-atractie",
                           ".g-harta-cadru", ".g-harta-rama",
                           ".g-actiune", ".g-instructiuni", ".g-qr",
-                          ".g-total", ".g-reg", ".g-legatura"]) {
+                          ".g-total", ".g-reg", ".g-legatura",
+                          ".g-legatura-rand", ".g-puncte a"]) {
       expect(STILURI).toContain(bucata);
     }
   });

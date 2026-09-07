@@ -307,6 +307,14 @@ body{
 }
 .g-puncte > li:first-child{ border-top:0; padding-top:0; }
 .g-puncte > li > b{ font-weight:600; }
+/* Legaturile din puncte — pana acum una singura, numarul asistentei. Fara
+   regula, browserul le da albastrul lui implicit, singura culoare din pagina
+   care nu vine din paleta. Culoarea textului plus sublinierea subtire e
+   acelasi tratament ca la .g-legatura, deci se citesc drept legaturi. */
+.g-puncte a{
+  color:inherit; text-decoration:underline; text-underline-offset:3px;
+  text-decoration-color:var(--g-line);
+}
 /* Butoanele mici de sub punctele din „Bun venit" — Wi-Fi si adaugarea pe
    ecranul principal. Contur, nu plin: sunt unelte, iar pline ar fi concurat
    cu butonul mare de deschidere a usii, care trebuie sa ramana singurul
@@ -361,11 +369,16 @@ body{
 .g-instructiuni b{ color:var(--g-text); font-weight:600; }
 .g-instructiuni-nota{ margin:9px 0 0; font-size:12.5px; line-height:1.5; color:var(--g-faint); }
 
+/* Randul regulamentului: eticheta ingrosata plus legatura, in tiparul
+   punctelor de deasupra. Distanta de sus a urcat de pe buton pe rand — pe
+   buton ar fi impins doar butonul, lasand eticheta lipita de lista. */
+.g-legatura-rand{ margin:13px 0 0; font-size:14px; }
+.g-legatura-rand b{ font-weight:600; }
 /* Legatura care deschide regulamentul. Subliniata, ca sa se citeasca drept
    legatura, dar buton in HTML — deschide o fereastra, nu duce nicaieri. */
 .g-legatura{
-  margin:13px 0 0; padding:0; border:0; background:none;
-  font:inherit; font-size:14px; color:var(--g-text);
+  margin:0; padding:0; border:0; background:none;
+  font:inherit; color:var(--g-text);
   text-decoration:underline; text-underline-offset:3px;
   text-decoration-color:var(--g-line); cursor:pointer;
 }
