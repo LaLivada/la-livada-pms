@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   laOraLocala, expirareCod, inceputCod, randeazaSablon, decideActiuneAcces, decalajFus,
-  genereazaCodPin, lungimeCod,
+  genereazaCodPin, lungimeCod, SABLON_IMPLICIT, linkOaspete, dataMesaj, numeInMesaj,
 } from "./lib/acces.js";
 
 /* Ora locala se citeste inapoi in fusul hotelului, nu in cel al masinii pe
@@ -105,6 +105,8 @@ describe("sablonul mesajului", () => {
     guest_name: "Ion Popescu", hotel_name: "Complex La Livada",
     room_number: "204", access_code: "583921",
     valid_from: "20 august 2026, 15:00", valid_until: "23 august 2026, 11:30",
+    guest_link: "https://guest.lalivada.ro/#Ajh6k",
+    support_phone: "+40 725 259 999",
   };
 
   it("inlocuieste toate variabilele", () => {
@@ -125,6 +127,73 @@ describe("sablonul mesajului", () => {
   it("nu se sufoca pe sablon gol sau lipsa", () => {
     expect(randeazaSablon("", valori)).toBe("");
     expect(randeazaSablon(null, valori)).toBe("");
+  });
+
+  /* Testul care justifica mutarea sablonului in modulul comun.
+   *
+   * Sablonul e citit de doua cai — functia edge, pentru email, si PMS-ul,
+   * pentru WhatsApp — iar fiecare isi construieste singura setul de valori.
+   * O variabila noua adaugata in text si uitata intr-unul din cele doua
+   * locuri n-ar da nicio eroare: ar pleca la oaspete un rand ciuntit, si s-ar
+   * afla de la el. Aici se vede la rulare. */
+  it("sablonul implicit nu lasa nicio variabila nehranita", () => {
+    const text = randeazaSablon(SABLON_IMPLICIT, valori);
+    expect(text).not.toMatch(/\{\{/);
+    expect(text).toContain("https://guest.lalivada.ro/#Ajh6k");
+    expect(text).toContain("583921");
+  });
+
+  /* Aceeasi verificare, dinspre celalalt capat: fiecare acolada din sablon
+     trebuie sa aiba o valoare in setul de mai sus. Fara ea, un `{{telefon}}`
+     nou ar trece testul de deasupra doar fiindca `randeazaSablon` pune sir
+     gol in loc — adica exact esecul tacut de care ne aparam. */
+  it("fiecare variabila din sablon are o valoare cunoscuta", () => {
+    const ceruteDeSablon = [...SABLON_IMPLICIT.matchAll(/\{\{\s*(\w+)\s*\}\}/g)]
+      .map((m) => m[1]);
+    expect(ceruteDeSablon.length).toBeGreaterThan(0);
+    for (const cheie of ceruteDeSablon) {
+      expect(Object.keys(valori)).toContain(cheie);
+    }
+  });
+});
+
+describe("linkul paginii de oaspete", () => {
+  it("pune codul in fragment, nu in cale", () => {
+    // Fragmentul nu se trimite serverului — vezi docs/guest-app.md, 3.1.
+    expect(linkOaspete("Ajh6k")).toBe("https://guest.lalivada.ro/#Ajh6k");
+  });
+
+  it("da sir gol fara cod, nu o adresa fara fragment", () => {
+    // `guest.lalivada.ro/#` duce drept in ecranul de link invalid.
+    expect(linkOaspete("")).toBe("");
+    expect(linkOaspete(null)).toBe("");
+    expect(linkOaspete(undefined)).toBe("");
+  });
+});
+
+describe("data din mesaj", () => {
+  it("scrie luna in litere si anul intreg", () => {
+    expect(dataMesaj("2026-08-23T08:30:00Z")).toBe("23 august 2026, 11:30");
+  });
+
+  it("e in fusul hotelului, nu in cel al masinii", () => {
+    /* 23 august, 22:00 UTC = 24 august, 01:00 in Romania. Un formator legat
+       de fusul masinii ar scrie aici "23 august" pe orice CI care ruleaza pe
+       UTC — si ar trimite oaspetelui alta zi decat emailul. */
+    expect(dataMesaj("2026-08-23T22:00:00Z")).toBe("24 august 2026, 01:00");
+  });
+});
+
+describe("numele din mesaj", () => {
+  it("pune prenumele intai", () => {
+    // `guestFullName` da invers, pentru liste; intr-un "Bună ..." nu merge.
+    expect(numeInMesaj("Ion", "Popescu")).toBe("Ion Popescu");
+  });
+
+  it("nu lasa spatii cand lipseste o jumatate", () => {
+    expect(numeInMesaj("Ion", "")).toBe("Ion");
+    expect(numeInMesaj("", "Popescu")).toBe("Popescu");
+    expect(numeInMesaj(null, undefined)).toBe("");
   });
 });
 

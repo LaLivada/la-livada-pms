@@ -601,11 +601,22 @@ function PMSApp() {
       const scrise = await syncTable("reservations", before, next, snakeRes);
       /* Stampila noua vine de la server; fara pasul asta, urmatoarea
          salvare a aceluiasi utilizator ar trimite-o pe cea veche si ar fi
-         respinsa ca modificare concurenta, desi e tot el. */
+         respinsa ca modificare concurenta, desi e tot el.
+
+         Odata cu ea vine si `guest_code`, din acelasi motiv: si el se
+         completeaza pe server, de trigger, si nu se afla in obiectul
+         construit aici. Fara pasul asta, o rezervare creata si trimisa pe
+         WhatsApp in aceeasi sesiune ar fi plecat cu randul „Pagina sejurului
+         tau:" gol — linkul apare in mesaj din 7 septembrie 2026, iar codul
+         lui ar fi ajuns in browser abia la urmatoarea reincarcare. */
       if (scrise.length) {
-        const stampile = new Map(scrise.map((r) => [r.id, r.updated_at]));
-        const actualizate = resRef.current.map((r) =>
-          stampile.has(r.id) ? { ...r, updatedAt: stampile.get(r.id) } : r);
+        const dinBaza = new Map(scrise.map((r) => [r.id, r]));
+        const actualizate = resRef.current.map((r) => {
+          const server = dinBaza.get(r.id);
+          return server
+            ? { ...r, updatedAt: server.updated_at, guestCode: server.guest_code || r.guestCode || "" }
+            : r;
+        });
         resRef.current = actualizate;
         setReservations(actualizate);
       }

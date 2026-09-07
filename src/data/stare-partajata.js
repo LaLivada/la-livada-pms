@@ -15,6 +15,12 @@ export const K = {
   groups: "pms:groups:v3",
   log: "pms:log:v3",
   blocks: "pms:blocks:v3",
+  /* Setarile accesului electronic. Spre deosebire de restul cheilor de aici,
+     asta n-a fost niciodata un blob de tranzitie: e scrisa si citita de
+     functia edge `access-provider`, iar din 7 septembrie 2026 o citeste si
+     browserul, pentru mesajul de WhatsApp. Sirul sta o singura data, ca sa
+     nu ajunga o litera diferita intre cele doua. */
+  access: "pms:access:v1",
 };
 
 /* Audit log — module-level so any component can record an action

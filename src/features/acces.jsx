@@ -15,9 +15,12 @@ import { supabase } from "../supabase.js";
 import * as dateAcces from "../data/acces.js";
 import { audit } from "../lib/audit.js";
 import { mesajEroare } from "../lib/errors.js";
-import { guestFullName } from "../lib/nume.js";
 import { fmtDateTime } from "../lib/format.js";
-import { decideActiuneAcces } from "../lib/acces.js";
+import { loadShared, K } from "../data/stare-partajata.js";
+import {
+  decideActiuneAcces, randeazaSablon, SABLON_IMPLICIT, linkOaspete, dataMesaj,
+  numeInMesaj, NUME_HOTEL_IMPLICIT, TELEFON_ASISTENTA,
+} from "../lib/acces.js";
 import { toaster } from "../ui/primitive.jsx";
 
 export async function cheamaAcces(action, payload = {}) {
@@ -115,6 +118,13 @@ export function SectiuneAcces({ res, core }) {
   const [trimiteri, setTrimiteri] = useState([]);
   const [lucrez, setLucrez] = useState(false);
   const [eroare, setEroare] = useState("");
+  /* Aceleasi setari pe care le citeste si functia edge — numele pensiunii
+     si, daca i-l pune cineva vreodata, sablonul propriu. Se incarca o data,
+     la deschiderea sectiunii, si nu la apasarea butonului: mesajul intra
+     intr-un `href`, care trebuie sa fie gata inainte de clic. Facut la clic,
+     ar fi cerut un `window.open` de dupa `await`, blocat ca fereastra
+     nesolicitata in destule browsere. */
+  const [setari, setSetari] = useState({});
 
   const incarca = useCallback(async () => {
     try {
@@ -129,6 +139,7 @@ export function SectiuneAcces({ res, core }) {
   }, [res.id]);
 
   useEffect(() => { incarca(); }, [incarca]);
+  useEffect(() => { loadShared(K.access, {}).then(setSetari); }, []);
 
   const genereaza = async () => {
     setEroare("");
@@ -254,14 +265,21 @@ export function SectiuneAcces({ res, core }) {
                 Numărul de WhatsApp nu este disponibil.
               </span>;
             }
-            const text = `Bună ${guestFullName(oaspete) || ""},
-
-Camera ta este ${camera.name}.
-Codul de acces este: ${cod.code}
-
-Valabil de la ${fmtDateTime(cod.valid_from)} până la ${fmtDateTime(cod.valid_until)}.
-
-Introdu codul pe tastatura yalei și apasă tasta de confirmare #.`;
+            /* Același șablon ca la email, din src/lib/acces.js — până pe
+               7 septembrie 2026 textul era scris aici de mână și cele două
+               apucaseră să se despartă. Randarea în browser e în regulă
+               tocmai pentru că mesajul pleacă tot de aici: recepționerul îl
+               vede în WhatsApp înainte să apese trimite. */
+            const text = randeazaSablon(setari.messageTemplate || SABLON_IMPLICIT, {
+              guest_name:  numeInMesaj(oaspete?.firstName, oaspete?.lastName) || "oaspete",
+              hotel_name:  setari.hotelName || NUME_HOTEL_IMPLICIT,
+              room_number: camera.name,
+              access_code: cod.code,
+              valid_from:  dataMesaj(cod.valid_from),
+              valid_until: dataMesaj(cod.valid_until),
+              guest_link:  linkOaspete(res.guestCode),
+              support_phone: TELEFON_ASISTENTA,
+            });
             return (
               <a className="btn btn-ghost" href={`https://wa.me/${cifre}?text=${encodeURIComponent(text)}`}
                 target="_blank" rel="noopener noreferrer"

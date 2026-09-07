@@ -28,8 +28,11 @@ import * as simulare from "./providers/simulare.ts";
 /* Logica pura (fus orar, sablon) sta in src/lib/acces.js, ca sa aiba o
    singura copie si sa fie testata cu vitest — vezi src/acces.test.js.
    Aici nu se rescrie, se importa. */
-import { laOraLocala, expirareCod, inceputCod, randeazaSablon, genereazaCodPin, lungimeCod, FUS_HOTEL }
-  from "../../../src/lib/acces.js";
+import {
+  laOraLocala, expirareCod, inceputCod, randeazaSablon, genereazaCodPin, lungimeCod, FUS_HOTEL,
+  SABLON_IMPLICIT, linkOaspete, dataMesaj, numeInMesaj, NUME_HOTEL_IMPLICIT,
+  TELEFON_ASISTENTA,
+} from "../../../src/lib/acces.js";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY  = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -69,33 +72,20 @@ async function setari(admin: any) {
     grateMinute:   Number.isFinite(s.graceMinutes)    ? s.graceMinutes    : 30,
     codeLength:    s.codeLength,
     provider:      s.provider || "ttlock",
-    numeHotel:     s.hotelName || "Complex La Livada",
+    numeHotel:     s.hotelName || NUME_HOTEL_IMPLICIT,
     sablon:        s.messageTemplate || SABLON_IMPLICIT,
   };
 }
 
-/* Șablonul mesajului. Configurabil din PMS; ăsta e doar punctul de pornire.
-   Randarea se face AICI, pe server, nu în browser: altfel textul trimis de
-   pe adresa pensiunii ar putea fi rescris din DevTools. */
-const SABLON_IMPLICIT = `Bună {{guest_name}},
+/* Șablonul, formatul datelor și ordinea numelui vin din modulul comun
+   (src/lib/acces.js), fiindcă din 7 septembrie 2026 le folosește și PMS-ul,
+   pentru mesajul de WhatsApp. Cât au stat aici, cele două texte au apucat
+   să se despartă în patru locuri; motivul întreg e scris lângă
+   `SABLON_IMPLICIT`.
 
-Bine ai venit la {{hotel_name}}!
-
-Camera ta este {{room_number}}.
-Codul de acces este: {{access_code}}
-
-Valabil de la {{valid_from}} până la {{valid_until}}.
-
-Introdu codul pe tastatura yalei și apasă tasta de confirmare.
-Dacă ai nevoie de ajutor, contactează recepția.`;
-
-const dataRo = (iso: string) =>
-  new Date(iso).toLocaleString("ro-RO", {
-    timeZone: FUS, day: "numeric", month: "long", year: "numeric",
-    hour: "2-digit", minute: "2-digit",
-  });
-
-// randeazaSablon vine din modulul comun (src/lib/acces.js).
+   Randarea EMAILULUI rămâne aici, pe server, și nu se mută: mesajul pleacă
+   de pe adresa pensiunii, deci conținutul lui n-are voie să poată fi rescris
+   din DevTools. */
 
 /* Furnizorul activ. Simularea se alege DELIBERAT, din setari — niciodata
    ca rezerva automata cand TTLock nu raspunde: o cadere de retea nu are
@@ -528,8 +518,11 @@ Deno.serve(async (req) => {
         .select("*").eq("reservation_id", rezervareId).eq("status", "active").maybeSingle();
       if (!cod) return raspuns({ ok: false, error: "Nu există un cod activ de trimis." }, 409);
 
+      /* `guest_code` intră în select pentru linkul paginii de oaspete. Nu se
+         calculează aici și nu se completează dacă lipsește: îl pune
+         triggerul `reservations_pune_guest_code`, la inserare. */
       const { data: rez } = await admin.from("reservations")
-        .select("guest_id, room_id").eq("id", rezervareId).maybeSingle();
+        .select("guest_id, room_id, guest_code").eq("id", rezervareId).maybeSingle();
       const { data: oaspete } = await admin.from("guests")
         .select("first_name, last_name, email").eq("id", rez?.guest_id).maybeSingle();
       const { data: cam } = await admin.from("rooms")
@@ -543,12 +536,14 @@ Deno.serve(async (req) => {
 
       const s = setariAcum;
       const text = randeazaSablon(s.sablon, {
-        guest_name:  [oaspete?.first_name, oaspete?.last_name].filter(Boolean).join(" ") || "oaspete",
+        guest_name:  numeInMesaj(oaspete?.first_name, oaspete?.last_name) || "oaspete",
         hotel_name:  s.numeHotel,
         room_number: cam?.name || cod.room_id,
         access_code: cod.code,
-        valid_from:  dataRo(cod.valid_from),
-        valid_until: dataRo(cod.valid_until),
+        valid_from:  dataMesaj(cod.valid_from),
+        valid_until: dataMesaj(cod.valid_until),
+        guest_link:  linkOaspete(rez?.guest_code),
+        support_phone: TELEFON_ASISTENTA,
       });
 
       const CHEIE = Deno.env.get("RESEND_API_KEY");

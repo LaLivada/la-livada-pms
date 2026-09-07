@@ -101,6 +101,120 @@ export function randeazaSablon(sablon, valori) {
     (_, cheie) => (valori && valori[cheie] != null ? String(valori[cheie]) : ""));
 }
 
+/* Linkul catre pagina oaspetelui.
+ *
+ * Codul sta in FRAGMENT, nu in cale: fragmentul nu se trimite niciodata
+ * serverului, deci codul nu ajunge in logurile de acces ale Vercel. Motivul
+ * intreg, si de ce nu e o cale, in docs/guest-app.md, 3.1.
+ *
+ * Cod lipsa da sir gol, nu o adresa fara cod: `guest.lalivada.ro/#` l-ar
+ * duce pe oaspete drept in ecranul de link invalid, ceea ce e mai rau decat
+ * sa nu primeasca link deloc. In practica nu se intampla — triggerul
+ * `reservations_pune_guest_code` pune un cod la fiecare inserare, iar
+ * randurile dinainte au fost completate la migratie (verificat in productie
+ * pe 7 septembrie 2026: 134 de rezervari, niciun cod lipsa). */
+export const ADRESA_GUEST = "https://guest.lalivada.ro";
+export const linkOaspete = (cod) => (cod ? `${ADRESA_GUEST}/#${cod}` : "");
+
+/* Numele pensiunii, cand `app_state` n-are `hotelName`. Aici, si nu scris de
+   doua ori: e o valoare care apare in mesajul trimis oaspetelui, iar cele
+   doua cai il compun acum din acelasi sablon. */
+export const NUME_HOTEL_IMPLICIT = "Complex La Livada";
+
+/* Numarul pus in mesaj, la „daca ai nevoie de ajutor".
+ *
+ * E numarul ASISTENTEI, nu cel general al complexului: mesajul asta se
+ * reciteste in fata unei usi care nu se deschide, iar acolo trebuie omul
+ * care raspunde in cateva minute, nu centrala.
+ *
+ * ACELASI NUMAR STA SI IN src/guest/continut.js, ca `ASISTENTA`. Nu se
+ * importa de acolo si nu e o scapare: guest app-ul e alt build, cu alt
+ * deploy, iar un import ar trage logica de acces a receptiei in pachetul
+ * public. Daca numarul se schimba, se schimba in amandoua — de aceea sta
+ * scris aici, cu numele lui, si nu ingropat in sablon. */
+export const TELEFON_ASISTENTA = "+40 725 259 999";
+
+/* Data si ora asa cum apar in mesajul trimis oaspetelui: „23 august 2026,
+ * 11:30".
+ *
+ * FIXATA PE FUSUL HOTELULUI, nu pe cel al masinii care randeaza. Mesajul
+ * pleaca din doua locuri — serverul, pentru email, si browserul receptiei,
+ * pentru WhatsApp — iar un laptop lasat pe alt fus ar fi scris alta ora
+ * decat emailul, pentru acelasi cod.
+ *
+ * Luna in litere si anul intreg, spre deosebire de formatele din
+ * lib/format.js: acelea sunt pentru ecran, unde contextul e langa ele. Un
+ * mesaj se reciteste peste doua zile, scos din orice context, iar „23.08,
+ * 11:30" cere atunci un efort pe care „23 august 2026" nu-l cere.
+ *
+ * ZIUA SI ORA SE FORMATEAZA SEPARAT, si apoi se lipesc cu virgula. Cerute
+ * impreuna, `ro-RO` le leaga cu „la" — „8 septembrie 2026 la 14:00" — iar
+ * sablonul spune deja „Valabil de la ... pana la ...". Iesea „de la
+ * 8 septembrie 2026 la 14:00 pana la 11 septembrie 2026 la 11:30", cu trei
+ * „la" care nu inseamna acelasi lucru. Asa a scris emailul pana pe
+ * 7 septembrie 2026; nimeni nu alesese formularea, venea din locale. */
+const FMT_MESAJ_ZI = new Intl.DateTimeFormat("ro-RO", {
+  timeZone: FUS_HOTEL, day: "numeric", month: "long", year: "numeric",
+});
+const FMT_MESAJ_ORA = new Intl.DateTimeFormat("ro-RO", {
+  timeZone: FUS_HOTEL, hour: "2-digit", minute: "2-digit",
+});
+export const dataMesaj = (iso) => {
+  const d = new Date(iso);
+  return `${FMT_MESAJ_ZI.format(d)}, ${FMT_MESAJ_ORA.format(d)}`;
+};
+
+/* Numele din mesaj: PRENUMELE INTAI.
+ *
+ * `guestFullName` din lib/nume.js da invers — „Popescu Ion" — fiindca acolo
+ * e ordinea de listare si de cautare, si asa ramane. Intr-un „Bună ..."
+ * insa, ordinea aia suna a somatie. Pana pe 7 septembrie 2026 emailul si
+ * WhatsApp-ul se salutau chiar asa, fiecare in ordinea lui.
+ *
+ * Primeste doua siruri, nu un obiect: serverul are `first_name`, browserul
+ * are `firstName`, si ar fi trebuit sa stie una despre alta degeaba. Ce se
+ * imparte aici e ORDINEA, adica exact lucrul care se despartise. */
+export const numeInMesaj = (prenume, nume) =>
+  [prenume, nume].filter(Boolean).join(" ").trim();
+
+/* Sablonul mesajului de acces — unul singur pentru amandoua caile.
+ *
+ * A stat pana pe 7 septembrie 2026 in access-provider/index.ts, iar
+ * WhatsApp-ul isi avea in features/acces.jsx propria copie, scrisa de mana.
+ * Cele doua apucasera deja s-o ia in directii diferite: emailul avea „Bine
+ * ai venit la ...", WhatsApp-ul nu; WhatsApp-ul spunea „tasta de confirmare
+ * #", emailul o spunea fara diez, desi diezul e cel corect; salutul iesea in
+ * alta ordine, iar datele in alt format cu totul („23 august 2026, 11:30"
+ * fata de „23.08, 11:30"). Nimeni nu hotarase nimic din toate astea — se
+ * intamplasera, fiindca textul era scris de doua ori. De aceea a urcat aici,
+ * unde il citesc amandoua.
+ *
+ * Ramane configurabil din `app_state`, cheia `pms:access:v1`, campul
+ * `messageTemplate`; asta e doar punctul de pornire. In productie campul nu
+ * exista (verificat 7 septembrie 2026), deci textul de aici e cel trimis.
+ *
+ * UNDE SE RANDEAZA, si de ce difera. Emailul se randeaza pe SERVER: pleaca
+ * de pe adresa pensiunii, deci continutul lui n-are voie sa poata fi rescris
+ * din DevTools. WhatsApp-ul se randeaza in browser fiindca de acolo si
+ * pleaca — receptionerul apasa trimite in aplicatia lui, cu textul sub ochi,
+ * deci nu exista nimeni de pacalit. Sablonul e acelasi; doar locul randarii
+ * difera, si difera cu motiv. */
+export const SABLON_IMPLICIT = `Bună {{guest_name}},
+
+Bine ai venit la {{hotel_name}}!
+
+Camera ta este {{room_number}}.
+Codul de acces este: {{access_code}}
+
+Valabil de la {{valid_from}} până la {{valid_until}}.
+
+Introdu codul pe tastatura yalei și apasă tasta de confirmare #.
+
+Poți avea acces direct în cameră de pe pagina: {{guest_link}}
+De acolo vezi și codul, regulile casei și ce e de vizitat prin zonă.
+
+Dacă ai nevoie de ajutor, sună la {{support_phone}}.`;
+
 /* Ce trebuie facut cu codul dupa ce o rezervare s-a modificat.
  *
  *   "revoke"  — rezervarea nu mai e valida (anulata / no-show);

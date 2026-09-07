@@ -19,6 +19,11 @@ export const camelRes = (r) => ({
     [r.occupant_last_name, r.occupant_first_name].filter(Boolean).join(" "),
   messages: r.messages || [], seeded: r.seeded,
   billingCustomerId: r.billing_customer_id || "",
+  /* Codul paginii de oaspete. NUMAI la citire — nu apare in `snakeRes`, si
+     asta nu e o scapare: codul e al triggerului `reservations_pune_guest_code`,
+     iar interfata n-are de ce sa-l trimita inapoi. Trimis, ar fi doar o cale
+     prin care o stare veche din browser ar putea suprascrie un cod bun. */
+  guestCode: r.guest_code || "",
   updatedAt: r.updated_at || null,
 });
 export const snakeRes = (r) => ({

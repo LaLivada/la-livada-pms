@@ -822,12 +822,84 @@ tranzacții anulate: fără grup + ocupant vechi → clientul; fără grup și f
 client → ocupantul; în grup + ocupant → ocupantul; în grup fără ocupant →
 eticheta grupului.
 
-### Pasul 5 — livrarea linkului către oaspete
+### Pasul 5 — livrarea linkului către oaspete ✅ făcut (7 septembrie 2026)
 
-Se adaugă `{{guest_link}}` în șablonul mesajului de acces, lângă
-`{{access_code}}` care există deja
-([access-provider/index.ts:96](../supabase/functions/access-provider/index.ts)).
-Randarea rămâne pe server, unde e și acum.
+Până acum codul exista în baza de date, pagina funcționa, subdomeniul era
+livrat — dar **nimeni nu-i trimitea oaspetelui adresa**. Pasul ăsta închide
+drumul.
+
+`{{guest_link}}` intră în șablonul mesajului de acces, lângă
+`{{access_code}}`, și se randează din `linkOaspete(reservations.guest_code)`.
+
+**Ce a ieșit la iveală făcându-l.** Mesajul pleacă pe două căi — email, din
+funcția edge, și WhatsApp, prin `wa.me`, din browser — iar textul era **scris
+de două ori**, o dată în `access-provider/index.ts` și o dată de mână în
+`features/acces.jsx`. Cele două copii apucaseră deja să se despartă în patru
+locuri, niciunul hotărât de cineva:
+
+| | Email | WhatsApp |
+|---|---|---|
+| Salut | „Ion Popescu" (prenume întâi) | „Popescu Ion" (`guestFullName`, ordinea de listare) |
+| Bun venit | „Bine ai venit la Complex La Livada!" | lipsea |
+| Tasta | „apasă tasta de confirmare" | „apasă tasta de confirmare #" — **cea corectă** |
+| Datele | „23 august 2026 la 11:30" | „23.08, 11:30", în fusul laptopului |
+
+Adăugat linkul în ambele fără altceva, distanța s-ar fi lărgit la fiecare
+modificare viitoare. Așa că **șablonul a urcat în `src/lib/acces.js`** —
+modulul pe care funcția edge deja îl importa pentru fus și pentru
+`randeazaSablon` — împreună cu `dataMesaj`, `numeInMesaj`,
+`NUME_HOTEL_IMPLICIT` și `linkOaspete`. Fiecare divergență s-a rezolvat spre
+varianta corectă: prenumele întâi, diezul păstrat, data în fusul hotelului.
+
+**Unde se randează rămâne diferit, și cu motiv.** Emailul se randează pe
+server: pleacă de pe adresa pensiunii, deci conținutul lui n-are voie să
+poată fi rescris din DevTools. WhatsApp-ul se randează în browser fiindcă de
+acolo și pleacă — recepționerul apasă trimite în aplicația lui, cu textul sub
+ochi, deci nu e nimeni de păcălit. Șablonul e același; doar locul randării
+diferă.
+
+Două lucruri mărunte, din aceeași trecere:
+
+- **`ro-RO` leagă data de oră cu „la"**, iar șablonul spune deja „Valabil de
+  la … până la …". Ieșea „de la 8 septembrie 2026 la 14:00 până la
+  11 septembrie 2026 la 11:30", cu trei „la" care nu înseamnă același lucru.
+  Ziua și ora se formatează acum separat și se lipesc cu virgulă. Nimeni nu
+  alesese formularea dinainte — venea din locale.
+- **`guest_code` intră în `camelRes`, dar nu în `snakeRes`.** Codul e al
+  trigger-ului; trimis înapoi, ar fi doar o cale prin care o stare veche din
+  browser ar putea suprascrie un cod bun.
+- **Și trebuie citit înapoi după salvare.** `updateReservations` copia din
+  răspunsul serverului doar `updated_at`. O rezervare creată și trimisă pe
+  WhatsApp în aceeași sesiune ar fi plecat cu rândul „Pagina sejurului tău:"
+  gol: codul e pus de trigger, deci nu se află în obiectul construit în
+  browser, iar el l-ar fi văzut abia la următoarea reîncărcare. Se copiază
+  acum pe același drum cu ștampila. Exact eșecul tăcut de mai sus, intrat pe
+  altă ușă decât cea pe care o păzeau testele.
+
+**Textul mesajului, cerut de proprietar** (7 septembrie 2026). Linkul nu se
+mai anunță ca „Pagina sejurului tău", ci prin ce face: *„Poți avea acces
+direct în cameră de pe pagina: …"*. Iar „contactează recepția" s-a înlocuit
+cu un număr — `{{support_phone}}`, deci nescris în text.
+
+**Numărul e cel al asistenței, +40 725 259 999, nu cel general al
+complexului.** Mesajul ăsta se recitește în fața unei uși care nu se
+deschide, iar acolo trebuie omul care răspunde în câteva minute, nu centrala
+— aceeași alegere ca în panoul „Dacă ușa nu se deschide" din pagina
+oaspetelui. Stă în `TELEFON_ASISTENTA`, în `src/lib/acces.js`, și **e al
+doilea loc în care apare**: primul e `ASISTENTA`, în
+`src/guest/continut.js`. Nu se importă unul din altul — guest app-ul e alt
+build, iar un import ar trage logica de acces a recepției în pachetul
+public. Se schimbă în amândouă, și de aceea are un nume, nu stă îngropat în
+șablon.
+
+Verificat: 231 de teste trec, inclusiv două noi care apără exact ce s-a
+reparat aici — unul că șablonul implicit nu lasă nicio acoladă nehrănită,
+altul că fiecare variabilă din el are o valoare cunoscută. Fără al doilea, o
+variabilă nouă uitată pe una din căi ar trece neobservată: `randeazaSablon`
+pune șir gol, nu eroare, iar rândul ciuntit s-ar afla de la oaspete.
+
+**Rămâne de verificat pe producție**: funcția edge se redeployează, iar
+mesajul se citește o dată pe fiecare cale, cu o rezervare de test.
 
 ### Pasul 6 (ulterior, cu decizie separată)
 
