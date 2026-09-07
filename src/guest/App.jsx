@@ -928,7 +928,10 @@ export default function App() {
           </h1>
           {/* Fisierul siglei e chiar cel folosit de
             rezervari.lalivada.ro — aceeasi marca, nu o refacere. */}
-          <a className="g-emblema" href="https://lalivada.ro"
+          {/* Spre pagina de rezervari, nu spre site: cine apasa sigla in
+              timpul sejurului e deja aici — ce poate face mai departe e sa
+              rezerve din nou, nu sa citeasca prezentarea. */}
+          <a className="g-emblema" href="https://rezervari.lalivada.ro"
              target="_blank" rel="noopener noreferrer">
             <img src="/brand/livada-text.svg" alt="Complex La Livada"
                  width="132" height="33" />

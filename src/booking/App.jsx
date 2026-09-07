@@ -595,12 +595,14 @@ export default function App({ valoriInitiale }) {
                          plusul deja scris, ca omul sa continue de acolo. */
                       prefix: e.target.value === "alt" ? "+" : e.target.value,
                     }))}>
-                    {/* Codul primul: caseta inchisa e ingusta si taie
-                        sfarsitul etichetei, iar codul e partea care conteaza
-                        cand te uiti la ce ai ales. Numele tarii ramane
-                        vizibil intreg in lista deschisa. */}
+                    {/* Doar codul, fara numele tarii. Un <select> nativ nu
+                        poate arata altceva inchis decat deschis, deci numele
+                        nu putea ramane doar in lista. Lipsa lui nu creeaza
+                        optiuni identice: un test tine codurile unice
+                        (src/booking-telefon.test.js). Romania si Moldova
+                        sunt primele, iar pentru restul exista „Alt prefix". */}
                     {PREFIXE_TELEFON.map((p) => (
-                      <option key={p.tara} value={p.cod}>{p.cod} {p.tara}</option>
+                      <option key={p.tara} value={p.cod}>{p.cod}</option>
                     ))}
                     <option value="alt">Alt prefix…</option>
                   </select>
@@ -618,7 +620,7 @@ export default function App({ valoriInitiale }) {
               <label className="ldv-camp">
                 <span>Email</span>
                 <input type="email" value={oaspete.email} autoComplete="email" maxLength={200}
-                  placeholder="pe el primești confirmarea"
+                  placeholder="pentru confirmare rezervare"
                   onChange={(e) => setOaspete((o) => ({ ...o, email: e.target.value }))} />
               </label>
             </div>
