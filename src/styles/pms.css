@@ -1715,6 +1715,19 @@ label.field input, label.field select, label.field textarea{ cursor:auto; }
 
 /* ---------- fisa de cazare ---------- */
 .fisa-vedere{ margin:0; display:grid; gap:2px; }
+/* Data nasterii: zi, luna, an, in randul asta, in loc de un input type=date.
+   Calendarul nativ porneste de la anul curent, iar receptionerul care tasteaza
+   o data din 1980 deruleaza patruzeci de ani, cu omul in fata la ghiseu.
+   Latimile sunt proportionale cu ce se scrie in ele — 2, 2 si 4 cifre — ca sa
+   se vada dintr-o privire care caseta ce cere. Centrarea e deliberata: doua
+   cifre aliniate la stanga plutesc intr-o parte si arata a camp neterminat. */
+.fisa-data{ display:flex; gap:8px; }
+.fisa-data input{ text-align:center; }
+/* Prefixate cu `.field`, si nu din obisnuinta: `.field input` de mai sus pune
+   `width:100%` cu specificitate (0,1,1), iar o clasa singura are (0,1,0) si ar
+   fi pierdut — cele trei casete ar fi iesit late cat randul, una sub alta. */
+.field .fisa-data-zi, .field .fisa-data-luna{ width:22%; }
+.field .fisa-data-an{ width:32%; }
 /* Semnatura se randeaza din traseul SVG salvat, la acelasi raport ca panza pe
    care s-a desenat (600x300, vezi lib/semnatura.js). Alt raport ar deforma-o,
    iar o semnatura deformata nu mai e a nimanui. `currentColor` o lasa sa

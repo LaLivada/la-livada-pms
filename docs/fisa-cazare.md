@@ -344,6 +344,29 @@ spațiile, la fel ca partea de recepție. Zero rânduri erau afectate la momentu
 reparației — verificat, nu presupus; capcana era latentă, deschisă de primul
 oaspete salvat fără localitate.
 
+**Data nașterii se scrie în trei casete** — zi, lună, an — adăugat
+7 septembrie 2026, la cererea proprietarului. `<input type="date">` deschide pe
+telefon un calendar care pornește de la anul curent: ca să ajungi la 1980
+derulezi patruzeci de ani, stând în fața ușii. Trei casete de cifre se
+completează din tastatura numerică, fără nicio derulare. Ordinea e cea în care
+se scrie în română, iar la ultima cifră focusul sare singur mai departe;
+`Backspace` pe o casetă goală se întoarce.
+
+**Formatul păstrat rămâne `AAAA-LL-ZZ`** — coloana din Postgres e `date`, iar
+coala tipărită și validarea se sprijină pe el. Casetele sunt doar felul în care
+omul îl scrie. Compunerea și descompunerea stau în
+[lib/fisa.js](../src/lib/fisa.js), deci aceeași zi tastată la recepție și în
+pagina oaspetelui dă același rând în bază.
+
+**Schimbarea a scos la iveală o gaură în validare.** `new Date("1980-02-31")`
+**nu** întoarce `Invalid Date` — se rostogolește tăcut la 2 martie. Cu un
+calendar nativ, 31 februarie nu se putea tasta; cu trei casete libere, se poate.
+Postgres l-ar fi respins cu `date/time field value out of range`, adică
+oaspetele ar fi aflat de la o eroare de bază de date ce a greșit. Validarea
+verifică acum ziua prin dus-întors: ce a intrat trebuie să iasă. Prinde 31
+februarie, 31 aprilie, luna 13 și 29 februarie 1900 — an care nu e bisect,
+fiind divizibil cu 100 dar nu cu 400.
+
 **Anularea**, cu motiv și autor. **Nu există buton de „editează"**: triggerul
 respinge orice `update` în afara anulării, deci o greșeală se anulează și se
 scrie alta.

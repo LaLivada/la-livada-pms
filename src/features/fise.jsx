@@ -14,14 +14,14 @@
  * anularii, deci nu exista buton de „editeaza": o greseala se anuleaza si se
  * scrie alta. Vezi docs/fisa-cazare.md 2.
  */
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { FileText, FilePlus, Ban } from "lucide-react";
 import * as dateFise from "../data/fise.js";
 import { audit } from "../lib/audit.js";
 import { mesajEroare } from "../lib/errors.js";
 import { fmtDateTime, fmtDateFull } from "../lib/format.js";
 import { CAMPURI, ACT_TIPURI, valideazaFisa, SABLON_VERSIUNE,
-         precompletareDinOaspete } from "../lib/fisa.js";
+         precompletareDinOaspete, dataInParti, dataDinParti } from "../lib/fisa.js";
 import { Dialog, toaster } from "../ui/primitive.jsx";
 import { uid } from "../lib/uid.js";
 import { LATIME_PANZA, INALTIME_PANZA } from "../lib/semnatura.js";
@@ -167,6 +167,66 @@ const Rand = ({ eticheta: e, valoare }) => (
    COMPLETAREA IN LOCUL OASPETELUI
 ----------------------------------------------------------------*/
 
+/* DATA NASTERII, IN TREI CASETE — nu `<input type="date">`.
+ *
+ * Perechea ei sta in guest/Fisa.jsx, si e o duplicare ASUMATA: cele doua
+ * aplicatii au foi de stil diferite, iar pagina oaspetelui nu importa nimic
+ * din `ui/` sau `features/` — se deschide pe date mobile, in fata unei usi,
+ * si fiecare kilobyte in plus se plateste acolo.
+ *
+ * Ce conteaza e impartit, si tocmai de aceea: compunerea in „AAAA-LL-ZZ" si
+ * validarea stau in lib/fisa.js, deci aceeasi zi tastata aici si acolo da
+ * acelasi rand in baza. Ce se dubleaza e doar cablajul de DOM, iar o
+ * divergenta acolo se vede din prima privire.
+ */
+function CaseteData({ valoare, eroare, onSchimbare }) {
+  /* Partile stau in stare LOCALA, iar in sus pleaca sirul compus: cine
+     tasteaza prima cifra din zi ar vedea altfel caseta golindu-se, fiindca
+     din „1" nu se poate compune nicio data. Se seamana o singura data — data
+     nasterii nu se precompleteaza niciodata, e camp sensibil. */
+  const [parti, setParti] = useState(() => dataInParti(valoare));
+  const refZi = useRef(null);
+  const refLuna = useRef(null);
+  const refAn = useRef(null);
+
+  const pune = (care, brut, maxim, urmator) => {
+    const v = String(brut).replace(/\D/g, "").slice(0, maxim);
+    const noi = { ...parti, [care]: v };
+    setParti(noi);
+    onSchimbare(dataDinParti(noi));
+    if (v.length === maxim && urmator?.current) urmator.current.focus();
+  };
+
+  const inapoi = (e, precedent) => {
+    if (e.key === "Backspace" && e.currentTarget.value === "" && precedent?.current) {
+      precedent.current.focus();
+    }
+  };
+
+  const casete = [
+    { cheie: "zi",   eticheta: "Ziua", loc: "ZZ",   maxim: 2, ref: refZi,   urmator: refLuna, precedent: null },
+    { cheie: "luna", eticheta: "Luna", loc: "LL",   maxim: 2, ref: refLuna, urmator: refAn,   precedent: refZi },
+    { cheie: "an",   eticheta: "Anul", loc: "AAAA", maxim: 4, ref: refAn,   urmator: null,    precedent: refLuna },
+  ];
+
+  return (
+    <div className="field" role="group" aria-labelledby="fisa-nastere-eticheta">
+      <label id="fisa-nastere-eticheta">Data nașterii</label>
+      <div className="fisa-data">
+        {casete.map((c) => (
+          <input key={c.cheie} ref={c.ref}
+            className={`fisa-data-${c.cheie}`}
+            inputMode="numeric" placeholder={c.loc} aria-label={c.eticheta}
+            value={parti[c.cheie]}
+            onKeyDown={(e) => inapoi(e, c.precedent)}
+            onChange={(e) => pune(c.cheie, e.target.value, c.maxim, c.urmator)} />
+        ))}
+      </div>
+      {eroare && <div className="error-text">{eroare}</div>}
+    </div>
+  );
+}
+
 function FormularFisa({ res, core, onGata, onClose }) {
   /* Initializator LENES, nu `useState(precompletare(...))`: scris asa,
      precompletarea s-ar reface la fiecare tastare in formular. Ar fi fost
@@ -239,7 +299,10 @@ function FormularFisa({ res, core, onGata, onClose }) {
         identitate și corectează unde e cazul.
       </p>
 
-      {CAMPURI.map((c) => (
+      {CAMPURI.map((c) => (c.tip === "date" ? (
+        <CaseteData key={c.cheie} valoare={date[c.cheie]} eroare={erori[c.cheie]}
+          onSchimbare={(v) => pune(c.cheie, v)} />
+      ) : (
         <div className="field" key={c.cheie}>
           <label>{c.eticheta}{!c.obligatoriu && " (dacă are)"}</label>
           {c.tip === "alegere" ? (
@@ -253,7 +316,7 @@ function FormularFisa({ res, core, onGata, onClose }) {
           )}
           {erori[c.cheie] && <div className="error-text">{erori[c.cheie]}</div>}
         </div>
-      ))}
+      )))}
 
       <div className="field">
         <label>De ce nu semnează oaspetele</label>

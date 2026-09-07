@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { CAMPURI, ACT_TIPURI, campuriLipsa, valideazaFisa,
-         precompletareDinOaspete } from "./lib/fisa.js";
+         precompletareDinOaspete, dataInParti, dataDinParti } from "./lib/fisa.js";
 
 const completa = {
   nume: "Popescu", prenume: "Ion",
@@ -155,5 +155,77 @@ describe("precompletarea din fisa oaspetelui", () => {
   it("nu se sufoca pe un oaspete lipsa", () => {
     expect(precompletareDinOaspete(null)).toEqual({});
     expect(precompletareDinOaspete(undefined)).toEqual({});
+  });
+});
+
+/* Data nasterii in trei casete. Formatul pastrat ramane „AAAA-LL-ZZ" —
+   casetele sunt doar felul in care omul il scrie — deci compunerea si
+   descompunerea trebuie sa fie una inversa celeilalte. */
+describe("data nasterii, in trei casete", () => {
+  it("descompune un ISO in zi, luna, an", () => {
+    expect(dataInParti("1980-05-14")).toEqual({ an: "1980", luna: "05", zi: "14" });
+  });
+
+  it("descompune golul in trei casete goale, nu in undefined", () => {
+    /* Casetele sunt inputuri controlate: un undefined le-ar face
+       necontrolate, iar React se plange abia la prima tastare. */
+    for (const v of ["", null, undefined, "nu-i data"]) {
+      expect(dataInParti(v)).toEqual({ an: "", luna: "", zi: "" });
+    }
+  });
+
+  it("compune cu zerouri in fata", () => {
+    expect(dataDinParti({ zi: "5", luna: "3", an: "1980" })).toBe("1980-03-05");
+    expect(dataDinParti({ zi: "14", luna: "05", an: "1980" })).toBe("1980-05-14");
+  });
+
+  it("dus-intors, pe orice zi", () => {
+    for (const iso of ["1980-05-14", "2001-01-01", "1943-12-31", "2000-02-29"]) {
+      expect(dataDinParti(dataInParti(iso))).toBe(iso);
+    }
+  });
+
+  /* Gol cat timp lipseste ceva: asa se aprinde „Data nasterii lipseste", nu o
+     eroare despre format, si nu se pierde ce s-a tastat pana atunci. */
+  it("da sir vid cat timp e incompleta", () => {
+    expect(dataDinParti({ zi: "14", luna: "05", an: "" })).toBe("");
+    expect(dataDinParti({ zi: "", luna: "05", an: "1980" })).toBe("");
+    expect(dataDinParti({ zi: "14", luna: "", an: "1980" })).toBe("");
+    expect(dataDinParti(null)).toBe("");
+    expect(dataDinParti({})).toBe("");
+  });
+
+  /* „80" ghicit ca 1980 e felul in care ajunge un an gresit pe un act. */
+  it("cere anul de patru cifre, nu-l ghiceste", () => {
+    expect(dataDinParti({ zi: "14", luna: "05", an: "80" })).toBe("");
+    expect(dataDinParti({ zi: "14", luna: "05", an: "198" })).toBe("");
+  });
+
+  it("refuza ce nu-s cifre", () => {
+    expect(dataDinParti({ zi: "1a", luna: "05", an: "1980" })).toBe("");
+    expect(dataDinParti({ zi: "14", luna: "05", an: "19 8" })).toBe("");
+  });
+});
+
+/* Cu un calendar nativ, 31 februarie nu se putea tasta. Cu trei casete se
+   poate — iar `new Date("1980-02-31")` NU da Invalid Date, se rostogoleste
+   tacut la 2 martie. Fara verificarea asta, oaspetele ar fi aflat de la o
+   eroare de Postgres („date/time field value out of range") ce a gresit. */
+describe("zilele care nu exista", () => {
+  it("refuza 31 februarie", () => {
+    expect(valideazaFisa({ ...completa, dataNasterii: "1980-02-31" }).erori.dataNasterii)
+      .toBe("Data nașterii nu e o dată validă.");
+  });
+
+  it("refuza 31 aprilie si luna 13", () => {
+    for (const zi of ["1980-04-31", "1980-13-01", "1980-00-10", "1980-05-00"]) {
+      expect(valideazaFisa({ ...completa, dataNasterii: zi }).ok, zi).toBe(false);
+    }
+  });
+
+  /* 2000 e an bisect (divizibil cu 400), 1900 nu e (divizibil cu 100). */
+  it("stie anii bisecti", () => {
+    expect(valideazaFisa({ ...completa, dataNasterii: "2000-02-29" }).ok).toBe(true);
+    expect(valideazaFisa({ ...completa, dataNasterii: "1900-02-29" }).ok).toBe(false);
   });
 });

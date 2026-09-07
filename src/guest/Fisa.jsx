@@ -18,12 +18,84 @@
  * oaspetele a mai stat la noi. Nu e o scapare a precompletarii: sunt exact
  * campurile pe care am hotarat sa nu le citim inapoi.
  */
-import { useEffect, useState } from "react";
-import { CAMPURI, ACT_TIPURI, valideazaFisa, SABLON_VERSIUNE } from "../lib/fisa.js";
+import { useEffect, useRef, useState } from "react";
+import { CAMPURI, ACT_TIPURI, valideazaFisa, SABLON_VERSIUNE,
+         dataInParti, dataDinParti } from "../lib/fisa.js";
 import { traseuSvg, esteGoala } from "../lib/semnatura.js";
 import { citesteFisa, trimiteFisa } from "./api.js";
 import { ASISTENTA, WIFI } from "./continut.js";
 import Semnatura from "./Semnatura.jsx";
+
+/* DATA NASTERII, IN TREI CASETE — nu `<input type="date">`.
+ *
+ * Calendarul nativ al telefonului porneste de la anul curent. Ca sa ajungi la
+ * 1980 derulezi patruzeci de ani, stand in fata usii. Trei casete de cifre se
+ * completeaza din tastatura numerica, fara nicio derulare.
+ *
+ * Ordinea e ZI-LUNA-AN, cum se scrie si cum se citeste in romana. Compunerea
+ * in „AAAA-LL-ZZ" o face lib/fisa.js, ca sa fie aceeasi si aici, si la
+ * receptie, si sa poata fi verificata de teste fara DOM.
+ *
+ * PARTILE STAU IN STARE LOCALA, iar in sus pleaca sirul compus. Altfel, cine
+ * tasteaza prima cifra din zi ar vedea caseta golindu-se: din „1" nu se poate
+ * compune nicio data, deci sirul de sus e vid, iar caseta l-ar arata. Starea
+ * locala se seamana o singura data fiindca data nasterii nu se precompleteaza
+ * NICIODATA — e camp sensibil — deci nimeni nu i-o schimba din afara.
+ */
+function DataNasterii({ valoare, eroare, onSchimbare }) {
+  const [parti, setParti] = useState(() => dataInParti(valoare));
+  const refZi = useRef(null);
+  const refLuna = useRef(null);
+  const refAn = useRef(null);
+
+  const pune = (care, brut, maxim, urmator) => {
+    /* Doar cifre. Pe telefon tastatura numerica mai scapa un separator, iar
+       o virgula intrata in „zi" ar fi facut data nevalida fara ca omul sa
+       vada de ce. */
+    const v = String(brut).replace(/\D/g, "").slice(0, maxim);
+    const noi = { ...parti, [care]: v };
+    setParti(noi);
+    onSchimbare(dataDinParti(noi));
+    /* Saltul la caseta urmatoare la ultima cifra: altfel trei casete sunt
+       mai multa munca decat una. */
+    if (v.length === maxim && urmator?.current) urmator.current.focus();
+  };
+
+  /* Backspace pe o caseta goala se intoarce. Fara asta, cine greseste anul
+     trebuie sa atinga ecranul ca sa se intoarca la luna. */
+  const inapoi = (e, precedent) => {
+    if (e.key === "Backspace" && e.currentTarget.value === "" && precedent?.current) {
+      precedent.current.focus();
+    }
+  };
+
+  const casete = [
+    { cheie: "zi",   eticheta: "Ziua",  loc: "ZZ",   maxim: 2, ref: refZi,   urmator: refLuna, precedent: null,    autocomplete: "bday-day" },
+    { cheie: "luna", eticheta: "Luna",  loc: "LL",   maxim: 2, ref: refLuna,  urmator: refAn,   precedent: refZi,   autocomplete: "bday-month" },
+    { cheie: "an",   eticheta: "Anul",  loc: "AAAA", maxim: 4, ref: refAn,    urmator: null,    precedent: refLuna, autocomplete: "bday-year" },
+  ];
+
+  return (
+    /* `div` cu `role="group"`, nu `label`: o eticheta se leaga de un singur
+       camp, iar aici sunt trei. Asa cititorul de ecran anunta grupul, apoi
+       fiecare caseta cu numele ei. */
+    <div className="g-camp" role="group" aria-labelledby="fisa-nastere">
+      <span className="g-camp-eticheta" id="fisa-nastere">Data nașterii</span>
+      <div className="g-data">
+        {casete.map((c) => (
+          <input key={c.cheie} ref={c.ref}
+            className={`g-data-caseta g-data-${c.cheie}`}
+            inputMode="numeric" autoComplete={c.autocomplete}
+            placeholder={c.loc} aria-label={c.eticheta}
+            value={parti[c.cheie]}
+            onKeyDown={(e) => inapoi(e, c.precedent)}
+            onChange={(e) => pune(c.cheie, e.target.value, c.maxim, c.urmator)} />
+        ))}
+      </div>
+      {eroare && <span className="g-camp-eroare">{eroare}</span>}
+    </div>
+  );
+}
 
 export default function Fisa({ cod, onGata }) {
   const [date, setDate] = useState({});
@@ -91,7 +163,10 @@ export default function Fisa({ cod, onGata }) {
         <a href={`tel:${ASISTENTA.telefon}`}>{ASISTENTA.scris}</a>.
       </p>
 
-      {CAMPURI.map((c) => (
+      {CAMPURI.map((c) => (c.tip === "date" ? (
+        <DataNasterii key={c.cheie} valoare={date[c.cheie]} eroare={erori[c.cheie]}
+          onSchimbare={(v) => pune(c.cheie, v)} />
+      ) : (
         <label key={c.cheie} className="g-camp">
           <span className="g-camp-eticheta">
             {c.eticheta}{!c.obligatoriu && <em> (dacă are)</em>}
@@ -111,7 +186,7 @@ export default function Fisa({ cod, onGata }) {
           )}
           {erori[c.cheie] && <span className="g-camp-eroare">{erori[c.cheie]}</span>}
         </label>
-      ))}
+      )))}
 
       <Semnatura valoare={linii} onSchimbare={setLinii} />
       {erori.semnatura && <span className="g-camp-eroare">{erori.semnatura}</span>}

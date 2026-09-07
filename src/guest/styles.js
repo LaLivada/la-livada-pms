@@ -412,6 +412,15 @@ body{
   padding:9px 11px; border:1px solid var(--g-line); border-radius:9px;
   background:#fff; color:var(--g-text);
 }
+/* Data nasterii: zi, luna, an, in randul asta. Latimile sunt proportionale
+   cu ce se scrie in ele — 2, 2 si 4 cifre — ca sa se vada dintr-o privire
+   care caseta ce cere, chiar inainte de a citi ce scrie in ea.
+   Centrarea e deliberata fiindca doua cifre intr-o caseta aliniata la stanga
+   plutesc intr-o parte si arata a camp neterminat. */
+.g-data{ display:flex; gap:8px; }
+.g-data-caseta{ text-align:center; }
+.g-camp .g-data-zi, .g-camp .g-data-luna{ width:23%; }
+.g-camp .g-data-an{ width:34%; }
 .g-camp-eroare{ display:block; margin-top:4px; font-size:12.5px; color:#a13b2f; }
 .g-fisa-mesaj{ margin:10px 0 0; font-size:13.5px; color:#a13b2f; }
 /* Butonul de trimitere are propria clasa, nu .g-usa: acela e butonul usii,

@@ -90,6 +90,43 @@ export const SABLON_VERSIUNE = "fisa-2026-09";
 
 const gol = (v) => v == null || String(v).trim() === "";
 
+/* DATA NASTERII, IN TREI CASETE.
+ *
+ * `<input type="date">` deschide pe telefon un calendar care porneste de la
+ * anul curent. Ca sa ajungi la 1980 derulezi patruzeci de ani, in fata usii.
+ * Trei casete de cifre se completeaza din tastatura numerica, fara derulare.
+ *
+ * Formatul PASTRAT ramane „AAAA-LL-ZZ": coloana din Postgres e `date`, iar
+ * coala tiparita si validarea se sprijina pe el. Casetele sunt doar felul in
+ * care omul il scrie.
+ */
+export const dataInParti = (iso) => {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(iso || "").trim());
+  return m ? { an: m[1], luna: m[2], zi: m[3] } : { an: "", luna: "", zi: "" };
+};
+
+/* Intoarce sir vid cat timp lipseste ceva, ca sa se aprinda „Data nasterii
+   lipseste" si nu o eroare despre format. Anul se cere de patru cifre: „80"
+   ghicit ca 1980 e felul in care ajunge un an gresit pe un act. */
+export function dataDinParti(parti) {
+  const zi = String(parti?.zi ?? "").trim();
+  const luna = String(parti?.luna ?? "").trim();
+  const an = String(parti?.an ?? "").trim();
+  if (!/^\d{1,2}$/.test(zi) || !/^\d{1,2}$/.test(luna) || !/^\d{4}$/.test(an)) return "";
+  return `${an}-${luna.padStart(2, "0")}-${zi.padStart(2, "0")}`;
+}
+
+/* 31 februarie NU e prinsa de `new Date`: sirul se rostogoleste tacut la
+   2 martie. Cu un calendar nativ nu se putea tasta, cu trei casete se poate,
+   iar Postgres respinge `1980-02-31` cu o eroare despre care oaspetele n-are
+   ce sa inteleaga. Verificat prin dus-intors: ce a intrat trebuie sa iasa. */
+const esteZiReala = (iso) => {
+  const { an, luna, zi } = dataInParti(iso);
+  if (!an) return false;
+  const d = new Date(Date.UTC(+an, +luna - 1, +zi));
+  return d.getUTCFullYear() === +an && d.getUTCMonth() === +luna - 1 && d.getUTCDate() === +zi;
+};
+
 export function campuriLipsa(date) {
   return CAMPURI
     .filter((c) => c.obligatoriu && gol(date?.[c.cheie]))
@@ -114,7 +151,7 @@ export function valideazaFisa(date) {
   const d = date?.dataNasterii;
   if (!gol(d)) {
     const nasterea = new Date(d);
-    if (Number.isNaN(nasterea.getTime())) {
+    if (Number.isNaN(nasterea.getTime()) || !esteZiReala(d)) {
       erori.dataNasterii = "Data nașterii nu e o dată validă.";
     } else if (nasterea > new Date()) {
       erori.dataNasterii = "Data nașterii nu poate fi în viitor.";
