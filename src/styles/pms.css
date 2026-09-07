@@ -1715,11 +1715,12 @@ label.field input, label.field select, label.field textarea{ cursor:auto; }
 
 /* ---------- fisa de cazare ---------- */
 .fisa-vedere{ margin:0; display:grid; gap:2px; }
-/* Semnatura se randeaza din traseul SVG salvat, la acelasi viewBox 600x200
-   pe care s-a desenat. Alt raport ar deforma-o, iar o semnatura deformata nu
-   mai e a nimanui. `currentColor` o lasa sa urmeze tema, inclusiv la print. */
+/* Semnatura se randeaza din traseul SVG salvat, la acelasi raport ca panza pe
+   care s-a desenat (600x300, vezi lib/semnatura.js). Alt raport ar deforma-o,
+   iar o semnatura deformata nu mai e a nimanui. `currentColor` o lasa sa
+   urmeze tema, inclusiv la print. */
 .fisa-semnatura{
-  display:block; width:100%; max-width:340px; height:auto; aspect-ratio:3/1;
+  display:block; width:100%; max-width:340px; height:auto; aspect-ratio:2/1;
   margin-top:6px; border:1px solid var(--border); border-radius:10px;
   background:var(--surface); color:var(--text);
 }

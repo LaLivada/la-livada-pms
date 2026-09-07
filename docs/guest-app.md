@@ -1156,3 +1156,48 @@ scrie și unde se poate — o deducție lăsată în seama cuiva care stă cu ț
 în mână pe terasă e o întrebare pusă la recepție. În `REGULAMENT` clauza
 rămâne neatinsă: acolo e o listă de obligații, iar o permisiune strecurată
 printre ele ar fi singurul rând care nu cere nimic.
+
+## 18. Panza de semnat — derula pagina (reparat 7 septembrie 2026)
+
+Semnalat de proprietar în ziua livrării: cu degetul în chenar, pagina fugea sus
+și jos în loc să deseneze, iar chenarul era prea mic.
+
+**Cauza n-a fost o regulă lipsă, ci una ignorată.** `touch-action: none` era
+scris pe pânză de la început, exact ca să oprească derularea. Safari însă
+**ignoră `touch-action` pe elemente SVG** — regula stă acolo, se citește corect
+și nu face nimic. De aceea nu s-a văzut la recitirea codului: codul era în
+regulă.
+
+Ce urma era mai rău decât derularea în sine. Când browserul se hotărăște că
+gestul e o derulare, trimite `pointercancel`, iar linia se rupe la jumătate.
+Cine reușea totuși să semneze rămânea cu o semnătură tăiată — și nimic n-o
+semnala.
+
+**Reparat din trei locuri, fiindcă niciunul nu ajunge singur:**
+
+1. `touch-action: none` și pe `div`-ul din jur, nu doar pe SVG. Pe un element
+   HTML obișnuit Safari respectă regula, iar valoarea se moștenește în jos.
+2. Ascultători de `touchstart` și `touchmove` puși de mână pe pânză, cu
+   `{ passive: false }`. **Nu se pot scrie ca `onTouchMove` în JSX**: React își
+   pune ascultatorii în rădăcina paginii și pe cei de derulare îi pune pasivi,
+   iar într-un ascultător pasiv `preventDefault()` nu face nimic.
+3. Pânza a trecut de la 3:1 la 2:1 — pe un telefon îngust ieșea de vreo 110
+   pixeli înălțime, prea puțin pentru o semnătură scrisă cu degetul, care e mai
+   mare și mai neîngrijită decât una cu pixul. Acum e de ~151 pixeli pe un
+   ecran de 375.
+
+**Schimbarea de raport a scos la iveală o a doua problemă.** Semnătura se
+desenează într-un loc și se arată în alte trei — pagina oaspetelui, fișa de la
+recepție, coala tipărită — iar trei dintre ele aveau `600x200` scris de mână.
+La alt raport traseul rămâne valid dar apare deformat, și numai pe ecran. Cele
+două randări din PMS iau acum numerele din `lib/semnatura.js`, iar legătura e
+prinsă de teste: raportul din CSS trebuie să fie exact cel al `viewBox`-ului, în
+ambele foi de stil, altfel suita cade.
+
+S-a putut schimba fără migrare fiindcă în bază erau **zero fișe** — verificat
+înainte, nu presupus.
+
+**Verificat** pe serverul de dezvoltare, cu emulare de telefon (375×812):
+`touchstart` și `touchmove` au implicitul tăiat, un traseu de 24 de puncte
+ajunge întreg (25 de puncte, niciunul pierdut), coordonatele acoperă tot
+sistemul 600×300, iar `scrollY` rămâne neschimbat peste tot gestul.

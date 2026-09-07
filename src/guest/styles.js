@@ -423,12 +423,22 @@ body{
 }
 .g-fisa-trimit:disabled{ opacity:.55; cursor:default; }
 
-/* touch-action:none NU e podoaba: fara el browserul ia tragerea drept
-   derulare a paginii si niciun punct nu ajunge la componenta. Panza pare
-   complet moarta, si numai pe telefon. */
-.g-semnatura{ margin:10px 0 0; }
+/* touch-action:none pe AMBELE, si nu e podoaba. Fara el, browserul ia
+   tragerea drept derulare a paginii: pagina fuge sus si jos sub deget, iar
+   cand se hotaraste ca e derulare trimite pointercancel si linia se rupe.
+   Pe svg singur nu ajunge — Safari ignora regula pe elemente SVG, deci arata
+   scrisa si nu face nimic; pe un div obisnuit o respecta. Nici asa nu e
+   destul pe toate telefoanele: Semnatura.jsx taie in plus touchstart si
+   touchmove, cu ascultatori nepasivi. Vezi antetul de acolo. */
+.g-semnatura{ margin:10px 0 0; touch-action:none; }
+/* aspect-ratio TREBUIE sa fie exact raportul viewBox-ului din lib/semnatura.js
+   (600x300). Panza se intinde pe toata latimea, iar punctele se traduc din
+   dreptunghiul ei in coordonatele viewBox-ului printr-o regula de trei; la alt
+   raport, linia ar aparea in alta parte decat degetul. De aceea nu are nici
+   min-height: ar rupe raportul tocmai pe telefoanele mici. Legatura e prinsa
+   de un test in guest-stiluri.test.js. */
 .g-semnatura-panza{
-  display:block; width:100%; height:auto; aspect-ratio:3/1;
+  display:block; width:100%; height:auto; aspect-ratio:2/1;
   background:#fff; border:1px solid var(--g-line);
   border-radius:10px; touch-action:none; cursor:crosshair;
 }

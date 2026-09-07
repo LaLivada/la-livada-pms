@@ -23,6 +23,7 @@ import { fmtDateTime, fmtDateFull } from "../lib/format.js";
 import { CAMPURI, ACT_TIPURI, valideazaFisa, SABLON_VERSIUNE } from "../lib/fisa.js";
 import { Dialog, toaster } from "../ui/primitive.jsx";
 import { uid } from "../lib/uid.js";
+import { LATIME_PANZA, INALTIME_PANZA } from "../lib/semnatura.js";
 
 const eticheta = (cheie) => CAMPURI.find((c) => c.cheie === cheie)?.eticheta || cheie;
 const tipAct = (c) => ACT_TIPURI.find((t) => t.cheie === c)?.eticheta || c || "—";
@@ -136,10 +137,13 @@ function VizualizareFisa({ fisa, onClose }) {
       {fisa.semnatura_svg ? (
         <>
           <div className="ldv-mic" style={{ marginTop: 12 }}>Semnătura oaspetelui</div>
-          {/* Acelasi viewBox ca panza pe care s-a desenat (600x200). Alt
-              raport ar deforma semnatura, iar o semnatura deformata nu mai e
-              a nimanui. */}
-          <svg viewBox="0 0 600 200" className="fisa-semnatura" role="img"
+          {/* Acelasi viewBox ca panza pe care s-a desenat. Alt raport ar
+              deforma semnatura, iar o semnatura deformata nu mai e a
+              nimanui — de aceea numerele se IAU din lib/semnatura.js, nu se
+              rescriu aici: scrise de mana, au ramas in urma cand panza a
+              trecut de la 3:1 la 2:1, si nimic n-ar fi semnalat-o. */}
+          <svg viewBox={`0 0 ${LATIME_PANZA} ${INALTIME_PANZA}`}
+            className="fisa-semnatura" role="img"
             aria-label="Semnătura oaspetelui">
             <path d={fisa.semnatura_svg} fill="none" stroke="currentColor"
               strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />

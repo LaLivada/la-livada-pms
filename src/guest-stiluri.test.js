@@ -71,6 +71,32 @@ describe("foaia de stil, încărcată", () => {
     }
   });
 
+  /* Panza de semnat traduce punctele din dreptunghiul ei in coordonatele
+     viewBox-ului printr-o regula de trei, si presupune ca cele doua au
+     acelasi raport. Desincronizate, linia apare in alta parte decat degetul
+     — si numai pe ecran, fiindca traseul salvat ramane valid. E genul de
+     stricaciune pe care n-o vezi citind niciunul din cele doua fisiere. */
+  it("panza de semnat are acelasi raport ca viewBox-ul ei", async () => {
+    const { LATIME_PANZA, INALTIME_PANZA } = await import("./lib/semnatura.js");
+    const { STILURI } = await import("./guest/styles.js");
+    const regula = STILURI.slice(STILURI.indexOf(".g-semnatura-panza{"));
+    const gasit = regula.slice(0, regula.indexOf("}")).match(/aspect-ratio:\s*(\d+)\s*\/\s*(\d+)/);
+    expect(gasit, "lipseste aspect-ratio de pe .g-semnatura-panza").toBeTruthy();
+    expect(Number(gasit[1]) / Number(gasit[2])).toBeCloseTo(LATIME_PANZA / INALTIME_PANZA, 5);
+  });
+
+  /* Fara asta, degetul deruleaza pagina in loc sa deseneze. Regula de pe svg
+     nu ajunge: Safari o ignora pe elemente SVG, de unde si cea de pe divul
+     din jur. Vezi antetul lui guest/Semnatura.jsx. */
+  it("panza de semnat opreste derularea, din ambele reguli", async () => {
+    const { STILURI } = await import("./guest/styles.js");
+    for (const selector of [".g-semnatura{", ".g-semnatura-panza{"]) {
+      const de = STILURI.indexOf(selector);
+      const regula = STILURI.slice(de, STILURI.indexOf("}", de));
+      expect(regula, selector).toContain("touch-action:none");
+    }
+  });
+
   /* Cardul inchis are culorile scrise ca valori, nu ca jetoane, tocmai
      fiindca --ivory si --charcoal se inverseaza in tema de noapte. Daca
      cineva le „curata" inapoi in jetoane, textul devine negru pe negru pe

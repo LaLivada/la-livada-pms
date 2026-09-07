@@ -1,5 +1,6 @@
+import { readFileSync } from "node:fs";
 import { describe, it, expect } from "vitest";
-import { traseuSvg, esteGoala, LATIME_PANZA } from "./lib/semnatura.js";
+import { traseuSvg, esteGoala, LATIME_PANZA, INALTIME_PANZA } from "./lib/semnatura.js";
 
 describe("traseul semnaturii", () => {
   it("o linie devine M urmat de L-uri", () => {
@@ -67,5 +68,37 @@ describe("panza goala", () => {
 
   it("panza are latimea declarata", () => {
     expect(LATIME_PANZA).toBeGreaterThan(0);
+  });
+});
+
+/* Semnatura se deseneaza intr-un loc si se arata in alte trei: pagina
+   oaspetelui, fisa de la receptie si coala tiparita. Toate patru trebuie sa
+   foloseasca acelasi sistem de coordonate — la alt raport, traseul salvat
+   ramane valid dar apare deformat, iar o semnatura deformata nu mai e a
+   nimanui.
+   Raportul din foaia oaspetelui e prins in guest-stiluri.test.js. Aici sunt
+   celelalte doua. Nu e o grija inchipuita: panza a trecut de la 3:1 la 2:1 pe
+   7 septembrie 2026 fiindca era prea joasa pentru un deget, iar cele trei
+   locuri aveau 600x200 scris de mana. */
+describe("randarile semnaturii merg dupa aceleasi numere", () => {
+  const RANDARI = ["src/features/fise.jsx", "src/features/documente.jsx"];
+
+  it("PMS-ul ia viewBox-ul din constante, nu scris de mana", () => {
+    for (const cale of RANDARI) {
+      const sursa = readFileSync(cale, "utf8");
+      expect(sursa, cale).toContain("LATIME_PANZA");
+      /* Un viewBox cu cifre in el e exact greseala reparata atunci. */
+      expect(sursa, cale).not.toMatch(/viewBox="0 0 \d/);
+    }
+  });
+
+  it("chenarul de la receptie are acelasi raport ca panza", () => {
+    const css = readFileSync("src/styles/pms.css", "utf8");
+    const de = css.indexOf(".fisa-semnatura{");
+    expect(de, "nu am gasit .fisa-semnatura in pms.css").toBeGreaterThan(-1);
+    const regula = css.slice(de, css.indexOf("}", de));
+    const gasit = regula.match(/aspect-ratio:\s*(\d+)\s*\/\s*(\d+)/);
+    expect(gasit, "lipseste aspect-ratio de pe .fisa-semnatura").toBeTruthy();
+    expect(Number(gasit[1]) / Number(gasit[2])).toBeCloseTo(LATIME_PANZA / INALTIME_PANZA, 5);
   });
 });

@@ -10,10 +10,11 @@
 import React, { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { X, Printer } from "lucide-react";
-import { guestFullName, occupantName } from "../lib/nume.js";
-import { FMT_DATE_FULL, FMT_DATE } from "../lib/format.js";
+import { occupantName } from "../lib/nume.js";
+import { FMT_DATE_FULL } from "../lib/format.js";
 import { Dialog, useModalLock } from "../ui/primitive.jsx";
 import { ACT_TIPURI } from "../lib/fisa.js";
+import { LATIME_PANZA, INALTIME_PANZA } from "../lib/semnatura.js";
 import * as dateFise from "../data/fise.js";
 
 /* Tipul actului, scris cum il citeste un om. Lista traieste in lib/fisa.js,
@@ -32,11 +33,11 @@ const tipActScris = (c) => ACT_TIPURI.find((t) => t.cheie === c)?.eticheta || ""
 export function ArrivalSheet({ res, core, groups, fisa }) {
   const g = core.guests.find((x) => x.id === res.guestId) || {};
   const room = core.rooms.find((x) => x.id === res.roomId) || {};
-  const d = (v) => FMT_DATE_FULL.format(new Date(v)).replace(/\./g, "-");
-  const ds = (v) => FMT_DATE.format(new Date(v)).replace(/\.$/, "");
-  /* Data nasterii vine ca `date` din Postgres ("1980-05-14"), nu ca
-     timestamp; formatata cu acelasi format lung ca restul colii. */
-  const ds2 = (v) => (v ? FMT_DATE_FULL.format(new Date(v)).replace(/\./g, "-") : "");
+  /* Goala pentru valoare lipsa, nu „Invalid Date": sosirea si plecarea sunt
+     mereu acolo, dar data nasterii vine din fisa si lipseste cat timp fisa nu
+     e completata. Vine ca `date` din Postgres ("1980-05-14"), nu ca timestamp,
+     si se formateaza cu acelasi format lung ca restul colii. */
+  const d = (v) => (v ? FMT_DATE_FULL.format(new Date(v)).replace(/\./g, "-") : "");
 
   const Cell = ({ ro, en, value, wide }) => (
     <div className={"fc" + (wide ? " wide" : "")}>
@@ -68,7 +69,7 @@ export function ArrivalSheet({ res, core, groups, fisa }) {
         </div>
         <div className="frow c3">
           <Cell ro="Data nașterii" en="Date of birth"
-            value={fisa ? ds2(fisa.data_nasterii) : ""} />
+            value={d(fisa?.data_nasterii)} />
           <Cell ro="Locul nașterii" en="Place of birth" value={fisa?.locul_nasterii} />
           {/* Cand exista fisa, nationalitatea vine din ea. Fara ea ramane
               `g.country`, care e TARA DE DOMICILIU si nu nationalitatea —
@@ -96,9 +97,11 @@ export function ArrivalSheet({ res, core, groups, fisa }) {
           <Cell ro="Semnătura turistului" en="Tourist's signature"
             value={fisa?.semnatura_svg
               ? (
-                /* Acelasi viewBox ca panza pe care s-a semnat (600x200):
-                   alt raport ar deforma semnatura. */
-                <svg viewBox="0 0 600 200" className="fisa-semn-print" aria-hidden="true">
+                /* Acelasi viewBox ca panza pe care s-a semnat: alt raport
+                   ar deforma semnatura. Numerele se iau din
+                   lib/semnatura.js, nu se rescriu aici. */
+                <svg viewBox={`0 0 ${LATIME_PANZA} ${INALTIME_PANZA}`}
+                  className="fisa-semn-print" aria-hidden="true">
                   <path d={fisa.semnatura_svg} fill="none" stroke="currentColor"
                     strokeWidth="6" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>

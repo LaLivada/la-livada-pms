@@ -13,8 +13,14 @@
  * ar arata altfel pe fisa tiparita.
  */
 
+/* Raportul 2:1, nu 3:1 cum era la inceput. Pe un telefon ingust, o panza de
+   3:1 iese de vreo 110 pixeli inaltime — prea putin ca sa incapa o semnatura
+   scrisa cu degetul, care e mai mare si mai neingrijita decat una cu pixul.
+   Raportul e legat de CSS (.g-semnatura-panza) si de cele doua randari din
+   PMS printr-un test: daca se desincronizeaza, semnatura se deformeaza si nu
+   mai e a nimanui. */
 export const LATIME_PANZA = 600;
-export const INALTIME_PANZA = 200;
+export const INALTIME_PANZA = 300;
 
 /* Sub doi pixeli intre doua puncte, al doilea nu adauga nimic vizibil.
    Degetul tinut pe loc trimite zeci de evenimente in acelasi loc, iar la
