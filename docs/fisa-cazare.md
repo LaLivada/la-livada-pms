@@ -296,30 +296,47 @@ rândul imuabil plus versiunea de șablon dau deja un document reproductibil.
 
 ---
 
-## 5. Ce se schimbă în PMS
+## 5. Ce se schimbă în PMS ✅ făcut (7 septembrie 2026)
 
-**Un indicator pe rezervare** — fișă completată sau lipsă — vizibil acolo
-unde se vede și codul de acces.
+**Indicator pe rezervare** — „completată" sau „lipsește", lângă secțiunea de
+acces, în `SectiuneFisa` ([features/fise.jsx](../src/features/fise.jsx)). O
+fișă fără semnătură se vede ca atare, cu motivul lângă ea.
 
-**Fișa semnată, deschisă și tipărită de la recepție**, prin `ArrivalForm`,
-alimentată din rândul nou în loc de câmpuri goale.
+**Fișa completată, doar citire**, cu semnătura randată din traseul SVG la
+același `viewBox` pe care s-a desenat. Alt raport ar deforma-o, iar o
+semnătură deformată nu mai e a nimănui.
 
-**Completarea în locul oaspetelui.** Nu e opțional. Un om de optzeci de ani
-fără smartphone tot trebuie cazat legal; fără această cale, mutarea pe
-digital nu elimină hârtia, ci o face imposibilă pentru o parte din oaspeți.
-Fișa scrisă de la recepție e marcată ca atare — cine a scris-o și când —
-fiindcă nu poartă semnătura oaspetelui.
+**Completarea în locul oaspetelui.** Fără pânză de semnat, și e o alegere:
+cine *poate* semna o face de pe linkul lui, unde semnătura îi aparține fără
+discuție. Calea de la recepție e pentru cine nu poate — un om fără
+smartphone, unul plecat în oraș — iar acolo nu există semnătură de cules, ci
+un motiv de consemnat. Motivul e cerut în formular, nu lăsat pe seama
+constrângerii din bază: recepționerul n-are de ce să afle de la o eroare de
+Postgres ce trebuia să scrie.
 
-**Anularea unei fișe**, pentru greșeli. Rândul rămâne, marcat anulat cu
-motiv și autor, iar unul nou se poate scrie pe locul lui — indexul parțial
-din 2 face loc. Nu se șterge nimic: un document legal care dispare fără urmă
-e mai rău decât unul greșit.
+**Anularea**, cu motiv și autor. **Nu există buton de „editează"**: triggerul
+respinge orice `update` în afara anulării, deci o greșeală se anulează și se
+scrie alta.
 
-O consecință de urmărit: cheia de scriere a oaspetelui e „nu există deja o
-fișă activă". După o anulare, **linkul redevine deschis pentru scriere** —
-corect când recepția anulează ca oaspetele s-o refacă, dar înseamnă că
-anularea nu e o operație de rutină. Ea redeschide, pentru câteva minute, fix
-fereastra pe care 3 o închide.
+**Coala tipărită citește din rând.** Până acum tipărea căsuțe goale; acum se
+umple din fișă, semnătura inclusă. Fără pasul ăsta ai date în bază și tot o
+coală goală la tipărire. Când fișa lipsește, coala rămâne exact ca înainte —
+utilă și pentru oaspeții care n-au trecut prin guest app.
+
+**Ce s-a schimbat în model pe drum.** Constrângerea cerea *exact un* autor.
+Prea rigidă: fluxul real e ca recepționerul să tasteze și oaspetele să semneze
+pe tableta lui. Regula e acum **semnătură sau motivul lipsei ei**, iar
+`completata_de` înseamnă „cine a tastat", independent.
+
+**Cine vede fișele:** `admin` și `receptionist`. **`housekeeping` nu** — cine
+face curat n-are ce căuta în seriile de buletin, același tipar ca la `guests`.
+Verificat că `anon` rămâne în afară după ce grantul s-a pus înapoi pentru
+`authenticated`: tot `42501`.
+
+**Ce NU e verificat:** ecranele propriu-zise, la ochi. PMS-ul e în spatele
+autentificării, iar eu n-am cont. Build-ul e curat și pagina pornește fără
+erori în consolă, dar cum arată panourile pe ecran rămâne de văzut de un om
+logat.
 
 ---
 
