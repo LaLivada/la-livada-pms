@@ -1040,3 +1040,25 @@ Toate trei tăcute — nimic nu se rupea, doar arăta altfel decât scria în co
 3. **Linia de deasupra punctelor** din „Bun venit" apărea și în „Important",
    lipită sub titlul cardului, unde nu despărțea nimic. S-a mutat pe o clasă
    proprie, `.g-puncte-sub-date`.
+
+## 17. Regulile de casă (confirmate 7 septembrie 2026)
+
+Până acum `IMPORTANT` era gol, cu un comentariu care spunea de ce: inventarea
+unei reguli de casă e mai rea decât lipsa ei. Proprietarul le-a confirmat, deci
+lista s-a umplut.
+
+**Aceleași reguli apar în două locuri, deliberat diferit.** În „Important" stau
+patru puncte scurte — fumatul, liniștea, animalele, parcarea — cele pe care
+oaspetele trebuie să le știe fără să caute. În `REGULAMENT` stau formulările
+complete, cu clauzele lor. Scrise pe lung în ambele, panoul „Important" ar fi
+devenit el însuși un regulament pe care nu-l mai citește nimeni.
+
+Regula despre liniște s-a **completat**, nu s-a dublat: exista deja „să
+păstreze liniștea astfel încât să nu deranjeze alți oaspeți", iar orele s-au
+adăugat în ea. Două reguli despre același lucru, una cu ore și una fără, ar fi
+fost o contradicție gata făcută.
+
+Sumele și orele sunt exact cele date — 500 lei igienizare, 50 lei animale,
+22:00–08:00, prima noapte nerestituită, 30 de zile pentru obiectele uitate.
+Nimic rotunjit, nimic completat de la mine. Două lucruri lipsesc pentru că au
+fost declarate neaplicabile: pierderea codului și grătarul/focul deschis.

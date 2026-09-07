@@ -138,11 +138,32 @@ export const BUN_VENIT = {
    toata lumea. Cele care depind de rezervare (ora de plecare, valabilitatea
    codului) se adauga in App.jsx, inaintea acestora.
 
-   LISTA E DELIBERAT SCURTA. Contine doar ce se poate verifica din datele
-   proprietatii. Fumatul, animalele de companie, ora de liniste si accesul
-   in zonele comune se adauga aici cand sunt confirmate — pana atunci
-   lipsesc, in loc sa fie inventate. */
-export const IMPORTANT = [];
+   LISTA E DELIBERAT SCURTA. Aici stau numai cele patru lucruri pe care
+   oaspetele trebuie sa le stie fara sa caute; restul regulilor sunt in
+   REGULAMENT, la o apasare distanta. Scrise de doua ori, si aici pe lung,
+   panoul ar fi devenit el insusi un regulament pe care nu-l mai citeste
+   nimeni.
+
+   Confirmate de proprietar in septembrie 2026. Pana atunci lista a fost
+   goala, fiindca inventarea unei reguli de casa e mai rea decat lipsa ei. */
+export const IMPORTANT = [
+  {
+    titlu: "Fumatul",
+    text: "Interzis în cameră și în spațiile interioare. Fumatul în cameră se taxează cu 500 de lei.",
+  },
+  {
+    titlu: "Liniștea",
+    text: "Între 22:00 și 08:00 te rugăm să păstrezi liniștea.",
+  },
+  {
+    titlu: "Animale de companie",
+    text: "Sunt binevenite, cu o taxă de 50 de lei pe sejur.",
+  },
+  {
+    titlu: "Parcarea",
+    text: "Gratuită în incintă, pe răspunderea proprietarului mașinii.",
+  },
+];
 
 /* Regulamentul complexului, deschis dintr-o fereastra suprapusa de sub
    punctele din „Important".
@@ -158,7 +179,7 @@ export const REGULAMENT = {
   reguli: [
     "să nu deterioreze amenajarea sau obiectele din dotarea complexului, în caz contrar aceștia datorează complexului suma egală cu valoarea achiziționării/amenajării obiectului deteriorat și manopera aferentă;",
     "să nu preia la plecare bunuri din dotarea complexului;",
-    "să păstreze liniștea astfel încât să nu deranjeze alți oaspeți;",
+    "să păstreze liniștea, în special între orele 22:00 și 08:00, astfel încât să nu deranjeze alți oaspeți;",
     "să nu intre fără permisiunea administrației în alte camere sau în spațiile destinate doar personalului complexului;",
     "să anunțe persoanele care vin în vizită nefiind cazate în cadrul locației; intrarea acestora în complex se va face doar în urma legitimării și înregistrării împreună cu persoana cazată ce urmează să fie vizitată de aceștia;",
     "să nu lase copiii nesupravegheați în niciunul dintre spațiile complexului; orice accident produs ca urmare a nesupravegherii copiilor în incinta locațiilor La Livada nu este responsabilitatea complexului, ci a persoanelor care însoțesc copiii și sunt însărcinate cu supravegherea acestora; părinții, tutorii sau însoțitorii sunt responsabili pentru acțiunile minorilor și se obligă să aibă grijă de ei, respectiv ca aceștia să se comporte civilizat și să nu deranjeze alți oaspeți ai complexului;",
@@ -172,7 +193,17 @@ export const REGULAMENT = {
     "se interzice cu desăvârșire introducerea în complex de armament, arme albe sau substanțe lacrimogene. Conform legislației române, consumul sau comercializarea de substanțe halucinogene sau psihotrope este interzis și se pedepsește;",
     "nu este permis nudismul sau orice formă de exhibiționism în incinta complexului;",
     "gunoiul și resturile menajere se vor depozita în coșurile de gunoi amplasate pe raza complexului;",
-    "nu este permis alergatul sau practicarea oricărui sport în camere sau în aleile și parcările complexului.",
+    "nu este permis alergatul sau practicarea oricărui sport în camere sau în aleile și parcările complexului;",
+
+    /* De aici incolo, reguli confirmate de proprietar in septembrie 2026.
+       Scrise in tiparul celor de mai sus; sumele si orele sunt exact cele
+       date, nimic rotunjit si nimic completat de la mine. */
+    "fumatul este interzis în camere și în spațiile interioare ale complexului; fumatul în cameră se taxează cu 500 de lei, reprezentând contravaloarea igienizării;",
+    "animalele de companie sunt acceptate, cu o taxă de 50 de lei pe sejur;",
+    "să nu cazeze în cameră mai multe persoane decât cele înscrise în rezervare; în caz contrar rezervarea se anulează, iar contravaloarea primei nopți nu se restituie;",
+    "organizarea de petreceri sau de evenimente private în camere este interzisă. În caz contrar, Complexul La Livada își rezervă dreptul de a anula rezervarea camerei oaspetelui și de a face evacuarea acestuia, fără restituirea contravalorii serviciilor achitate;",
+    "parcarea în incinta complexului este gratuită și se face pe răspunderea proprietarului autovehiculului;",
+    "obiectele uitate în complex se păstrează 30 de zile de la plecare; după acest termen complexul nu mai răspunde de ele.",
   ],
 };
 
