@@ -297,8 +297,12 @@ iar `rollback` la final nu lasă nimic în urmă:
 
 ```sql
 begin;
+-- Datele sunt in 2030, nu „de acum": `reservations` are o constrangere
+-- EXCLUDE care interzice suprapunerile pe aceeasi camera, iar o rezervare
+-- de test pe zilele curente s-ar fi ciocnit de un oaspete real si ar fi
+-- picat inainte sa apuce sa verifice ceva.
 insert into reservations (id, room_id, checkin, checkout, status, adults, children)
-  select 'test-fisa', id, now(), now() + interval '2 days', 'checkedin', 2, 0
+  select 'test-fisa', id, '2030-01-10', '2030-01-12', 'checkedin', 2, 0
   from rooms limit 1;
 insert into fise_cazare (id, reservation_id, nume, prenume, data_nasterii,
   locul_nasterii, nationalitate, tara, adresa, localitate, scopul,

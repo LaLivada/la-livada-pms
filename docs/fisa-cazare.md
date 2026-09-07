@@ -159,6 +159,14 @@ sunt ținute de `fisa_are_un_autor`. Constrângerea e scrisă cu `<>` pe două
 teste de `null`, adică *exact una*: o fișă fără niciun autor n-ar avea
 valoare, iar una cu amândoi ar spune două povești despre cine a completat-o.
 
+**Verificat pe 7 septembrie 2026**, cu tranzacție anulată, pe patru cazuri:
+modificarea unui câmp obișnuit, ștergerea, și anularea care schimbă și
+altceva pe drum sunt toate refuzate; anularea curată trece. Dovada nu sunt
+mesajele de eroare, ci rândul citit la final — `nume` rămăsese „Popescu" și
+`act_numarul` „123456", deci niciuna dintre încercări nu apucase să scrie.
+Din afară, cheia `anon` primește `42501 permission denied for table
+fise_cazare`, și la citire, și la scriere.
+
 `sablon_versiune` e explicată în 4.
 
 ---
@@ -290,16 +298,13 @@ fereastra pe care 3 o închide.
 
 ## 6. Ce nu știu, și cine trebuie întrebat
 
-**Dacă o semnătură desenată cu degetul e suficientă legal ca să înlocuiască
-fișa pe hârtie.** E întrebare de contabil sau de avocat, nu de arhitectură.
-Un răspuns negativ mută totul înapoi la varianta „completarea pregătește
-hârtia, semnătura rămâne cu pixul" — aceleași tabele, același formular,
-alt pas final.
+**Semnătura cu degetul e în regulă** — confirmat de proprietar pe
+7 septembrie 2026. Întrebarea era dacă ține loc de una pe hârtie; dacă
+răspunsul ar fi fost nu, totul s-ar fi mutat înapoi la „completarea
+pregătește hârtia, semnătura rămâne cu pixul" — aceleași tabele, același
+formular, alt pas final. Nu s-a întâmplat, deci pasul 3 se face ca scris.
 
-**Merită întrebat înainte de pasul 3**, nu după: până acolo, tot ce se scrie
-folosește în ambele variante.
-
-Ce se poate face fără răspuns e ca urma să fie cât mai apărabilă: momentul
+Ce rămâne de făcut oricum, fiindcă o confirmare nu ține loc de urmă: momentul
 exact, adresa IP, browserul, și rândul imposibil de modificat după semnare.
 Toate sunt în 2.
 

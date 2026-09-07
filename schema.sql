@@ -3382,3 +3382,134 @@ end $$;
 -- daca ar fi deschisa lui anon, oricine ar putea consuma plafonul unei
 -- rezervari fara sa treaca prin functie.
 revoke execute on function guest_poate_deschide(text, text) from public, anon, authenticated;
+
+
+-- =====================================================================
+-- FISA DE CAZARE
+--
+-- Fisa de anuntare a sosirii si plecarii, completata de oaspete din guest
+-- app si semnata cu degetul. Inlocuieste hartia: fisa semnata de aici e
+-- documentul care se arata la un control.
+--
+-- Documentul intreg de arhitectura: docs/fisa-cazare.md.
+-- =====================================================================
+
+create table fise_cazare (
+  id              text primary key,
+  reservation_id  text not null references reservations(id) on delete cascade,
+  -- 1 = titularul. Coloana exista de la inceput ca insotitorii sa nu ceara
+  -- o migratie de date mai tarziu; prima versiune scrie numai 1.
+  ordine          smallint not null default 1,
+  guest_id        text references guests(id),
+
+  nume            text not null,
+  prenume         text not null,
+  data_nasterii   date not null,
+  locul_nasterii  text not null,
+  -- Doua campuri, nu unul. Coala tiparita scrie `guests.country` si la
+  -- „Nationalitate" si la „Tara" (src/features/documente.jsx), deci un
+  -- roman cu domiciliul in Germania iese cu „Germania" la nationalitate.
+  -- Pe hartie trecea neobservat fiindca receptionerul corecta cu pixul;
+  -- intr-un formular completat de oaspete, greseala se salveaza.
+  nationalitate   text not null,
+  tara            text not null,
+  adresa          text not null,
+  localitate      text not null,
+  scopul          text not null,
+
+  act_tip         text not null check (act_tip in ('ci','pasaport','permis')),
+  act_seria       text,
+  act_numarul     text not null,
+
+  -- Semnatura oaspetelui SAU numele celui de la receptie care a completat
+  -- fisa in locul lui. Un om de optzeci de ani fara smartphone tot trebuie
+  -- cazat legal.
+  semnatura_svg   text,
+  completata_de   text,
+  semnat_la       timestamptz not null default now(),
+  semnat_ip       text,
+  semnat_agent    text,
+  -- Versiunea colii cu care s-a randat fisa. Vezi docs/fisa-cazare.md 4:
+  -- pana se scrie congelarea in Storage, imuabilitatea randului plus
+  -- versiunea asta sunt ce face documentul reproductibil.
+  sablon_versiune text not null,
+
+  anulata_la      timestamptz,
+  anulata_de      text,
+  anulata_motiv   text,
+
+  -- `<>` pe doua teste de null inseamna EXACT UNA. O fisa fara niciun autor
+  -- n-ar avea valoare; una cu amandoi ar spune doua povesti despre cine a
+  -- completat-o.
+  constraint fisa_are_un_autor check (
+    (semnatura_svg is not null) <> (completata_de is not null))
+);
+
+-- Index partial, nu cheie unica: o fisa anulata trebuie sa lase loc alteia
+-- pe acelasi (rezervare, ordine). Cu o cheie obisnuita, prima greseala ar
+-- fi blocat locul pentru totdeauna.
+create unique index fise_cazare_activa
+  on fise_cazare (reservation_id, ordine) where anulata_la is null;
+create index fise_cazare_rezervare on fise_cazare (reservation_id);
+
+alter table fise_cazare enable row level security;
+
+-- Nicio politica. Accesul trece exclusiv prin functiile security definer de
+-- mai jos, care ocolesc RLS pentru propriile query-uri. Acelasi tipar ca la
+-- guest_code_attempts. Verificat din afara pe 7 septembrie 2026: cheia anon
+-- primeste 42501 „permission denied for table fise_cazare", si la citire, si
+-- la scriere (tests/integration/fisa-cazare.integration.test.js).
+revoke all on table fise_cazare from public, anon, authenticated;
+
+-- Documentul nu se poate schimba dupa semnare. Fara trigger, „imuabil" e o
+-- promisiune, nu o proprietate — iar la un control conteaza proprietatea.
+--
+-- Anularea e SINGURA trecere permisa, si e scrisa ca un caz anume, nu ca o
+-- portita: daca triggerul ar lasa orice update „doar pentru anulare", n-ar
+-- mai apara nimic.
+--
+-- Verificat pe 7 septembrie 2026, cu tranzactie anulata, pe patru cazuri:
+-- modificarea unui camp obisnuit, stergerea si anularea care schimba si
+-- altceva pe drum sunt toate refuzate; anularea curata trece.
+create or replace function fise_cazare_doar_anulare()
+returns trigger language plpgsql security definer
+set search_path = public as $$
+declare
+  vechi jsonb;
+  nou   jsonb;
+begin
+  if TG_OP = 'DELETE' then
+    raise exception 'O fisa de cazare nu se sterge. Anuleaz-o.'
+      using errcode = 'check_violation';
+  end if;
+
+  if old.anulata_la is not null then
+    raise exception 'Fisa e deja anulata si nu se mai modifica.'
+      using errcode = 'check_violation';
+  end if;
+
+  -- `to_jsonb` minus cele trei coloane, pe ambele randuri. Comparatia ramane
+  -- corecta si dupa ce cineva adauga o coloana noua tabelului — o lista
+  -- scrisa de mana ar fi uitat-o, si exact aia ar fi devenit portita.
+  vechi := to_jsonb(old) - 'anulata_la' - 'anulata_de' - 'anulata_motiv';
+  nou   := to_jsonb(new) - 'anulata_la' - 'anulata_de' - 'anulata_motiv';
+
+  if vechi is distinct from nou then
+    raise exception 'O fisa de cazare semnata nu se modifica. Anuleaz-o si scrie alta.'
+      using errcode = 'check_violation';
+  end if;
+
+  if new.anulata_la is null then
+    raise exception 'Singura modificare permisa e anularea.'
+      using errcode = 'check_violation';
+  end if;
+
+  return new;
+end $$;
+
+create trigger fise_cazare_imuabila
+  before update or delete on fise_cazare
+  for each row execute function fise_cazare_doar_anulare();
+
+revoke execute on function fise_cazare_doar_anulare()
+  from public, anon, authenticated;
