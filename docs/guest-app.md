@@ -1062,3 +1062,11 @@ Sumele și orele sunt exact cele date — 500 lei igienizare, 50 lei animale,
 22:00–08:00, prima noapte nerestituită, 30 de zile pentru obiectele uitate.
 Nimic rotunjit, nimic completat de la mine. Două lucruri lipsesc pentru că au
 fost declarate neaplicabile: pierderea codului și grătarul/focul deschis.
+
+**Două formulări sunt presupuneri, nu date primite** — de confirmat la prima
+ocazie, fiindcă amândouă schimbă ce i se cere oaspetelui:
+
+- „taxă de 50 de lei **pe sejur**" pentru animale. Suma a fost dată fără
+  unitate; pe noapte ar însemna cu totul altceva la un sejur de cinci nopți.
+- fumatul e scris ca interzis „în camere și în **spațiile interioare**".
+  S-a dat doar taxa, de unde reiese că afară e permis — dar nu s-a spus.
