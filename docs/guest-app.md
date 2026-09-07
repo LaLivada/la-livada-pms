@@ -1063,10 +1063,15 @@ Sumele și orele sunt exact cele date — 500 lei igienizare, 50 lei animale,
 Nimic rotunjit, nimic completat de la mine. Două lucruri lipsesc pentru că au
 fost declarate neaplicabile: pierderea codului și grătarul/focul deschis.
 
-**Două formulări sunt presupuneri, nu date primite** — de confirmat la prima
-ocazie, fiindcă amândouă schimbă ce i se cere oaspetelui:
+**Cele două formulări rămase presupuneri au fost confirmate** în aceeași zi,
+amândouă exact cum fuseseră scrise:
 
-- „taxă de 50 de lei **pe sejur**" pentru animale. Suma a fost dată fără
-  unitate; pe noapte ar însemna cu totul altceva la un sejur de cinci nopți.
-- fumatul e scris ca interzis „în camere și în **spațiile interioare**".
-  S-a dat doar taxa, de unde reiese că afară e permis — dar nu s-a spus.
+- taxa de 50 de lei la animale e **pe sejur**, nu pe noapte;
+- fumatul e permis **în exterior**; interdicția se oprește la ușă.
+
+Prima n-a cerut nicio schimbare de text. A doua da: până acum punctul din
+„Important" spunea doar unde e interzis, iar restul rămânea de dedus. Acum
+scrie și unde se poate — o deducție lăsată în seama cuiva care stă cu țigara
+în mână pe terasă e o întrebare pusă la recepție. În `REGULAMENT` clauza
+rămâne neatinsă: acolo e o listă de obligații, iar o permisiune strecurată
+printre ele ar fi singurul rând care nu cere nimic.

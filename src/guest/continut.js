@@ -149,7 +149,7 @@ export const BUN_VENIT = {
 export const IMPORTANT = [
   {
     titlu: "Fumatul",
-    text: "Interzis în cameră și în spațiile interioare. Fumatul în cameră se taxează cu 500 de lei.",
+    text: "Interzis în cameră și în spațiile interioare — afară se poate. Fumatul în cameră se taxează cu 500 de lei.",
   },
   {
     titlu: "Liniștea",
