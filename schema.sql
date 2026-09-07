@@ -3513,3 +3513,133 @@ create trigger fise_cazare_imuabila
 
 revoke execute on function fise_cazare_doar_anulare()
   from public, anon, authenticated;
+
+-- Ce vede oaspetele inainte sa completeze fisa.
+--
+-- TACE DE INDATA CE FISA E SEMNATA. Ca sa precompleteze, functia trebuie sa
+-- intoarca numele si adresa din `guests` — adica un cod scurs le-ar putea
+-- citi. Ingustam fereastra in loc s-o lasam deschisa: dupa semnare raspunsul
+-- e doar „gata", fara nimic din continut. In practica fereastra tine cateva
+-- minute, de la check-in pana la completare.
+--
+-- Ce NU intoarce, niciodata: data nasterii, locul nasterii, actul de
+-- identitate, semnatura. Sunt exact campurile marcate `sensibil` in
+-- src/lib/fisa.js, iar motivul e in docs/fisa-cazare.md 3.
+--
+-- Verificat pe 7 septembrie 2026, cu tranzactie anulata: intoarce EXACT
+-- cheile nume, prenume, adresa, localitate, tara.
+create or replace function guest_fisa_precompletare(p_cod text)
+returns jsonb language plpgsql volatile security definer
+set search_path = public as $$
+declare
+  v_p     record;
+  v_g     guests;
+  v_gata  boolean;
+begin
+  select * into v_p from guest_poarta(p_cod);
+  if v_p.motiv <> 'ok' then
+    return jsonb_build_object('ok', false, 'motiv', v_p.motiv);
+  end if;
+
+  select exists (
+    select 1 from fise_cazare
+    where reservation_id = (v_p.rezervare).id
+      and ordine = 1 and anulata_la is null
+  ) into v_gata;
+
+  if v_gata then
+    return jsonb_build_object('ok', true, 'gata', true);
+  end if;
+
+  select * into v_g from guests where id = (v_p.rezervare).guest_id;
+
+  return jsonb_build_object(
+    'ok', true,
+    'gata', false,
+    'date', jsonb_build_object(
+      'nume',       coalesce(v_g.last_name, ''),
+      'prenume',    coalesce(v_g.first_name, ''),
+      'adresa',     coalesce(v_g.address, ''),
+      'localitate', coalesce(v_g.city, ''),
+      'tara',       coalesce(v_g.country, '')
+    ));
+end $$;
+
+-- Revocarea INAINTEA grantului: in Postgres orice functie noua primeste
+-- EXECUTE pentru PUBLIC, iar o revocare scrisa doar pentru `anon` arata
+-- corect si nu face nimic.
+revoke execute on function guest_fisa_precompletare(text)
+  from public, anon, authenticated;
+grant  execute on function guest_fisa_precompletare(text) to anon, service_role;
+
+-- Scrierea fisei, din link public.
+--
+-- NU INTOARCE NIMIC DIN CE A SCRIS. Nici la succes. Un raspuns care ar
+-- oglindi datele ar fi o cale de citire pe usa din dos, exact ce inchide
+-- docs/fisa-cazare.md 3.
+--
+-- A doua scriere pe aceeasi (rezervare, ordine) e oprita de indexul partial
+-- `fise_cazare_activa`, nu de o verificare scrisa aici: doua cereri venite in
+-- aceeasi clipa ar fi trecut amandoua de un `if exists`, iar indexul nu se
+-- poate pacali asa.
+--
+-- Verificat pe 7 septembrie 2026, cu tranzactie anulata: prima scriere da
+-- {ok:true}; a doua, `deja-completata`; o data a nasterii stricata,
+-- `date-incomplete`; un cod inventat, `necunoscut`.
+create or replace function guest_fisa_semneaza(p_cod text, p_date jsonb)
+returns jsonb language plpgsql volatile security definer
+set search_path = public as $$
+declare
+  v_p  record;
+  v_ip text;
+begin
+  select * into v_p from guest_poarta(p_cod);
+  if v_p.motiv <> 'ok' then
+    return jsonb_build_object('ok', false, 'motiv', v_p.motiv);
+  end if;
+
+  begin
+    v_ip := nullif(split_part(coalesce(
+      current_setting('request.headers', true)::json ->> 'x-forwarded-for', ''
+    ), ',', 1), '');
+  exception when others then v_ip := null;
+  end;
+
+  begin
+    insert into fise_cazare (
+      id, reservation_id, ordine, guest_id,
+      nume, prenume, data_nasterii, locul_nasterii,
+      nationalitate, tara, adresa, localitate, scopul,
+      act_tip, act_seria, act_numarul,
+      semnatura_svg, semnat_ip, semnat_agent, sablon_versiune)
+    values (
+      -- Calificat cu `extensions.`, fiindca acolo sta pgcrypto in Supabase,
+      -- iar functia isi fixeaza search_path la public.
+      'fc-' || encode(extensions.gen_random_bytes(8), 'hex'),
+      (v_p.rezervare).id, 1, (v_p.rezervare).guest_id,
+      p_date ->> 'nume', p_date ->> 'prenume',
+      (p_date ->> 'dataNasterii')::date, p_date ->> 'loculNasterii',
+      p_date ->> 'nationalitate', p_date ->> 'tara',
+      p_date ->> 'adresa', p_date ->> 'localitate', p_date ->> 'scopul',
+      p_date ->> 'actTip', nullif(p_date ->> 'actSeria', ''),
+      p_date ->> 'actNumarul',
+      p_date ->> 'semnaturaSvg', v_ip,
+      left(coalesce(current_setting('request.headers', true)::json
+           ->> 'user-agent', ''), 300),
+      coalesce(p_date ->> 'sablonVersiune', 'necunoscuta'));
+  exception
+    when unique_violation then
+      return jsonb_build_object('ok', false, 'motiv', 'deja-completata');
+    when not_null_violation or check_violation or invalid_text_representation
+      or invalid_datetime_format or datetime_field_overflow then
+      -- Mesajul nu spune CE camp: cine trimite date stricate din afara
+      -- formularului n-are de ce sa afle forma exacta a tabelului.
+      return jsonb_build_object('ok', false, 'motiv', 'date-incomplete');
+  end;
+
+  return jsonb_build_object('ok', true);
+end $$;
+
+revoke execute on function guest_fisa_semneaza(text, jsonb)
+  from public, anon, authenticated;
+grant  execute on function guest_fisa_semneaza(text, jsonb) to anon, service_role;

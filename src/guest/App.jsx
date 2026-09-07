@@ -11,11 +11,12 @@
  * mai des stand in fata usii, cu o mana ocupata. Deci codul si butonul de
  * deschidere sunt primele si mari; restul vine sub ele, pliat in butoane.
  */
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
   citesteSejurul, citesteCodulDeAcces, citesteMinibarul, deschideUsa,
 } from "./api.js";
 import { citesteVremea } from "./vreme.js";
+import Fisa from "./Fisa.jsx";
 import {
   TELEFON, TELEFON_SCRIS, ASISTENTA, ACASA, BUN_VENIT, IMPORTANT,
   ATRACTII, ATRACTII_PE_PAGINA, linkHarta,
@@ -810,6 +811,19 @@ export default function App() {
   const [aratAcces, setAratAcces] = useState(false);
   const [aratRegulament, setAratRegulament] = useState(false);
 
+  /* Fisa se cere o singura data per sejur. `null` = inca nu stim, true =
+     completata. Cat timp nu stim, fereastra nu apare — un panou care
+     clipeste la fiecare incarcare ar fi mai rau decat unul care intarzie o
+     clipa. */
+  const [fisaGata, setFisaGata] = useState(null);
+
+  /* useCallback, si NU o functie scrisa in JSX. `fisaCompletata` intra in
+     lista de dependente a efectului din Fisa.jsx; scrisa inline, ar fi alta
+     functie la fiecare randare a lui App — iar App se re-randeaza de fiecare
+     data cand oaspetele deschide un panou. Rezultatul ar fi fost o cerere
+     noua catre baza la fiecare apasare pe „Wi-Fi". */
+  const fisaCompletata = useCallback(() => setFisaGata(true), []);
+
   /* Codul stand in fragment, trecerea de la un link la altul in aceeasi
      fila NU e o navigare: browserul schimba doar adresa, nimic nu se
      reincarca. O familie cu doua camere care deschide al doilea link ar fi
@@ -958,6 +972,13 @@ export default function App() {
         <ButonUsa cod={cod} />
       </div>
 
+      {/* Fisa sta AICI, sub cardul cu codul si usa: deasupra ei ramane tot ce-i
+          trebuie unui om in fata usii, iar sub ea sectiunile se ascund pana la
+          semnare. Nu e un panou peste pagina — vezi comentariul din Fisa.jsx
+          si docs/fisa-cazare.md 0. */}
+      {fisaGata !== true && <Fisa cod={cod} onGata={fisaCompletata} />}
+
+      {fisaGata === true && (<>
       <div className="g-scurtaturi">
         <Sectiune cheie="venit" deschis={deschis} alege={setDeschis}
           iconita={<Casa />} eticheta="Bun venit" />
@@ -1099,6 +1120,8 @@ export default function App() {
       )}
 
       {deschis === "atractii" && <Atractii />}
+
+      </>)}
 
       <p className="g-subsol">
         Complex La Livada · <a href={`tel:${TELEFON}`}>{TELEFON_SCRIS}</a>

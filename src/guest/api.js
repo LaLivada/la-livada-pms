@@ -38,6 +38,17 @@ export const citesteSejurul = (cod) => rpc("guest_stay_by_cod", { p_cod: cod });
 export const citesteCodulDeAcces = (cod) => rpc("guest_access_code_by_cod", { p_cod: cod });
 export const citesteMinibarul = () => rpc("guest_minibar", {});
 
+/* Fisa de cazare. Doua apeluri, pe acelasi `rpc` ca restul.
+ *
+ * `citesteFisa` intoarce `{ok, gata, date}`. `gata: true` inseamna ca fisa e
+ * deja semnata SI ca nu mai vine nimic din continutul ei — nu e o scapare,
+ * e regula: docs/fisa-cazare.md 3. `date` aduce doar campurile nesensibile;
+ * data nasterii, locul nasterii si actul de identitate se cer de fiecare
+ * data, chiar daca oaspetele a mai stat la noi. */
+export const citesteFisa = (cod) => rpc("guest_fisa_precompletare", { p_cod: cod });
+export const trimiteFisa = (cod, date) =>
+  rpc("guest_fisa_semneaza", { p_cod: cod, p_date: date });
+
 /* Deschiderea usii nu e un RPC, ci o functie edge: ea vorbeste cu yala,
    ceea ce PostgreSQL n-are cum sa faca. Autorizarea sta tot in baza —
    functia cheama `guest_poate_deschide` inainte sa atinga incuietoarea.

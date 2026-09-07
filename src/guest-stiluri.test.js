@@ -64,7 +64,9 @@ describe("foaia de stil, încărcată", () => {
                           ".g-harta-cadru", ".g-harta-rama",
                           ".g-actiune", ".g-instructiuni", ".g-qr",
                           ".g-total", ".g-reg", ".g-legatura",
-                          ".g-legatura-rand", ".g-puncte a"]) {
+                          ".g-legatura-rand", ".g-puncte a",
+                          ".g-fisa", ".g-fisa-ajutor", ".g-fisa-trimit", ".g-camp",
+                          ".g-semnatura", ".g-semnatura-panza"]) {
       expect(STILURI).toContain(bucata);
     }
   });

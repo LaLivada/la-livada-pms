@@ -34,6 +34,19 @@ piedica.
 **Fișa nu se citește niciodată înapoi.** După trimitere, pagina spune doar
 că e completată; conținutul nu se mai arată. Motivul, pe larg, în 3.
 
+**Cum s-a tradus a treia decizie în cod.** Prima variantă a ferestrei era un
+panou `position:fixed; inset:0` peste toată pagina. Arăta a fereastră modală
+și *părea* să respecte cerința, fiindcă butonul ușii se vedea prin fundalul
+translucid. Verificat cu `elementFromPoint` în centrul butonului: răspundea o
+etichetă din formular. Butonul se **vedea**, dar nu se putea apăsa — exact ce
+s-a hotărât să nu se întâmple.
+
+Fișa e acum un card în curgerea paginii, sub cel cu codul și ușa. Deasupra
+rămâne tot ce-i trebuie unui om în fața ușii; sub ea, secțiunile se ascund
+până la semnare. Wi-fi-ul și numărul asistenței stau chiar în card: fără
+internet nu se completează niciun formular, iar cine se împotmolește trebuie
+să poată suna fără să caute.
+
 ---
 
 ## 1. Ce există deja, și ce nu
@@ -124,14 +137,14 @@ create table fise_cazare (
   anulata_motiv   text,
 
   constraint fisa_are_un_autor check (
-    (semnatura_svg is not null) <> (completata_de is not null)),
-  unique (reservation_id, ordine)
+    (semnatura_svg is not null) <> (completata_de is not null))
 );
 ```
 
-Cheia unică e pe `(reservation_id, ordine)`, deci o fișă anulată ar bloca
-scrierea alteia pe același loc. Se rezolvă cu un **index parțial**, nu cu o
-cheie: unicitatea se aplică numai rândurilor neanulate.
+**Unicitatea stă pe un index parțial, nu pe o cheie.** O cheie unică pe
+`(reservation_id, ordine)` ar fi blocat locul pentru totdeauna după prima
+fișă anulată — iar o fișă se anulează tocmai ca să se poată scrie alta în
+locul ei. Așa, regula se aplică numai rândurilor neanulate.
 
 ```sql
 create unique index fise_cazare_activa
@@ -194,6 +207,20 @@ temporară, ci un act de identitate.
 - `guest_fisa_semneaza` nu întoarce nimic din ce a scris. Doar dacă a mers.
 - A doua scriere pe aceeași `(reservation_id, ordine)` e refuzată de cheia
   unică. Un cod scurs nu poate suprascrie o fișă bună.
+
+**Verificat pe 7 septembrie 2026**, cu tranzacție anulată: precompletarea
+întoarce exact cheile `nume`, `prenume`, `adresa`, `localitate`, `tara` —
+niciun câmp sensibil; scrierea întoarce doar `ok`; a doua încercare pe
+aceeași rezervare dă `deja-completata`; o dată a nașterii stricată dă
+`date-incomplete`, nu o excepție cu forma tabelului în ea.
+
+**De ce verificarea e manuală și nu un test.** Scrisă ca test de integrare,
+ar fi chemat funcțiile cu un cod inventat — iar fiecare apel cu cod greșit
+trece prin `guest_poarta`, scrie un rând în `guest_code_attempts` și consumă
+din plafonul de 200 de eșecuri pe oră. Suita rulată de câteva zeci de ori
+într-o oră ar fi blocat linkurile oaspeților reali: un test care stinge
+funcția pe care o apără. Testele de integrare rămân pe ce pot verifica fără
+să scrie — tabelul, triggerul și poarta, toate închise din afară.
 
 Amândouă funcțiile trec prin `guest_poarta`, deci moștenesc plafoanele
 existente — 200 de eșecuri pe oră global, 20 de la o adresă — și fereastra

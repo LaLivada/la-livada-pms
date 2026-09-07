@@ -383,6 +383,64 @@ body{
   text-decoration-color:var(--g-line); cursor:pointer;
 }
 
+/* ---------- fisa de cazare ---------- */
+/* Card in CURGEREA paginii, nu panou peste ea. Prima varianta era
+   position:fixed; inset:0 — arata a fereastra modala si parea sa respecte
+   cerinta, fiindca butonul usii se vedea prin fundalul translucid. Verificat
+   cu elementFromPoint in centrul butonului: raspundea o eticheta din
+   formular. Se VEDEA, dar nu se putea apasa.
+   Asa, cardul sta sub cel cu codul si usa; sectiunile de sub el se ascund
+   pana la semnare. Vezi docs/fisa-cazare.md 0. */
+.g-fisa h2{ margin:0 0 4px; }
+.g-fisa-intro{ margin:0 0 10px; font-size:13.5px; color:var(--g-muted); }
+.g-fisa-ajutor{
+  margin:0 0 16px; padding:10px 12px; border-radius:10px;
+  background:var(--ivory); font-size:13px; line-height:1.5;
+}
+.g-fisa-ajutor a{
+  color:inherit; text-decoration:underline; text-underline-offset:3px;
+  text-decoration-color:var(--g-line);
+}
+.g-camp{ display:block; margin-bottom:11px; }
+.g-camp-eticheta{ display:block; font-size:13px; margin-bottom:4px; }
+.g-camp-eticheta em{ color:var(--g-faint); font-style:normal; }
+/* 16px pe campuri NU e o alegere de stil: sub atat, iOS mareste pagina la
+   focus si oaspetele ramane cu ea marita, incercand sa iasa cu doua degete
+   dintr-un formular pe care abia l-a inceput. */
+.g-camp input, .g-camp select{
+  width:100%; font:inherit; font-size:16px;
+  padding:9px 11px; border:1px solid var(--g-line); border-radius:9px;
+  background:#fff; color:var(--g-text);
+}
+.g-camp-eroare{ display:block; margin-top:4px; font-size:12.5px; color:#a13b2f; }
+.g-fisa-mesaj{ margin:10px 0 0; font-size:13.5px; color:#a13b2f; }
+/* Butonul de trimitere are propria clasa, nu .g-usa: acela e butonul usii,
+   pe cardul inchis la culoare, si ar fi mostenit culorile de acolo. */
+.g-fisa-trimit{
+  display:block; width:100%; margin-top:16px; padding:14px;
+  border:0; border-radius:12px; background:var(--olive); color:var(--ivory);
+  font:inherit; font-size:16px; font-weight:600; cursor:pointer;
+}
+.g-fisa-trimit:disabled{ opacity:.55; cursor:default; }
+
+/* touch-action:none NU e podoaba: fara el browserul ia tragerea drept
+   derulare a paginii si niciun punct nu ajunge la componenta. Panza pare
+   complet moarta, si numai pe telefon. */
+.g-semnatura{ margin:10px 0 0; }
+.g-semnatura-panza{
+  display:block; width:100%; height:auto; aspect-ratio:3/1;
+  background:#fff; border:1px solid var(--g-line);
+  border-radius:10px; touch-action:none; cursor:crosshair;
+}
+.g-semnatura-linie{
+  fill:none; stroke:var(--g-text); stroke-width:3;
+  stroke-linecap:round; stroke-linejoin:round;
+}
+.g-semnatura-jos{
+  display:flex; justify-content:space-between; align-items:center;
+  margin-top:6px; font-size:12.5px; color:var(--g-muted);
+}
+
 .g-nota{ margin:12px 0 0; font-size:13px; color:var(--g-muted); }
 .g-gol{ margin:0; font-size:14px; color:var(--g-muted); }
 
