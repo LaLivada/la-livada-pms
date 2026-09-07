@@ -108,7 +108,10 @@ export const WIFI = {
 /* „Bun venit". Un rand de intampinare si cateva lucruri de stiut din prima
    clipa. Punctele sunt perechi titlu/text. */
 export const BUN_VENIT = {
-  intro: "Ne bucurăm că ești aici și ne dorim să ai o ședere plăcută.",
+  /* Se afiseaza pe un singur rand, cu marimea potrivita la rulare — vezi
+     `useUnSingurRand` din App.jsx. Un text mai lung de atat va incepe sa
+     micsoreze fontul pe telefoanele inguste. */
+  intro: "Ne bucurăm că ești aici și îți dorim o ședere plăcută.",
   /* Wi-Fi-ul sta deasupra: e primul lucru cautat la intrarea in camera, iar
      salvarea paginii are sens abia dupa ce telefonul are internet. */
   puncte: [
@@ -140,6 +143,38 @@ export const BUN_VENIT = {
    in zonele comune se adauga aici cand sunt confirmate — pana atunci
    lipsesc, in loc sa fie inventate. */
 export const IMPORTANT = [];
+
+/* Regulamentul complexului, deschis dintr-o fereastra suprapusa de sub
+   punctele din „Important".
+ *
+ * TEXTUL E AL PROPRIETARULUI, transcris ca atare. S-au atins doar
+ * diacriticele (ş/ţ cu sedila -> ș/ț cu virgula, ca in restul aplicatiei) si
+ * cateva greseli evidente de dactilografiere. Formularile juridice au ramas
+ * neschimbate chiar unde sunt stangace: nu e text de stil, e text care se
+ * invoca la o paguba, iar o „limpezire" facuta de mine i-ar schimba
+ * intelesul fara ca nimeni sa fi cerut asta. */
+export const REGULAMENT = {
+  intro: "Oaspeții au luat la cunoștință următoarele reguli și se obligă să le respecte:",
+  reguli: [
+    "să nu deterioreze amenajarea sau obiectele din dotarea complexului, în caz contrar aceștia datorează complexului suma egală cu valoarea achiziționării/amenajării obiectului deteriorat și manopera aferentă;",
+    "să nu preia la plecare bunuri din dotarea complexului;",
+    "să păstreze liniștea astfel încât să nu deranjeze alți oaspeți;",
+    "să nu intre fără permisiunea administrației în alte camere sau în spațiile destinate doar personalului complexului;",
+    "să anunțe persoanele care vin în vizită nefiind cazate în cadrul locației; intrarea acestora în complex se va face doar în urma legitimării și înregistrării împreună cu persoana cazată ce urmează să fie vizitată de aceștia;",
+    "să nu lase copiii nesupravegheați în niciunul dintre spațiile complexului; orice accident produs ca urmare a nesupravegherii copiilor în incinta locațiilor La Livada nu este responsabilitatea complexului, ci a persoanelor care însoțesc copiii și sunt însărcinate cu supravegherea acestora; părinții, tutorii sau însoțitorii sunt responsabili pentru acțiunile minorilor și se obligă să aibă grijă de ei, respectiv ca aceștia să se comporte civilizat și să nu deranjeze alți oaspeți ai complexului;",
+    "să anunțe cât de repede posibil orice defecțiune a aparatelor, instalațiilor sau alte neconformități tehnice/mobilier din dotarea complexului. Eventuale defecțiuni tehnice pot apărea oricând. De îndată ce sunt sesizate, acestea vor fi anunțate prompt persoanei de contact pentru asistență, urmând ca în cel mai scurt timp un tehnician să remedieze defecțiunea. O defecțiune neanunțată nu poate fi reparată și nu poate fi reclamată după plecarea oaspetelui din complex;",
+    "să nu arunce în toaletă obiecte care ar putea conduce la avarierea stației de colectare a reziduurilor;",
+    "să informeze persoana de contact pentru asistență sau a sălilor de evenimente cu privire la orice alergie sau intoleranță la vreun aliment;",
+    "să nu folosească prosoapele sau lenjeria pentru: șters părul, vopsit, pentru demachiat, curățat încălțămintea, geamantanele, pardoseala etc. Prosoapele se vor folosi pentru uz corporal. Dacă vor fi identificate prosoape sau lenjerie deteriorate de utilizarea necorespunzătoare a turistului, acestea se vor imputa ca daună și se vor achita de către turistul răspunzător. În caz contrar, Complexul La Livada își rezervă dreptul de a anula rezervarea camerei oaspetelui și de a face evacuarea acestuia, fără restituirea contravalorii serviciilor achitate;",
+    "lenjeria de cameră (cearceafuri, prosoape, papuci) este destinată utilizării exclusive în incinta camerei. Este interzisă scoaterea oricărei piese de lenjerie în exterior;",
+    "orice accident produs ca urmare a utilizării necorespunzătoare a obiectelor din dotare sau a utilizării facilităților complexului fără respectarea normelor de securitate corespunzătoare acestora nu este responsabilitatea hotelului;",
+    "introducerea și utilizarea echipamentelor de gătit/încălzit în camerele din complex (în afara celor puse la dispoziție de către complex) este strict interzisă din motive de siguranță la incendiu, potrivit legislației în vigoare;",
+    "se interzice cu desăvârșire introducerea în complex de armament, arme albe sau substanțe lacrimogene. Conform legislației române, consumul sau comercializarea de substanțe halucinogene sau psihotrope este interzis și se pedepsește;",
+    "nu este permis nudismul sau orice formă de exhibiționism în incinta complexului;",
+    "gunoiul și resturile menajere se vor depozita în coșurile de gunoi amplasate pe raza complexului;",
+    "nu este permis alergatul sau practicarea oricărui sport în camere sau în aleile și parcările complexului.",
+  ],
+};
 
 /* „Atracții" — obiective din judetul Vaslui.
  *

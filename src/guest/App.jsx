@@ -19,7 +19,7 @@ import { citesteVremea } from "./vreme.js";
 import {
   TELEFON, TELEFON_SCRIS, ASISTENTA, ACASA, BUN_VENIT, IMPORTANT,
   ATRACTII, ATRACTII_PE_PAGINA, linkHarta,
-  LINK_MAPS, LINK_WAZE, ACCES_CAMERE, HARTA_INCORPORATA, WIFI,
+  LINK_MAPS, LINK_WAZE, ACCES_CAMERE, HARTA_INCORPORATA, WIFI, REGULAMENT,
 } from "./continut.js";
 import {
   promptDisponibil, asculta, cheamaPrompt, esteInstalata, esteIOS,
@@ -154,6 +154,57 @@ const Adauga = () => (
   </svg>
 );
 
+/* Intampinarea, tinuta pe un singur rand.
+ *
+ * Nu din CSS: latimea depinde de fontul incarcat, iar Instrument Serif vine
+ * de la Google Fonts si poate intarzia sau lipsi cu totul — un calc() pe vw
+ * ar fi fost o presupunere despre metrica lui, gresita exact in clipa in
+ * care fontul nu ajunge. Aici se masoara ce e pe ecran.
+ *
+ * Latimea textului creste liniar cu marimea fontului, deci nu e nevoie de
+ * cautare: se masoara o data la marimea maxima si se imparte. */
+const INTRO_MAX = 19;
+const INTRO_MIN = 12;
+
+function useUnSingurRand(ref) {
+  useLayoutEffect(() => {
+    const potriveste = () => {
+      const el = ref.current;
+      if (!el) return;
+      el.style.whiteSpace = "nowrap";
+      el.style.fontSize = INTRO_MAX + "px";
+      const incape = el.clientWidth;
+      const cere = el.scrollWidth;
+      if (cere <= incape) return;
+
+      const px = Math.max(INTRO_MIN, Math.floor(INTRO_MAX * incape / cere * 10) / 10);
+      el.style.fontSize = px + "px";
+      /* Daca nici la marimea minima nu incape — un font de rezerva mai lat,
+         un ecran neobisnuit de ingust — se renunta la un singur rand si se
+         lasa sa curga. Mai bine doua randuri decat text taiat. */
+      if (el.scrollWidth > el.clientWidth) el.style.whiteSpace = "";
+    };
+
+    potriveste();
+    document.fonts?.ready?.then(potriveste).catch(() => {});
+    window.addEventListener("resize", potriveste);
+    window.addEventListener("orientationchange", potriveste);
+    return () => {
+      window.removeEventListener("resize", potriveste);
+      window.removeEventListener("orientationchange", potriveste);
+    };
+  }, [ref]);
+}
+
+/* Componenta proprie, ca masurarea sa se faca la deschiderea panoului.
+   Paragraful nu exista in pagina pana atunci, deci un hook chemat din
+   componenta mare ar fi masurat un element inexistent, o singura data. */
+function Intro({ children }) {
+  const ref = useRef(null);
+  useUnSingurRand(ref);
+  return <p className="g-intro" ref={ref}>{children}</p>;
+}
+
 /* Undele de Wi-Fi. Punctul de dedesubt e o linie de lungime zero cu capat
    rotund — un <circle> ar iesi inel, fiindca regula de stil pune fill:none
    pe tot ce e in butoanele astea. */
@@ -228,8 +279,8 @@ function ConectareWifi() {
               fără parolă.
             </p>
           </div>
-          <p className="g-pasi-titlu">Sau, de pe telefonul ăsta:</p>
-          <ol className="g-pasi">
+          <p className="g-instructiuni-titlu">Sau, de pe telefonul ăsta:</p>
+          <ol className="g-instructiuni">
             {(esteIOS() ? PASI_WIFI_IOS : PASI_WIFI_ANDROID).map((p, i) => (
               <li key={i}>{p}</li>
             ))}
@@ -280,12 +331,12 @@ function Instaleaza() {
       </button>
       {pasi && (
         <div id="g-pasi-instalare">
-          <ol className="g-pasi">
+          <ol className="g-instructiuni">
             {(esteIOS() ? PASI_IOS : PASI_ANDROID).map((p, i) => (
               <li key={i}>{p}</li>
             ))}
           </ol>
-          <p className="g-pasi-nota">
+          <p className="g-instructiuni-nota">
             Nu găsești opțiunea? Deschide pagina în{" "}
             {esteIOS() ? "Safari" : "Chrome"} — în browserul din WhatsApp nu
             apare.
@@ -352,7 +403,7 @@ const VREME = {
  * Intoarcerea focusului nu e podoaba de accesibilitate: cine navigheaza cu
  * tastatura sau cu VoiceOver ar fi aruncat la inceputul paginii la fiecare
  * inchidere, si ar trebui sa refaca tot drumul pana la butoane. */
-function Fereastra({ titlu, onInchide, children }) {
+function Fereastra({ titlu, antet, onInchide, children }) {
   const butonInchide = useRef(null);
 
   useEffect(() => {
@@ -377,8 +428,11 @@ function Fereastra({ titlu, onInchide, children }) {
           o poza ar inchide fereastra. */}
       <div className="g-fereastra" role="dialog" aria-modal="true" aria-label={titlu}
            onClick={(e) => e.stopPropagation()}>
+        {/* `antet` inlocuieste titlul scris, pentru ferestrele care au nevoie
+            de un cap propriu — regulamentul isi pune sigla acolo. `titlu`
+            ramane oricum numele citit de cititoarele de ecran. */}
         <div className="g-fereastra-cap">
-          <h2>{titlu}</h2>
+          {antet ?? <h2>{titlu}</h2>}
           <button ref={butonInchide} type="button" onClick={onInchide}
                   className="g-inchide" aria-label="Închide">×</button>
         </div>
@@ -754,6 +808,7 @@ export default function App() {
      iar doua lucruri diferite cu acelasi nume in acelasi fisier e exact
      felul de confuzie care se plateste peste sase luni. */
   const [aratAcces, setAratAcces] = useState(false);
+  const [aratRegulament, setAratRegulament] = useState(false);
 
   /* Codul stand in fragment, trecerea de la un link la altul in aceeasi
      fila NU e o navigare: browserul schimba doar adresa, nimic nu se
@@ -913,7 +968,7 @@ export default function App() {
       {deschis === "venit" && (
         <div className="g-card">
           <h2>Bun venit la Livadă</h2>
-          <p className="g-intro">{BUN_VENIT.intro}</p>
+          <Intro>{BUN_VENIT.intro}</Intro>
 
           <h3 className="g-eticheta-sectiune">Datele rezervării</h3>
           <dl className="g-lista">
@@ -939,7 +994,7 @@ export default function App() {
           )}
 
           {BUN_VENIT.puncte.length > 0 && (
-            <ul className="g-puncte">
+            <ul className="g-puncte g-puncte-sub-date">
               {BUN_VENIT.puncte.map((p, i) => (
                 <li key={i}>
                   <b>{p.titlu}</b> —{" "}
@@ -986,6 +1041,13 @@ export default function App() {
               <li key={i}><b>{p.titlu}</b> — {p.text}</li>
             ))}
           </ul>
+          {/* Buton, nu <a>: nu duce nicaieri, deschide o fereastra peste
+              pagina. Un link cu href="#" ar fi mintit si tastatura, si
+              cititoarele de ecran despre ce urmeaza sa se intample. */}
+          <button type="button" className="g-legatura"
+            onClick={() => setAratRegulament(true)}>
+            Regulamentul complexului
+          </button>
         </div>
       )}
 
@@ -1026,6 +1088,24 @@ export default function App() {
       {aratAcces && (
         <Fereastra titlu="Acces către camere" onInchide={() => setAratAcces(false)}>
           <ContinutAcces />
+        </Fereastra>
+      )}
+
+      {aratRegulament && (
+        <Fereastra
+          titlu="Regulamentul complexului"
+          antet={
+            <div className="g-reg-antet">
+              <img src="/brand/livada-text.svg" alt="Complex La Livada"
+                width="104" height="26" />
+              <p>Regulament intern</p>
+            </div>
+          }
+          onInchide={() => setAratRegulament(false)}>
+          <p className="g-reg-intro">{REGULAMENT.intro}</p>
+          <ul className="g-reg">
+            {REGULAMENT.reguli.map((r, i) => <li key={i}>{r}</li>)}
+          </ul>
         </Fereastra>
       )}
     </div>

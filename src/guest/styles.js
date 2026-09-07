@@ -289,17 +289,24 @@ body{
   margin:0 0 12px; font-family:var(--editorial); font-size:19px;
   line-height:1.4;
 }
-/* Linia de sus desparte doua subiecte: pana aici e vorba despre rezervare
-   si despre bani, de aici incolo despre sejur. */
-.g-puncte{
-  margin:16px 0 0; padding:13px 0 0; list-style:none;
+.g-puncte{ margin:0; padding:0; list-style:none; }
+/* Linia de sus desparte doua subiecte si apare NUMAI in „Bun venit": pana la
+   ea e vorba despre rezervare si despre bani, dupa ea despre sejur. In
+   „Important" aceeasi lista urmeaza direct dupa titlul cardului, unde o linie
+   in plus n-ar despartii nimic. */
+.g-puncte-sub-date{
+  margin-top:16px; padding-top:13px;
   border-top:1px solid var(--g-line);
 }
-.g-puncte li{
+/* Combinator de copil, nu descendent: punctele au acum liste imbricate —
+   pasii de Wi-Fi si de instalare — iar un „.g-puncte li" le-ar fi prins si
+   pe acelea, cu linie despartitoare intre fiecare pas si cu marimea de
+   aici in locul celei scrise pentru ele. */
+.g-puncte > li{
   padding:9px 0; border-top:1px solid var(--g-hair); font-size:14px;
 }
-.g-puncte li:first-child{ border-top:0; padding-top:0; }
-.g-puncte b{ font-weight:600; }
+.g-puncte > li:first-child{ border-top:0; padding-top:0; }
+.g-puncte > li > b{ font-weight:600; }
 /* Butoanele mici de sub punctele din „Bun venit" — Wi-Fi si adaugarea pe
    ecranul principal. Contur, nu plin: sunt unelte, iar pline ar fi concurat
    cu butonul mare de deschidere a usii, care trebuie sa ramana singurul
@@ -338,17 +345,30 @@ body{
 }
 .g-qr b{ color:var(--g-text); font-weight:600; }
 
-.g-pasi-titlu{
+/* Numite g-instructiuni, nu g-pasi: acela e deja al ferestrei de acces catre
+   camere, definit mai jos in fisier. Aceeasi clasa pe doua componente
+   diferite se calca in tacere — regula de mai jos, fiind ultima, castiga, si
+   pasii de aici primeau alta marime si alte distante decat cele scrise. */
+.g-instructiuni-titlu{
   margin:13px 0 0; font-size:11px; font-weight:600;
   letter-spacing:.1em; text-transform:uppercase; color:var(--g-faint);
 }
-.g-pasi{
+.g-instructiuni{
   margin:10px 0 0; padding-left:19px;
   display:flex; flex-direction:column; gap:6px;
   font-size:13.5px; line-height:1.5; color:var(--g-muted);
 }
-.g-pasi b{ color:var(--g-text); font-weight:600; }
-.g-pasi-nota{ margin:9px 0 0; font-size:12.5px; line-height:1.5; color:var(--g-faint); }
+.g-instructiuni b{ color:var(--g-text); font-weight:600; }
+.g-instructiuni-nota{ margin:9px 0 0; font-size:12.5px; line-height:1.5; color:var(--g-faint); }
+
+/* Legatura care deschide regulamentul. Subliniata, ca sa se citeasca drept
+   legatura, dar buton in HTML — deschide o fereastra, nu duce nicaieri. */
+.g-legatura{
+  margin:13px 0 0; padding:0; border:0; background:none;
+  font:inherit; font-size:14px; color:var(--g-text);
+  text-decoration:underline; text-underline-offset:3px;
+  text-decoration-color:var(--g-line); cursor:pointer;
+}
 
 .g-nota{ margin:12px 0 0; font-size:13px; color:var(--g-muted); }
 .g-gol{ margin:0; font-size:14px; color:var(--g-muted); }
@@ -513,6 +533,36 @@ body{
 .g-acces-foto figcaption{ margin:6px 2px 0; font-size:12.5px; color:var(--g-muted); }
 .g-pasi{ margin:0; padding-left:20px; }
 .g-pasi li{ padding:5px 0; font-size:14px; }
+
+/* Regulamentul. Antetul tine sigla in locul titlului scris, ca sa arate a
+   document al casei, nu a mesaj de aplicatie. Sigla e SVG cu culoare proprie
+   — nu se coloreaza de aici. */
+.g-reg-antet{ min-width:0; }
+.g-reg-antet img{ display:block; width:104px; height:auto; }
+.g-reg-antet p{
+  margin:5px 0 0; font-size:11px; font-weight:600; letter-spacing:.14em;
+  text-transform:uppercase; color:var(--g-faint);
+}
+
+.g-reg-intro{
+  margin:0 0 14px; padding-bottom:13px;
+  border-bottom:1px solid var(--g-hair);
+  font-size:14px; line-height:1.55; color:var(--g-text); font-weight:600;
+}
+/* Liniuta in loc de bulina, ca in textul primit, si indentare agatata: al
+   doilea rand al unei reguli lungi se aliniaza sub primul, nu sub liniuta.
+   Aliniat la stanga, nu justify: pe o coloana de telefon, justify rupe
+   randurile cu spatii cat un cuvant si textul ajunge sa arate a document
+   prost cules — exact pe dos fata de ce trebuie sa transmita. */
+.g-reg{ margin:0; padding:0; list-style:none; }
+.g-reg li{
+  position:relative; padding:0 0 11px 15px;
+  font-size:13.5px; line-height:1.6; color:var(--g-muted);
+}
+.g-reg li::before{
+  content:"–"; position:absolute; left:0; top:0; color:var(--g-faint);
+}
+.g-reg li:last-child{ padding-bottom:0; }
 
 @media (min-height: 620px) and (min-width: 420px){
   .g-fundal{ align-items:center; }

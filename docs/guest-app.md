@@ -987,3 +987,56 @@ Drepturile au fost verificate după `create or replace`: `anon` da,
 `authenticated` nu, `service_role` da — exact ca înainte. Postgres păstrează
 ACL-ul la înlocuirea unei funcții, dar în proiectul ăsta o presupunere despre
 drepturi a costat deja o zi de producție (vezi 4), deci se verifică.
+
+## 14. Regulamentul
+
+Sub cele trei puncte din „Important" stă o legătură care deschide
+regulamentul într-o fereastră suprapusă — aceeași `Fereastra` folosită de
+„Acces către camere", care primește acum un `antet` opțional: regulamentul își
+pune sigla acolo, în locul titlului scris, ca să arate a document al casei,
+nu a mesaj de aplicație. `titlu` rămâne oricum numele citit de cititoarele de
+ecran.
+
+E **buton, nu `<a href="#">`**: nu duce nicăieri, deschide o fereastră peste
+pagină. Un link ar fi mințit și tastatura, și cititoarele de ecran despre ce
+urmează să se întâmple.
+
+**Textul e al proprietarului, transcris ca atare.** S-au atins doar
+diacriticele (ş/ţ cu sedilă → ș/ț cu virgulă, ca în restul aplicației) și
+câteva greșeli evidente de dactilografiere. Formulările juridice au rămas
+neschimbate chiar unde sunt stângace: nu e text de stil, e text care se
+invocă la o pagubă, iar o „limpezire" făcută de mine i-ar schimba înțelesul
+fără ca nimeni să fi cerut asta.
+
+Aliniat la stânga, nu justify: pe o coloană de telefon, justify rupe rândurile
+cu spații cât un cuvânt și textul ajunge să arate a document prost cules —
+exact pe dos față de ce trebuie să transmită.
+
+## 15. Întâmpinarea pe un singur rând
+
+`useUnSingurRand` din `App.jsx` micșorează fontul intro-ului până încape pe un
+rând. Nu din CSS: lățimea depinde de fontul încărcat, iar Instrument Serif
+vine de la Google Fonts și poate întârzia sau lipsi cu totul — un `calc()` pe
+`vw` ar fi fost o presupunere despre metrica lui, greșită exact în clipa în
+care fontul nu ajunge.
+
+Lățimea textului crește liniar cu mărimea fontului, deci nu e nevoie de
+căutare: se măsoară o dată la 19px și se împarte. Măsurat pe container de
+348 / 302 / 262 / 222 px → 19 / 17,3 / 15 / 12,7 px, un rând peste tot. Sub
+12px se renunță la un singur rând și textul curge normal — mai bine două
+rânduri decât text tăiat.
+
+## 16. Trei coliziuni de CSS găsite cu ocazia asta
+
+Toate trei tăcute — nimic nu se rupea, doar arăta altfel decât scria în cod:
+
+1. **`.g-pasi` definit de două ori**, o dată pentru fereastra de acces și o
+   dată pentru pașii de Wi-Fi/instalare. Regula de mai jos în fișier câștiga,
+   deci pașii primeau 14px în loc de 13,5 și `margin:0` în loc de 10px. Ai
+   mei s-au redenumit `.g-instructiuni`.
+2. **`.g-puncte li` prindea și `li`-urile imbricate** din listele de pași —
+   cu linie despărțitoare între fiecare pas. Selectorul a devenit
+   `.g-puncte > li`.
+3. **Linia de deasupra punctelor** din „Bun venit" apărea și în „Important",
+   lipită sub titlul cardului, unde nu despărțea nimic. S-a mutat pe o clasă
+   proprie, `.g-puncte-sub-date`.
