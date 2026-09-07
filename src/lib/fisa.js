@@ -38,6 +38,52 @@ export const CAMPURI = [
   { cheie: "actNumarul",     eticheta: "Numărul",           obligatoriu: true,  sensibil: true },
 ];
 
+/* PRECOMPLETAREA DE LA RECEPTIE.
+ *
+ * Oaspetele care isi deschide linkul primeste datele deja scrise, din
+ * `guest_fisa_precompletare`. Receptionerul care completeaza IN LOCUL lui
+ * pornea de la un formular gol si retasta un nume si o adresa pe care PMS-ul
+ * le avea deja — exact la ghiseu, cu omul in fata. Aici e aceeasi
+ * precompletare, luata din fisa oaspetelui in loc de din baza.
+ *
+ * CELE CINCI CAMPURI SUNT ACELEASI ca la oaspete, si nu din intamplare: doua
+ * precompletari diferite ar fi insemnat ca aceeasi rezervare arata altfel
+ * dupa cine deschide fisa.
+ *
+ * Nationalitatea NU se ia din `country`, desi ar fi la indemana: `country` e
+ * tara de domiciliu. Un roman cu domiciliul in Germania ar fi iesit cu
+ * „Germania" la nationalitate — greseala pe care coala tiparita o facea deja
+ * si care e scrisa mai sus, la campuri.
+ *
+ * Nimic sensibil nu trece, iar regula e aplicata de bucla, nu de lista: data
+ * si locul nasterii si actul de identitate se citesc de pe documentul din
+ * mana, de fiecare data. O serie precompletata dintr-o fisa veche e felul in
+ * care ajunge un numar gresit pe un act oficial.
+ */
+const DIN_OASPETE = {
+  nume:       (o) => o.lastName,
+  prenume:    (o) => o.firstName,
+  adresa:     (o) => o.address,
+  localitate: (o) => o.city,
+  tara:       (o) => o.country,
+};
+
+export function precompletareDinOaspete(oaspete) {
+  if (!oaspete) return {};
+  const date = {};
+  for (const [cheie, ia] of Object.entries(DIN_OASPETE)) {
+    if (CAMPURI.find((c) => c.cheie === cheie)?.sensibil) continue;
+    const v = ia(oaspete);
+    /* Golurile se sar, nu se scriu ca sir vid: baza tine „-" ca valoare de
+       umplutura la `city` si `country`, iar un camp precompletat cu „-" arata
+       completat si trece de validare. */
+    if (v != null && String(v).trim() !== "" && String(v).trim() !== "-") {
+      date[cheie] = String(v).trim();
+    }
+  }
+  return date;
+}
+
 /* Versiunea colii cu care se randeaza fisa. Se scrie in randul din baza si
    creste cand se schimba aspectul tiparit — vezi docs/fisa-cazare.md 4. */
 export const SABLON_VERSIUNE = "fisa-2026-09";

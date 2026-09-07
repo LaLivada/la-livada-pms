@@ -314,6 +314,36 @@ un motiv de consemnat. Motivul e cerut în formular, nu lăsat pe seama
 constrângerii din bază: recepționerul n-are de ce să afle de la o eroare de
 Postgres ce trebuia să scrie.
 
+**Completarea pornește precompletată** — adăugat 7 septembrie 2026, după ce
+proprietarul a semnalat că formularul de la recepție venea gol. Venea, într-adevăr:
+oaspetele care își deschide linkul primea numele și adresa deja scrise, iar
+recepționerul care completa *în locul lui* le retasta, cu omul în față la ghișeu.
+
+Sunt **exact aceleași cinci câmpuri** ca la oaspete — nume, prenume, adresă,
+localitate, țară — și nu din întâmplare: două precompletări diferite ar fi
+însemnat că aceeași rezervare arată altfel după cine deschide fișa. Regula stă
+într-o funcție pură, `precompletareDinOaspete` ([lib/fisa.js](../src/lib/fisa.js)),
+iar un test verifică structural că nu scoate niciodată un câmp marcat `sensibil`.
+
+**Naționalitatea nu se ia din `country`**, deși ar fi la îndemână: `country` e
+țara de domiciliu, iar un român cu domiciliul în Germania ar fi ieșit „Germania"
+la naționalitate. E greșeala pe care coala tipărită o făcea deja.
+
+**Actul de identitate nu se precompletează niciodată**, nici aici. Se citește de
+pe documentul din mână, de fiecare dată. O serie precompletată dintr-o fișă
+veche e felul în care ajunge un număr greșit pe un act oficial. Formularul spune
+pe față de unde vin valorile și cere verificarea lor pe act.
+
+**Un defect găsit cu ocazia asta, pe partea de oaspete.** `snakeGuest`
+([data/mapari.js](../src/data/mapari.js)) scrie `"-"` ca umplutură când lipsesc
+`last_name`, `first_name` sau `city`. `guest_fisa_precompletare` o trecea mai
+departe. Trecută în formular, umplutura *arată* completată: oaspetele nu mai
+scrie nimic acolo, validarea o acceptă ca valoare, și `-` ajunge ca localitate pe
+un act oficial. Golul se vede; `-` nu. Funcția filtrează acum umplutura și
+spațiile, la fel ca partea de recepție. Zero rânduri erau afectate la momentul
+reparației — verificat, nu presupus; capcana era latentă, deschisă de primul
+oaspete salvat fără localitate.
+
 **Anularea**, cu motiv și autor. **Nu există buton de „editează"**: triggerul
 respinge orice `update` în afara anulării, deci o greșeală se anulează și se
 scrie alta.

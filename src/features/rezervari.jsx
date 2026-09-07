@@ -938,7 +938,7 @@ export function ReservationViewModal({ reservation, core, updateCore, groups, up
       )}
 
       <SectiuneAcces res={reservation} core={core} />
-      <SectiuneFisa res={reservation} />
+      <SectiuneFisa res={reservation} core={core} />
 
       <FolioPanel reservation={reservation} core={core} updateCore={updateCore}
         billingCustomerId={billingCustomerId} setBillingCustomerId={setBillingCustomerId}
@@ -1744,7 +1744,7 @@ export function ReservationModal({ data, core, updateCore, reservations, updateR
         )}
 
         {editing && !isBlock && <SectiuneAcces res={editing} core={core} />}
-        {editing && !isBlock && <SectiuneFisa res={editing} />}
+        {editing && !isBlock && <SectiuneFisa res={editing} core={core} />}
 
         {error && <div className="error-text" role="alert" style={{ marginBottom: 10 }}>{error}</div>}
 

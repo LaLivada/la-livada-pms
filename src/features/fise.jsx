@@ -20,7 +20,8 @@ import * as dateFise from "../data/fise.js";
 import { audit } from "../lib/audit.js";
 import { mesajEroare } from "../lib/errors.js";
 import { fmtDateTime, fmtDateFull } from "../lib/format.js";
-import { CAMPURI, ACT_TIPURI, valideazaFisa, SABLON_VERSIUNE } from "../lib/fisa.js";
+import { CAMPURI, ACT_TIPURI, valideazaFisa, SABLON_VERSIUNE,
+         precompletareDinOaspete } from "../lib/fisa.js";
 import { Dialog, toaster } from "../ui/primitive.jsx";
 import { uid } from "../lib/uid.js";
 import { LATIME_PANZA, INALTIME_PANZA } from "../lib/semnatura.js";
@@ -32,7 +33,7 @@ const tipAct = (c) => ACT_TIPURI.find((t) => t.cheie === c)?.eticheta || c || "�
    INDICATORUL DIN REZERVARE
 ----------------------------------------------------------------*/
 
-export function SectiuneFisa({ res }) {
+export function SectiuneFisa({ res, core }) {
   /* undefined = inca se incarca, null = nu exista. Distinctia conteaza:
      altfel s-ar vedea „fara fisa" o clipa la fiecare deschidere. */
   const [fisa, setFisa] = useState(undefined);
@@ -96,7 +97,7 @@ export function SectiuneFisa({ res }) {
       )}
 
       {formular && (
-        <FormularFisa res={res}
+        <FormularFisa res={res} core={core}
           onGata={() => { setFormular(false); incarca(); }}
           onClose={() => setFormular(false)} />
       )}
@@ -166,8 +167,15 @@ const Rand = ({ eticheta: e, valoare }) => (
    COMPLETAREA IN LOCUL OASPETELUI
 ----------------------------------------------------------------*/
 
-function FormularFisa({ res, onGata, onClose }) {
-  const [date, setDate] = useState({});
+function FormularFisa({ res, core, onGata, onClose }) {
+  /* Initializator LENES, nu `useState(precompletare(...))`: scris asa,
+     precompletarea s-ar reface la fiecare tastare in formular. Ar fi fost
+     aruncata oricum, dar cauta oaspetele prin toata lista de fiecare data.
+
+     Si e doar punct de PORNIRE: de aici incolo starea e a formularului, deci
+     ce corecteaza receptionerul ramane corectat. */
+  const oaspete = core?.guests?.find((g) => g.id === res.guestId) || null;
+  const [date, setDate] = useState(() => precompletareDinOaspete(oaspete));
   const [motiv, setMotiv] = useState("");
   const [erori, setErori] = useState({});
   const [lucrez, setLucrez] = useState(false);
@@ -222,6 +230,13 @@ function FormularFisa({ res, onGata, onClose }) {
       <p className="ldv-mic" style={{ marginBottom: 12 }}>
         Pentru oaspeții care nu pot completa singuri. Cine poate o face din
         linkul lui, unde semnează el.
+      </p>
+      {/* Spus pe fata, fiindca un camp deja scris nu se mai citeste: numele si
+          adresa vin din rezervare si pot fi vechi, iar actul nu se
+          precompleteaza niciodata — se citeste de pe documentul din mana. */}
+      <p className="ldv-mic" style={{ marginBottom: 12, color: "var(--muted)" }}>
+        Datele oaspetelui sunt luate din rezervare. Verifică-le pe actul de
+        identitate și corectează unde e cazul.
       </p>
 
       {CAMPURI.map((c) => (

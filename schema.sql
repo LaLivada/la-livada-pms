@@ -3586,15 +3586,31 @@ begin
 
   select * into v_g from guests where id = (v_p.rezervare).guest_id;
 
+  -- Cele cinci campuri nesensibile, si numai ele. Data si locul nasterii si
+  -- actul de identitate nu se precompleteaza niciodata: se citesc de pe
+  -- documentul din mana, de fiecare data (docs/fisa-cazare.md 3).
+  --
+  -- `nullif(..., '-')` NU e pedanterie. `snakeGuest` (src/data/mapari.js)
+  -- scrie "-" cand lipsesc last_name, first_name sau city. Trecuta in
+  -- formular, umplutura ARATA completata: oaspetele nu mai scrie nimic
+  -- acolo, validarea o accepta ca valoare, si "-" ajunge ca localitate pe o
+  -- fisa de cazare, adica pe un act oficial. Golul se vede; "-" nu.
+  --
+  -- Aceeasi regula, aceleasi cinci campuri, si la receptie, in
+  -- `precompletareDinOaspete` (src/lib/fisa.js). Doua precompletari diferite
+  -- ar fi insemnat ca aceeasi rezervare arata altfel dupa cine deschide fisa.
+  --
+  -- Golul se scrie ca sir vid, nu ca null: pagina oaspetelui pune valoarea
+  -- direct in `value` al unui input, iar null ar face campul necontrolat.
   return jsonb_build_object(
     'ok', true,
     'gata', false,
     'date', jsonb_build_object(
-      'nume',       coalesce(v_g.last_name, ''),
-      'prenume',    coalesce(v_g.first_name, ''),
-      'adresa',     coalesce(v_g.address, ''),
-      'localitate', coalesce(v_g.city, ''),
-      'tara',       coalesce(v_g.country, '')
+      'nume',       coalesce(nullif(nullif(btrim(v_g.last_name),  ''), '-'), ''),
+      'prenume',    coalesce(nullif(nullif(btrim(v_g.first_name), ''), '-'), ''),
+      'adresa',     coalesce(nullif(nullif(btrim(v_g.address),    ''), '-'), ''),
+      'localitate', coalesce(nullif(nullif(btrim(v_g.city),       ''), '-'), ''),
+      'tara',       coalesce(nullif(nullif(btrim(v_g.country),    ''), '-'), '')
     ));
 end $$;
 
