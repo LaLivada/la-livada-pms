@@ -898,8 +898,17 @@ altul că fiecare variabilă din el are o valoare cunoscută. Fără al doilea, 
 variabilă nouă uitată pe una din căi ar trece neobservată: `randeazaSablon`
 pune șir gol, nu eroare, iar rândul ciuntit s-ar afla de la oaspete.
 
-**Rămâne de verificat pe producție**: funcția edge se redeployează, iar
-mesajul se citește o dată pe fiecare cale, cu o rezervare de test.
+**Livrat în aceeași zi.** Guest app-ul și PMS-ul au intrat la push
+(bundle-ul servit de `guest.lalivada.ro` verificat, nu doar codul), iar
+`access-provider` a fost redeployat — versiunea 45. Citit înapoi din
+funcția livrată: `guest_link`, `support_phone`, `linkOaspete`,
+`TELEFON_ASISTENTA` și selectul cu `guest_code` sunt sus; „contactează
+recepția" nu mai e nicăieri. `src/lib/acces.js` a plecat ca asset odată cu
+funcția — singurul risc real al mutării șablonului într-un modul comun.
+
+**Rămâne de citit o dată pe fiecare cale**, cu o rezervare de test: un
+email trimis și un mesaj de WhatsApp deschis. Codul livrat e verificat;
+cum arată textul în Gmail și în WhatsApp, nu.
 
 ### Pasul 6 (ulterior, cu decizie separată)
 
