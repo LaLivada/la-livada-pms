@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
-  canCheckIn, canCheckOut, canCancel, canNoShow,
+  canCheckIn, canCheckOut, canCancel, canNoShow, cazatAcum,
   checkouturiRestante, zileIntarziere, ORE_CHECKIN_DEVREME, ZILE_CHECKIN_DEVREME,
   sosiriRestante, zileIntarziereSosire,
 } from "./lib/tranzitii.js";
@@ -152,5 +152,47 @@ describe("zileIntarziereSosire", () => {
   it("numara zilele trecute peste sosirea programata", () => {
     expect(zileIntarziereSosire({ checkin: "2026-08-19T14:00:00" }, ACUM)).toBe(1);
     expect(zileIntarziereSosire({ checkin: "2026-08-17T14:00:00" }, ACUM)).toBe(3);
+  });
+});
+
+/* Regula care a blocat camera 1102 trei zile: check-in facut pe 8 septembrie
+   2026 pentru o sosire pe 11, iar garda din access-provider socotea camera
+   ocupata din clipa check-in-ului. Perechea de pe server e in
+   supabase/functions/access-provider/index.ts si se schimba odata cu asta. */
+describe("cazatAcum — sta cineva chiar acum in camera", () => {
+  const SOSIRE = "2026-09-11T11:00:00Z";
+
+  it("check-in facut, dar sosirea e peste trei zile → camera e libera", () => {
+    expect(cazatAcum({ status: "checkedin", checkin: SOSIRE },
+      new Date("2026-09-08T07:00:00Z"))).toBe(false);
+  });
+
+  it("cu un minut inainte de ora sosirii, tot libera", () => {
+    expect(cazatAcum({ status: "checkedin", checkin: SOSIRE },
+      new Date("2026-09-11T10:59:00Z"))).toBe(false);
+  });
+
+  it("fix la ora sosirii devine ocupata", () => {
+    expect(cazatAcum({ status: "checkedin", checkin: SOSIRE },
+      new Date(SOSIRE))).toBe(true);
+  });
+
+  it("in timpul sejurului e ocupata", () => {
+    expect(cazatAcum({ status: "checkedin", checkin: SOSIRE },
+      new Date("2026-09-12T09:00:00Z"))).toBe(true);
+  });
+
+  /* Capatul de sus ramane deschis: nimeni n-a apasat check-out, deci
+     oaspetele poate fi inca inauntru. */
+  it("ramane ocupata si dupa ora plecarii, cat timp statusul e checkedin", () => {
+    expect(cazatAcum({ status: "checkedin", checkin: SOSIRE },
+      new Date("2026-09-20T09:00:00Z"))).toBe(true);
+  });
+
+  it("orice alt status inseamna camera libera", () => {
+    for (const status of ["confirmed", "pending", "checkedout", "cancelled", "noshow"]) {
+      expect(cazatAcum({ status, checkin: SOSIRE },
+        new Date("2026-09-12T09:00:00Z")), status).toBe(false);
+    }
   });
 });

@@ -33,6 +33,7 @@ import {
   SABLON_IMPLICIT, linkOaspete, dataMesaj, numeInMesaj, NUME_HOTEL_IMPLICIT,
   TELEFON_ASISTENTA,
 } from "../../../src/lib/acces.js";
+import { cazatAcum } from "../../../src/lib/tranzitii.js";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY  = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -183,10 +184,22 @@ Deno.serve(async (req) => {
       }, 403);
     }
 
+    /* „Ocupată" cere check-in făcut ȘI ora sosirii trecută — regula e
+     * `cazatAcum`, importată, nu rescrisă aici.
+     *
+     * Statusul singur nu mai ajunge de când check-in-ul se poate face cu 14
+     * zile înainte: camera 1102, cazată pe 8 septembrie 2026 pentru o sosire
+     * pe 11, a rămas imposibil de deschis de la recepție trei zile, deși nu
+     * era nimeni înăuntru. Interfața (features/camere.jsx) cheamă aceeași
+     * funcție, deci ce arată ea și ce refuză aici nu mai pot diverge.
+     *
+     * Rândurile se filtrează în JS, nu în interogare: o cameră are cel mult
+     * câteva rezervări „checkedin", iar regula scrisă o singură dată
+     * valorează mai mult decât un filtru dus pe server. */
     const { data: cazate } = await admin.from("reservations")
-      .select("id").eq("room_id", camera.id).eq("status", "checkedin").limit(1);
+      .select("id, status, checkin").eq("room_id", camera.id).eq("status", "checkedin");
 
-    if (cazate && cazate.length > 0) {
+    if ((cazate || []).some((r) => cazatAcum(r))) {
       return raspuns({
         error: `Camera ${camera.name} e ocupată. Deschiderea unei camere cazate e permisă doar administratorilor.`,
       }, 403);

@@ -42,6 +42,32 @@ export const canCheckIn = (r, now = new Date()) =>
 
 export const canCheckOut = (r) => r.status === "checkedin";
 
+/* Sta cineva ACUM in camera?
+ *
+ * Nu e acelasi lucru cu `status === 'checkedin'`, si diferenta a costat o
+ * camera blocata trei zile: check-in-ul se poate face cu 14 zile inainte
+ * (vezi canCheckIn), iar pana la ora sosirii nu e nimeni inauntru. Camera
+ * 1102, cazata pe 8 septembrie 2026 pentru o sosire pe 11, nu mai putea fi
+ * deschisa de receptie — garda din access-provider o socotea ocupata.
+ *
+ * Pragul e ORA SOSIRII, nu inceputul zilei, fiindca asta e deja regula casei
+ * peste tot: inceputCod (lib/acces.js) porneste codul de acces exact atunci,
+ * iar guest_poate_deschide refuza butonul oaspetelui inainte cu motivul
+ * „prea-devreme". Pentru oaspetele care ajunge mai devreme exista portita
+ * documentata acolo — receptia muta ora sosirii, si atunci camera devine
+ * ocupata odata cu codul.
+ *
+ * Capatul de sus ramane deschis intentionat: o rezervare inca „checkedin"
+ * dupa ora plecarii inseamna ca nimeni n-a apasat check-out, iar oaspetele
+ * poate fi foarte bine inauntru. Acolo greseala sigura e sa ramana blocata.
+ *
+ * O SINGURA DEFINITIE, si pe server, si in interfata: access-provider
+ * importa functia asta direct (poate — importa deja din src/lib/acces.js),
+ * iar features/camere.jsx o cheama pentru eticheta „Cazată". Asa ce arata
+ * interfata si ce refuza functia edge nu pot diverge. */
+export const cazatAcum = (r, now = new Date()) =>
+  r.status === "checkedin" && new Date(r.checkin).getTime() <= new Date(now).getTime();
+
 /* "pending" (Cerere) alaturi de "confirmed": o cerere netratata trebuie sa
    se poata anula in orice moment, la fel ca o rezervare confirmata — altfel
    ramane agatata la nesfarsit fara nicio iesire. */

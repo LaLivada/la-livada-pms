@@ -9,6 +9,7 @@ import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { Plus, X, Check, Trash2, Pencil, DoorOpen, Sparkles, Wrench, KeyRound, Banknote, RefreshCw, AlertTriangle, ArrowRight, Info, TrendingUp, Tag as TagIcon, Copy, Cpu, Flame, Snowflake, Wind, Unlock } from "lucide-react";
 import { uid } from "../lib/uid.js";
 import { isLive } from "../lib/availability.js";
+import { cazatAcum } from "../lib/tranzitii.js";
 import { mesajEroare } from "../lib/errors.js";
 import { audit, isAdmin } from "../lib/audit.js";
 import { fmtMoney, fmtDate, validatePrice } from "../lib/format.js";
@@ -169,13 +170,13 @@ export function HousekeepingView({ core, reservations, housekeeping, updateHouse
       r.status !== "checkedin" && r.status !== "checkedout" &&
       new Date(r.checkin) >= today && new Date(r.checkin) < tomorrow);
 
-  /* „Cazată" înseamnă check-in făcut, nu doar o rezervare care acoperă ziua
-     de azi: între o sosire de azi neînregistrată încă și o cameră în care
-     stă cineva chiar acum e toată diferența. Aceeași definiție ca pe server
-     (status = 'checkedin'), altfel interfața ar bloca alte camere decât
-     refuză funcția edge. */
+  /* „Cazată" înseamnă check-in făcut ȘI ora sosirii trecută — vezi
+     `cazatAcum`. Check-in-ul se poate face cu 14 zile înainte, deci statusul
+     singur ar marca drept ocupată o cameră în care încă nu e nimeni.
+     Aceeași definiție ca pe server, altfel interfața ar bloca alte camere
+     decât refuză funcția edge. */
   const ocupata = (roomId) =>
-    reservations.some((r) => r.roomId === roomId && r.status === "checkedin");
+    reservations.some((r) => r.roomId === roomId && cazatAcum(r));
 
   const setStatus = async (roomId, status) => {
     const next = { ...housekeeping, [roomId]: { status, updatedAt: new Date().toISOString() } };
