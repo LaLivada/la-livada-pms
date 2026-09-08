@@ -423,8 +423,11 @@ $$;
 --
 -- Jurnalul de activitate a plecat de aici pe 9 septembrie 2026, în
 -- `activity_log` — vezi comentariul de acolo. Cheia veche `pms:log:v3`
--- rămâne în tabel, necitită, ca să mai poată scrie în ea filele deschise
--- cu bundle-ul vechi.
+-- rămâne ca rând, dar GOLITĂ (`[]`): filele deschise cu bundle-ul vechi tot
+-- au unde scrie, fără eroare, dar rândul nu mai ține numele oaspeților în
+-- `detail` — și acolo politica de citire îl lasă încă la îndemâna unui cont
+-- de curățenie. Cele 400 de intrări au fost verificate una câte una în
+-- `activity_log` (oră, acțiune, detaliu identice) înainte de golire.
 -- ---------------------------------------------------------------------
 create table if not exists app_state (
   key         text primary key,
