@@ -48,7 +48,7 @@ import {
   useModalLock, useAduInVizor, useVisualViewportHeight, PdfPreview,
 } from "./ui/primitive.jsx";
 import { K, loadShared, saveShared } from "./data/stare-partajata.js";
-import { audit } from "./lib/audit.js";
+import { audit, incarcaJurnal } from "./lib/audit.js";
 import { occupantName, guestFullName } from "./lib/nume.js";
 import { canBilling, billingPerms } from "./lib/permisiuni.js";
 import { GUEST_HISTORY_PAGE_SIZE } from "./lib/constante.js";
@@ -516,8 +516,7 @@ function PMSApp() {
           c.rooms.forEach((rm) => { h[rm.id] = { status: "clean", updatedAt: new Date().toISOString() }; });
           await saveShared(K.hk, h);
         }
-        let lg = await loadShared(K.log, []);
-        if (!Array.isArray(lg)) lg = [];
+        const lg = await incarcaJurnal();
         if (!alive) return;
         audit.entries = lg; audit.setEntries = setLogEntries;
         setCore(c); setReservations(r); setHousekeeping(h);

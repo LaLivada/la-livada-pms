@@ -384,8 +384,13 @@ create table staff (
 
 -- ---------------------------------------------------------------------
 -- SETĂRI DIVERSE (rămășiță din structura veche)
--- Ține ce nu a fost migrat în tabele proprii: jurnal, housekeeping,
--- preferințe. Poate fi desființat pe măsură ce restul se mută.
+-- Ține ce nu a fost migrat în tabele proprii: housekeeping, setările
+-- accesului, preferințe. Poate fi desființat pe măsură ce restul se mută.
+--
+-- Jurnalul de activitate a plecat de aici pe 9 septembrie 2026, în
+-- `activity_log` — vezi comentariul de acolo. Cheia veche `pms:log:v3`
+-- rămâne în tabel, necitită, ca să mai poată scrie în ea filele deschise
+-- cu bundle-ul vechi.
 -- ---------------------------------------------------------------------
 create table if not exists app_state (
   key         text primary key,
@@ -2299,11 +2304,11 @@ $$;
 -- nu existe două definiții diferite ale acelorași drepturi:
 --   · rezervări / oaspeți / grupuri → admin sau recepționer
 --   · camere / tarife / sezoane     → doar admin ("Camere și tarife")
---   · app_state                     → admin/recepționer peste tot;
---     cameristele doar pe două chei: statusul de curățenie
---     (updateHousekeeping) și jurnalul de activitate — schimbarea unui
---     status scrie în ambele, iar fără a doua propriile lor acțiuni n-ar
---     mai apărea în audit, exact pe dos față de rostul jurnalului.
+--   · app_state                     → admin peste tot; recepționerul peste
+--     tot în afară de `pms:access:v1`; cameristele doar pe două chei:
+--     statusul de curățenie (updateHousekeeping) și `pms:log:v3`, cheia
+--     moartă a jurnalului — grantul rămâne doar pentru filele deschise cu
+--     bundle-ul vechi, care încă scriu acolo (vezi `activity_log`).
 -- ---------------------------------------------------------------------
 create policy "scrie rezervari" on reservations
   for insert to authenticated with check (is_admin() or staff_role() = 'receptionist');
@@ -2355,21 +2360,33 @@ create policy "modifica sezoane" on seasons
 create policy "sterge sezoane" on seasons
   for delete to authenticated using (is_admin());
 
+-- `pms:access:v1` ține setările yalelor: `codeLength` (câte cifre are codul
+-- de ușă) și `graceMinutes` (cât mai merge ușa după ora plecării). Până pe
+-- 9 septembrie 2026 orice recepționer le putea rescrie printr-o cerere
+-- directă către API — `codeLength` pus pe 1 face codul de ușă ghicibil din
+-- a zecea încercare. Cheia nu e scrisă din interfață de nimeni, doar citită
+-- (features/acces.jsx și cele două funcții edge), deci restricția nu taie
+-- niciun flux de lucru.
 create policy "scrie app_state" on app_state
   for insert to authenticated with check (
-    is_admin() or staff_role() = 'receptionist'
+    is_admin()
+    or (staff_role() = 'receptionist' and key <> 'pms:access:v1')
     or (staff_role() = 'housekeeping' and key in ('pms:housekeeping:v3', 'pms:log:v3'))
   );
 create policy "modifica app_state" on app_state
   for update to authenticated using (
-    is_admin() or staff_role() = 'receptionist'
+    is_admin()
+    or (staff_role() = 'receptionist' and key <> 'pms:access:v1')
     or (staff_role() = 'housekeeping' and key in ('pms:housekeeping:v3', 'pms:log:v3'))
   ) with check (
-    is_admin() or staff_role() = 'receptionist'
+    is_admin()
+    or (staff_role() = 'receptionist' and key <> 'pms:access:v1')
     or (staff_role() = 'housekeeping' and key in ('pms:housekeeping:v3', 'pms:log:v3'))
   );
 create policy "sterge app_state" on app_state
-  for delete to authenticated using (is_admin() or staff_role() = 'receptionist');
+  for delete to authenticated using (
+    is_admin() or (staff_role() = 'receptionist' and key <> 'pms:access:v1')
+  );
 
 -- Administrarea conturilor (ecranul "Useri si drepturi") e strict a
 -- adminilor. Citirea e acoperita de politica "vede staff" de mai sus.
@@ -2832,6 +2849,29 @@ where a.key like 'pms:core%';
 -- select nightly_rate('tiny','2026-03-10'), nightly_rate('tiny','2026-07-01'),
 --        nightly_rate('tiny','2026-12-28'), nightly_rate('tiny','2027-01-03');
 
+-- Jurnalul de activitate (rulat pe 9 septembrie 2026). `activity_log` e
+-- definit mai jos în fișier — blocul ăsta oricum se rulează abia după ce
+-- schema întreagă există.
+--
+-- Trigger-ul de semnătură se oprește cât ține mutarea: el pune ora și omul
+-- CURENT, iar aici tocmai istoricul trebuie păstrat așa cum a fost.
+-- `user_id` se recuperează după nume, singurul lucru pe care blobul îl
+-- ținea despre autor.
+alter table activity_log disable trigger activity_log_semnatura;
+
+insert into activity_log (at, user_id, user_name, user_role, action, detail)
+select (e->>'ts')::timestamptz, s.user_id,
+       coalesce(nullif(e->>'userName',''), '?'),
+       coalesce(nullif(e->>'userRole',''), '?'),
+       left(e->>'action', 200), left(e->>'detail', 1000)
+from app_state a,
+     jsonb_array_elements(a.value) e
+     left join staff s on s.name = e->>'userName'
+where a.key = 'pms:log:v3' and e->>'action' is not null
+order by (e->>'ts')::timestamptz asc;
+
+alter table activity_log enable trigger activity_log_semnatura;
+
 */
 
 
@@ -2912,12 +2952,87 @@ create table access_notifications (
 create index access_notifications_cod on access_notifications (access_code_id);
 
 
--- Audit propriu, separat de jurnalul aplicației.
+-- ---------------------------------------------------------------------
+-- JURNALUL DE ACTIVITATE — doar cu adăugare.
 --
--- `audit.push` scrie într-un blob JSON din app_state, plafonat la 400 de
--- intrări și neinterogabil. Operațiunile pe yale au nevoie de altceva: se
--- caută după rezervare și după yală, și nu trebuie să dispară după 400 de
--- rânduri — tocmai fiindcă răspund la întrebarea „cine a deschis ușa aia".
+-- A stat până pe 9 septembrie 2026 într-un blob JSON din `app_state`, cheia
+-- `pms:log:v3`: fiecare intrare nouă rescria tot vectorul. Cine putea
+-- adăuga o linie putea, cu aceeași cerere, să trimită `[]` și să șteargă
+-- tot — inclusiv camerista, care avea grant explicit pe cheia aia. Iar
+-- `userName` și `userRole` plecau din browser, deci o acțiune putea fi
+-- semnată cu numele altcuiva. Un jurnal pe care îl poate rescrie chiar cel
+-- despre care scrie nu e jurnal.
+--
+-- Aici INSERT are politică, UPDATE și DELETE n-au niciuna — deci pentru
+-- `authenticated` rândul e definitiv odată scris. Ștergerea rămâne posibilă
+-- doar din SQL, cu `service_role`.
+--
+-- Verificat pe producție, ca atac, nu ca presupunere: cu JWT-ul
+-- recepționerului, un insert care cerea „Ovidiu / admin / 2020-01-01" s-a
+-- scris „Razvan / receptionist / azi"; UPDATE și DELETE au atins 0 rânduri.
+--
+-- Blobul vechi a fost mutat aici întreg (400 de intrări, 21 aug — 8 sep
+-- 2026); plafonul lui tăiase deja definitiv tot ce era mai vechi. Tabelul
+-- nu mai are plafon, doar ecranul cere ultimele 400.
+create table activity_log (
+  id        bigserial primary key,
+  at        timestamptz not null default now(),
+  user_id   uuid references auth.users(id) on delete set null,
+  -- Numele și rolul se păstrează ca text, nu doar prin `user_id`: jurnalul
+  -- trebuie să spună cine a făcut acțiunea ATUNCI, chiar dacă între timp
+  -- omul a fost șters din `staff` sau i s-a schimbat rolul.
+  user_name text not null default '?',
+  user_role text not null default '?',
+  action    text not null check (length(action) <= 200),
+  detail    text check (length(detail) <= 1000)
+);
+
+create index activity_log_moment on activity_log (at desc);
+
+-- Semnătura nu vine din browser, se pune aici. Clientul trimite doar
+-- `action` și `detail`; restul coloanelor sunt rescrise, orice ar fi
+-- trimis. `security definer` fiindcă citește `staff`, pe care camerista
+-- oricum n-o poate citi singură.
+create or replace function activity_log_semneaza()
+returns trigger language plpgsql security definer
+set search_path = public as $$
+begin
+  new.at      := now();
+  new.user_id := auth.uid();
+  select s.name, s.role into new.user_name, new.user_role
+    from staff s where s.user_id = auth.uid();
+  new.user_name := coalesce(new.user_name, '?');
+  new.user_role := coalesce(new.user_role, '?');
+  return new;
+end $$;
+
+create trigger activity_log_semnatura
+  before insert on activity_log
+  for each row execute function activity_log_semneaza();
+
+alter table activity_log enable row level security;
+
+-- Citirea e a adminului și a recepției, ca ecranul „Jurnal" (VIEW_ROLES în
+-- pms-app.jsx).
+create policy "citeste jurnal" on activity_log
+  for select to authenticated using (is_admin() or staff_role() = 'receptionist');
+
+-- Scrie oricine e în `staff`, camerista inclusiv: schimbarea unui status de
+-- curățenie trebuie să apară în jurnal, altfel tocmai acțiunile făcute fără
+-- martori ar lipsi din el. Un cont autentificat care nu e în `staff` nu
+-- scrie nimic.
+create policy "scrie jurnal" on activity_log
+  for insert to authenticated with check (staff_role() is not null);
+
+-- Fără politici de update/delete. Asta e tot mecanismul.
+
+
+-- Audit propriu pentru yale, separat de jurnalul de mai sus.
+--
+-- Jurnalul aplicației răspunde la „cine a schimbat prețul"; ăsta la „cine a
+-- deschis ușa aia". Se caută după rezervare și după yală, are câmpuri
+-- proprii (provider, lock_id, external_ref) și e scris exclusiv din
+-- funcțiile edge, nu din browser.
 create table access_audit (
   id             bigserial primary key,
   at             timestamptz not null default now(),

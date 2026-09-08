@@ -2,8 +2,13 @@
  *
  * Ce a mai ramas din vremea in care TOATA aplicatia traia in cateva blob-uri
  * JSON. Restul s-a mutat pe tabele reale (vezi nucleu.js); aici raman doar
- * lucrurile care chiar sunt niste setari libere: curatenia, jurnalul,
- * blocajele.
+ * lucrurile care chiar sunt niste setari libere: curatenia si blocajele.
+ *
+ * Jurnalul a plecat si el, pe 9 septembrie 2026, in tabelul `activity_log`
+ * (vezi lib/audit.js). Un blob rescris intreg la fiecare adaugare nu poate fi
+ * facut doar-cu-adaugare: cine scria o linie putea trimite `[]`. Cheia veche
+ * `pms:log:v3` a ramas in baza, necitita de nimeni, ca sa mai poata scrie in
+ * ea filele deschise cu bundle-ul vechi.
  */
 
 import { supabase } from "../supabase.js";
@@ -13,7 +18,6 @@ export const K = {
   res: "pms:reservations:v3",
   hk: "pms:housekeeping:v3",
   groups: "pms:groups:v3",
-  log: "pms:log:v3",
   blocks: "pms:blocks:v3",
   /* Setarile accesului electronic. Spre deosebire de restul cheilor de aici,
      asta n-a fost niciodata un blob de tranzitie: e scrisa si citita de
