@@ -19,6 +19,7 @@
 //
 // deno-lint-ignore-file no-explicit-any
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { ipClient } from "../../../src/lib/ip.js";
 /* Adaptoarele nu se copiaza, se importa din access-provider. O a doua copie
    a logicii de TTLock ar fi insemnat ca o schimbare acolo (alt endpoint, alt
    mod de reimprospatare a tokenului) sa fie facuta in doua locuri, iar al
@@ -78,9 +79,7 @@ Deno.serve(async (req) => {
   catch { return raspuns({ error: "Corp de cerere invalid." }, 400); }
 
   const cod = String(cerere?.cod || "").trim();
-  /* Adresa vine din antet, nu din corp: altfel plafonul pe IP s-ar ocoli
-     trimitand alta valoare la fiecare cerere. */
-  const ip = (req.headers.get("x-forwarded-for") || "").split(",")[0].trim() || null;
+  const ip = ipClient(req);
 
   const admin = createClient(SUPABASE_URL, SERVICE_KEY);
 

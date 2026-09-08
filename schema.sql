@@ -1212,6 +1212,41 @@ create index booking_attempts_fp_created on booking_attempts (fingerprint, creat
 alter table booking_attempts enable row level security;
 
 
+-- Adresa reală a clientului. O folosesc toate plafoanele pe IP de mai jos.
+--
+-- DE CE NU x-forwarded-for. Antetul e scris de client, iar Cloudflare doar
+-- ADAUGĂ la el — deci primul element, cel citit până acum peste tot, era
+-- chiar valoarea trimisă de atacator. Măsurat pe producție: o cerere cu
+-- "X-Forwarded-For: 198.51.100.9" ajunge aici ca "198.51.100.9,86.124.62.94",
+-- iar split_part(...,1) întorcea exact minciuna. Toate plafoanele pe IP erau
+-- ocolibile rotind antetul la fiecare cerere.
+--
+-- DE CE cf-connecting-ip. E pus de Cloudflare și nu poate fi falsificat: o
+-- cerere care îl trimite singură e respinsă la margine cu 403 (error 1000),
+-- deci nici nu ajunge la bază. sb-forwarded-for e a doua plasă —
+-- falsificarea lui e ignorată în tăcere, adresa reală rămâne.
+--
+-- Perechea din funcțiile edge e ipClient() din src/lib/ip.js. Se schimbă
+-- împreună.
+create or replace function ip_client()
+returns text language plpgsql stable security definer
+set search_path = public as $$
+declare v jsonb;
+begin
+  begin
+    v := current_setting('request.headers', true)::jsonb;
+  exception when others then
+    -- Chemată din afara unei cereri PostgREST (editor SQL, job): fără IP.
+    return null;
+  end;
+  return nullif(coalesce(v ->> 'cf-connecting-ip', v ->> 'sb-forwarded-for'), '');
+end $$;
+
+-- Nu e chemată niciodată direct de client, doar din funcțiile de mai jos,
+-- care rulează security definer.
+revoke execute on function ip_client() from public, anon, authenticated;
+
+
 -- Creează o rezervare de pe site-ul public.
 --
 -- security definer: rulează cu drepturi depline, deși vizitatorul nu
@@ -1288,9 +1323,7 @@ begin
   -- limita pe telefon se aplică — funcția nu eșuează din cauza asta.
   v_phone_key := lower(trim(p_phone));
   begin
-    v_ip := nullif(split_part(coalesce(
-      current_setting('request.headers', true)::json->>'x-forwarded-for', ''
-    ), ',', 1), '');
+    v_ip := ip_client();
   exception when others then
     v_ip := null;
   end;
@@ -1892,8 +1925,7 @@ begin
   v_ip := nullif(trim(coalesce(p_client_ip, '')), '');
   if v_ip is null then
     begin
-      v_ip := nullif(split_part(coalesce(
-        current_setting('request.headers', true)::json->>'x-forwarded-for',''),',',1),'');
+      v_ip := ip_client();
     exception when others then v_ip := null; end;
   end if;
 
@@ -3040,15 +3072,13 @@ create or replace function guest_poarta(
 language plpgsql volatile security definer
 set search_path = public as $$
 declare
-  PLAFON_GLOBAL constant int := 200;   -- esecuri pe ora, din orice sursa
+  PLAFON_GLOBAL constant int := 5000;  -- plasa anti-botnet, nu aparare
   PLAFON_IP     constant int := 20;    -- esecuri pe ora, de la o adresa
   v_esecuri int;
   v_ip      text;
 begin
   begin
-    v_ip := nullif(split_part(coalesce(
-      current_setting('request.headers', true)::json ->> 'x-forwarded-for', ''
-    ), ',', 1), '');
+    v_ip := ip_client();
   exception when others then
     v_ip := null;
   end;
@@ -3648,9 +3678,7 @@ begin
   end if;
 
   begin
-    v_ip := nullif(split_part(coalesce(
-      current_setting('request.headers', true)::json ->> 'x-forwarded-for', ''
-    ), ',', 1), '');
+    v_ip := ip_client();
   exception when others then v_ip := null;
   end;
 

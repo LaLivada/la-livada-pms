@@ -17,6 +17,7 @@
 //
 // deno-lint-ignore-file no-explicit-any
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { ipClient } from "../../../src/lib/ip.js";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -171,7 +172,7 @@ Deno.serve(async (req) => {
     return raspuns({ error: "Corp de cerere invalid." }, 400);
   }
 
-  const ip = (req.headers.get("x-forwarded-for") || "").split(",")[0].trim() || null;
+  const ip = ipClient(req);
 
   if (!(await turnstileTrecut(c?.turnstileToken, ip))) {
     return raspuns({ error: "Nu am putut confirma că cererea vine de la o persoană. Reîncarcă pagina și încearcă din nou." }, 403);
