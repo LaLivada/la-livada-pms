@@ -1,2 +1,6 @@
+# Spre deosebire de PMS si de pagina oaspetelui, asta chiar trebuie indexata.
+# Fisierul e separat de-al lor tocmai de aceea — vezi vite.booking.config.js.
 User-agent: *
 Allow: /
+
+Sitemap: https://rezervari.lalivada.ro/sitemap.xml

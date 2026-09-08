@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- O singură adresă, fiindcă asta e toată aplicația: pașii (căutare,
+     alegerea camerei, datele clientului) sunt stări ale aceleiași pagini, nu
+     adrese separate. Un sitemap de un rând pare puțin, dar are un rost
+     concret — până acum subdomeniul nu apărea nicăieri: nu era în sitemap-ul
+     lui lalivada.ro (19 adrese, toate pe domeniul principal) și nu-l lega
+     niciun link. Aici se declară singur, iar Search Console are ce primi.
+
+     Fără `lastmod`: o dată scrisă de mână care nu se mai schimbă e mai rea
+     decât lipsa ei — Google o folosește doar cât timp se dovedește corectă. -->
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>https://rezervari.lalivada.ro/</loc>
+    <changefreq>weekly</changefreq>
+    <priority>1.0</priority>
+  </url>
+</urlset>
