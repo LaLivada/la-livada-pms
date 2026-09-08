@@ -995,11 +995,24 @@ create table billing_permissions (
 -- Perechea indexului de cheie străină de mai sus (vezi comentariul de acolo).
 create index billing_permissions_granted_by on billing_permissions (granted_by);
 
+-- ROLUL ȘI RÂNDUL, amândouă. Până pe 9 septembrie 2026 se verifica doar
+-- rândul din `billing_permissions`, fără nicio legătură cu rolul. Rândurile
+-- nu se șterg la retrogradare (nici n-ar trebui — flagul
+-- `permisiuni_implicite_acordate` de mai sus există tocmai ca o repromovare
+-- să nu reacorde tacit o permisiune retrasă manual). Deci un recepționer
+-- trecut pe „curățenie" continua să vadă facturile.
+--
+-- Măsurat înainte de fix, cu rolul comutat: 1 factură, 55 de folio-uri și 91
+-- de clienți de facturare (nume, CUI, adresă). După: 0 / 0 / 0, iar la
+-- repromovare totul revine exact cum era.
 create or replace function has_billing_permission(perm text)
 returns boolean language sql security definer set search_path = public stable as $$
-  select is_admin() or exists (
-    select 1 from billing_permissions
-    where user_id = auth.uid() and permission = perm
+  select is_admin() or (
+    staff_role() = 'receptionist'
+    and exists (
+      select 1 from billing_permissions
+      where user_id = auth.uid() and permission = perm
+    )
   );
 $$;
 

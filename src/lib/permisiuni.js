@@ -16,5 +16,12 @@ export const billingPerms = { role: null, set: new Set() };
 
 export function canBilling(perm) {
   if (billingPerms.role === "admin") return true;
+  /* Si rolul, nu doar permisiunea. Randurile din `billing_permissions` nu se
+     sterg la retrogradare — flagul `permisiuni_implicite_acordate` exista
+     tocmai ca o repromovare sa nu reacorde tacit ce retrasese cineva manual
+     — deci un fost receptioner ramane cu setul lui in tabel. Baza il refuza
+     de acum (vezi has_billing_permission in schema.sql); aici ii ascundem si
+     butoanele, ca sa nu apese pe ele si sa ia eroare. */
+  if (billingPerms.role !== "receptionist") return false;
   return billingPerms.set.has(perm);
 }
