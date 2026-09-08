@@ -26,6 +26,24 @@ export const camelRes = (r) => ({
   guestCode: r.guest_code || "",
   updatedAt: r.updated_at || null,
 });
+/* Rezervarea asa cum o vede camerista: cand e prinsa camera, si atat.
+ *
+ * Vine din vederea `rezervari_ocupare`, nu din tabel: numele, telefonul,
+ * notele, preturile si `guest_code` chiar nu exista in randul primit, deci
+ * lipsesc aici pe bune, nu din uitare. `tags` si `messages` pleaca goale
+ * fiindca n-are de unde sa le stie — calendarul oricum nu le deseneaza in
+ * modul `doarCitire`, dar asa nu crapa daca cineva scoate garda maine.
+ *
+ * `notes` ramane, dar vederea il da doar pentru blocaje („Reparatie
+ * instalatie"), unde e informatie de treaba; pe o rezervare adevarata vine
+ * null. */
+export const camelOcupare = (r) => ({
+  id: r.id, roomId: r.room_id,
+  checkin: r.checkin, checkout: r.checkout,
+  status: r.status, source: r.source,
+  notes: r.notes || "",
+  tags: [], messages: [],
+});
 export const snakeRes = (r) => ({
   id: r.id, room_id: r.roomId, guest_id: r.guestId || null, group_id: r.groupId || null,
   checkin: new Date(r.checkin).toISOString(), checkout: new Date(r.checkout).toISOString(),

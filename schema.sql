@@ -381,6 +381,40 @@ create table staff (
   permisiuni_implicite_acordate boolean not null default false
 );
 
+-- Cele două funcții de rol stau AICI, lângă tabelul pe care îl citesc și
+-- înaintea a tot ce le folosește. Ordinea nu e cosmetică: și
+-- `create policy ... using (is_admin())`, și corpul unei funcții
+-- `language sql` care o cheamă, sunt analizate la creare și eșuează dacă
+-- funcția nu există încă (verificat). Fișierul ăsta trebuie să poată fi
+-- rulat de sus în jos pe un proiect gol — e singurul drum de refacere.
+--
+-- `security definer` la amândouă, ca să nu recurseze prin RLS-ul propriu al
+-- tabelului `staff`: politica de pe `staff` cheamă `is_admin()`, care ar
+-- citi `staff`, care ar chema iar politica.
+create or replace function is_admin()
+returns boolean
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select exists(
+    select 1 from staff where user_id = auth.uid() and role = 'admin'
+  );
+$$;
+
+-- Rolul userului curent, pentru politicile de scriere și pentru vederea de
+-- ocupare.
+create or replace function staff_role()
+returns text
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select role from staff where user_id = auth.uid();
+$$;
+
 
 -- ---------------------------------------------------------------------
 -- SETĂRI DIVERSE (rămășiță din structura veche)
@@ -922,8 +956,9 @@ create index accounting_export_items_invoice on accounting_export_items(invoice_
 --
 -- La volumul de acum nu se simte; contează după câteva luni de istoric.
 -- ---------------------------------------------------------------------
+-- `billing_permissions_granted_by` lipsește din listă: tabelul lui se crează
+-- abia mai jos, deci indexul stă acolo, imediat după el.
 create index accounting_exports_created_by   on accounting_exports (created_by);
-create index billing_permissions_granted_by  on billing_permissions (granted_by);
 create index folio_items_created_by          on folio_items (created_by);
 create index folio_items_product             on folio_items (product_id);
 create index invoice_items_product           on invoice_items (product_id);
@@ -956,6 +991,9 @@ create table billing_permissions (
   granted_at   timestamptz not null default now(),
   primary key (user_id, permission)
 );
+
+-- Perechea indexului de cheie străină de mai sus (vezi comentariul de acolo).
+create index billing_permissions_granted_by on billing_permissions (granted_by);
 
 create or replace function has_billing_permission(perm text)
 returns boolean language sql security definer set search_path = public stable as $$
@@ -2213,8 +2251,11 @@ alter table online_pricing_tiers enable row level security;
 alter table staff        enable row level security;
 alter table app_state    enable row level security;
 
--- CITIRE: tot personalul autentificat vede tot, CU O EXCEPȚIE — `guests`,
--- imediat mai jos. În rest separarea pe roluri se aplică la scriere.
+-- CITIRE. Camerista vede camerele, ocuparea lor (prin vederea
+-- `rezervari_ocupare`, mai jos) și cheia ei de curățenie din `app_state`.
+-- Restul — oaspeții, rezervările, grupurile — sunt ale adminului și
+-- recepției. Prețurile (`rates`, `seasons`, tierele online) rămân deschise:
+-- sunt oricum publice, le afișează pagina de rezervări.
 create policy "staff citeste" on rooms        for select to authenticated using (true);
 
 -- OASPEȚII: doar adminul și recepționerul.
@@ -2225,15 +2266,18 @@ create policy "staff citeste" on rooms        for select to authenticated using 
 -- curățenie, acela ar fi citit numele, telefonul, emailul și adresa fiecărui
 -- om care a trecut vreodată pe la pensiune.
 --
--- CE ÎNCHIDE, ȘI CE NU. Verificat adversarial, nu presupus:
---   Închide ARHIVA. `guests` e singurul loc cu telefon, email și adresă
---   pentru toți oaspeții dintotdeauna.
---   NU închide numele sejururilor: `res_groups` și `reservations` rămân
---   deschise mai jos și duc numele grupului și `occupant_name` în același
---   loadAll(); `guest_stay_by_cod` e `security definer` și deschisă lui anon
---   (o cere guest app-ul), iar `guest_code` stă chiar în rândul rezervării.
---   O cameristă vede oricum cine e cazat — intră în camere. Diferența e
---   între „cine stă acum în 1003" și „arhiva de contacte a pensiunii".
+-- Aici s-a închis ARHIVA. `guests` e singurul loc cu telefon, email și
+-- adresă pentru toți oaspeții dintotdeauna.
+--
+-- Comentariul de aici spunea, până pe 9 septembrie 2026, că `reservations`
+-- și `res_groups` pot rămâne deschise, fiindcă „o cameristă vede oricum cine
+-- e cazat — intră în camere". Raționamentul ăla e despre NUME, și pentru
+-- nume chiar ține. Dar în rândul rezervării mai stă și `guest_code`, codul
+-- din linkul care deschide ușa — iar ăla nu se învață intrând în camere. Cu
+-- el, un cont de curățenie (sau oricine îi ia parola) deschidea de la
+-- distanță orice cameră ocupată, ocolind chiar glisorul din ecranul ei, care
+-- e blocat tocmai pe camerele ocupate. Nu prețurile și nu numele au mutat
+-- decizia, ci codul. Vezi `rezervari_ocupare` mai jos.
 --
 -- Funcțiile sunt învelite în `(select ...)`: altfel Postgres le tratează ca
 -- volatile față de rând și le reevaluează O DATĂ PE RÂND la citirea întregului
@@ -2246,11 +2290,25 @@ create policy "staff citeste" on rooms        for select to authenticated using 
 create policy "staff citeste" on guests       for select to authenticated
   using ((select is_admin()) or (select staff_role()) = 'receptionist');
 
-create policy "staff citeste" on res_groups   for select to authenticated using (true);
-create policy "staff citeste" on reservations for select to authenticated using (true);
+-- Numele unui grup e adesea un nume de familie, deci merge cu `guests`.
+create policy "staff citeste" on res_groups   for select to authenticated
+  using ((select is_admin()) or (select staff_role()) = 'receptionist');
+create policy "staff citeste" on reservations for select to authenticated
+  using ((select is_admin()) or (select staff_role()) = 'receptionist');
+
+-- Tarifele rămân deschise: sunt aceleași pe care le arată pagina publică de
+-- rezervări, deci nu e nimic de ascuns de propriul personal.
 create policy "staff citeste" on rates        for select to authenticated using (true);
 create policy "staff citeste" on seasons      for select to authenticated using (true);
-create policy "citeste app_state" on app_state for select to authenticated using (true);
+
+-- `pms:core:v3` ține datele de emitent ale facturii (CUI, adresă, cont),
+-- `pms:access:v1` setările yalelor. Camerista citește doar cheia ei de
+-- curățenie și `pms:log:v3`, cheia moartă a jurnalului — aceleași două ca la
+-- scriere.
+create policy "citeste app_state" on app_state for select to authenticated using (
+  is_admin() or staff_role() = 'receptionist'
+  or (staff_role() = 'housekeeping' and key in ('pms:housekeeping:v3', 'pms:log:v3'))
+);
 create policy "staff citeste" on online_pricing_tiers for select to authenticated using (true);
 create policy "scrie tiere pret" on online_pricing_tiers for insert to authenticated with check (is_admin());
 create policy "modifica tiere pret" on online_pricing_tiers for update to authenticated using (is_admin()) with check (is_admin());
@@ -2263,32 +2321,43 @@ create policy "sterge tiere pret" on online_pricing_tiers for delete to authenti
 create policy "vede staff" on staff
   for select to authenticated using (user_id = (select auth.uid()) or is_admin());
 
--- Functie ajutatoare: verifica daca userul curent e admin, ocolind RLS
--- pentru propriul query intern (evita recursivitatea infinita).
-create or replace function is_admin()
-returns boolean
-language sql
-security definer
-set search_path = public
-stable
-as $$
-  select exists(
-    select 1 from staff where user_id = auth.uid() and role = 'admin'
-  );
-$$;
+-- ---------------------------------------------------------------------
+-- OCUPAREA, pentru cameristă: ce cameră e prinsă în ce zile, și atât.
+--
+-- DE CE O VEDERE, ȘI NU O POLITICĂ. RLS filtrează RÂNDURI, nu coloane, iar
+-- tot personalul folosește același rol Postgres (`authenticated`), deci nici
+-- GRANT pe coloane nu poate separa camerista de recepție — un grant s-ar
+-- aplica la amândouă. Singurul mecanism care poate e o relație care nu are
+-- coloanele interzise.
+--
+-- Deliberat FĂRĂ `security_invoker`: vederea TREBUIE să treacă peste RLS-ul
+-- tabelului de dedesubt, care de acum e doar pentru admin/recepție — ăsta e
+-- chiar rostul ei, nu o scăpare. Linterul Supabase o marchează
+-- `security_definer_view` (ERROR); e semnalul lui obișnuit pentru tiparul
+-- ăsta, nu un bug de reparat. Ce o ține închisă:
+--   · `where staff_role() is not null` — cine nu e în `staff` primește zero
+--     rânduri, chiar dacă i-ar ajunge grantul cumva;
+--   · `revoke all from public, anon` — vizitatorii n-o văd deloc;
+--   · `security_barrier` — oprește trecerea funcțiilor de filtrare ale
+--     apelantului sub proiecție, adică drumul prin care un
+--     `where scump(...)` ar fi putut adulmeca tocmai coloanele lipsă.
+create view rezervari_ocupare
+with (security_barrier = true) as
+select r.id,
+       r.room_id,
+       r.checkin,
+       r.checkout,
+       r.status,
+       r.source,
+       -- Motivul unui blocaj („Reparație instalație") se vede pe calendar și
+       -- la cameristă — e informație de treabă. `notes` de pe o rezervare
+       -- adevărată nu: acolo scrie despre oaspete.
+       case when r.source = 'blocaj' then r.notes end as notes
+from reservations r
+where staff_role() is not null;
 
--- Rolul userului curent, pentru politicile de scriere de mai jos.
--- Acelasi pattern ca is_admin(): security definer ca sa nu recurseze
--- prin RLS-ul propriu al tabelului staff.
-create or replace function staff_role()
-returns text
-language sql
-security definer
-set search_path = public
-stable
-as $$
-  select role from staff where user_id = auth.uid();
-$$;
+revoke all on rezervari_ocupare from public, anon;
+grant select on rezervari_ocupare to authenticated;
 
 
 -- ---------------------------------------------------------------------
@@ -3009,6 +3078,12 @@ end $$;
 create trigger activity_log_semnatura
   before insert on activity_log
   for each row execute function activity_log_semneaza();
+
+-- Postgres verifică dreptul de EXECUTE la CREATE TRIGGER, nu la fiecare
+-- declanșare, deci revocarea nu oprește trigger-ul (verificat). Ce oprește e
+-- expunerea lui ca `/rest/v1/rpc/activity_log_semneaza`, endpoint care n-are
+-- ce căuta în API.
+revoke execute on function activity_log_semneaza() from public, anon, authenticated;
 
 alter table activity_log enable row level security;
 

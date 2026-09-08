@@ -11,7 +11,7 @@
  */
 import { supabase } from "../supabase.js";
 import {
-  camelRes, camelGuest, camelRoom, camelGroup,
+  camelRes, camelOcupare, camelGuest, camelRoom, camelGroup,
   camelBillingCustomer, camelVatRate, camelProduct, camelPaymentMethod,
 } from "./mapari.js";
 
@@ -79,12 +79,26 @@ export async function saveRatesAndSeasons(beforeRates, afterRates) {
   }
 }
 
-export async function loadAll() {
+/* `rol` decide DE UNDE se citesc rezervarile.
+ *
+ * Camerista nu mai citeste tabelul `reservations`, ci vederea
+ * `rezervari_ocupare`. Pana pe 9 septembrie 2026 politica de citire era
+ * `using (true)`, deci ii ajungeau in browser numele, telefonul, notele si
+ * preturile fiecarei rezervari — plus `guest_code`, codul din linkul care
+ * deschide usa. Cu el putea deschide orice camera ocupata, ocolind chiar
+ * glisorul din ecranul ei, care e blocat tocmai pe camerele ocupate.
+ * Interfata ascundea toate astea („doarCitire" in CalendarView), dar
+ * ascunderea in interfata nu e o restrictie — DevTools o trece.
+ *
+ * `guests` si `res_groups` intorc acum [] pentru cameristă, prin RLS. Nu e
+ * eroare si nu e tratat ca atare: calendarul ei nu deseneaza nume. */
+export async function loadAll(rol) {
+  const doarOcupare = rol === "housekeeping";
   const [rooms, guests, groups, res, rates, seasons, onlineTiers, billingCustomers, vatRates, products, paymentMethods] = await Promise.all([
     supabase.from("rooms").select("*").order("sort_order"),
     supabase.from("guests").select("*"),
     supabase.from("res_groups").select("*"),
-    supabase.from("reservations").select("*"),
+    supabase.from(doarOcupare ? "rezervari_ocupare" : "reservations").select("*"),
     supabase.from("rates").select("*").order("room_type"),
     supabase.from("seasons").select("*"),
     supabase.from("online_pricing_tiers").select("*").order("sort_order"),
@@ -112,7 +126,8 @@ export async function loadAll() {
     rooms: rooms.data.map(camelRoom),
     guests: guests.data.map(camelGuest),
     groups: groups.data.map(camelGroup),
-    reservations: res.data.filter((r) => r.source !== "blocaj").map(camelRes),
+    reservations: res.data.filter((r) => r.source !== "blocaj")
+      .map(doarOcupare ? camelOcupare : camelRes),
     blocks: res.data.filter((r) => r.source === "blocaj").map((b) => ({
       id: b.id, roomId: b.room_id, start: b.checkin, end: b.checkout, reason: b.notes || "",
     })),

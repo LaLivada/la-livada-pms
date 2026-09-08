@@ -468,7 +468,7 @@ function PMSApp() {
     (async () => {
       try {
         if (!currentUser) { if (alive) setLoading(false); return; }
-        const db = await loadAll();
+        const db = await loadAll(currentUser.role);
         // Setarile care nu au tabel propriu (useri, ore check-in etc.)
         // raman in app_state; restul vine acum din tabele reale.
         const settings = (await loadShared(K.core, null)) || {};
@@ -489,9 +489,14 @@ function PMSApp() {
            tarife. Scriere in fundal, fara sa blocheze incarcarea; no-op
            la urmatoarele porniri, odata ce fiecare rezervare are snapshot. */
         const rawRes = db.reservations;
-        const r = rawRes.map((x) => (x.priceOverride == null && x.bookedPrice == null)
-          ? { ...x, bookedPrice: liveReservationTotalOnline(x, c, rawRes) }
-          : x);
+        /* Camerista sare peste: rezervarile ei vin din vederea de ocupare,
+           care n-are coloane de pret, deci fiecare rand ar parea nesnapshotat
+           si ar declansa un backfill pe care oricum n-are dreptul sa-l scrie.
+           S-ar fi soldat cu 137 de scrieri respinse la fiecare pornire. */
+        const r = currentUser.role === "housekeeping" ? rawRes
+          : rawRes.map((x) => (x.priceOverride == null && x.bookedPrice == null)
+            ? { ...x, bookedPrice: liveReservationTotalOnline(x, c, rawRes) }
+            : x);
         const backfilled = r.filter((x, i) => x !== rawRes[i]);
         if (backfilled.length) {
           syncTable("reservations", [], backfilled, snakeRes)
