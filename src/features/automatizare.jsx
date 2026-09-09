@@ -13,20 +13,24 @@
  * Shelly nu ajunge niciodata in browser.
  */
 import React, { useState, useEffect, useCallback, useMemo } from "react";
-import { Zap, Flame, Lightbulb, Plug, RefreshCw, Plus, Trash2, Clock } from "lucide-react";
+import { Zap, ShowerHead, Spotlight, PlugZap, Gauge, RefreshCw, Plus, Trash2, Clock } from "lucide-react";
 import { audit, isAdmin } from "../lib/audit.js";
 import { mesajEroare } from "../lib/errors.js";
 import { fmtDateTime } from "../lib/format.js";
 import { Dialog, toaster, useModalLock } from "../ui/primitive.jsx";
 import {
   CAMERE_TEHNICE, CANALE, toateDispozitivele, adaugaShelly, stergeShelly,
-  cheamaDispozitiv,
+  cheamaDispozitiv, contorul,
 } from "../data/dispozitive.js";
 
+/* Iconul spune ce comanda releul, deci merita sa fie cel concret, nu unul
+   generic: un dus pentru boiler (apa calda, nu foc), un proiector pentru
+   iluminatul exterior (nu un bec de camera), o priza cu fulger pentru
+   circuitul de prize. */
 const PICTOGRAMA = {
-  boiler: Flame,
-  iluminat_exterior: Lightbulb,
-  prize: Plug,
+  boiler: ShowerHead,
+  iluminat_exterior: Spotlight,
+  prize: PlugZap,
 };
 
 export function AutomatizareView({ core }) {
@@ -120,6 +124,8 @@ export function AutomatizareView({ core }) {
 
       {sectiune === "automatizari" ? <Automatizari /> : (
         <>
+      <ConsumCurent contor={contorul(dispozitive)} />
+
       <div className="tabs-bar">
         <div className="sub-tabs dv-tabs" role="tablist" aria-label="Camere tehnice">
           {CAMERE_TEHNICE.map((ct) => {
@@ -181,6 +187,50 @@ export function AutomatizareView({ core }) {
     </div>
   );
 }
+
+/* Consumul general, citit de Shelly Pro 3EM. R, S si T sunt fazele 1, 2 si 3
+   — asa le numeste electricianul, si asa scrie pe tablou; in API-ul Shelly
+   ele sunt a, b si c.
+   Randul e deasupra camerelor tehnice fiindca priveste toata pensiunea, nu o
+   pereche de camere: cand cineva se uita de ce a sarit ceva, prima intrebare
+   e cat trage in total si daca fazele sunt echilibrate. */
+function ConsumCurent({ contor }) {
+  if (!contor) return null;
+
+  const c = contor.consum;
+  const necunoscut = !c || !contor.online;
+
+  return (
+    <div className="dv-consum">
+      <span className="dv-consum-titlu">
+        <Gauge size={15} /> Consum curent
+      </span>
+      {necunoscut ? (
+        <span className="dv-consum-gol">
+          {contor.online === false && contor.vazutLa
+            ? "contorul nu răspunde"
+            : "încă necitit — apasă „Actualizează starea”"}
+        </span>
+      ) : (
+        <>
+          <span className="dv-consum-total">{nr(c.totalKw, 2)} kW</span>
+          <span className="dv-consum-total">{nr(c.totalA, 1)} A</span>
+          {(c.faze || []).map((f) => (
+            <span className="dv-faza" key={f.nume}>
+              <b>{f.nume}</b> {nr(f.kw, 2)} kW · {nr(f.a, 1)} A
+            </span>
+          ))}
+        </>
+      )}
+    </div>
+  );
+}
+
+/* Virgula zecimala, ca peste tot in aplicatie. */
+const nr = (v, zecimale) =>
+  Number(v || 0).toLocaleString("ro-RO", {
+    minimumFractionDigits: zecimale, maximumFractionDigits: zecimale,
+  });
 
 /* Regulile care pornesc singure releele — pornit boilerul inainte de sosire,
    stins iluminatul dupa o ora. Nu exista inca niciuna: ecranul spune asta

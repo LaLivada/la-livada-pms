@@ -105,7 +105,7 @@ Deno.serve(async (req) => {
   // --- refresh fără deviceId: toate dispozitivele, în loturi ---
   if (actiune === "refresh" && !cerere?.deviceId) {
     const { data: toate } = await admin.from("devices")
-      .select("id, provider_device_id, channel").eq("enabled", true).eq("provider", "shelly");
+      .select("id, provider_device_id, channel, kind").eq("enabled", true).eq("provider", "shelly");
     const lista = toate || [];
     if (!lista.length) return raspuns({ ok: true, actualizate: 0 });
 
@@ -133,9 +133,14 @@ Deno.serve(async (req) => {
       /* Fiecare rând e un CANAL, iar Shelly a răspuns o dată per dispozitiv:
          starea se extrage per canal, altfel toate cele patru canale ale unui
          Pro 4PM ar primi starea canalului 0 — boilerul pornit ar face să
-         pară că sunt pornite și prizele. */
+         pară că sunt pornite și prizele.
+         Contorul citeşte altceva din acelaşi răspuns: puterea pe cele trei
+         faze, nu un întrerupător. */
+      const stare = d.kind === "contor"
+        ? { online: s.online, consum: shelly.citesteConsum(s.status) }
+        : { on: shelly.citesteIesire(s.status, d.channel), online: s.online };
       await admin.from("devices").update({
-        last_status: { on: shelly.citesteIesire(s.status, d.channel), online: s.online },
+        last_status: stare,
         last_seen_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       }).eq("id", d.id);
@@ -171,6 +176,16 @@ Deno.serve(async (req) => {
     }, 501);
   }
 
+  /* Un contor nu se comandă. Refuzul e explicit, nu tăcut: altfel un buton
+     rătăcit în interfață ar trimite `set/switch` unui dispozitiv care n-are
+     niciun comutator, iar Shelly ar răspunde cu o eroare greu de citit. */
+  if (device.kind === "contor" && actiune !== "refresh") {
+    return raspuns({
+      ok: false, reason: "necomandabil",
+      error: "Contorul doar măsoară — nu are ce porni sau opri.",
+    }, 400);
+  }
+
   const camere = numeCamere(device);
   const contextJurnal = {
     actor, device_id: device.id, device_name: device.name,
@@ -204,7 +219,9 @@ Deno.serve(async (req) => {
       await jurnal({ ...contextJurnal, action: "refresh", result: "error", detail: "Shelly n-a raportat dispozitivul." });
       return raspuns({ ok: false, reason: "necunoscut", error: "Shelly nu cunoaște acest dispozitiv. Verifică ID-ul din setări." }, 404);
     }
-    const stare = { on: shelly.citesteIesire(brut.status, device.channel), online: brut.online };
+    const stare = device.kind === "contor"
+      ? { online: brut.online, consum: shelly.citesteConsum(brut.status) }
+      : { on: shelly.citesteIesire(brut.status, device.channel), online: brut.online };
     await admin.from("devices").update({
       last_status: stare,
       last_seen_at: new Date().toISOString(),
@@ -238,7 +255,9 @@ function numeCamere(device: any): string[] {
    îi ajunge `id`-ul intern. */
 function catreClient(
   device: any,
-  stare: { on: boolean; online: boolean },
+  /* Forma difera dupa tipul dispozitivului: un releu raporteaza `on`, un
+     contor raporteaza `consum`. Ambele au `online`. */
+  stare: Record<string, unknown>,
   camere: string[],
 ) {
   return {

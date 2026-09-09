@@ -4114,7 +4114,12 @@ create table devices (
   -- switch-uri pentru API, deci tipul n-ar distinge nimic, pe cand functia
   -- decide ce scrie in interfata si ce avertisment se arata. Daca apare
   -- vreodata un rulou (cover), atunci se adauga o coloana separata.
-  kind               text not null check (kind in ('boiler', 'iluminat_exterior', 'prize', 'altul')),
+  -- 'contor' iese din tipar: e un Shelly Pro 3EM care doar MASOARA consumul
+  -- pe trei faze. Sta aici fiindca tot ce e in jur (cont, apel de status in
+  -- loturi, functie edge) e identic; difera doar ce se citeste din raspuns
+  -- si faptul ca nu se comanda. N-are randuri in `device_rooms`: masoara
+  -- toata pensiunea, nu o camera.
+  kind               text not null check (kind in ('boiler', 'iluminat_exterior', 'prize', 'contor', 'altul')),
   channel            integer not null default 0 check (channel between 0 and 15),
   name               text not null check (length(name) between 1 and 60),
   enabled            boolean not null default true,

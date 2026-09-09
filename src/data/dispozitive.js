@@ -45,8 +45,15 @@ export const ETICHETE_KIND = {
   boiler: "Boiler",
   iluminat_exterior: "Iluminat exterior",
   prize: "Prize",
+  contor: "Contor general",
   altul: "Altul",
 };
+
+/* Contorul general — un Shelly Pro 3EM care masoara consumul pe cele trei
+   faze. Nu apartine niciunei camere tehnice si nu se comanda; sta in acelasi
+   tabel ca releele doar fiindca tot restul (cont, apel de status, functie
+   edge) e identic. */
+export const KIND_CONTOR = "contor";
 
 /* Toate dispozitivele, cu camerele pe care le servesc. Forma intoarsa e deja
    cea de care are nevoie interfata: `camere` ca lista de nume, si `partajat`
@@ -77,8 +84,15 @@ function catreEcran(d) {
     partajat: camere.length > 1,
     pornit: d.last_status?.on === true,
     online: d.last_status?.online === true,
+    /* Doar contorul are asta; la relee ramane null. */
+    consum: d.last_status?.consum || null,
     vazutLa: d.last_seen_at,
   };
+}
+
+/* Contorul general din lista, sau null cat timp n-a fost citit inca. */
+export function contorul(dispozitive) {
+  return (dispozitive || []).find((d) => d.kind === KIND_CONTOR) || null;
 }
 
 /* Dispozitivele unei camere. Un canal partajat apare la AMBELE camere ale

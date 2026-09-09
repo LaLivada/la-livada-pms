@@ -137,6 +137,70 @@ export async function citesteStare(
   return rezultat;
 }
 
+/* Consumul citit de un Shelly Pro 3EM.
+   Puterea vine în WAȚI de la Shelly; aici pleacă în kW, fiindcă asta se
+   afișează — conversia se face o singură dată, aici, nu în fiecare loc care
+   pune cifra pe ecran. */
+export interface Faza {
+  nume: "R" | "S" | "T";
+  kw: number;
+  a: number;
+  v: number;
+}
+export interface Consum {
+  faze: Faza[];
+  totalKw: number;
+  totalA: number;
+}
+
+const NUME_FAZE: Array<"R" | "S" | "T"> = ["R", "S", "T"];
+
+/* Extras separat, testabil fără rețea — vezi src/shelly.test.js.
+
+   Două forme acceptate, fiindcă n-am putut verifica pe dispozitivul real
+   care dintre ele vine: Pro 3EM (Gen2) raportează un obiect `em:0` cu chei
+   `a_act_power` / `b_` / `c_`, iar 3EM-ul Gen1 raporta un tablou `emeters`.
+   Ce nu se potrivește iese ca zero — o cifră lipsă e mai onestă decât una
+   inventată dintr-o cheie ghicită greșit. */
+export function citesteConsum(status: unknown): Consum | null {
+  if (!status || typeof status !== "object") return null;
+  const s = status as Record<string, any>;
+  const em = s["em:0"] || s.em0 || s.em;
+
+  let faze: Faza[];
+  if (em && typeof em === "object") {
+    faze = ["a", "b", "c"].map((litera, i) => ({
+      nume: NUME_FAZE[i],
+      kw: numar(em[`${litera}_act_power`]) / 1000,
+      a: numar(em[`${litera}_current`]),
+      v: numar(em[`${litera}_voltage`]),
+    }));
+  } else if (Array.isArray(s.emeters)) {
+    faze = s.emeters.slice(0, 3).map((e: any, i: number) => ({
+      nume: NUME_FAZE[i],
+      kw: numar(e?.power) / 1000,
+      a: numar(e?.current),
+      v: numar(e?.voltage),
+    }));
+  } else {
+    return null;
+  }
+
+  /* Totalul raportat de dispozitiv are prioritate fata de suma fazelor:
+     Shelly il calculeaza din aceleasi masuratori, dar fara erorile de
+     rotunjire pe care le-ar aduna trei impartiri la 1000. */
+  const totalKw = em && em.total_act_power !== undefined
+    ? numar(em.total_act_power) / 1000
+    : faze.reduce((t, f) => t + f.kw, 0);
+  const totalA = em && em.total_current !== undefined
+    ? numar(em.total_current)
+    : faze.reduce((t, f) => t + f.a, 0);
+
+  return { faze, totalKw, totalA };
+}
+
+const numar = (v: unknown): number => (typeof v === "number" && isFinite(v) ? v : 0);
+
 /* Starea unui CANAL anume din răspunsul brut.
 
    Forma lui `status` diferă între familii de dispozitive. Pro 4PM (Gen2)

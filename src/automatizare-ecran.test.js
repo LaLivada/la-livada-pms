@@ -65,6 +65,21 @@ const DISPOZITIVE = [
     eticheta: "Prize", nume: "Prize", activ: true, model: "Shelly Pro 4PM",
     camereIds: ["r1011"], camere: ["1011"], partajat: false,
     pornit: false, online: false, vazutLa: "2026-09-09T15:00:00Z" },
+  /* Contorul general. Nu apartine niciunei camere tehnice — `camereIds` gol
+     e tocmai ce il tine afara din gruparea pe perechi. */
+  { id: "dv-441d647468c8-0", idShelly: "441d647468c8", canal: 0, iesire: 1,
+    kind: "contor", eticheta: "Contor general", nume: "Contor general",
+    activ: true, model: "Shelly Pro 3EM",
+    camereIds: [], camere: [], partajat: false,
+    pornit: false, online: true, vazutLa: "2026-09-09T15:00:00Z",
+    consum: {
+      totalKw: 2.4314, totalA: 10.57,
+      faze: [
+        { nume: "R", kw: 0.8124, a: 3.54, v: 231.2 },
+        { nume: "S", kw: 0.9031, a: 3.91, v: 230.8 },
+        { nume: "T", kw: 0.7159, a: 3.12, v: 232.0 },
+      ],
+    } },
 ];
 
 async function randeaza() {
@@ -118,6 +133,41 @@ describe("AutomatizareView — structura pe camere tehnice", () => {
     expect(titluri).toContain("Releu 2 · Boiler");
     expect(titluri.filter((t) => t === "Releu 3 · Prize").length).toBeGreaterThan(0);
     expect(titluri.filter((t) => t === "Releu 4 · Prize").length).toBeGreaterThan(0);
+  });
+});
+
+describe("AutomatizareView — consumul general", () => {
+  it("arata totalul si cele trei faze, deasupra camerelor tehnice", async () => {
+    const g = await randeaza();
+    const rand = g.querySelector(".dv-consum");
+    expect(rand.textContent).toContain("Consum curent");
+    expect(rand.textContent).toContain("2,43 kW");
+    expect(rand.textContent).toContain("10,6 A");
+    const faze = [...rand.querySelectorAll(".dv-faza")].map((f) => f.textContent);
+    expect(faze.length).toBe(3);
+    expect(faze[0]).toContain("R");
+    expect(faze[0]).toContain("0,81 kW");
+    expect(faze[1]).toContain("S");
+    expect(faze[2]).toContain("T");
+  });
+
+  it("sta INAINTEA numerelor de camere tehnice", async () => {
+    const g = await randeaza();
+    const consum = g.querySelector(".dv-consum");
+    const taburi = g.querySelector(".dv-tabs");
+    // compareDocumentPosition: 4 = following
+    expect(consum.compareDocumentPosition(taburi) & 4).toBeTruthy();
+  });
+
+  /* Contorul e in acelasi tabel ca releele, deci trebuie tinut explicit
+     afara din camerele tehnice — altfel ar aparea ca un al cincilea releu
+     fara camera, cu un buton de pornit care n-are ce comanda. */
+  it("nu apare printre releele vreunei camere tehnice", async () => {
+    const g = await randeaza();
+    const panou = [...g.querySelectorAll(".panel")]
+      .find((p) => p.textContent.includes("Camera tehnică"));
+    expect(panou.querySelectorAll(".dv-row").length).toBe(4);
+    expect(panou.textContent).not.toContain("Contor");
   });
 });
 

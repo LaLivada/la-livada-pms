@@ -752,6 +752,32 @@
 .dv-icon-offline{ color:var(--warning); }
 .dv-icon-necunoscut{ color:var(--text-muted); }
 
+/* Consumul general, deasupra camerelor tehnice. Se rupe pe mai multe randuri
+   pe telefon: sunt opt cifre cu unitati, si niciuna n-are voie sa fie taiata
+   — un „1,2" din care lipseste un digit e mai rau decat nicio cifra. */
+.dv-consum{
+  display:flex; flex-wrap:wrap; align-items:center; gap:8px 12px;
+  padding:12px 14px; margin-bottom:14px;
+  background:var(--surface); border:1px solid var(--border-soft);
+  border-radius:var(--r-sm);
+}
+.dv-consum-titlu{
+  display:inline-flex; align-items:center; gap:6px;
+  font-size:var(--fs-sm); font-weight:600; color:var(--text-muted);
+  text-transform:uppercase; letter-spacing:.04em;
+}
+.dv-consum-total{
+  font-size:var(--fs-lg); font-weight:700; font-variant-numeric:tabular-nums;
+}
+.dv-consum-gol{ font-size:var(--fs-sm); color:var(--text-muted); }
+/* Fazele, mai discrete decat totalul: totalul se citeste de la distanta,
+   fazele doar cand cauti dezechilibrul. */
+.dv-faza{
+  font-size:var(--fs-sm); color:var(--text-muted);
+  font-variant-numeric:tabular-nums; white-space:nowrap;
+}
+.dv-faza b{ color:var(--text); font-weight:700; }
+
 /* Bara celor sapte camere tehnice, pe UN SINGUR RAND, la orice latime.
    `.sub-tabs` implicit da `flex-shrink:0` fiecarui tab si deruleaza pe
    orizontala ce nu incape — adica #6 si #7 ar sta ascunse sub marginea
