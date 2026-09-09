@@ -3883,6 +3883,15 @@ grant select on fise_cazare_lista to authenticated;
 -- fișă semnată. Nimic nu prinde codul: trigger-ul e `before update or
 -- delete`, iar singurul `exception when check_violation` de pe fise, din
 -- `guest_fisa_semneaza`, e pe INSERT.
+--
+-- CE SPUNE PRIMUL MESAJ, ȘI DE CE NU ALTCEVA. Prima variantă zicea
+-- „anuleaz-o întâi, apoi șterge rezervarea". E fals: ramura de DELETE de mai
+-- jos nu se uită deloc la `anulata_la`, deci respinge și ștergerea unei fișe
+-- deja anulate (verificat, cu tranzacție anulată). O rezervare cu fișă nu se
+-- șterge NICIODATĂ — și nici n-ar trebui: fișa e document legal, iar
+-- `on delete cascade` de pe `reservation_id` ar duce-o cu ea. Singurul drum
+-- care chiar funcționează e statusul „Anulată" pe rezervare, iar mesajul
+-- trebuie să trimită acolo, nu într-o buclă.
 create or replace function fise_cazare_doar_anulare()
 returns trigger language plpgsql security definer
 set search_path = public as $$
@@ -3891,7 +3900,7 @@ declare
   nou   jsonb;
 begin
   if TG_OP = 'DELETE' then
-    raise exception 'Rezervarea are fișă de cazare semnată, iar o fișă nu se șterge. Anuleaz-o întâi din secțiunea „Fișă de cazare" a rezervării (sau din Clienți → Fișe), apoi șterge rezervarea.';
+    raise exception 'Rezervarea are fișă de cazare, deci nu poate fi ștearsă — o fișă nu se șterge niciodată, nici anulată. Pune-i statusul pe „Anulată”: eliberează camera și dispare de pe calendar, dar rămâne în evidență.';
   end if;
 
   if old.anulata_la is not null then
