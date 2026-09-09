@@ -20,7 +20,7 @@ import { fmtDateTime } from "../lib/format.js";
 import { Dialog, toaster, useModalLock } from "../ui/primitive.jsx";
 import {
   CAMERE_TEHNICE, CANALE, toateDispozitivele, adaugaShelly, stergeShelly,
-  cheamaDispozitiv, contorul,
+  cheamaDispozitiv, contorul, ETICHETE_KIND,
 } from "../data/dispozitive.js";
 
 /* Iconul spune ce comanda releul, deci merita sa fie cel concret, nu unul
@@ -70,7 +70,7 @@ export function AutomatizareView({ core }) {
     try {
       setDispozitive(await toateDispozitivele());
     } catch (e) {
-      toaster.push(mesajEroare(e, "Nu am putut citi dispozitivele."), "error");
+      toaster.show(mesajEroare(e, "Nu am putut citi dispozitivele."), { tone: "danger" });
     } finally {
       setSeIncarca(false);
     }
@@ -87,9 +87,9 @@ export function AutomatizareView({ core }) {
     const r = await cheamaDispozitiv("refresh");
     ultimaComanda.current = Date.now();
     setOcupat(null);
-    if (!r.ok) { toaster.push(r.error, "error"); return; }
+    if (!r.ok) { toaster.show(r.error, { tone: "danger" }); return; }
     await reincarca();
-    toaster.push(r.actualizate ? `Stare actualizată pentru ${r.actualizate} ieșiri.` : "Niciun dispozitiv de actualizat.");
+    toaster.show(r.actualizate ? `Stare actualizată pentru ${r.actualizate} ieșiri.` : "Niciun dispozitiv de actualizat.", { tone: "ok" });
   }, [reincarca]);
 
   /* CONSUM „ÎN TIMP REAL"
@@ -163,6 +163,31 @@ export function AutomatizareView({ core }) {
     return () => { anulat = true; clearTimeout(ceas); };
   }, [idContor, sectiune, liveOprit]);
 
+  /* Comanda pe grup — toate luminile exterioare, sau toate boilerele.
+     Un singur apel catre functia edge, care le trimite acolo una cate una,
+     cu pauza intre ele. Sapte comenzi plecate deodata din browser ar fi
+     lovit garantat limita de ritm a Shelly. */
+  const comandaGrup = useCallback(async (kind, pornit) => {
+    setOcupat("grup:" + kind);
+    ultimaComanda.current = Date.now();
+    const r = await cheamaDispozitiv(pornit ? "on" : "off", { kind });
+    ultimaComanda.current = Date.now();
+    setOcupat(null);
+
+    const eticheta = ETICHETE_KIND[kind] || kind;
+    if (r.reusite) {
+      audit.push(
+        pornit ? "Pornit grup" : "Oprit grup",
+        `${eticheta} · ${r.reusite} din ${r.total}`,
+      );
+    }
+    /* Reusita partiala nu e succes: daca un releu n-a raspuns, cineva
+       trebuie sa afle care, nu sa plece cu impresia ca s-a facut tot. */
+    if (!r.ok) { toaster.show(r.error || "Comanda pe grup a eșuat.", { tone: "danger" }); }
+    else { toaster.show(`${eticheta}: ${pornit ? "pornite" : "oprite"} toate (${r.reusite}).`, { tone: "ok" }); }
+    await reincarca();
+  }, [reincarca]);
+
   const comuta = useCallback(async (dispozitiv, pornit) => {
     setOcupat(dispozitiv.id);
     /* Marcat inainte SI dupa: inainte ca o citire care tocmai se pregatea sa
@@ -171,7 +196,7 @@ export function AutomatizareView({ core }) {
     const r = await cheamaDispozitiv(pornit ? "on" : "off", { deviceId: dispozitiv.id });
     ultimaComanda.current = Date.now();
     setOcupat(null);
-    if (!r.ok) { toaster.push(r.error, "error"); return; }
+    if (!r.ok) { toaster.show(r.error, { tone: "danger" }); return; }
     audit.push(
       pornit ? "Pornit dispozitiv" : "Oprit dispozitiv",
       `${dispozitiv.eticheta} · ${dispozitiv.camere.join(", ")}`,
@@ -217,7 +242,9 @@ export function AutomatizareView({ core }) {
         </button>
       </div>
 
-      {sectiune === "automatizari" ? <Automatizari /> : (
+      {sectiune === "automatizari" ? (
+        <Automatizari dispozitive={dispozitive} ocupat={ocupat} onComanda={comandaGrup} />
+      ) : (
         <>
       <ConsumCurent
         contor={contorul(dispozitive)}
@@ -340,21 +367,85 @@ const nr = (v, zecimale) =>
     minimumFractionDigits: zecimale, maximumFractionDigits: zecimale,
   });
 
-/* Regulile care pornesc singure releele — pornit boilerul inainte de sosire,
-   stins iluminatul dupa o ora. Nu exista inca niciuna: ecranul spune asta
-   deschis, in loc sa arate o lista goala din care nu se intelege daca e o
-   functie neterminata sau doar n-a configurat nimeni nimic. */
-function Automatizari() {
+/* Comanda pe toata pensiunea deodata: toate luminile exterioare, toate
+   boilerele. Aici, nu in „Camere tehnice", fiindca acolo fiecare rand
+   priveste o pereche de camere — asta le priveste pe toate. */
+const GRUPURI = [
+  { kind: "iluminat_exterior", titlu: "Control manual lumini exterioare" },
+  { kind: "boiler", titlu: "Control manual boilere" },
+];
+
+function Automatizari({ dispozitive, ocupat, onComanda }) {
   return (
-    <div className="panel">
-      <div className="empty-state">
-        <Clock size={26} />
-        <h4>Nicio automatizare</h4>
-        <p>
-          Aici vor sta regulile care comandă releele singure — de exemplu „pornește boilerul
-          cu două ore înainte de sosire" sau „stinge iluminatul exterior la răsărit".
-          Deocamdată releele se comandă doar manual, din <strong>Camere tehnice</strong>.
-        </p>
+    <>
+      <div className="panel" style={{ marginBottom: 14 }}>
+        {GRUPURI.map((g) => (
+          <ComandaGrup
+            key={g.kind} config={g}
+            /* Doar releele active: unul dezactivat din setari n-are ce cauta
+               nici in numaratoare, nici in comanda. */
+            aleGrupului={dispozitive.filter((d) => d.kind === g.kind && d.activ)}
+            ocupat={ocupat} onComanda={onComanda}
+          />
+        ))}
+      </div>
+
+      {/* Regulile care ar porni singure releele nu exista inca. Ecranul o
+          spune deschis: o lista goala n-ar lasa pe nimeni sa distinga o
+          functie neterminata de „n-a configurat inca nimeni nimic". */}
+      <div className="panel">
+        <div className="empty-state">
+          <Clock size={26} />
+          <h4>Nicio regulă automată</h4>
+          <p>
+            Butoanele de mai sus comandă manual. Aici vor sta regulile care le pornesc
+            singure — de exemplu „pornește boilerele cu două ore înainte de sosire"
+            sau „stinge iluminatul exterior la răsărit".
+          </p>
+        </div>
+      </div>
+    </>
+  );
+}
+
+function ComandaGrup({ config, aleGrupului, ocupat, onComanda }) {
+  const Icon = PICTOGRAMA[config.kind] || Zap;
+  const acestaOcupat = ocupat === "grup:" + config.kind;
+  const pornite = aleGrupului.filter((d) => d.pornit).length;
+  const total = aleGrupului.length;
+
+  return (
+    <div className="dv-row">
+      {/* Iconul ia culoarea grupului: verde daca macar unul e pornit, rosu
+          daca toate sunt stinse. Un grup e rareori uniform, deci nuanta
+          exacta o da textul de dedesubt, nu culoarea. */}
+      <span className={"dv-icon " + (pornite ? "dv-icon-on" : "dv-icon-off")} aria-hidden="true">
+        <Icon size={34} />
+      </span>
+      <div className="dv-info">
+        <div className="dv-title">{config.titlu}</div>
+        <div className="dv-sub">
+          {total === 0
+            ? "niciun releu înregistrat"
+            : `${pornite} din ${total} pornite`}
+        </div>
+      </div>
+      {/* Amandoua butoanele mereu vizibile, spre deosebire de randul unui
+          singur releu: un grup n-are o stare unica pe care s-o inverseze un
+          buton, poate fi pornit pe jumatate. */}
+      <div className="dv-ctrl">
+        <button
+          className="btn btn-primary" disabled={!total || acestaOcupat}
+          onClick={() => onComanda(config.kind, true)}
+        >
+          {acestaOcupat ? "…" : "Pornește"}
+        </button>
+        <button
+          className="btn btn-ghost" disabled={!total || acestaOcupat}
+          onClick={() => onComanda(config.kind, false)}
+        >
+          {acestaOcupat ? "…" : "Oprește"}
+        </button>
       </div>
     </div>
   );
@@ -408,7 +499,7 @@ function CameraTehnica({ ct, dispozitive, numeCamera, ocupat, onComuta, onAdauga
                       audit.push("Șters Shelly", `Camera tehnică ${ct.nr} · ${idShelly}`);
                       await onSterge();
                     } catch (e) {
-                      toaster.push(mesajEroare(e, "Nu am putut șterge Shelly-ul."), "error");
+                      toaster.show(mesajEroare(e, "Nu am putut șterge Shelly-ul."), { tone: "danger" });
                     } finally { setConfirmaStergere(false); }
                   }}
                 ><Trash2 size={14} /></button>
@@ -532,10 +623,10 @@ function AdaugaReleu({ ct, numeCamera, idFolosite, onClose, onGata }) {
     try {
       await adaugaShelly({ idShelly: curat, nrCameraTehnica: ct.nr, model: "Shelly Pro 4PM" });
       audit.push("Adăugat Shelly", `Camera tehnică ${ct.nr} · ${curat}`);
-      toaster.push("Shelly adăugat. Verifică starea celor patru relee.");
+      toaster.show("Shelly adăugat. Verifică starea celor patru relee.", { tone: "ok" });
       await onGata();
     } catch (e) {
-      toaster.push(mesajEroare(e, "Nu am putut adăuga Shelly-ul."), "error");
+      toaster.show(mesajEroare(e, "Nu am putut adăuga Shelly-ul."), { tone: "danger" });
       setSalveaza(false);
     }
   }

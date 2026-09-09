@@ -36,6 +36,15 @@ const SERVICE_KEY  = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
    aceeași pagină: User Settings → Authorization cloud key. `SERVER_URI` NU
    e un domeniu universal — e serverul contului (ex.
    "shelly-103-eu.shelly.cloud") și trebuie citit de acolo, nu presupus. */
+/* Pauza dintre două comenzi ale aceleiaşi acțiuni pe grup: o secundă fix.
+   Shelly acceptă în jur de o cerere pe secundă; sub pragul ăsta refuză cu
+   TOO_MANY_REQUESTS, aşa cum s-a văzut pe 9 septembrie când comenzile de
+   boiler date manual una după alta s-au lovit între ele.
+   Consecința de ştiut: şapte relee înseamnă şase secunde de aşteptare până
+   când butonul răspunde. E preferabil unei comenzi rapide din care jumătate
+   n-a ajuns. */
+const PAUZA_INTRE_COMENZI_MS = 1000;
+
 const AUTH_KEY   = Deno.env.get("SHELLY_AUTH_KEY") || "";
 const SERVER_URI = (Deno.env.get("SHELLY_SERVER_URI") || "").replace(/^https?:\/\//, "").replace(/\/+$/, "");
 
@@ -158,6 +167,73 @@ Deno.serve(async (req) => {
       return raspuns({ ok: false, error: erori[0] }, 502);
     }
     return raspuns({ ok: true, actualizate });
+  }
+
+  /* --- comandă pe grup: toate releele de un fel ---
+   *
+   * Se face AICI, pe server, nu prin şapte apeluri din browser. Motivul e
+   * exact bugul de azi: Shelly refuză cereri prea apropiate, iar şapte
+   * comenzi plecate deodată din interfață ar fi garantat TOO_MANY_REQUESTS
+   * pe majoritatea. Aici pleacă una câte una, cu pauză între ele, şi fiecare
+   * are reîncercarea din `seteazaComutator` în spate.
+   *
+   * Rezultatul spune câte au reuşit şi câte nu — o comandă pe grup care
+   * raportează doar „gata" ar ascunde tocmai releul care n-a răspuns. */
+  const felCerut = String(cerere?.kind || "").trim();
+  if (felCerut && (actiune === "on" || actiune === "off")) {
+    if (!["boiler", "iluminat_exterior", "prize"].includes(felCerut)) {
+      return raspuns({ ok: false, error: "Fel de dispozitiv necunoscut." }, 400);
+    }
+
+    const { data: aleFelului } = await admin.from("devices")
+      .select("*, device_rooms(room_id, rooms(name))")
+      .eq("enabled", true).eq("provider", "shelly").eq("kind", felCerut)
+      .order("provider_device_id");
+    const lista = aleFelului || [];
+    if (!lista.length) return raspuns({ ok: false, error: "Niciun dispozitiv de felul ăsta." }, 404);
+
+    const pornit = actiune === "on";
+    const reusite: string[] = [];
+    const esuate: Array<{ camere: string; motiv: string }> = [];
+
+    for (const [i, d] of lista.entries()) {
+      /* Pauză ÎNTRE comenzi, nu înaintea primeia — n-are rost să aştepte
+         nimeni degeaba la prima. */
+      if (i > 0) await new Promise((gata) => setTimeout(gata, PAUZA_INTRE_COMENZI_MS));
+
+      const camere = numeCamere(d);
+      const context = {
+        actor, device_id: d.id, device_name: d.name,
+        rooms: camere.join(", ").slice(0, 120) || null,
+      };
+      try {
+        await shelly.seteazaComutator(
+          SERVER_URI, AUTH_KEY, d.provider_device_id, d.channel, pornit);
+        await admin.from("devices").update({
+          last_status: { on: pornit, online: true },
+          last_seen_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        }).eq("id", d.id);
+        await jurnal({ ...context, action: actiune, result: "ok" });
+        reusite.push(camere.join(", "));
+      } catch (e) {
+        const mesaj = shelly.faraCheie((e as Error).message);
+        await jurnal({ ...context, action: actiune, result: "error", detail: mesaj.slice(0, 500) });
+        esuate.push({ camere: camere.join(", "), motiv: mesaj });
+      }
+    }
+
+    return raspuns({
+      ok: esuate.length === 0,
+      reusite: reusite.length,
+      total: lista.length,
+      esuate,
+      /* Mesajul e gata format aici: interfața n-are de unde şti care releu a
+         picat şi de ce, iar o listă de obiecte ar ajunge acolo netradusă. */
+      error: esuate.length
+        ? `${esuate.length} din ${lista.length} n-au răspuns: ${esuate.map((x) => x.camere).join("; ")}.`
+        : undefined,
+    }, esuate.length ? 207 : 200);
   }
 
   // --- acțiuni pe un dispozitiv anume ---

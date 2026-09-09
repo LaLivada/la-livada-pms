@@ -296,17 +296,95 @@ describe("AutomatizareView — cele doua sectiuni", () => {
     expect(sectiuni[0].getAttribute("aria-selected")).toBe("true");
   });
 
-  /* Sectiunea de automatizari nu are inca nicio regula. Ecranul trebuie sa
-     spuna asta deschis: o lista goala nu lasa pe nimeni sa distinga o
-     functie neterminata de „n-a configurat inca nimeni nimic". */
-  it("spune deschis ca nu exista automatizari, si unde se comanda manual", async () => {
+  /* Regulile automate nu exista inca. Ecranul trebuie sa spuna asta deschis:
+     o lista goala nu lasa pe nimeni sa distinga o functie neterminata de
+     „n-a configurat inca nimeni nimic". */
+  it("spune deschis ca nu exista inca reguli automate", async () => {
     const g = await randeaza();
-    const sectiuni = [...g.querySelectorAll('.sub-tabs:not(.dv-tabs) [role="tab"]')];
-    await act(async () => { sectiuni[1].click(); });
-    expect(g.textContent).toContain("Nicio automatizare");
-    expect(g.textContent).toContain("Camere tehnice");
+    await treciLaAutomatizari(g);
+    expect(g.textContent).toContain("Nicio regulă automată");
     // Panoul de camere tehnice dispare cat timp esti in cealalta sectiune.
-    expect(g.querySelectorAll(".dv-row").length).toBe(0);
+    expect(g.textContent).not.toContain("Camera tehnică 1");
+  });
+});
+
+async function treciLaAutomatizari(g) {
+  const sectiuni = [...g.querySelectorAll('.sub-tabs:not(.dv-tabs) [role="tab"]')];
+  await act(async () => { sectiuni[1].click(); });
+}
+
+const randGrup = (g, text) => [...g.querySelectorAll(".dv-row")]
+  .find((r) => r.textContent.includes(text));
+
+describe("AutomatizareView — comanda manuala pe grup", () => {
+  it("are cate un rand pentru lumini si unul pentru boilere, cu doua butoane fiecare", async () => {
+    const g = await randeaza();
+    await treciLaAutomatizari(g);
+
+    for (const titlu of ["Control manual lumini exterioare", "Control manual boilere"]) {
+      const rand = randGrup(g, titlu);
+      expect(rand).toBeTruthy();
+      const butoane = [...rand.querySelectorAll(".dv-ctrl .btn")].map((b) => b.textContent);
+      /* Amandoua mereu, nu un buton care inverseaza: un grup poate fi pornit
+         pe jumatate, deci n-are o stare unica de inversat. */
+      expect(butoane).toEqual(["Pornește", "Oprește"]);
+    }
+  });
+
+  it("numara cate relee din grup sunt pornite", async () => {
+    const g = await randeaza();
+    await treciLaAutomatizari(g);
+    // Fixtura: iluminatul e oprit, boilerul e pornit.
+    expect(randGrup(g, "lumini exterioare").textContent).toContain("0 din 1");
+    expect(randGrup(g, "boilere").textContent).toContain("1 din 1");
+  });
+
+  /* Miezul: UN SINGUR apel pentru tot grupul. Sapte comenzi plecate deodata
+     din browser ar lovi garantat limita de ritm a Shelly — exact eroarea de
+     pe 9 septembrie. Distantarea o face functia edge, secvential. */
+  it("trimite o singura cerere pe grup, nu cate una per releu", async () => {
+    cheamaDispozitiv.mockResolvedValue({ ok: true, reusite: 7, total: 7, esuate: [] });
+    const g = await randeaza();
+    await treciLaAutomatizari(g);
+    cheamaDispozitiv.mockClear();
+
+    const rand = randGrup(g, "boilere");
+    await act(async () => { rand.querySelectorAll(".dv-ctrl .btn")[0].click(); });
+
+    expect(cheamaDispozitiv).toHaveBeenCalledTimes(1);
+    expect(cheamaDispozitiv).toHaveBeenCalledWith("on", { kind: "boiler" });
+  });
+
+  it("trimite „off” pe al doilea buton", async () => {
+    cheamaDispozitiv.mockResolvedValue({ ok: true, reusite: 7, total: 7, esuate: [] });
+    const g = await randeaza();
+    await treciLaAutomatizari(g);
+    cheamaDispozitiv.mockClear();
+
+    const rand = randGrup(g, "lumini exterioare");
+    await act(async () => { rand.querySelectorAll(".dv-ctrl .btn")[1].click(); });
+
+    expect(cheamaDispozitiv).toHaveBeenCalledWith("off", { kind: "iluminat_exterior" });
+  });
+
+  it("nu raporteaza succes cand doar o parte au raspuns", async () => {
+    /* O reusita partiala raportata drept „gata" ar lasa pe cineva sa plece
+       convins ca toate boilerele sunt pornite. */
+    cheamaDispozitiv.mockResolvedValue({
+      ok: false, reusite: 5, total: 7,
+      esuate: [{ camere: "1003, 1005", motiv: "offline" }],
+      error: "2 din 7 n-au răspuns: 1003, 1005.",
+    });
+    const { toaster } = await import("./ui/primitive.jsx");
+    const spion = vi.spyOn(toaster, "show");
+
+    const g = await randeaza();
+    await treciLaAutomatizari(g);
+    const rand = randGrup(g, "boilere");
+    await act(async () => { rand.querySelectorAll(".dv-ctrl .btn")[0].click(); });
+
+    expect(spion).toHaveBeenCalledWith(expect.stringContaining("n-au răspuns"), { tone: "danger" });
+    spion.mockRestore();
   });
 });
 
