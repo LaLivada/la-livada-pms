@@ -13,7 +13,7 @@
  * Shelly nu ajunge niciodata in browser.
  */
 import React, { useState, useEffect, useCallback, useMemo } from "react";
-import { Zap, Flame, Lightbulb, Plug, RefreshCw, Plus, Trash2, Users } from "lucide-react";
+import { Zap, Flame, Lightbulb, Plug, RefreshCw, Plus, Trash2, Clock } from "lucide-react";
 import { audit, isAdmin } from "../lib/audit.js";
 import { mesajEroare } from "../lib/errors.js";
 import { fmtDateTime } from "../lib/format.js";
@@ -29,10 +29,6 @@ const PICTOGRAMA = {
   prize: Plug,
 };
 
-/* Lofturile n-au camera tehnica, deci n-au releu. Se spune pe ecran, ca sa
-   nu para o omisiune si sa nu le caute nimeni. */
-const FARA_SHELLY = ["1101", "1102"];
-
 export function AutomatizareView({ core }) {
   const [dispozitive, setDispozitive] = useState([]);
   const [seIncarca, setSeIncarca] = useState(true);
@@ -41,6 +37,7 @@ export function AutomatizareView({ core }) {
   /* O singura camera tehnica pe ecran. Cu toate sapte una sub alta ieseau
      peste 3000px de derulat pe telefon, iar releul cautat era mereu jos. */
   const [activ, setActiv] = useState(1);
+  const [sectiune, setSectiune] = useState("camere");
 
   const numeCamera = useCallback(
     (id) => (core.rooms || []).find((r) => r.id === id)?.name || id,
@@ -104,12 +101,25 @@ export function AutomatizareView({ core }) {
 
   return (
     <div>
-      <div className="note">
-        Fiecare pereche de camere are o cameră tehnică, iar acolo un Shelly Pro 4PM cu patru relee.
-        Releele de boiler și iluminat exterior sunt <strong>comune celor două camere</strong> — cine le oprește
-        le oprește pentru amândouă. Camerele {FARA_SHELLY.join(" și ")} nu au Shelly.
+      <div className="sub-tabs" role="tablist" aria-label="Secțiuni">
+        <button
+          role="tab" aria-selected={sectiune === "camere"}
+          className={sectiune === "camere" ? "on" : ""}
+          onClick={() => setSectiune("camere")}
+        >
+          <Zap size={14} /> Camere tehnice
+        </button>
+        <button
+          role="tab" aria-selected={sectiune === "automatizari"}
+          className={sectiune === "automatizari" ? "on" : ""}
+          onClick={() => setSectiune("automatizari")}
+        >
+          <Clock size={14} /> Automatizări
+        </button>
       </div>
 
+      {sectiune === "automatizari" ? <Automatizari /> : (
+        <>
       <div className="tabs-bar">
         <div className="sub-tabs dv-tabs" role="tablist" aria-label="Camere tehnice">
           {CAMERE_TEHNICE.map((ct) => {
@@ -129,7 +139,7 @@ export function AutomatizareView({ core }) {
                 onClick={() => setActiv(ct.nr)}
               >
                 #{ct.nr}
-                {gol && <span className="dv-led dv-led-unknown" aria-hidden="true" />}
+                {gol && <span className="dv-punct" aria-hidden="true" />}
               </button>
             );
           })}
@@ -166,6 +176,28 @@ export function AutomatizareView({ core }) {
           onGata={async () => { setAdauga(null); await reincarca(); }}
         />
       )}
+        </>
+      )}
+    </div>
+  );
+}
+
+/* Regulile care pornesc singure releele — pornit boilerul inainte de sosire,
+   stins iluminatul dupa o ora. Nu exista inca niciuna: ecranul spune asta
+   deschis, in loc sa arate o lista goala din care nu se intelege daca e o
+   functie neterminata sau doar n-a configurat nimeni nimic. */
+function Automatizari() {
+  return (
+    <div className="panel">
+      <div className="empty-state">
+        <Clock size={26} />
+        <h4>Nicio automatizare</h4>
+        <p>
+          Aici vor sta regulile care comandă releele singure — de exemplu „pornește boilerul
+          cu două ore înainte de sosire" sau „stinge iluminatul exterior la răsărit".
+          Deocamdată releele se comandă doar manual, din <strong>Camere tehnice</strong>.
+        </p>
+      </div>
     </div>
   );
 }
@@ -186,8 +218,12 @@ function CameraTehnica({ ct, dispozitive, numeCamera, ocupat, onComuta, onAdauga
         <div className="dv-info">
           <div className="dv-title">
             Camera tehnică {ct.nr}
+            {/* Numerele camerelor ingrosate, restul stins: cand cauti o
+                camera anume, „1013" e singurul lucru pe care il scanezi. */}
             <span style={{ color: "var(--text-muted)", fontWeight: 500 }}>
-              · camerele {nume.join(" și ")}
+              · camerele <strong style={{ color: "var(--text)" }}>{nume[0]}</strong>
+              {" și "}
+              <strong style={{ color: "var(--text)" }}>{nume[1]}</strong>
             </span>
           </div>
           <div className="dv-sub">
@@ -259,32 +295,33 @@ function CameraTehnica({ ct, dispozitive, numeCamera, ocupat, onComuta, onAdauga
 function Iesire({ config, dispozitiv, camere, ocupat, onComuta }) {
   const Icon = PICTOGRAMA[config.kind] || Zap;
   const acestaOcupat = dispozitiv && ocupat === dispozitiv.id;
+  const stare = stareaLui(dispozitiv);
 
   return (
     <div className="dv-row">
+      {/* Iconul e o coloana a lui, inalta cat amandoua randurile de text.
+          Starea releului sta in culoarea lui: verde aprins, rosu stins.
+          `role="img"` cu eticheta, fiindca altfel informatia ar exista doar
+          in culoare — invizibila pentru un cititor de ecran si pentru cine
+          nu deosebeste rosu de verde. */}
+      <span className={"dv-icon dv-icon-" + stare.cheie}
+            role="img" aria-label={stare.eticheta} title={stare.titlu}>
+        <Icon size={34} />
+      </span>
       <div className="dv-info">
         <div className="dv-title">
-          <Icon size={14} />
           Releu {config.iesire} · {config.eticheta}
         </div>
-        <div className="dv-sub">
-          <span>{camere.join(" și ")}</span>
-          {config.ambele && (
-            /* Avertismentul e permanent, nu doar in momentul apasarii:
-               receptia trebuie sa vada partajarea cand se uita pe ecran, nu
-               dupa ce a oprit deja apa calda vecinului. Scris scurt fiindca
-               numele celor doua camere sunt deja chiar langa. */
-            <span className="role-tag role-admin" style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
-              <Users size={11} /> comun
-            </span>
-          )}
-        </div>
+        {/* Partajarea se citeste din numarul de camere scrise aici: doua
+            nume inseamna ca releul le serveste pe amandoua, unul singur ca e
+            doar al camerei alea. Eticheta „comun" de dinainte spunea acelasi
+            lucru a doua oara. */}
+        <div className="dv-sub"><span>{camere.join(" și ")}</span></div>
       </div>
       {!dispozitiv ? (
         <div className="dv-ctrl"><span className="dv-sub">neînregistrat</span></div>
       ) : (
         <div className="dv-ctrl">
-          <Bec dispozitiv={dispozitiv} />
           <button
             className={"btn " + (dispozitiv.pornit ? "btn-ghost" : "btn-primary")}
             disabled={acestaOcupat || !dispozitiv.activ}
@@ -298,34 +335,28 @@ function Iesire({ config, dispozitiv, camere, ocupat, onComuta }) {
   );
 }
 
-/* Starea, ca bec: verde aprins / rosu stins. Textul complet ramane in
-   `title` si in `aria-label`, ca sa nu depinda de culoare cine citeste cu
-   un cititor de ecran sau nu distinge rosu de verde — de-aia becul aprins e
-   si plin, iar cel stins doar contur. */
-function Bec({ dispozitiv }) {
+/* Starea unui releu, redusa la ce are nevoie interfata: o cheie pentru
+   culoarea iconului si un text pentru cine nu se uita la culoare.
+   Ordinea conditiilor conteaza — „offline" bate „pornit", fiindca o stare
+   veche afisata ca sigura e mai rea decat una recunoscuta ca necunoscuta. */
+function stareaLui(dispozitiv) {
+  if (!dispozitiv) {
+    return { cheie: "necunoscut", eticheta: "Neînregistrat", titlu: "Releul nu e înregistrat" };
+  }
   const cand = dispozitiv.vazutLa ? ` · verificat ${fmtDateTime(dispozitiv.vazutLa)}` : "";
-
   if (!dispozitiv.activ) {
-    return <span className="dv-led dv-led-unknown" role="img" aria-label="Dezactivat" title="Dezactivat din setări" />;
+    return { cheie: "necunoscut", eticheta: "Dezactivat", titlu: "Dezactivat din setări" };
   }
   if (!dispozitiv.vazutLa) {
-    return <span className="dv-led dv-led-unknown" role="img" aria-label="Stare necunoscută"
-                 title="Stare necunoscută — apasă „Actualizează starea”" />;
+    return { cheie: "necunoscut", eticheta: "Stare necunoscută",
+             titlu: "Stare necunoscută — apasă „Actualizează starea”" };
   }
   if (!dispozitiv.online) {
-    return (
-      <span className="dv-led dv-led-offline" role="img" aria-label="Offline"
-            title={`Offline — nu răspunde${cand}`} />
-    );
+    return { cheie: "offline", eticheta: "Offline", titlu: `Offline — nu răspunde${cand}` };
   }
-  return (
-    <span
-      className={"dv-led " + (dispozitiv.pornit ? "dv-led-on" : "")}
-      role="img"
-      aria-label={dispozitiv.pornit ? "Pornit" : "Oprit"}
-      title={(dispozitiv.pornit ? "Pornit" : "Oprit") + cand}
-    />
-  );
+  return dispozitiv.pornit
+    ? { cheie: "on",  eticheta: "Pornit", titlu: `Pornit${cand}` }
+    : { cheie: "off", eticheta: "Oprit",  titlu: `Oprit${cand}` };
 }
 
 function AdaugaReleu({ ct, numeCamera, idFolosite, onClose, onGata }) {

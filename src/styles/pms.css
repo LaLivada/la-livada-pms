@@ -42,9 +42,9 @@
   --warning-soft:#F4EEDD;
   --success:#2A7B7B;
   --success-soft:#E0F0F0;
-  /* Becul de stare al releelor. Verde/roșu propriu, nu --success/--danger:
+  /* Culorile de stare ale releelor. Verde/roșu propriu, nu --success/--danger:
      acelea sunt teal și cărămiziu, potrivite pentru text, dar prea apropiate
-     între ele într-o pastilă de 11px. Aici singurul rol e „aprins sau stins",
+     între ele pe un icon de 15px. Aici singurul rol e „aprins sau stins",
      citit dintr-o privire, de la distanță. */
   --led-on:#2E9E5B;
   --led-off:#C0392B;
@@ -691,24 +691,66 @@
   display:flex; flex-wrap:wrap; align-items:center; gap:10px 12px;
   padding:14px 18px; border-bottom:1px solid var(--border-soft);
 }
+/* Ancora filigranului din spate. */
+.dv-row{ position:relative; }
+/* Capul de panou n-are icon, deci nici retragerea pentru el. */
+.dv-head .dv-info{ padding-left:0; }
+/* Pe telefon fiecare pixel lateral se duce in latimea textului, iar acolo
+   se decide daca „Releu 1 · Iluminat exterior" incape pe un rand sau pe doua. */
+@media (max-width:430px){
+  .dv-head, .dv-row{ padding:14px 12px; gap:8px 10px; }
+}
 .dv-head{ align-items:flex-start; }
 .dv-row:last-child{ border-bottom:none; }
 /* Baza mica + wrap: textul si comenzile incap pe aceeasi linie pana la
    ecrane inguste, iar titlul se rupe pe doua randuri inainte ca butonul sa
-   coboare sub el. Invers — baza mare, cum era intai — impingea butonul pe
-   linia lui si facea randul de 125px, adica 500px doar pentru un releu cu
-   patru iesiri. Sub ~300px latime, comenzile coboara oricum. */
-.dv-info{ flex:1 1 150px; min-width:0; }
+   coboare sub el. Invers — baza mare — impingea butonul pe linia lui si
+   dubla inaltimea randului.
+   Cifra nu e aleasa din ochi: pe un ecran de 375px raman 293px in interiorul
+   randului, iar icon (30) + butonul (112) + doua gap-uri (24) mananca 166.
+   O baza peste 127 face suma sa depaseasca latimea, si atunci flexbox rupe
+   linia INAINTE de a incerca sa stranga ceva. */
+.dv-info{
+  flex:1 1 120px; min-width:0;
+  /* Deasupra filigranului, si retras doar cat sa nu inceapa peste partea
+     plina a lui — primele litere cad pe coada deja stinsa a mask-ului. */
+  position:relative; z-index:1; padding-left:16px;
+}
 .dv-title{
   display:flex; align-items:center; gap:7px;
   font-weight:600; font-size:var(--fs-md); line-height:1.35;
+  /* Doar „Iluminat exterior" e destul de lung cat sa se rupa pe telefon;
+     `balance` il taie la „Releu 1 ·" in loc sa lase un „exterior" orfan. */
+  text-wrap:balance;
 }
 .dv-sub{
   display:flex; align-items:center; gap:5px 8px; flex-wrap:wrap;
   margin-top:4px; font-size:var(--fs-sm); color:var(--text-muted);
 }
 .dv-ctrl{ display:flex; align-items:center; gap:10px; margin-left:auto; flex:0 0 auto; }
-.dv-ctrl .btn{ width:auto; }
+/* Latime fixa, nu dupa text: „Pornește" e cu o litera mai lung decat
+   „Oprește", si fara min-width butonul — deci si coloana lui — sarea cu
+   cativa pixeli de la un rand la altul, dupa starea fiecarui releu. */
+.dv-ctrl .btn{ width:auto; min-width:112px; }
+
+/* Iconul nu mai ocupa o coloana proprie: sta ca filigran in spate, inalt cat
+   amandoua randurile de text, si se stinge spre dreapta printr-un mask, ca
+   titlul si camerele sa poata intra peste el. Asa castiga textul cei ~40px
+   pe care ii manca inainte coloana — pe un telefon, exact diferenta dintre
+   „Releu 1 · Iluminat exterior" pe un rand si pe doua.
+   Opacitatea ramane destul de mare (.55) fiindca iconul mai are o treaba pe
+   langa decor: culoarea lui E starea releului. Un filigran de .15 ar fi
+   facut verdele si rosul greu de deosebit. */
+.dv-icon{
+  position:absolute; left:8px; top:50%; transform:translateY(-50%);
+  display:inline-flex; align-items:center; justify-content:center;
+  color:var(--led-off); opacity:.55; pointer-events:none; z-index:0;
+  -webkit-mask-image:linear-gradient(to right, #000 35%, transparent 92%);
+          mask-image:linear-gradient(to right, #000 35%, transparent 92%);
+}
+.dv-icon-on{ color:var(--led-on); }
+.dv-icon-offline{ color:var(--warning); }
+.dv-icon-necunoscut{ color:var(--text-muted); }
 
 /* Bara celor sapte camere tehnice, pe UN SINGUR RAND, la orice latime.
    `.sub-tabs` implicit da `flex-shrink:0` fiecarui tab si deruleaza pe
@@ -717,22 +759,14 @@
    latimea in parti egale si se string, fiindca eticheta lor („#3") e scurta
    si nu are ce pierde. */
 .dv-tabs button{ position:relative; flex:1 1 0; min-width:0; padding:9px 6px; }
-/* Becul de „inca neconfigurata" sta absolut, in colt: inline ar fi costat un
-   gap si o latime pe fiecare tab, exact ce nu ne permitem pe un rand. */
-.dv-tabs .dv-led{
+/* Punctul de „inca neconfigurata" sta absolut, in colt: inline ar fi costat
+   un gap si o latime pe fiecare tab, exact ce nu ne permitem pe un rand. */
+.dv-punct{
   position:absolute; top:3px; right:3px;
-  width:6px; height:6px; border-width:1.5px;
+  width:6px; height:6px; border-radius:50%;
+  border:1.5px dashed var(--text-muted);
 }
 
-/* Becul de stare. Forma difera odata cu culoarea — plin cand e pornit,
-   gol cand e oprit — ca sa nu depinda citirea doar de culoare. */
-.dv-led{
-  display:inline-block; width:13px; height:13px; border-radius:50%;
-  border:2px solid var(--led-off); background:transparent; flex:0 0 auto;
-}
-.dv-led-on{ border-color:var(--led-on); background:var(--led-on); box-shadow:0 0 0 3px color-mix(in srgb, var(--led-on) 18%, transparent); }
-.dv-led-unknown{ border-color:var(--text-muted); border-style:dashed; }
-.dv-led-offline{ border-color:var(--warning); background:var(--warning-soft); }
 
 /* ---------- Room / task cards ---------- */
 .room-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(190px,1fr)); gap:12px; }

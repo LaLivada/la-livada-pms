@@ -84,7 +84,7 @@ beforeEach(() => {
 describe("AutomatizareView — structura pe camere tehnice", () => {
   it("are cate un tab pentru fiecare din cele sapte camere tehnice", async () => {
     const g = await randeaza();
-    const taburi = [...g.querySelectorAll('[role="tab"]')];
+    const taburi = [...g.querySelectorAll('.dv-tabs [role="tab"]')];
     expect(taburi.map((t) => t.textContent)).toEqual(["#1", "#2", "#3", "#4", "#5", "#6", "#7"]);
     // Numarul singur n-ar spune ce camere sunt dedesubt.
     expect(taburi[0].getAttribute("title")).toContain("camerele 1013 și 1011");
@@ -102,7 +102,7 @@ describe("AutomatizareView — structura pe camere tehnice", () => {
 
   it("schimba panoul cand se apasa alt tab", async () => {
     const g = await randeaza();
-    const tab3 = [...g.querySelectorAll('[role="tab"]')][2];
+    const tab3 = [...g.querySelectorAll('.dv-tabs [role="tab"]')][2];
     await act(async () => { tab3.click(); });
     const panou = [...g.querySelectorAll(".panel")]
       .find((p) => p.textContent.includes("Camera tehnică"));
@@ -111,14 +111,9 @@ describe("AutomatizareView — structura pe camere tehnice", () => {
     expect(g.textContent).not.toContain("Camera tehnică 1 ");
   });
 
-  it("spune ca lofturile n-au Shelly, ca sa nu para o omisiune", async () => {
-    const g = await randeaza();
-    expect(g.textContent).toContain("1101 și 1102 nu au Shelly");
-  });
-
   it("numeste cele patru relee in ordinea de pe dispozitiv", async () => {
     const g = await randeaza();
-    const titluri = [...g.querySelectorAll(".dv-title")].map((n) => n.textContent);
+    const titluri = [...g.querySelectorAll(".dv-title")].map((n) => n.textContent.trim());
     expect(titluri).toContain("Releu 1 · Iluminat exterior");
     expect(titluri).toContain("Releu 2 · Boiler");
     expect(titluri.filter((t) => t === "Releu 3 · Prize").length).toBeGreaterThan(0);
@@ -126,20 +121,34 @@ describe("AutomatizareView — structura pe camere tehnice", () => {
   });
 });
 
-describe("AutomatizareView — avertismentul de partajare", () => {
-  it("marcheaza drept comune exact releele de boiler si iluminat, nu prizele", async () => {
+describe("AutomatizareView — cele doua sectiuni", () => {
+  it("porneste pe „Camere tehnice”, cu „Automatizări” ca a doua sectiune", async () => {
     const g = await randeaza();
-    const randuri = [...g.querySelectorAll(".dv-row")]
-      .filter((r) => r.textContent.includes("Iluminat exterior") || r.textContent.includes("Boiler")
-                  || r.textContent.includes("Prize"));
-    for (const r of randuri) {
-      const comun = r.textContent.includes("comun");
-      const partajabil = /Iluminat exterior|Boiler/.test(r.textContent);
-      expect(comun).toBe(partajabil);
-    }
+    const sectiuni = [...g.querySelectorAll('.sub-tabs:not(.dv-tabs) [role="tab"]')];
+    expect(sectiuni.map((t) => t.textContent.trim())).toEqual(["Camere tehnice", "Automatizări"]);
+    expect(sectiuni[0].getAttribute("aria-selected")).toBe("true");
   });
 
-  it("scrie amandoua camerele langa un releu comun, si una singura la prize", async () => {
+  /* Sectiunea de automatizari nu are inca nicio regula. Ecranul trebuie sa
+     spuna asta deschis: o lista goala nu lasa pe nimeni sa distinga o
+     functie neterminata de „n-a configurat inca nimeni nimic". */
+  it("spune deschis ca nu exista automatizari, si unde se comanda manual", async () => {
+    const g = await randeaza();
+    const sectiuni = [...g.querySelectorAll('.sub-tabs:not(.dv-tabs) [role="tab"]')];
+    await act(async () => { sectiuni[1].click(); });
+    expect(g.textContent).toContain("Nicio automatizare");
+    expect(g.textContent).toContain("Camere tehnice");
+    // Panoul de camere tehnice dispare cat timp esti in cealalta sectiune.
+    expect(g.querySelectorAll(".dv-row").length).toBe(0);
+  });
+});
+
+describe("AutomatizareView — ce releu serveste ce camere", () => {
+  /* Partajarea nu mai are eticheta proprie: se citeste din cate camere sunt
+     scrise sub releu. De-aia testul de mai jos e singurul lucru care mai
+     apara distinctia „boilerul e comun / prizele nu" — daca pica, ecranul
+     nu mai spune nicaieri ca oprind boilerul lui 1013 ramane fara si 1011. */
+  it("scrie amandoua camerele la un releu comun, si una singura la prize", async () => {
     const g = await randeaza();
     const ct1 = [...g.querySelectorAll(".panel")]
       .find((p) => p.textContent.includes("Camera tehnică 1"));
@@ -160,30 +169,34 @@ describe("AutomatizareView — avertismentul de partajare", () => {
   });
 });
 
-describe("AutomatizareView — becul de stare", () => {
-  it("aprinde becul doar la releele pornite, fiecare cu starea lui", async () => {
+describe("AutomatizareView — starea, in culoarea iconului", () => {
+  it("coloreaza iconul fiecarui releu dupa starea LUI, nu dupa a primului", async () => {
     const g = await randeaza();
     const ct1 = [...g.querySelectorAll(".panel")]
       .find((p) => p.textContent.includes("Camera tehnică 1"));
-    const becuri = [...ct1.querySelectorAll(".dv-led")];
-    expect(becuri.length).toBe(4);
-    expect(becuri[0].classList.contains("dv-led-on")).toBe(false); // iluminat oprit
-    expect(becuri[1].classList.contains("dv-led-on")).toBe(true);  // boiler pornit
-    expect(becuri[2].classList.contains("dv-led-on")).toBe(true);  // prize 1013
-    expect(becuri[3].classList.contains("dv-led-offline")).toBe(true);
+    const icoane = [...ct1.querySelectorAll(".dv-icon")];
+    expect(icoane.length).toBe(4);
+    expect(icoane[0].className).toContain("dv-icon-off");      // iluminat oprit
+    expect(icoane[1].className).toContain("dv-icon-on");       // boiler pornit
+    expect(icoane[2].className).toContain("dv-icon-on");       // prize 1013
+    expect(icoane[3].className).toContain("dv-icon-offline");  // prize 1011, offline
   });
 
-  it("da becului o eticheta in text, nu doar culoare", async () => {
+  it("nu mai exista un indicator separat de stare — o poarta iconul", async () => {
     const g = await randeaza();
-    /* Doar becurile din rand. Punctul din tab e `aria-hidden` deliberat:
-       tabul isi are deja eticheta lui, iar un al doilea anunt ar fi zgomot
-       pentru cine asculta ecranul. */
-    const becuri = [...g.querySelectorAll(".dv-row .dv-led")];
-    expect(becuri.length).toBe(4);
-    expect(becuri.every((b) => b.getAttribute("aria-label"))).toBe(true);
-    expect(becuri.map((b) => b.getAttribute("aria-label"))).toContain("Pornit");
-    expect(becuri.map((b) => b.getAttribute("aria-label"))).toContain("Oprit");
-    expect(becuri.map((b) => b.getAttribute("aria-label"))).toContain("Offline");
+    expect(g.querySelectorAll(".dv-led").length).toBe(0);
+  });
+
+  it("da iconului o eticheta in text, nu doar culoare", async () => {
+    const g = await randeaza();
+    /* Punctul din tab e `aria-hidden` deliberat: tabul isi are deja eticheta
+       lui, iar un al doilea anunt ar fi zgomot pentru cine asculta ecranul. */
+    const icoane = [...g.querySelectorAll(".dv-row .dv-icon")];
+    expect(icoane.length).toBe(4);
+    expect(icoane.every((b) => b.getAttribute("aria-label"))).toBe(true);
+    expect(icoane.map((b) => b.getAttribute("aria-label"))).toContain("Pornit");
+    expect(icoane.map((b) => b.getAttribute("aria-label"))).toContain("Oprit");
+    expect(icoane.map((b) => b.getAttribute("aria-label"))).toContain("Offline");
   });
 
   it("butonul spune actiunea, nu starea", async () => {
@@ -199,7 +212,7 @@ describe("AutomatizareView — becul de stare", () => {
 describe("AutomatizareView — camerele tehnice fara Shelly", () => {
   it("cere adminului sa adauge dispozitivul, in loc sa arate relee goale", async () => {
     const g = await randeaza();
-    await act(async () => { [...g.querySelectorAll('[role="tab"]')][1].click(); });
+    await act(async () => { [...g.querySelectorAll('.dv-tabs [role="tab"]')][1].click(); });
     const ct2 = [...g.querySelectorAll(".panel")]
       .find((p) => p.textContent.includes("Camera tehnică 2"));
     expect(ct2.textContent).toContain("Niciun Shelly înregistrat");
@@ -212,15 +225,15 @@ describe("AutomatizareView — camerele tehnice fara Shelly", () => {
      asteapta configurare. */
   it("marcheaza in tab camerele tehnice inca neconfigurate", async () => {
     const g = await randeaza();
-    const taburi = [...g.querySelectorAll('[role="tab"]')];
-    expect(taburi[0].querySelector(".dv-led")).toBeNull();       // #1 are Shelly
-    expect(taburi[1].querySelector(".dv-led")).not.toBeNull();   // #2 nu are
+    const taburi = [...g.querySelectorAll('.dv-tabs [role="tab"]')];
+    expect(taburi[0].querySelector(".dv-punct")).toBeNull();       // #1 are Shelly
+    expect(taburi[1].querySelector(".dv-punct")).not.toBeNull();   // #2 nu are
   });
 
   it("nu-i arata cameristei butonul de adaugare", async () => {
     audit.user = { name: "Test", role: "housekeeping" };
     const g = await randeaza();
-    await act(async () => { [...g.querySelectorAll('[role="tab"]')][1].click(); });
+    await act(async () => { [...g.querySelectorAll('.dv-tabs [role="tab"]')][1].click(); });
     expect(g.textContent).not.toContain("Adaugă Shelly");
   });
 });
