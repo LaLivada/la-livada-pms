@@ -1298,19 +1298,23 @@ begin
     -- Chemată din afara unei cereri PostgREST (editor SQL, job): fără IP.
     return null;
   end;
-  -- ORDINEA CONTEAZĂ, şi era invers.
+  -- ORDINEA E CEA MĂSURATĂ, ŞI A FOST DEJA GREŞITĂ O DATĂ.
   --
-  -- `cf-connecting-ip` e scris de Cloudflare, care îl rescrie la fiecare
-  -- cerere — deci în mod normal nu se poate falsifica. „În mod normal” e însă
-  -- o presupunere despre infrastructura altcuiva, iar pe ea atârnă toate
-  -- limitele de rată din fişierul ăsta: dacă antetul ar putea fi scris de
-  -- client, o valoare nouă la fiecare cerere ar da fiecărei încercări un buget
-  -- propriu, iar plafonul pe adresă n-ar mai opri nimic.
+  -- La 9 septembrie 2026 a fost inversată aici, cu `sb-forwarded-for` primul,
+  -- pe motiv că un antet pus de platformă e mai sigur decât unul pus de
+  -- Cloudflare. Motivul suna bine şi era o presupunere: `src/lib/ip.js`
+  -- răspunsese deja la ea, din măsurători pe producţie. Schimbarea a fost
+  -- dată înapoi în aceeaşi zi.
   --
-  -- `sb-forwarded-for` îl pune platforma Supabase, mai aproape de noi şi cu
-  -- mai puţine verigi la mijloc. Pus primul, nu mai depindem de presupunerea
-  -- de mai sus decât atunci când el chiar lipseşte.
-  return nullif(coalesce(v ->> 'sb-forwarded-for', v ->> 'cf-connecting-ip'), '');
+  -- `cf-connecting-ip` NU poate fi falsificat, şi nu fiindcă e rescris: o
+  -- cerere care îl trimite singură e respinsă la marginea Cloudflare cu 403
+  -- (error 1000), deci nici nu ajunge până aici. E o garanţie mai tare decât
+  -- rescrierea. `sb-forwarded-for` e a doua plasă — falsificarea lui e
+  -- ignorată în tăcere, adresa reală rămâne.
+  --
+  -- SE SCHIMBĂ ÎMPREUNĂ cu `ipClient()` din `src/lib/ip.js` — iar dacă vreuna
+  -- pare că merită schimbată singură, citeşte întâi comentariul celeilalte.
+  return nullif(coalesce(v ->> 'cf-connecting-ip', v ->> 'sb-forwarded-for'), '');
 end $$;
 
 -- Nu e chemată niciodată direct de client, doar din funcțiile de mai jos,
