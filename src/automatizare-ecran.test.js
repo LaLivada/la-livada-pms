@@ -119,6 +119,11 @@ afterEach(async () => {
   vi.useRealTimers();
 });
 
+/* Trebuie sa ramana egal cu RITM_MS din automatizare.jsx. Daca cineva
+   schimba unul si uita celalalt, testele de mai jos pica pe loc — ceea ce e
+   exact reactia dorita. */
+const RITM = 10000;
+
 const RASPUNS_CONTOR = (kw) => ({
   ok: true,
   device: {
@@ -215,7 +220,7 @@ describe("AutomatizareView — consumul se reciteste singur", () => {
     vi.useFakeTimers();
     cheamaDispozitiv.mockResolvedValue(RASPUNS_CONTOR(6.6));
     const g = await randeaza();
-    await act(async () => { await vi.advanceTimersByTimeAsync(5000); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(RITM); });
 
     expect(cheamaDispozitiv).toHaveBeenCalledWith("refresh", { deviceId: "dv-441d647468c8-0" });
     // Un refresh general ar fi insemnat sapte apeluri Shelly la fiecare
@@ -229,9 +234,9 @@ describe("AutomatizareView — consumul se reciteste singur", () => {
     cheamaDispozitiv.mockResolvedValueOnce(RASPUNS_CONTOR(1.5))
                     .mockResolvedValueOnce(RASPUNS_CONTOR(9.9));
     const g = await randeaza();
-    await act(async () => { await vi.advanceTimersByTimeAsync(5000); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(RITM); });
     expect(g.querySelector(".dv-consum").textContent).toContain("1,50 kW");
-    await act(async () => { await vi.advanceTimersByTimeAsync(5000); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(RITM); });
     expect(g.querySelector(".dv-consum").textContent).toContain("9,90 kW");
   });
 
@@ -244,7 +249,7 @@ describe("AutomatizareView — consumul se reciteste singur", () => {
     const sectiuni = [...g.querySelectorAll('.sub-tabs:not(.dv-tabs) [role="tab"]')];
     await act(async () => { sectiuni[1].click(); });
     cheamaDispozitiv.mockClear();
-    await act(async () => { await vi.advanceTimersByTimeAsync(20000); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(RITM * 4); });
     expect(cheamaDispozitiv).not.toHaveBeenCalled();
   });
 
@@ -253,12 +258,12 @@ describe("AutomatizareView — consumul se reciteste singur", () => {
     cheamaDispozitiv.mockResolvedValue({ ok: false, error: "Shelly Cloud n-a răspuns." });
     const g = await randeaza();
 
-    await act(async () => { await vi.advanceTimersByTimeAsync(5000); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(RITM); });
     expect(cheamaDispozitiv).toHaveBeenCalledTimes(1);
-    // Dupa primul esec pauza se dubleaza, deci la +5s inca nu vine al doilea.
-    await act(async () => { await vi.advanceTimersByTimeAsync(5000); });
+    // Dupa primul esec pauza se dubleaza, deci la +1 ritm inca nu vine al doilea.
+    await act(async () => { await vi.advanceTimersByTimeAsync(RITM); });
     expect(cheamaDispozitiv).toHaveBeenCalledTimes(1);
-    await act(async () => { await vi.advanceTimersByTimeAsync(5000); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(RITM); });
     expect(cheamaDispozitiv).toHaveBeenCalledTimes(2);
     expect(g.querySelector(".dv-live")).toBeNull();
   });
@@ -273,12 +278,12 @@ describe("AutomatizareView — consumul se reciteste singur", () => {
 
     expect(g.querySelector(".dv-consum").textContent).toContain("actualizarea automată s-a oprit");
     const inainte = cheamaDispozitiv.mock.calls.length;
-    await act(async () => { await vi.advanceTimersByTimeAsync(60000); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(RITM * 6); });
     expect(cheamaDispozitiv).toHaveBeenCalledTimes(inainte);
 
     // ...si reporneste la cerere.
     await act(async () => { g.querySelector(".dv-reia").click(); });
-    await act(async () => { await vi.advanceTimersByTimeAsync(5000); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(RITM); });
     expect(cheamaDispozitiv.mock.calls.length).toBeGreaterThan(inainte);
   });
 });

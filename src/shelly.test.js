@@ -15,8 +15,8 @@
  * STRING, deci cheia care controleaza toate releele contului apare in orice
  * mesaj care citeaza URL-ul. O regresie aici scrie cheia in baza de date.
  */
-import { describe, it, expect } from "vitest";
-import { citesteIesire, citesteConsum, faraCheie } from "../supabase/functions/device-provider/providers/shelly.ts";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { citesteIesire, citesteConsum, faraCheie, seteazaComutator } from "../supabase/functions/device-provider/providers/shelly.ts";
 
 describe("citesteIesire — canalul cerut, nu primul gasit", () => {
   /* Forma reala a unui Pro 4PM: iesirile fizice 1-4 sunt `switch:0`..
@@ -154,5 +154,70 @@ describe("citesteConsum — contorul Pro 3EM pe trei faze", () => {
     expect(c.faze[1].kw).toBe(0);
     expect(c.faze[2].a).toBe(0);
     expect(Number.isFinite(c.totalKw)).toBe(true);
+  });
+});
+
+describe("seteazaComutator — reincercare la refuzul de ritm", () => {
+  /* Pe 9 septembrie, boilerul camerei tehnice 3 a dat eroare de trei ori la
+   * rand cu TOO_MANY_REQUESTS, apoi a mers. Nu era stricat nimic: Shelly
+   * refuzase fiindca primise comenzile prea aproape una de alta. Singura
+   * reincercare de atunci era cea a omului de la receptie — si fiecare
+   * apasare in plus ingrosa exact traficul care produsese refuzul.
+   */
+  const raspuns = (ok, cod) => ({
+    ok,
+    status: ok ? 200 : 429,
+    json: async () => (ok ? {} : { error: cod }),
+    clone() { return raspuns(ok, cod); },
+  });
+
+  let fetchVechi;
+  beforeEach(() => { fetchVechi = globalThis.fetch; vi.useFakeTimers(); });
+  afterEach(() => { globalThis.fetch = fetchVechi; vi.useRealTimers(); });
+
+  async function comuta() {
+    const p = seteazaComutator("srv.shelly.cloud", "cheie", "dev1", 1, true);
+    /* Rezultatul se prinde IMEDIAT. Altfel, cat avansam ceasul, respingerea
+       ar sta o clipa fara nimeni care s-o asculte, iar Vitest o raporteaza
+       drept eroare nepreluata chiar daca testul trece. */
+    const iesire = p.then((v) => ({ v }), (e) => ({ e }));
+    await vi.advanceTimersByTimeAsync(10000);
+    const r = await iesire;
+    if (r.e) throw r.e;
+    return r.v;
+  }
+
+  it("reincearca si reuseste dupa un refuz de ritm", async () => {
+    const f = vi.fn()
+      .mockResolvedValueOnce(raspuns(false, "TOO_MANY_REQUESTS"))
+      .mockResolvedValueOnce(raspuns(true));
+    globalThis.fetch = f;
+
+    await expect(comuta()).resolves.toBeUndefined();
+    expect(f).toHaveBeenCalledTimes(2);
+  });
+
+  it("se opreste dupa un numar fix de incercari, nu la nesfarsit", async () => {
+    const f = vi.fn().mockResolvedValue(raspuns(false, "TOO_MANY_REQUESTS"));
+    globalThis.fetch = f;
+
+    await expect(comuta()).rejects.toThrow(/Prea multe comenzi/);
+    // Una initiala + doua reincercari. Nici mai putine, nici o bucla.
+    expect(f).toHaveBeenCalledTimes(3);
+  });
+
+  it("NU reincearca un defect real — ar intarzia doar mesajul", async () => {
+    const f = vi.fn().mockResolvedValue(raspuns(false, "DEVICE_OFFLINE"));
+    globalThis.fetch = f;
+
+    await expect(comuta()).rejects.toThrow(/offline/i);
+    expect(f).toHaveBeenCalledTimes(1);
+  });
+
+  it("traduce refuzul de ritm in romana, nu lasa codul brut pe ecran", async () => {
+    // Exact ce s-a vazut in interfata: „TOO_MANY_REQUESTS".
+    globalThis.fetch = vi.fn().mockResolvedValue(raspuns(false, "TOO_MANY_REQUESTS"));
+    await expect(comuta()).rejects.toThrow(
+      "Prea multe comenzi trimise deodată către Shelly. Așteaptă câteva secunde și încearcă din nou.");
   });
 });

@@ -12,7 +12,7 @@
  * Comenzile trec prin Edge Function-ul `device-provider`; cheia contului
  * Shelly nu ajunge niciodata in browser.
  */
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { Zap, ShowerHead, Spotlight, PlugZap, Gauge, RefreshCw, Plus, Trash2, Clock } from "lucide-react";
 import { audit, isAdmin } from "../lib/audit.js";
 import { mesajEroare } from "../lib/errors.js";
@@ -33,13 +33,19 @@ const PICTOGRAMA = {
   prize: PlugZap,
 };
 
-/* Cat de des se reciteste contorul cat timp ecranul e deschis. Cinci secunde
-   arata „viu" fara sa se apropie de limita Shelly de o cerere pe secunda,
-   care ar fi atinsa abia pe la cinci ecrane deschise simultan. */
-const RITM_MS = 5000;
+/* Cat de des se reciteste contorul cat timp ecranul e deschis.
+   Zece secunde, nu cinci: consumul se citeste la fel de bine, iar traficul
+   catre Shelly se injumatateste. Conteaza fiindca cererile noastre se aduna
+   — pe 9 septembrie, citirea contorului la 5 secunde s-a lovit de comenzile
+   de boiler date una dupa alta si Shelly a refuzat cu TOO_MANY_REQUESTS. */
+const RITM_MS = 10000;
 /* Dupa atata timp de citire neintrerupta, se opreste singura. Vezi comentariul
    de la `bate()`. */
 const LIVE_MAX_MS = 30 * 60 * 1000;
+/* Cat sta citirea deoparte dupa o comanda. Shelly refuza cu TOO_MANY_REQUESTS
+   cand primeste doua cereri prea aproape; daca cineva trebuie sa piarda cursa,
+   aia e cifra de consum, nu apasarea pe buton. */
+const PAUZA_DUPA_COMANDA_MS = 4000;
 
 export function AutomatizareView({ core }) {
   const [dispozitive, setDispozitive] = useState([]);
@@ -50,6 +56,10 @@ export function AutomatizareView({ core }) {
      peste 3000px de derulat pe telefon, iar releul cautat era mereu jos. */
   const [activ, setActiv] = useState(1);
   const [sectiune, setSectiune] = useState("camere");
+  /* Cand s-a trimis ultima comanda catre Shelly. Ref, nu stare: citirea
+     contorului il consulta, dar nimic nu se redeseneaza cand se schimba.
+     Declarat aici, inaintea primei folosiri din `actualizeaza`. */
+  const ultimaComanda = useRef(0);
 
   const numeCamera = useCallback(
     (id) => (core.rooms || []).find((r) => r.id === id)?.name || id,
@@ -73,7 +83,9 @@ export function AutomatizareView({ core }) {
      nu un detaliu de depanare. */
   const actualizeaza = useCallback(async () => {
     setOcupat("refresh");
+    ultimaComanda.current = Date.now();
     const r = await cheamaDispozitiv("refresh");
+    ultimaComanda.current = Date.now();
     setOcupat(null);
     if (!r.ok) { toaster.push(r.error, "error"); return; }
     await reincarca();
@@ -94,7 +106,7 @@ export function AutomatizareView({ core }) {
    * pentru un număr care oricum se citeşte cu ochiul.
    *
    * Deci: reîncărcare deasă, doar a contorului (o singură cerere Shelly),
-   * doar cât timp fila e vizibilă, cu trei opriri de siguranță mai jos.
+   * doar cât timp fila e vizibilă, cu patru opriri de siguranță mai jos.
    */
   const idContor = contorul(dispozitive)?.id || null;
   const [liveOprit, setLiveOprit] = useState(false);
@@ -119,6 +131,13 @@ export function AutomatizareView({ core }) {
          oră se opreşte şi cere o apăsare ca să continue. */
       if (Date.now() - pornitLa > LIVE_MAX_MS) { setLiveOprit(true); return; }
 
+      /* 3. Nu ne băgăm peste o comandă abia trimisă. Shelly refuză două
+         cereri prea apropiate, iar dacă cineva pierde cursa, aia trebuie să
+         fie citirea contorului, nu apăsarea pe buton. */
+      if (Date.now() - ultimaComanda.current < PAUZA_DUPA_COMANDA_MS) {
+        ceas = setTimeout(bate, RITM_MS); return;
+      }
+
       const r = await cheamaDispozitiv("refresh", { deviceId: idContor });
       if (anulat) return;
 
@@ -131,8 +150,8 @@ export function AutomatizareView({ core }) {
             ? { ...d, consum: s.consum || null, online: s.online === true, vazutLa: r.device.lastSeenAt }
             : d));
       } else {
-        /* 3. Când Shelly nu răspunde, rărim în loc să insistăm: altfel o
-           pană de internet ar produce un apel la fiecare cinci secunde,
+        /* 4. Când Shelly nu răspunde, rărim în loc să insistăm: altfel o
+           pană de internet ar produce un apel la fiecare zece secunde,
            ore în şir, fără ca vreunul să aibă şanse. */
         esecuri = Math.min(esecuri + 1, 4);
         setLiveEroare(true);
@@ -146,7 +165,11 @@ export function AutomatizareView({ core }) {
 
   const comuta = useCallback(async (dispozitiv, pornit) => {
     setOcupat(dispozitiv.id);
+    /* Marcat inainte SI dupa: inainte ca o citire care tocmai se pregatea sa
+       nu plece peste comanda, dupa ca urmatoarea sa numere de la raspuns. */
+    ultimaComanda.current = Date.now();
     const r = await cheamaDispozitiv(pornit ? "on" : "off", { deviceId: dispozitiv.id });
+    ultimaComanda.current = Date.now();
     setOcupat(null);
     if (!r.ok) { toaster.push(r.error, "error"); return; }
     audit.push(

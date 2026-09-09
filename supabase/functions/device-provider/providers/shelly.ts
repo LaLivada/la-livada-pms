@@ -67,14 +67,27 @@ async function cere(adresa: string, corp: unknown): Promise<Response> {
   }
 }
 
-/* Traduce codurile Shelly în text pentru recepție. Codurile documentate
-   sunt DEVICE_OFFLINE, DEVICE_INVALID_CHANNEL, DEVICE_FAILED_COMMAND;
-   restul trec ca atare, curățate de cheie. */
+/* Traduce codurile Shelly în text pentru recepție. Restul trec ca atare,
+   curățate de cheie — dar atunci pe ecran ajunge un cod în engleză, ceea ce
+   s-a şi întâmplat pe 9 septembrie cu TOO_MANY_REQUESTS. */
 const MESAJE: Record<string, string> = {
   DEVICE_OFFLINE: "Dispozitivul e offline — verifică alimentarea și internetul la pensiune.",
   DEVICE_INVALID_CHANNEL: "Ieșirea configurată nu există pe acest releu. Verifică-l în Automatizare.",
   DEVICE_FAILED_COMMAND: "Dispozitivul a primit comanda dar n-a executat-o. Încearcă din nou.",
+  TOO_MANY_REQUESTS: "Prea multe comenzi trimise deodată către Shelly. Așteaptă câteva secunde și încearcă din nou.",
 };
+
+/* Singurul cod care merită reîncercat singur.
+   Un refuz de ritm nu spune că ceva e stricat, ci doar „nu chiar acum" —
+   iar utilizatorul care apasă al doilea buton la o secundă după primul n-are
+   de unde şti asta. Pe 9 septembrie exact aşa a arătat: boilerul camerei
+   tehnice 3 a dat eroare de trei ori, apoi a mers, fiindcă între timp se
+   liniştise traficul. Restul codurilor descriu defecte reale (offline, canal
+   greşit) — pe alea reîncercarea doar le-ar întârzia. */
+const REINCEARCA = "TOO_MANY_REQUESTS";
+const PAUZE_MS = [1200, 2500];
+
+const asteapta = (ms: number) => new Promise((gata) => setTimeout(gata, ms));
 
 async function eroareDin(r: Response): Promise<Error> {
   const date = await r.json().catch(() => null);
@@ -87,6 +100,29 @@ async function eroareDin(r: Response): Promise<Error> {
   return e;
 }
 
+/* Cere, iar dacă Shelly refuză din cauza ritmului, aşteaptă şi reîncearcă.
+   Fără asta, singura reîncercare era cea a omului de la recepție: apasă,
+   vede o eroare, mai apasă — şi fiecare apăsare în plus îngroaşă exact
+   traficul care a produs refuzul. */
+async function cereInsistent(adresa: string, corp: unknown): Promise<Response> {
+  let r = await cere(adresa, corp);
+  for (const pauza of PAUZE_MS) {
+    if (r.ok) return r;
+    /* Corpul se poate citi o singură dată, deci îl clonăm ca să rămână
+       întreg pentru `eroareDin` dacă până la urmă renunțăm. */
+    const cod = await codulDin(r.clone());
+    if (cod !== REINCEARCA) return r;
+    await asteapta(pauza);
+    r = await cere(adresa, corp);
+  }
+  return r;
+}
+
+async function codulDin(r: Response): Promise<string> {
+  const date = await r.json().catch(() => null);
+  return date?.error ? String(date.error) : "";
+}
+
 export async function seteazaComutator(
   serverUri: string,
   authKey: string,
@@ -94,7 +130,7 @@ export async function seteazaComutator(
   canal: number,
   pornit: boolean,
 ): Promise<void> {
-  const r = await cere(
+  const r = await cereInsistent(
     url(serverUri, "/v2/devices/api/set/switch", authKey),
     { id: deviceId, channel: canal, on: pornit },
   );
