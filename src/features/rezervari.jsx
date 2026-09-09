@@ -1899,11 +1899,19 @@ export function ReservationModal({ data, core, updateCore, reservations, updateR
 export async function doCheckIn(res, reservations, updateReservations, core, { forta = false } = {}) {
   if (!forta && !canCheckIn(res)) return false;
 
-  // Someone else may still be occupying the room — refuse rather than
-  // silently place two guests in it.
+  /* Altcineva poate fi încă în cameră — refuzăm, în loc să punem tăcut doi
+     oaspeți în ea.
+     Suprapunerea se testează cu `rangesOverlap`, nu pe jumătate. Aici a stat
+     un bug: garda compara doar `blocker.checkout > res.checkin`, ceea ce
+     mergea cât timp check-in-ul se putea face doar în ziua sosirii — atunci
+     o rezervare „checkedin" era mereu una în curs. De când cazarea e permisă
+     cu 14 zile înainte, o rezervare complet VIITOARE poate fi deja
+     „checkedin", iar jumătatea lipsă o transforma în blocaj pentru orice
+     sosire dinaintea ei: o cazare pe 20-25 bloca o cazare pe 10-12, în
+     aceeași cameră, deși nu se ating. */
   const blocker = reservations.find((r) =>
     r.id !== res.id && r.roomId === res.roomId && r.status === "checkedin" &&
-    new Date(r.checkout) > new Date(res.checkin));
+    rangesOverlap(r.checkin, r.checkout, res.checkin, res.checkout));
   if (blocker) {
     const who = guestFullName(core.guests.find((g) => g.id === blocker.guestId)) || "alt oaspete";
     const room = core.rooms.find((x) => x.id === res.roomId);
