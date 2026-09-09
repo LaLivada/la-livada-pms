@@ -213,11 +213,14 @@ export function NightAuditGate({ restante, sosiri, core, updateCore, groups, upd
 export function CalendarView({ core, updateCore, reservations, updateReservations, groups, updateGroups, housekeeping, updateHousekeeping, blocks, updateBlocks, intent, clearIntent, doarCitire = false }) {
   const [offset, setOffset] = useState(0);
   const [pickerOpen, setPickerOpen] = useState(false);
-  const [dense, setDense] = useState(false);
+  /* Implicit active — cerut pe 9 septembrie 2026: calendarul se deschide
+     direct in vederea densa, nu mai cere un clic de fiecare data. */
+  const [dense, setDense] = useState(true);
   /* Zile mai late, ca sa incapa numele intreg pe bara. Separat de `dense`:
      acela schimba inaltimea randului, asta latimea coloanei, si se pot
-     folosi si impreuna — multe camere pe ecran, cu nume citibile. */
-  const [larg, setLarg] = useState(false);
+     folosi si impreuna — multe camere pe ecran, cu nume citibile.
+     Tot implicit activ, din acelasi motiv. */
+  const [larg, setLarg] = useState(true);
   const [actionRes, setActionRes] = useState(null);
   const [blockInfo, setBlockInfo] = useState(null);
   const [moveId, setMoveId] = useState(null);
@@ -870,7 +873,10 @@ export function ReservationViewModal({ reservation, core, updateCore, groups, up
         <div style={{ minWidth: 0, flex: 1 }}>
           <div className="action-guest">{occupantName(reservation, core, groups) || "Fără nume"}</div>
           {guestFullName(guest) && guestFullName(guest) !== occupantName(reservation, core, groups) && (
-            <div className="action-meta" style={{ marginTop: 1 }}>Rezervat de {guestFullName(guest)}</div>
+            <div className="action-meta" style={{ marginTop: 1 }}>
+              Rezervat de {guestFullName(guest)}
+              {editingGroup && ` · din grupul ${editingGroup.name}`}
+            </div>
           )}
           <div className="action-meta" style={{ marginTop: 1 }}>
             <span className="mono">{room?.name}</span> · {fmtDate(reservation.checkin)} → {fmtDate(reservation.checkout)}
