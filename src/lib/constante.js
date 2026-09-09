@@ -201,8 +201,8 @@ export const HK_STATUSES = [
 ];
 
 export const PERMISSIONS = {
-  admin: ["Calendar și rezervări", "Clienți", "Status camere", "Automatizare pre-sosire", "Configurare camere și dispozitive", "Administrare useri"],
-  receptionist: ["Calendar și rezervări", "Clienți", "Status camere", "Automatizare pre-sosire"],
+  admin: ["Calendar și rezervări", "Clienți", "Status camere", "Automatizare", "Configurare camere și dispozitive", "Administrare useri"],
+  receptionist: ["Calendar și rezervări", "Clienți", "Status camere", "Automatizare"],
   housekeeping: ["Status camere"],
 };
 

@@ -6,7 +6,7 @@
  */
 
 import React, { useState, useEffect, useMemo, useCallback } from "react";
-import { Plus, X, Check, Trash2, Pencil, DoorOpen, Sparkles, Wrench, KeyRound, Banknote, RefreshCw, AlertTriangle, ArrowRight, Info, TrendingUp, Tag as TagIcon, Copy, Cpu, Flame, Snowflake, Wind, Unlock } from "lucide-react";
+import { Plus, X, Check, Trash2, Pencil, DoorOpen, Sparkles, Wrench, KeyRound, Banknote, RefreshCw, AlertTriangle, ArrowRight, Info, TrendingUp, Tag as TagIcon, Copy, Unlock } from "lucide-react";
 import { uid } from "../lib/uid.js";
 import { isLive } from "../lib/availability.js";
 import { cazatAcum } from "../lib/tranzitii.js";
@@ -319,10 +319,6 @@ export function RoomsView({ core, updateCore, reservations, updateReservations, 
   return (
     <div>
       {tabs}
-      <div className="note">
-        ID-urile de dispozitiv de mai jos sunt folosite de workflow-ul de automatizare (n8n → Home Assistant) ca să
-        știe ce releu Shelly și ce unitate Sensibo aparțin fiecărei camere.
-      </div>
       <div className="toolbar">
         <div className="grow" />
         {/* Doar admin — mod trecere liberă lasă usi descuiate, e mai
@@ -350,7 +346,11 @@ export function RoomsView({ core, updateCore, reservations, updateReservations, 
           <div className="list-row" key={r.id}>
             <div>
               <div className="primary">{r.name} <span style={{ color: "var(--text-muted)", fontWeight: 500 }}>· {ROOM_TYPE[r.type]?.label || ""}</span></div>
-              <div className="device-row mono"><Flame size={12} /> {r.boilerId} &nbsp; <Wind size={12} /> {r.ventId} &nbsp; <Snowflake size={12} /> {r.sensiboId}</div>
+              <div className="secondary">
+                {r.accessLockName || r.accessLockId
+                  ? <>Yală: {r.accessLockName || r.accessLockId}</>
+                  : "Fără yală configurată"}
+              </div>
             </div>
             <div className="row-actions">
               <button className="icon-btn" onClick={() => setModal({ room: r })} aria-label={`Editează camera ${r.name}`}><Pencil size={14} /></button>
@@ -393,9 +393,6 @@ export function RoomModal({ room, onSave, onClose }) {
   const [name, setName] = useState(room?.name || "");
   const [type, setType] = useState(room?.type || "tiny");
   const [capacity, setCapacity] = useState(room?.capacity ?? 2);
-  const [boilerId, setBoilerId] = useState(room?.boilerId || "");
-  const [ventId, setVentId] = useState(room?.ventId || "");
-  const [sensiboId, setSensiboId] = useState(room?.sensiboId || "");
   const [accessLockId, setAccessLockId] = useState(room?.accessLockId || "");
   const [accessLockName, setAccessLockName] = useState(room?.accessLockName || "");
   /* Yalele citite de la furnizor. `null` = nu s-a cerut inca lista;
@@ -424,7 +421,6 @@ export function RoomModal({ room, onSave, onClose }) {
     const cap = Math.max(1, Number(capacity) || 1);
     onSave({
       id: room?.id || uid(), name: name.trim(), type, capacity: cap,
-      boilerId: boilerId.trim(), ventId: ventId.trim(), sensiboId: sensiboId.trim(),
       accessLockId: accessLockId.trim(), accessLockName: accessLockName.trim(),
     });
   };
@@ -437,9 +433,6 @@ export function RoomModal({ room, onSave, onClose }) {
           </button>
           <button className={tab === "acces" ? "on" : ""} onClick={() => setTab("acces")}>
             <KeyRound size={14} /> Yală
-          </button>
-          <button className={tab === "senzori" ? "on" : ""} onClick={() => setTab("senzori")}>
-            <Cpu size={14} /> Senzori
           </button>
         </div>
 
@@ -589,13 +582,7 @@ export function RoomModal({ room, onSave, onClose }) {
               </div>
             )}
           </>
-        ) : (
-          <>
-            <label className="field"><span className="fl">ID releu Shelly — boiler</span><input className="mono" value={boilerId} onChange={(e) => setBoilerId(e.target.value)} placeholder="shelly-boiler-1015" /></label>
-            <label className="field"><span className="fl">ID releu Shelly — ventilație</span><input className="mono" value={ventId} onChange={(e) => setVentId(e.target.value)} placeholder="shelly-vent-1015" /></label>
-            <label className="field"><span className="fl">ID dispozitiv Sensibo — AC</span><input className="mono" value={sensiboId} onChange={(e) => setSensiboId(e.target.value)} placeholder="sensibo-1015" /></label>
-          </>
-        )}
+        ) : null}
         {error && <div className="error-text" role="alert" style={{ marginBottom: 10 }}>{error}</div>}
         <div className="modal-actions">
           <div className="grow" />

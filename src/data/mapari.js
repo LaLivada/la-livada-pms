@@ -77,7 +77,6 @@ export const snakeGuest = (g) => ({
 });
 export const camelRoom = (r) => ({
   id: r.id, name: r.name, type: r.type, capacity: r.capacity,
-  boilerId: r.shelly_id || "", ventId: r.vent_id || "", sensiboId: r.sensibo_id || "",
   icalToken: r.ical_token, sortOrder: r.sort_order,
   /* Yala electronica a camerei. Trebuie sa treaca prin AMBELE mappere:
      un camp prezent doar in formular, dar absent din snakeRoom, s-ar
@@ -88,7 +87,6 @@ export const camelRoom = (r) => ({
 });
 export const snakeRoom = (r, idx) => ({
   id: r.id, name: r.name, type: r.type, capacity: r.capacity ?? 2,
-  shelly_id: r.boilerId || null, vent_id: r.ventId || null, sensibo_id: r.sensiboId || null,
   sort_order: r.sortOrder ?? idx,
   access_provider: r.accessLockId ? (r.accessProvider || "ttlock") : null,
   access_lock_id: r.accessLockId || null,

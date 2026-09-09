@@ -32,9 +32,9 @@ create table rooms (
   name        text not null,
   type        text not null check (type in ('tiny','loft')),
   capacity    int  not null default 2,
-  shelly_id   text,                        -- releu boiler
-  vent_id     text,                        -- releu ventilație
-  sensibo_id  text,                        -- control AC
+  -- Nu exista aici id-uri de dispozitiv. Releele stau in `devices`, legate
+  -- de camere prin `device_rooms`: un canal Shelly poate servi doua camere
+  -- (boiler, iluminat exterior), deci relatia nu incape intr-o coloana.
   ical_token  text not null default encode(gen_random_bytes(16),'hex'),
   active      boolean not null default true,
   sort_order  int  not null default 0
@@ -2863,10 +2863,9 @@ revoke execute on function staff_role() from anon;
 /*
 
 -- Camere
-insert into rooms (id, name, type, capacity, shelly_id, sensibo_id, sort_order)
+insert into rooms (id, name, type, capacity, sort_order)
 select r->>'id', r->>'name', r->>'type',
-       coalesce((r->>'capacity')::int, 2),
-       nullif(r->>'shellyId',''), nullif(r->>'sensiboId',''), ord
+       coalesce((r->>'capacity')::int, 2), ord
 from app_state a,
      jsonb_array_elements(a.value->'rooms') with ordinality t(r, ord)
 where a.key like 'pms:core%'
@@ -4074,3 +4073,111 @@ end $$;
 revoke execute on function guest_fisa_semneaza(text, jsonb)
   from public, anon, authenticated;
 grant  execute on function guest_fisa_semneaza(text, jsonb) to anon, service_role;
+
+
+-- =====================================================================
+-- DISPOZITIVE (RELEE SHELLY)
+-- =====================================================================
+--
+-- MONTAJUL FIZIC, care explica de ce schema arata asa. Camerele sunt
+-- grupate cate doua in jurul unei camere tehnice; in fiecare camera
+-- tehnica sta un Shelly Pro 4PM, cu patru canale impartite asa:
+--
+--   iesirea 1  iluminat exterior  -> AMBELE camere ale perechii
+--   iesirea 2  boiler             -> AMBELE camere ale perechii
+--   iesirea 3  prize              -> doar prima camera
+--   iesirea 4  prize              -> doar a doua camera
+--
+-- ATENTIE LA NUMEROTARE. Aplicatia Shelly numeroteaza iesirile 1-4, dar
+-- API-ul v2 le adreseaza 0-3 (`switch:0` .. `switch:3`). In coloana
+-- `channel` se scrie NUMARUL DIN API, adica iesirea fizica minus unu.
+-- Confuzia costa scump: o comanda gresita cu unu opreste boilerul in loc
+-- de iluminatul exterior.
+--
+-- De-aici vine tot ce urmeaza: un rand in `devices` per CANAL (nu per
+-- dispozitiv fizic), si o relatie multi-la-multi spre camere. Un canal
+-- partajat oprit lasa fara apa calda si vecinul, deci partajarea trebuie
+-- sa fie un fapt din schema, pe care interfata sa-l poata arata, nu o
+-- conventie tinuta minte de recepetie.
+--
+-- Cheia de cont Shelly (`auth_key`) NU e aici si nu ajunge niciodata in
+-- browser: sta in Edge Function Secrets, iar comenzile trec prin
+-- supabase/functions/device-provider. Vezi docs/shelly-integration.md.
+
+create table devices (
+  id                 text primary key,
+  provider           text not null default 'shelly',
+  provider_device_id text not null check (length(provider_device_id) between 1 and 64),
+  device_gen         text not null default 'gen2' check (device_gen in ('gen1', 'gen2')),
+  device_model       text check (length(device_model) <= 60),
+  -- CE COMANDA canalul, nu ce tip de componenta Shelly e: toate patru sunt
+  -- switch-uri pentru API, deci tipul n-ar distinge nimic, pe cand functia
+  -- decide ce scrie in interfata si ce avertisment se arata. Daca apare
+  -- vreodata un rulou (cover), atunci se adauga o coloana separata.
+  kind               text not null check (kind in ('boiler', 'iluminat_exterior', 'prize', 'altul')),
+  channel            integer not null default 0 check (channel between 0 and 15),
+  name               text not null check (length(name) between 1 and 60),
+  enabled            boolean not null default true,
+  last_status        jsonb,
+  last_seen_at       timestamptz,
+  created_at         timestamptz not null default now(),
+  updated_at         timestamptz not null default now(),
+  unique (provider, provider_device_id, channel)
+);
+
+-- Ce camere serveste fiecare canal: doua randuri pentru unul partajat,
+-- unul singur pentru prize.
+create table device_rooms (
+  device_id text not null references devices(id) on delete cascade,
+  room_id   text not null references rooms(id)   on delete cascade,
+  primary key (device_id, room_id)
+);
+
+create index device_rooms_room_idx on device_rooms(room_id);
+
+-- Jurnal append-only al comenzilor. `device_name` si `rooms` sunt
+-- INGHETATE ca text: o comanda din trecut trebuie sa ramana lizibila si
+-- dupa ce dispozitivul a fost redenumit sau sters.
+create table device_commands (
+  id          bigserial primary key,
+  at          timestamptz not null default now(),
+  actor       text not null check (length(actor) <= 120),
+  device_id   text references devices(id) on delete set null,
+  device_name text check (length(device_name) <= 60),
+  rooms       text check (length(rooms) <= 120),
+  action      text not null check (action in ('on', 'off', 'refresh')),
+  result      text not null check (result in ('ok', 'error')),
+  detail      text check (length(detail) <= 500)
+);
+
+alter table devices         enable row level security;
+alter table device_rooms    enable row level security;
+alter table device_commands enable row level security;
+
+-- Camerista nu vede si nu comanda relee. Nu e o restrictie de principiu,
+-- ci consecventa cu ecranul ei, care n-are butoanele astea.
+create policy "citeste dispozitive" on devices
+  for select to authenticated using (is_admin() or staff_role() = 'receptionist');
+create policy "admin scrie dispozitive" on devices
+  for insert to authenticated with check (is_admin());
+create policy "admin modifica dispozitive" on devices
+  for update to authenticated using (is_admin()) with check (is_admin());
+create policy "admin sterge dispozitive" on devices
+  for delete to authenticated using (is_admin());
+
+create policy "citeste legaturi dispozitiv-camera" on device_rooms
+  for select to authenticated using (is_admin() or staff_role() = 'receptionist');
+create policy "admin leaga dispozitive de camere" on device_rooms
+  for insert to authenticated with check (is_admin());
+create policy "admin dezleaga dispozitive de camere" on device_rooms
+  for delete to authenticated using (is_admin());
+
+-- Doar citire pentru personal. Scrierea o face exclusiv functia edge, cu
+-- service_role, care ocoleste RLS — deci nu exista politica de insert
+-- pentru `authenticated`, si nici de update sau delete pentru nimeni:
+-- un jurnal pe care actorul il poate rescrie nu e jurnal.
+create policy "citeste comenzi dispozitive" on device_commands
+  for select to authenticated using (is_admin() or staff_role() = 'receptionist');
+
+comment on table device_rooms is
+  'Ce camere sunt servite de fiecare canal. Doua randuri pentru un canal partajat (boiler, iluminat exterior), unul pentru un canal dedicat (prize).';

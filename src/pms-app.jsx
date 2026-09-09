@@ -89,9 +89,10 @@ const ProfileView = lazy(() => import("./features/setari.jsx").then((m) => ({ de
 const SettingsView = lazy(() => import("./features/setari.jsx").then((m) => ({ default: m.SettingsView })));
 const HousekeepingView = lazy(() => import("./features/camere.jsx").then((m) => ({ default: m.HousekeepingView })));
 const NightAuditGate = lazy(() => import("./features/rezervari.jsx").then((m) => ({ default: m.NightAuditGate })));
+const AutomatizareView = lazy(() => import("./features/automatizare.jsx").then((m) => ({ default: m.AutomatizareView })));
 import {
   CalendarDays, Users, DoorOpen, Zap, UserCog, LogOut,
-  Plus, X, Search, ChevronLeft, ChevronRight, Flame, Wind, Snowflake,
+  Plus, X, Search, ChevronLeft, ChevronRight,
   Sparkles, Check, Trash2, Pencil, ShieldCheck, UsersRound,
   BarChart3, History, LogIn, Printer, Banknote, ArrowRight,
   Settings, Eye, XCircle, MoveRight, Tag as TagIcon, Rows2, Rows3, MessageSquare, Wrench, UserCheck,
@@ -117,16 +118,10 @@ import {
 function seedCore() {
   const rooms = [];
   for (let n = 1001; n <= 1014; n++) {
-    rooms.push({
-      id: "r" + n, name: String(n), type: "tiny",
-      boilerId: `shelly-boiler-${n}`, ventId: `shelly-vent-${n}`, sensiboId: `sensibo-${n}`,
-    });
+    rooms.push({ id: "r" + n, name: String(n), type: "tiny" });
   }
   [1101, 1102].forEach((n) => {
-    rooms.push({
-      id: "r" + n, name: String(n), type: "loft",
-      boilerId: `shelly-boiler-${n}`, ventId: `shelly-vent-${n}`, sensiboId: `sensibo-${n}`,
-    });
+    rooms.push({ id: "r" + n, name: String(n), type: "loft" });
   });
   const guests = [
     { id: "g1", lastName: "Popescu", firstName: "Andrei", name: "Popescu Andrei", phone: "0722 111 222", email: "andrei.popescu@example.com", address: "", city: "Cluj-Napoca", county: "Cluj", country: "România", notes: "" },
@@ -911,7 +906,7 @@ function Login({ onLogin }) {
    beside it, and everything else is grouped under Setări. */
 const SETTINGS_ITEMS = [
   { key: "clients", label: "Clienți", icon: Users, desc: "Oaspeți și grupuri", roles: ["admin", "receptionist"] },
-  { key: "automation", label: "Automatizare", icon: Zap, desc: "Boiler, aer condiționat și ventilație înainte de sosire", roles: ["admin", "receptionist"] },
+  { key: "automation", label: "Automatizare", icon: Zap, desc: "Boiler, iluminat exterior și prize, pe camere tehnice", roles: ["admin", "receptionist"] },
   { key: "rooms", label: "Camere și tarife", icon: DoorOpen, desc: "Numere, tip, dispozitive Shelly/Sensibo și prețuri", roles: ["admin"] },
   { key: "financial", label: "Financiar", icon: Receipt, desc: "Facturi, încasări, produse și TVA", roles: ["admin"] },
   { key: "reports", label: "Rapoarte", icon: BarChart3, desc: "Ocupare, venit, ADR și RevPAR pe luni", roles: ["admin"] },
@@ -927,7 +922,7 @@ const VIEW_TITLES = {
   calendar: ["Calendar rezervări", "Vizualizare pe camere, următoarele 30 de zile"],
   clients: ["Clienți", "Oaspeți și grupuri"],
   housekeeping: ["Status camere", "Curățenie și pregătire pentru sosiri"],
-  automation: ["Automatizare pre-sosire", "Boiler · aer condiționat · ventilație"],
+  automation: ["Automatizare", "Relee Shelly pe camere tehnice"],
   rooms: ["Configurare camere", "Mapare dispozitive Shelly / Sensibo"],
   financial: ["Financiar", "Facturi, încasări, produse și TVA"],
   users: ["Useri și drepturi", "Acces pe roluri"],
@@ -1110,7 +1105,7 @@ function Shell({ user, view, setView, onLogout, core, updateCore, reservations, 
           {safeView === "housekeeping" && (
             <HousekeepingView core={core} reservations={reservations} housekeeping={housekeeping} updateHousekeeping={updateHousekeeping} />
           )}
-          {safeView === "automation" && <AutomationView core={core} reservations={reservations} />}
+          {safeView === "automation" && <AutomatizareView core={core} />}
           {safeView === "rooms" && (
             <RoomsView core={core} updateCore={updateCore}
               reservations={reservations} updateReservations={updateReservations}
@@ -1120,80 +1115,6 @@ function Shell({ user, view, setView, onLogout, core, updateCore, reservations, 
           {safeView === "users" && <UsersView />}
           </Suspense>
         </div>
-      </div>
-    </div>
-  );
-}
-
-/* ---------------------------------------------------------------
-   AUTOMATION STRIP — shared signature element (used on Calendar + Automation)
-----------------------------------------------------------------*/
-function computeTriggers(core, reservations, hoursAhead = 24) {
-  const now = new Date();
-  const horizon = new Date(now.getTime() + hoursAhead * 3600000);
-  const list = [];
-  reservations
-    .filter((r) => r.status === "confirmed" || r.status === "checkedin")
-    .forEach((r) => {
-      const checkin = new Date(r.checkin);
-      const trigger = new Date(checkin.getTime() - 60 * 60000); // -1h
-      if (trigger > horizon) return;
-      if (checkin < now && r.status !== "checkedin") return;
-      const room = core.rooms.find((rm) => rm.id === r.roomId);
-      if (!room) return;
-      const diffMin = Math.round((trigger.getTime() - now.getTime()) / 60000);
-      list.push({ reservation: r, room, checkin, trigger, diffMin });
-    });
-  return list.sort((a, b) => a.trigger - b.trigger);
-}
-
-function triggerLabel(diffMin) {
-  if (diffMin <= 0) return { text: "Pornit", cls: "done" };
-  if (diffMin < 60) return { text: `Pornește în ${diffMin} min`, cls: "soon" };
-  const h = Math.floor(diffMin / 60), m = diffMin % 60;
-  return { text: `Pornește în ${h}h ${m}min`, cls: "later" };
-}
-
-/* ---------------------------------------------------------------
-   GROUP ROOMING LIST (printable)
-----------------------------------------------------------------*/
-function AutomationView({ core, reservations }) {
-  const triggers = useMemo(() => computeTriggers(core, reservations, 72), [core, reservations]);
-  return (
-    <div>
-      <div className="note">
-        Această pagină arată doar starea programărilor. Comenzile efective către boiler, AC și ventilație sunt
-        trimise de workflow-ul n8n către Home Assistant, pe baza ID-urilor de dispozitiv setate în Configurare camere —
-        nu din acest ecran.
-      </div>
-      <div className="panel">
-        {triggers.length === 0 ? (
-          <div className="empty-state">
-            <Zap size={26} />
-            <h4>Nimic programat</h4>
-            <p>Nicio sosire în următoarele 72h.</p>
-          </div>
-        ) : (
-          triggers.map((t) => {
-            const lbl = triggerLabel(t.diffMin);
-            return (
-              <div className="list-row" key={t.reservation.id}>
-                <div>
-                  <div className="primary">{t.room.name}</div>
-                  <div className="secondary">Check-in {fmtDateTime(t.checkin)} · declanșare {fmtDateTime(t.trigger)}</div>
-                </div>
-                <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-                  <span style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11.5, color: "var(--text-muted)" }}>
-                    <Flame size={13} /><Wind size={13} /><Snowflake size={13} />
-                  </span>
-                  <span className={"role-tag " + (lbl.cls === "done" ? "role-housekeeping" : lbl.cls === "soon" ? "role-admin" : "role-receptionist")}>
-                    {lbl.text}
-                  </span>
-                </div>
-              </div>
-            );
-          })
-        )}
       </div>
     </div>
   );
