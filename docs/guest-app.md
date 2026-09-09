@@ -1201,3 +1201,45 @@ S-a putut schimba fără migrare fiindcă în bază erau **zero fișe** — veri
 `touchstart` și `touchmove` au implicitul tăiat, un traseu de 24 de puncte
 ajunge întreg (25 de puncte, niciunul pierdut), coordonatele acoperă tot
 sistemul 600×300, iar `scrollY` rămâne neschimbat peste tot gestul.
+
+## 19. Previzualizarea linkului pe WhatsApp (9 septembrie 2026)
+
+Semnalat de proprietar: linkul trimis din PMS venea cu **faviconul** în
+previzualizare — copacul singur, fără nume, arătând a icon de aplicație. Voia
+sigla, cea cu auriu și cu „LA LIVADĂ".
+
+**Nu era o scăpare, era o consecință.** Pagina n-avea deloc etichete `og:*`,
+deliberat: comentariul din `guest/index.html` spunea că previzualizarea unui
+link de cazare nu trebuie să arate cine stă în cameră. Numai că WhatsApp nu
+rămâne fără poză — caută singur și alege cel mai mare icon găsit, adică
+`favicon.png`. Tăcerea n-a împiedicat previzualizarea, doar a lăsat-o să
+aleagă singură.
+
+**Intimitatea nu se pierde**, și merită spus de ce: codul sejurului stă în
+**fragmentul** adresei (`guest.lalivada.ro/#Ajh6k`), iar fragmentul nu pleacă
+niciodată la server. WhatsApp cere `https://guest.lalivada.ro/` și primește
+exact ce primește oricine — aceleași etichete, aceeași poză, pentru toți
+oaspeții. Nimic din cartonaș nu depinde de cine deschide linkul. Din același
+motiv nu există `og:description`: orice text pus acolo ar fi tot despre „un
+sejur", iar golul spune mai puțin decât o propoziție generică.
+
+**Cartonașul se generează, nu se desenează de mână** —
+[scripts/og-guest.mjs](../scripts/og-guest.mjs), pe tiparul lui `wifi-qr.mjs`,
+cu uneltele aduse pe loc. 1440×754, adică raportul 1.91:1 la care WhatsApp
+arată cartonașul **mare**, cu poza deasupra, în loc de miniatura pătrată de
+lângă adresă.
+
+**`logo.png` nu se folosește direct**, deși e exact sigla care trebuie: are
+fundal transparent, iar previzualizările îl randează pe negru sau pe alb după
+client — auriul ar fi ieșit altfel pe fiecare telefon. Scriptul îl așază pe
+fildeșul paginii, opac: previzualizarea și pagina care se deschide după apăsare
+sunt pe aceeași hârtie.
+
+**Scriptul se verifică singur** și a prins ceva la prima rulare: `flatten` arde
+transparența pe fildeș dar **lasă canalul alfa**, iar sharp scria tot RGBA.
+Trecea neobservat — poza arăta bine deschisă local — și abia un client de
+mesagerie ar fi randat-o altfel. `removeAlpha` e cel care scoate canalul.
+Verificarea se uită la fișierul scris, nu la ce credem că am scris: mărime,
+lipsa canalului alfa, cele patru colțuri fildeș curat, mijlocul auriu (altfel
+sigla n-a intrat deloc, iar cartonașul ar fi o pagină goală pe care nimeni n-o
+observă lipsind) și sub 300 KB.

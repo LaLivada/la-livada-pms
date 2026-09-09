@@ -20,9 +20,37 @@
          lalivada.ro se adauga si `Disallow: /guest/`, fiindca acolo e
          adresa pe care o vede lumea. -->
     <meta name="robots" content="noindex, nofollow, noarchive, nosnippet" />
-    <!-- Un link de cazare trimis pe WhatsApp nu trebuie sa arate in
-         previzualizare cine sta in camera. Fara og:*, nu are ce prelua. -->
     <meta name="referrer" content="no-referrer" />
+
+    <!-- PREVIZUALIZAREA DIN WHATSAPP.
+         Pana acum nu existau og:*, tocmai ca previzualizarea unui link de
+         cazare sa nu arate cine sta in camera. Numai ca WhatsApp nu ramane
+         fara poza: cauta singur si alege cel mai mare icon gasit, adica
+         favicon.png — copacul singur, fara nume, aratand a icon de aplicatie.
+         Etichetele de mai jos ii dau sigla intreaga in locul lui.
+         NU SE PIERDE NIMIC DIN INTIMITATE, si merita spus de ce: codul
+         sejurului sta in FRAGMENTUL adresei (guest.lalivada.ro/#Ajh6k), iar
+         fragmentul nu pleaca niciodata la server. WhatsApp cere
+         `https://guest.lalivada.ro/` si primeste exact ce primeste oricine —
+         aceleasi etichete, aceeasi poza, pentru toti oaspetii. Nimic de aici
+         nu depinde de cine deschide linkul, si de aceea nu exista
+         og:description: orice text pus acolo ar fi tot despre „un sejur", iar
+         golul spune mai putin decat o propozitie generica. -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Complex La Livada" />
+    <meta property="og:locale" content="ro_RO" />
+    <meta property="og:url" content="https://guest.lalivada.ro/" />
+    <meta property="og:title" content="Sejurul tău — Complex La Livada" />
+    <!-- Adresa ABSOLUTA, nu „/brand/...": crawlerul citeste eticheta in afara
+         paginii si n-are fata de ce sa rezolve o cale relativa. -->
+    <meta property="og:image" content="https://guest.lalivada.ro/brand/og-whatsapp.png" />
+    <meta property="og:image:type" content="image/png" />
+    <!-- Marimea scrisa aici lasa WhatsApp sa deseneze cartonasul mare inainte
+         sa apuce sa descarce poza; fara ea, primul care trimite linkul vede
+         miniatura mica de langa adresa. -->
+    <meta property="og:image:width" content="1440" />
+    <meta property="og:image:height" content="754" />
+    <meta property="og:image:alt" content="Sigla Complex La Livada" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link rel="stylesheet"
