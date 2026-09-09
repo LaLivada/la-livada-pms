@@ -42,6 +42,12 @@
   --warning-soft:#F4EEDD;
   --success:#2A7B7B;
   --success-soft:#E0F0F0;
+  /* Becul de stare al releelor. Verde/roșu propriu, nu --success/--danger:
+     acelea sunt teal și cărămiziu, potrivite pentru text, dar prea apropiate
+     între ele într-o pastilă de 11px. Aici singurul rol e „aprins sau stins",
+     citit dintr-o privire, de la distanță. */
+  --led-on:#2E9E5B;
+  --led-off:#C0392B;
   /* Type scale — 8 steps, 1.125 ratio around a 13px base */
   --fs-3xs:9px;  --fs-2xs:10px; --fs-xs:11px;  --fs-sm:12px;
   --fs-base:13px; --fs-md:14px; --fs-lg:16px;  --fs-xl:18px;
@@ -79,6 +85,8 @@
     --warning-soft:#362E1D;
     --success:#6FC0C0;
     --success-soft:#1E3335;
+    --led-on:#4ECB79;
+    --led-off:#F0705F;
     --shadow-sm: 0 1px 2px rgba(0,0,0,0.4);
     --shadow: 0 1px 3px rgba(0,0,0,0.45), 0 8px 24px -8px rgba(0,0,0,0.55);
     --shadow-lg: 0 2px 6px rgba(0,0,0,0.5), 0 24px 48px -16px rgba(0,0,0,0.7);
@@ -672,6 +680,59 @@
   overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
 }
 .row-actions{ display:flex; gap:6px; flex:0 0 auto; }
+
+/* ---------- Automatizare: releele Shelly ----------
+   Clase proprii, nu .list-row: acolo `.secondary` are white-space:nowrap
+   si overflow:hidden, ceea ce taia eticheta de „comun" pe telefon. Aici
+   randul are voie sa se rupa pe mai multe linii, fiindca ce scrie in el
+   (ce comanda iesirea, pentru ce camere, si daca e partajata) nu e un
+   detaliu care sa poata fi trunchiat. */
+.dv-head, .dv-row{
+  display:flex; flex-wrap:wrap; align-items:center; gap:10px 12px;
+  padding:14px 18px; border-bottom:1px solid var(--border-soft);
+}
+.dv-head{ align-items:flex-start; }
+.dv-row:last-child{ border-bottom:none; }
+/* Baza mica + wrap: textul si comenzile incap pe aceeasi linie pana la
+   ecrane inguste, iar titlul se rupe pe doua randuri inainte ca butonul sa
+   coboare sub el. Invers — baza mare, cum era intai — impingea butonul pe
+   linia lui si facea randul de 125px, adica 500px doar pentru un releu cu
+   patru iesiri. Sub ~300px latime, comenzile coboara oricum. */
+.dv-info{ flex:1 1 150px; min-width:0; }
+.dv-title{
+  display:flex; align-items:center; gap:7px;
+  font-weight:600; font-size:var(--fs-md); line-height:1.35;
+}
+.dv-sub{
+  display:flex; align-items:center; gap:5px 8px; flex-wrap:wrap;
+  margin-top:4px; font-size:var(--fs-sm); color:var(--text-muted);
+}
+.dv-ctrl{ display:flex; align-items:center; gap:10px; margin-left:auto; flex:0 0 auto; }
+.dv-ctrl .btn{ width:auto; }
+
+/* Bara celor sapte camere tehnice, pe UN SINGUR RAND, la orice latime.
+   `.sub-tabs` implicit da `flex-shrink:0` fiecarui tab si deruleaza pe
+   orizontala ce nu incape — adica #6 si #7 ar sta ascunse sub marginea
+   ecranului, si n-ar mai fi linkuri, ci o vanatoare. Aici taburile impart
+   latimea in parti egale si se string, fiindca eticheta lor („#3") e scurta
+   si nu are ce pierde. */
+.dv-tabs button{ position:relative; flex:1 1 0; min-width:0; padding:9px 6px; }
+/* Becul de „inca neconfigurata" sta absolut, in colt: inline ar fi costat un
+   gap si o latime pe fiecare tab, exact ce nu ne permitem pe un rand. */
+.dv-tabs .dv-led{
+  position:absolute; top:3px; right:3px;
+  width:6px; height:6px; border-width:1.5px;
+}
+
+/* Becul de stare. Forma difera odata cu culoarea — plin cand e pornit,
+   gol cand e oprit — ca sa nu depinda citirea doar de culoare. */
+.dv-led{
+  display:inline-block; width:13px; height:13px; border-radius:50%;
+  border:2px solid var(--led-off); background:transparent; flex:0 0 auto;
+}
+.dv-led-on{ border-color:var(--led-on); background:var(--led-on); box-shadow:0 0 0 3px color-mix(in srgb, var(--led-on) 18%, transparent); }
+.dv-led-unknown{ border-color:var(--text-muted); border-style:dashed; }
+.dv-led-offline{ border-color:var(--warning); background:var(--warning-soft); }
 
 /* ---------- Room / task cards ---------- */
 .room-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(190px,1fr)); gap:12px; }

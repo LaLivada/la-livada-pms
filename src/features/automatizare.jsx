@@ -13,7 +13,7 @@
  * Shelly nu ajunge niciodata in browser.
  */
 import React, { useState, useEffect, useCallback, useMemo } from "react";
-import { Zap, Flame, Lightbulb, Plug, RefreshCw, Plus, Trash2, AlertTriangle, Users } from "lucide-react";
+import { Zap, Flame, Lightbulb, Plug, RefreshCw, Plus, Trash2, Users } from "lucide-react";
 import { audit, isAdmin } from "../lib/audit.js";
 import { mesajEroare } from "../lib/errors.js";
 import { fmtDateTime } from "../lib/format.js";
@@ -38,6 +38,9 @@ export function AutomatizareView({ core }) {
   const [seIncarca, setSeIncarca] = useState(true);
   const [ocupat, setOcupat] = useState(null);
   const [adauga, setAdauga] = useState(null);
+  /* O singura camera tehnica pe ecran. Cu toate sapte una sub alta ieseau
+     peste 3000px de derulat pe telefon, iar releul cautat era mereu jos. */
+  const [activ, setActiv] = useState(1);
 
   const numeCamera = useCallback(
     (id) => (core.rooms || []).find((r) => r.id === id)?.name || id,
@@ -102,22 +105,46 @@ export function AutomatizareView({ core }) {
   return (
     <div>
       <div className="note">
-        Fiecare pereche de camere are o cameră tehnică, iar acolo un releu Shelly Pro 4PM cu patru ieșiri.
-        Ieșirile de boiler și iluminat exterior sunt <strong>comune celor două camere</strong> — cine le oprește
-        le oprește pentru amândouă. Camerele {FARA_SHELLY.join(" și ")} nu au releu.
+        Fiecare pereche de camere are o cameră tehnică, iar acolo un Shelly Pro 4PM cu patru relee.
+        Releele de boiler și iluminat exterior sunt <strong>comune celor două camere</strong> — cine le oprește
+        le oprește pentru amândouă. Camerele {FARA_SHELLY.join(" și ")} nu au Shelly.
       </div>
 
-      <div className="toolbar">
-        <div className="grow" />
-        <button
-          className="btn btn-ghost" style={{ width: "auto" }}
-          disabled={ocupat === "refresh"} onClick={actualizeaza}
-        >
-          <RefreshCw size={15} /> {ocupat === "refresh" ? "Se actualizează…" : "Actualizează starea"}
-        </button>
+      <div className="tabs-bar">
+        <div className="sub-tabs dv-tabs" role="tablist" aria-label="Camere tehnice">
+          {CAMERE_TEHNICE.map((ct) => {
+            const camere = ct.camere.map(numeCamera).join(" și ");
+            const gol = !(peCameraTehnica.get(ct.nr) || []).length;
+            return (
+              <button
+                key={ct.nr}
+                role="tab"
+                aria-selected={activ === ct.nr}
+                className={activ === ct.nr ? "on" : ""}
+                /* Numarul singur nu spune ce camere sunt dedesubt — titlul
+                   si eticheta pentru cititoarele de ecran o spun, fara sa
+                   lateasca tabul cat sa nu mai incapa sapte pe telefon. */
+                title={`Camera tehnică ${ct.nr} · camerele ${camere}`}
+                aria-label={`Camera tehnică ${ct.nr}, camerele ${camere}`}
+                onClick={() => setActiv(ct.nr)}
+              >
+                #{ct.nr}
+                {gol && <span className="dv-led dv-led-unknown" aria-hidden="true" />}
+              </button>
+            );
+          })}
+        </div>
+        <div className="tabs-actions">
+          <button
+            className="btn btn-ghost" style={{ width: "auto" }}
+            disabled={ocupat === "refresh"} onClick={actualizeaza}
+          >
+            <RefreshCw size={15} /> {ocupat === "refresh" ? "Se actualizează…" : "Actualizează starea"}
+          </button>
+        </div>
       </div>
 
-      {CAMERE_TEHNICE.map((ct) => (
+      {CAMERE_TEHNICE.filter((ct) => ct.nr === activ).map((ct) => (
         <CameraTehnica
           key={ct.nr}
           ct={ct}
@@ -155,39 +182,39 @@ function CameraTehnica({ ct, dispozitive, numeCamera, ocupat, onComuta, onAdauga
 
   return (
     <div className="panel" style={{ marginBottom: 14 }}>
-      <div className="list-row" style={{ alignItems: "flex-start" }}>
-        <div>
-          <div className="primary">
+      <div className="dv-head">
+        <div className="dv-info">
+          <div className="dv-title">
             Camera tehnică {ct.nr}
             <span style={{ color: "var(--text-muted)", fontWeight: 500 }}>
-              {" "}· camerele {nume.join(" și ")}
+              · camerele {nume.join(" și ")}
             </span>
           </div>
-          <div className="secondary">
+          <div className="dv-sub">
             {idShelly
               ? <span className="mono">Shelly Pro 4PM · {idShelly}</span>
-              : "Niciun releu înregistrat"}
+              : "Niciun Shelly înregistrat"}
           </div>
         </div>
         {isAdmin() && (
-          <div className="row-actions">
+          <div className="row-actions" style={{ marginLeft: "auto" }}>
             {!idShelly && (
               <button className="btn btn-ghost" style={{ width: "auto" }} onClick={onAdauga}>
-                <Plus size={14} /> Adaugă releu
+                <Plus size={14} /> Adaugă Shelly
               </button>
             )}
             {idShelly && (confirmaStergere ? (
               <>
-                <span style={{ fontSize: 12, color: "var(--danger)", fontWeight: 600 }}>Ștergi releul?</span>
+                <span style={{ fontSize: 12, color: "var(--danger)", fontWeight: 600 }}>Ștergi Shelly-ul din camera tehnică?</span>
                 <button
-                  className="icon-btn" aria-label="Confirmă ștergerea releului"
+                  className="icon-btn" aria-label="Confirmă ștergerea"
                   onClick={async () => {
                     try {
                       await stergeShelly(idShelly);
-                      audit.push("Șters releu", `Camera tehnică ${ct.nr} · ${idShelly}`);
+                      audit.push("Șters Shelly", `Camera tehnică ${ct.nr} · ${idShelly}`);
                       await onSterge();
                     } catch (e) {
-                      toaster.push(mesajEroare(e, "Nu am putut șterge releul."), "error");
+                      toaster.push(mesajEroare(e, "Nu am putut șterge Shelly-ul."), "error");
                     } finally { setConfirmaStergere(false); }
                   }}
                 ><Trash2 size={14} /></button>
@@ -196,7 +223,7 @@ function CameraTehnica({ ct, dispozitive, numeCamera, ocupat, onComuta, onAdauga
                 </button>
               </>
             ) : (
-              <button className="icon-btn" aria-label="Șterge releul" onClick={() => setConfirmaStergere(true)}>
+              <button className="icon-btn" aria-label="Șterge Shelly-ul" onClick={() => setConfirmaStergere(true)}>
                 <Trash2 size={14} />
               </button>
             ))}
@@ -209,8 +236,8 @@ function CameraTehnica({ ct, dispozitive, numeCamera, ocupat, onComuta, onAdauga
           <Zap size={22} />
           <p>
             {isAdmin()
-              ? "Adaugă ID-ul releului din contul Shelly ca să apară cele patru ieșiri."
-              : "Releul nu e încă înregistrat. Cere-i adminului să-l adauge."}
+              ? "Adaugă ID-ul din contul Shelly ca să apară cele patru relee."
+              : "Shelly-ul nu e încă înregistrat. Cere-i adminului să-l adauge."}
           </p>
         </div>
       ) : (
@@ -232,66 +259,72 @@ function CameraTehnica({ ct, dispozitive, numeCamera, ocupat, onComuta, onAdauga
 function Iesire({ config, dispozitiv, camere, ocupat, onComuta }) {
   const Icon = PICTOGRAMA[config.kind] || Zap;
   const acestaOcupat = dispozitiv && ocupat === dispozitiv.id;
-  const lipseste = !dispozitiv;
 
   return (
-    <div className="list-row">
-      <div>
-        <div className="primary" style={{ display: "flex", alignItems: "center", gap: 7 }}>
+    <div className="dv-row">
+      <div className="dv-info">
+        <div className="dv-title">
           <Icon size={14} />
-          Ieșirea {config.iesire} · {config.eticheta}
+          Releu {config.iesire} · {config.eticheta}
         </div>
-        <div className="secondary" style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+        <div className="dv-sub">
           <span>{camere.join(" și ")}</span>
           {config.ambele && (
             /* Avertismentul e permanent, nu doar in momentul apasarii:
                receptia trebuie sa vada partajarea cand se uita pe ecran, nu
-               dupa ce a oprit deja apa calda vecinului. */
+               dupa ce a oprit deja apa calda vecinului. Scris scurt fiindca
+               numele celor doua camere sunt deja chiar langa. */
             <span className="role-tag role-admin" style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
-              <Users size={11} /> comun celor două camere
+              <Users size={11} /> comun
             </span>
           )}
         </div>
       </div>
-      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-        {lipseste ? (
-          <span className="secondary">neînregistrată</span>
-        ) : (
-          <>
-            <StarePastila dispozitiv={dispozitiv} />
-            <button
-              className={"btn " + (dispozitiv.pornit ? "btn-ghost" : "btn-primary")}
-              style={{ width: "auto" }}
-              disabled={acestaOcupat || !dispozitiv.activ}
-              onClick={() => onComuta(dispozitiv, !dispozitiv.pornit)}
-            >
-              {acestaOcupat ? "…" : dispozitiv.pornit ? "Oprește" : "Pornește"}
-            </button>
-          </>
-        )}
-      </div>
+      {!dispozitiv ? (
+        <div className="dv-ctrl"><span className="dv-sub">neînregistrat</span></div>
+      ) : (
+        <div className="dv-ctrl">
+          <Bec dispozitiv={dispozitiv} />
+          <button
+            className={"btn " + (dispozitiv.pornit ? "btn-ghost" : "btn-primary")}
+            disabled={acestaOcupat || !dispozitiv.activ}
+            onClick={() => onComuta(dispozitiv, !dispozitiv.pornit)}
+          >
+            {acestaOcupat ? "…" : dispozitiv.pornit ? "Oprește" : "Pornește"}
+          </button>
+        </div>
+      )}
     </div>
   );
 }
 
-function StarePastila({ dispozitiv }) {
-  if (!dispozitiv.activ) return <span className="role-tag">dezactivată</span>;
-  if (!dispozitiv.vazutLa) return <span className="role-tag">stare necunoscută</span>;
+/* Starea, ca bec: verde aprins / rosu stins. Textul complet ramane in
+   `title` si in `aria-label`, ca sa nu depinda de culoare cine citeste cu
+   un cititor de ecran sau nu distinge rosu de verde — de-aia becul aprins e
+   si plin, iar cel stins doar contur. */
+function Bec({ dispozitiv }) {
+  const cand = dispozitiv.vazutLa ? ` · verificat ${fmtDateTime(dispozitiv.vazutLa)}` : "";
+
+  if (!dispozitiv.activ) {
+    return <span className="dv-led dv-led-unknown" role="img" aria-label="Dezactivat" title="Dezactivat din setări" />;
+  }
+  if (!dispozitiv.vazutLa) {
+    return <span className="dv-led dv-led-unknown" role="img" aria-label="Stare necunoscută"
+                 title="Stare necunoscută — apasă „Actualizează starea”" />;
+  }
   if (!dispozitiv.online) {
     return (
-      <span className="role-tag role-receptionist" style={{ display: "inline-flex", alignItems: "center", gap: 4 }}
-            title={`Ultima stare cunoscută: ${fmtDateTime(dispozitiv.vazutLa)}`}>
-        <AlertTriangle size={11} /> offline
-      </span>
+      <span className="dv-led dv-led-offline" role="img" aria-label="Offline"
+            title={`Offline — nu răspunde${cand}`} />
     );
   }
   return (
     <span
-      className={"role-tag " + (dispozitiv.pornit ? "role-admin" : "role-housekeeping")}
-      title={`Verificat: ${fmtDateTime(dispozitiv.vazutLa)}`}
-    >
-      {dispozitiv.pornit ? "pornit" : "oprit"}
-    </span>
+      className={"dv-led " + (dispozitiv.pornit ? "dv-led-on" : "")}
+      role="img"
+      aria-label={dispozitiv.pornit ? "Pornit" : "Oprit"}
+      title={(dispozitiv.pornit ? "Pornit" : "Oprit") + cand}
+    />
   );
 }
 
@@ -309,19 +342,19 @@ function AdaugaReleu({ ct, numeCamera, idFolosite, onClose, onGata }) {
     setSalveaza(true);
     try {
       await adaugaShelly({ idShelly: curat, nrCameraTehnica: ct.nr, model: "Shelly Pro 4PM" });
-      audit.push("Adăugat releu", `Camera tehnică ${ct.nr} · ${curat}`);
-      toaster.push("Releu adăugat. Verifică starea ieșirilor.");
+      audit.push("Adăugat Shelly", `Camera tehnică ${ct.nr} · ${curat}`);
+      toaster.push("Shelly adăugat. Verifică starea celor patru relee.");
       await onGata();
     } catch (e) {
-      toaster.push(mesajEroare(e, "Nu am putut adăuga releul."), "error");
+      toaster.push(mesajEroare(e, "Nu am putut adăuga Shelly-ul."), "error");
       setSalveaza(false);
     }
   }
 
   return (
-    <Dialog title={`Adaugă releu · Camera tehnică ${ct.nr}`} onClose={onClose}>
+    <Dialog title={`Adaugă Shelly · Camera tehnică ${ct.nr}`} onClose={onClose}>
       <div className="note">
-        ID-ul dispozitivului se ia din aplicația Shelly: deschide releul → Settings → Device information →
+        ID-ul se ia din aplicația Shelly: deschide dispozitivul → Settings → Device information →
         Device ID. Nu introduce aici cheia contului („auth key”) — aceea se pune o singură dată în setările
         serverului și nu are ce căuta în aplicație.
       </div>
@@ -339,11 +372,11 @@ function AdaugaReleu({ ct, numeCamera, idFolosite, onClose, onGata }) {
       </div>
 
       <div className="note">
-        Se vor crea cele patru ieșiri, în ordinea de pe releu:
+        Se vor crea cele patru relee, în ordinea de pe dispozitiv:
         <ul style={{ margin: "6px 0 0", paddingLeft: 18 }}>
           {CANALE.map((c) => (
             <li key={c.canal}>
-              <strong>Ieșirea {c.iesire}</strong> · {c.eticheta} —{" "}
+              <strong>Releu {c.iesire}</strong> · {c.eticheta} —{" "}
               {c.ambele ? `${nume.join(" și ")} (comun)` : nume[c.indexCamera]}
             </li>
           ))}
@@ -353,7 +386,7 @@ function AdaugaReleu({ ct, numeCamera, idFolosite, onClose, onGata }) {
       <div className="modal-actions">
         <button className="btn btn-ghost" onClick={onClose}>Renunță</button>
         <button className="btn btn-primary" disabled={!curat || duplicat || salveaza} onClick={salveaza_}>
-          {salveaza ? "Se adaugă…" : "Adaugă releul"}
+          {salveaza ? "Se adaugă…" : "Adaugă Shelly-ul"}
         </button>
       </div>
     </Dialog>
