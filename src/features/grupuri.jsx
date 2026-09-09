@@ -46,8 +46,14 @@ export function GroupPrint({ group, core, reservations, onClose }) {
     }
     finally { setDownloading(false); }
   };
+  /* Filtrat pe isLive: fisa asta se tipareste si se da la semnat oaspetilor
+     care chiar vin. O camera anulata n-are ce cauta pe o lista de cazare —
+     nimeni nu semneaza pentru ea, iar totalul de plata n-are voie sa includa
+     o rezervare care nu se mai incaseaza. Gasit pe 9 septembrie 2026: fara
+     filtrul asta, „Nunta Grand'Or 12.09" ar fi iesit pe hartie cu 13 camere
+     si o suma care includea camera anulata a lui Cristofor Ionut. */
   const rows = reservations
-    .filter((r) => r.groupId === group.id)
+    .filter((r) => r.groupId === group.id && isLive(r))
     .sort((a, b) => (core.rooms.find((x) => x.id === a.roomId)?.name || "")
       .localeCompare(core.rooms.find((x) => x.id === b.roomId)?.name || ""));
 
@@ -217,14 +223,29 @@ export function GroupEditor({ group, core, groups, updateGroups, reservations, u
     .sort((a, b) => (core.rooms.find((x) => x.id === a.roomId)?.name || "")
       .localeCompare(core.rooms.find((x) => x.id === b.roomId)?.name || ""));
 
-  const span = rows.length
+  /* `rows` ramane TOATE rezervarile grupului — o camera anulata nu dispare
+     din lista, la fel cum un sejur anulat nu dispare din istoricul unui
+     client (vezi GuestHistory). Dar orice cifra de rezumat (numar de camere,
+     persoane, valoare, intervalul grupului) trebuie sa numere doar ce chiar
+     ocupa o camera acum — de-aia exista `liveRows`.
+     Gasit pe 9 septembrie 2026: „Nunta Grand'Or 12.09" arata 13 camere aici
+     si 12 pe calendar — camera 1003 fusese anulata, dar niciun calcul de
+     aici nu se uita la status, deci continua sa fie numarata si insumata in
+     pret ca si cum ar fi activa. */
+  const liveRows = rows.filter(isLive);
+
+  const span = liveRows.length
     ? {
-        checkin: new Date(Math.min(...rows.map((r) => new Date(r.checkin)))).toISOString(),
-        checkout: new Date(Math.max(...rows.map((r) => new Date(r.checkout)))).toISOString(),
+        checkin: new Date(Math.min(...liveRows.map((r) => new Date(r.checkin)))).toISOString(),
+        checkout: new Date(Math.max(...liveRows.map((r) => new Date(r.checkout)))).toISOString(),
       }
     : null;
 
-  const groupRoomIds = new Set(rows.map((r) => r.roomId));
+  /* O camera anulata nu mai e „a grupului" pentru scopul ocuparii — de-aia
+     doar `liveRows` intra aici. Camera 1003, cu rezervarea ei anulata, redevine
+     ofertabila la „Adaugă cameră" (daca e libera fizic), in loc sa ramana
+     blocata la nesfarsit de un rand mort. */
+  const groupRoomIds = new Set(liveRows.map((r) => r.roomId));
 
   /* Rooms taken by anything else live in this window (any reservation
      except exceptResId, plus maintenance blocks). Deliberately not
@@ -248,13 +269,13 @@ export function GroupEditor({ group, core, groups, updateGroups, reservations, u
   const busyRooms = span ? busyIn(span.checkin, span.checkout) : new Set();
 
   const freeRooms = core.rooms.filter((r) => !busyRooms.has(r.id) && !groupRoomIds.has(r.id));
-  const totalGuests = rows.reduce((n, r) => n + (r.adults ?? 2) + (r.children ?? 0), 0);
-  const namedRooms = rows.filter((r) =>
+  const totalGuests = liveRows.reduce((n, r) => n + (r.adults ?? 2) + (r.children ?? 0), 0);
+  const namedRooms = liveRows.filter((r) =>
     r.occupantLastName?.trim() && r.occupantFirstName?.trim() && r.occupantPhone?.trim()).length;
-  const nightsList = rows.map((r) => nightsBetween(r.checkin, r.checkout));
+  const nightsList = liveRows.map((r) => nightsBetween(r.checkin, r.checkout));
   const minN = nightsList.length ? Math.min(...nightsList) : 0;
   const maxN = nightsList.length ? Math.max(...nightsList) : 0;
-  const totalValue = rows.reduce((v, r) => v + reservationTotal(r, core), 0);
+  const totalValue = liveRows.reduce((v, r) => v + reservationTotal(r, core), 0);
 
   /* Recalculeaza bookedPrice doar cand se schimba ceva ce afecteaza pretul
      (data, ocupare, camera) si doar daca rezervarea nu are deja un pret
@@ -340,7 +361,11 @@ export function GroupEditor({ group, core, groups, updateGroups, reservations, u
     const err = validateStay(ci, co);
     if (err) { setError(err); return; }
 
-    const clashes = rows.filter((r) =>
+    /* Doar liveRows: o camera anulata nu se muta odata cu grupul — n-are
+       niciun rost sa-i schimbi datele unei rezervari care nu mai ocupa
+       nimic, iar `busyIn` (care oricum exclude non-live la sursa) n-ar
+       vedea-o niciodata drept conflict. */
+    const clashes = liveRows.filter((r) =>
       busyIn(ci.toISOString(), co.toISOString(), r.id).has(r.roomId));
     if (clashes.length) {
       const names = clashes.map((r) => core.rooms.find((x) => x.id === r.roomId)?.name).join(", ");
@@ -348,7 +373,7 @@ export function GroupEditor({ group, core, groups, updateGroups, reservations, u
       return;
     }
 
-    const ids = new Set(rows.map((r) => r.id));
+    const ids = new Set(liveRows.map((r) => r.id));
     const dupa = reservations.map((r) => {
       if (!ids.has(r.id)) return r;
       const patched = { ...r, checkin: ci.toISOString(), checkout: co.toISOString() };
@@ -360,12 +385,12 @@ export function GroupEditor({ group, core, groups, updateGroups, reservations, u
     const totalNou = dupa.filter((r) => ids.has(r.id))
       .reduce((v, r) => v + reservationTotal(r, core), 0);
     await audit.push("Perioadă grup schimbată",
-      `${group.name}: ${fmtDate(ci)} → ${fmtDate(co)} · ${rows.length} camere`
+      `${group.name}: ${fmtDate(ci)} → ${fmtDate(co)} · ${liveRows.length} camere`
       + liniaDePret(totalValue, totalNou));
 
     /* Aceeași perioadă nouă pentru toate camerele: fiecare cod de acces
        trebuie adus la zi separat, fiindcă fiecare stă pe altă yală. */
-    for (const r of rows) {
+    for (const r of liveRows) {
       const inainte = reservations.find((x) => x.id === r.id);
       if (!inainte) continue;
       try {
@@ -434,9 +459,24 @@ export function GroupEditor({ group, core, groups, updateGroups, reservations, u
   const dropRoom = async (id) => {
     const row = rows.find((r) => r.id === id);
     const rn = core.rooms.find((x) => x.id === row.roomId)?.name;
+    /* Asta e o STERGERE fizica a randului, nu o anulare — la fel ca
+       `removeInner` din rezervari.jsx. Daca rezervarea are fisa semnata,
+       baza refuza (trigger, nu RLS), iar `updateReservations` intoarce
+       false. Fara verificarea de mai jos, codul continua ca si cum ar fi
+       mers: pushuia in jurnal „Cameră scoasă", arata toastul, si daca era
+       ultima camera a grupului chiar STERGEA grupul intreg — desi in baza
+       nimic nu se schimbase. Acelasi tipar gasit azi in `removeInner` si
+       `patchRow`; aici era a treia copie neatinsa. */
     const before = reservations;
     const next = reservations.filter((r) => r.id !== id);
-    await updateReservations(next);
+    if (!await updateReservations(next)) {
+      toaster.show(
+        row && !isLive(row)
+          ? `Camera ${rn} nu poate fi scoasă din grup — are fișă de cazare. O rezervare cu fișă nu se șterge niciodată.`
+          : `Camera ${rn} n-a putut fi scoasă din grup.`,
+        { tone: "danger" });
+      return;
+    }
     await audit.push("Cameră scoasă din grup", `${group.name}: ${rn}`);
     toaster.show(`Camera ${rn} scoasă din grup`, {
       tone: "danger",
@@ -460,12 +500,26 @@ export function GroupEditor({ group, core, groups, updateGroups, reservations, u
       </label>
 
       <div className="group-summary">
-        <div><strong>{rows.length}</strong> camere</div>
+        <div><strong>{liveRows.length}</strong> camere</div>
         <div><strong>{totalGuests}</strong> persoane</div>
         <div><strong>{minN === maxN ? minN : `${minN}–${maxN}`}</strong> nopți</div>
-        <div><strong>{namedRooms}</strong>/{rows.length} cu ocupant</div>
+        <div><strong>{namedRooms}</strong>/{liveRows.length} cu ocupant</div>
         <div><strong>{fmtMoney(totalValue)}</strong></div>
       </div>
+      {/* Randurile anulate raman jos, in lista — un document legal (fisa,
+          plata) legat de ele nu trebuie sa dispara fara urma — dar nu intra
+          in nicio cifra de mai sus. Nota spune de ce numerele de-aici nu se
+          potrivesc cu numarul de randuri din lista (asta a fost confuzia
+          raportata la „Nunta Grand'Or 12.09": 13 randuri, 12 numarate). */}
+      {rows.length !== liveRows.length && (() => {
+        const n = rows.length - liveRows.length;
+        return (
+          <div className="note" style={{ marginBottom: 12 }}>
+            {n === 1 ? "O cameră anulată nu intră" : `${n} camere anulate nu intră`} în cifrele de mai sus —
+            {n === 1 ? " rămâne" : " rămân"} mai jos, marcată{n === 1 ? "" : "e"}.
+          </div>
+        );
+      })()}
 
       {span && (
         <div className="grp-period">
@@ -503,6 +557,30 @@ export function GroupEditor({ group, core, groups, updateGroups, reservations, u
 
       <div className="grp-rows">
         {rows.map((r) => {
+          const numeCamera = core.rooms.find((x) => x.id === r.roomId)?.name || r.roomId;
+          /* O camera anulata NU se editeaza aici — mutarea de camera/date sau
+             schimbarea ocupantilor pe o rezervare moarta n-are niciun efect
+             real si ar induce impresia falsa ca inca reprezinta ceva.
+             Ramane doar rezumatul si butonul de scos-din-grup, pentru cazul
+             in care chiar trebuie curatata lista. */
+          if (!isLive(r)) {
+            return (
+              <div className="grp-row grp-row-anulat" key={r.id}>
+                <div className="grp-row-head">
+                  <span className="mono">{numeCamera}</span>
+                  <span className="role-tag role-housekeeping">{STATUS_LABEL[r.status]}</span>
+                  <button className="icon-btn" onClick={() => dropRoom(r.id)}
+                    aria-label="Scoate camera din grup" title="Scoate camera din grup">
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+                <div className="secondary">
+                  {fmtDate(r.checkin)} → {fmtDate(r.checkout)}
+                  {occupantName(r, core, null) ? ` · ${occupantName(r, core, null)}` : ""}
+                </div>
+              </div>
+            );
+          }
           return (
             <div className="grp-row" key={r.id}>
               <div className="grp-row-head">
@@ -512,7 +590,7 @@ export function GroupEditor({ group, core, groups, updateGroups, reservations, u
                   aria-label="Schimbă camera"
                 >
                   <option value={r.roomId}>
-                    {core.rooms.find((x) => x.id === r.roomId)?.name} — {ROOM_TYPE[core.rooms.find((x) => x.id === r.roomId)?.type]?.label}
+                    {numeCamera} — {ROOM_TYPE[core.rooms.find((x) => x.id === r.roomId)?.type]?.label}
                   </option>
                   {freeRooms.map((room) => (
                     <option key={room.id} value={room.id}>
@@ -662,7 +740,27 @@ export function GroupsView({ core, groups, updateGroups, reservations, updateRes
   const removeGroup = async (groupId) => {
     const g = groups.find((x) => x.id === groupId);
     const n = reservations.filter((r) => r.groupId === groupId).length;
-    await updateReservations(reservations.filter((r) => r.groupId !== groupId));
+    /* Sterge dintr-o singura cerere toate rezervarile grupului — un DELETE
+       cu `id in (...)` e o singura instructiune Postgres, deci daca UNA
+       dintre camere are fisa semnata, triggerul refuza toata instructiunea
+       si nu se sterge nimic (nu doar camera aia). Fara verificarea de mai
+       jos, codul continua neatins: pushuia „Grup șters" in jurnal si
+       stergea GRUPUL insusi din `groups`, desi in `reservations` n-a
+       disparut niciun rand — exact acelasi tipar gasit azi de trei ori in
+       fisierul asta (`patchRow`, `dropRoom`, si acum aici). */
+    if (!await updateReservations(reservations.filter((r) => r.groupId !== groupId))) {
+      /* Nu exista un „scoate camera din grup, apoi sterge restul" — dropRoom
+         e tot o stergere fizica, ar fi refuzata la fel pe camera cu fisa.
+         O rezervare cu fisa nu se sterge NICIODATA (vezi
+         `fise_cazare_doar_anulare` in schema.sql); atat timp cat una din
+         camerele grupului are una, grupul intreg ramane, ca ansamblu. */
+      toaster.show(
+        `Grupul ${g?.name || ""} n-a putut fi șters — cel puțin o cameră are fișă de `
+        + "cazare, iar o rezervare cu fișă nu se șterge niciodată. Anulează statusul "
+        + "camerelor pe rând, dacă vrei să elibereze calendarul, dar grupul rămâne.",
+        { tone: "danger" });
+      return;
+    }
     await updateGroups(groups.filter((x) => x.id !== groupId));
     await audit.push("Grup șters", `${g?.name || groupId} · ${n} rezervări`);
     const beforeRes = reservations, beforeGroups = groups;
@@ -680,7 +778,13 @@ export function GroupsView({ core, groups, updateGroups, reservations, updateRes
   const sorted = [...groups].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
   const rows = sorted.map((g) => {
-    const res = reservations.filter((r) => r.groupId === g.id);
+    /* Doar `isLive`: etichetele mici de camera n-au unde arata un „anulat",
+       deci o camera anulata ar aparea identic cu una activa — mai inselator
+       decat s-o lasi deloc. Aceeasi regula ca la lista tiparita (GroupPrint)
+       si la rezumatul din GroupEditor. Grupul intreg tot apare, chiar daca
+       toate camerele lui ar fi anulate — doar coloana de camere ar iesi
+       goala („Fără camere"), nu tot randul. */
+    const res = reservations.filter((r) => r.groupId === g.id && isLive(r));
     const main = core.guests.find((x) => x.id === g.mainGuestId);
     const rooms = res.map((r) => core.rooms.find((rm) => rm.id === r.roomId)?.name).filter(Boolean);
     const ci = res.length ? new Date(Math.min(...res.map((r) => new Date(r.checkin)))) : null;
