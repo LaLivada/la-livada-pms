@@ -3841,6 +3841,16 @@ create policy "receptia anuleaza fise" on fise_cazare
 -- Verificat pe 7 septembrie 2026, cu tranzactie anulata, pe patru cazuri:
 -- modificarea unui camp obisnuit, stergerea si anularea care schimba si
 -- altceva pe drum sunt toate refuzate; anularea curata trece.
+--
+-- MESAJELE PLEACĂ CU P0001, adică fără `using errcode`. Sunt scrise pentru
+-- om, în română, tocmai ca recepția să știe ce are de făcut — iar
+-- `src/lib/errors.js` traduce după COD și lasă neatins doar P0001. Cu
+-- `errcode = check_violation`, cum era până pe 9 septembrie 2026, recepția
+-- primea „Datele introduse nu respectă o regulă de validare": adevărat și
+-- complet nefolositor. S-a văzut pe bune, la ștergerea unei rezervări cu
+-- fișă semnată. Nimic nu prinde codul: trigger-ul e `before update or
+-- delete`, iar singurul `exception when check_violation` de pe fise, din
+-- `guest_fisa_semneaza`, e pe INSERT.
 create or replace function fise_cazare_doar_anulare()
 returns trigger language plpgsql security definer
 set search_path = public as $$
@@ -3849,13 +3859,11 @@ declare
   nou   jsonb;
 begin
   if TG_OP = 'DELETE' then
-    raise exception 'O fisa de cazare nu se sterge. Anuleaz-o.'
-      using errcode = 'check_violation';
+    raise exception 'Rezervarea are fișă de cazare semnată, iar o fișă nu se șterge. Anuleaz-o întâi din Documente, apoi șterge rezervarea.';
   end if;
 
   if old.anulata_la is not null then
-    raise exception 'Fisa e deja anulata si nu se mai modifica.'
-      using errcode = 'check_violation';
+    raise exception 'Fișa e deja anulată și nu se mai modifică.';
   end if;
 
   -- `to_jsonb` minus cele trei coloane, pe ambele randuri. Comparatia ramane
@@ -3865,13 +3873,11 @@ begin
   nou   := to_jsonb(new) - 'anulata_la' - 'anulata_de' - 'anulata_motiv';
 
   if vechi is distinct from nou then
-    raise exception 'O fisa de cazare semnata nu se modifica. Anuleaz-o si scrie alta.'
-      using errcode = 'check_violation';
+    raise exception 'O fișă de cazare semnată nu se modifică. Anuleaz-o și scrie alta.';
   end if;
 
   if new.anulata_la is null then
-    raise exception 'Singura modificare permisa e anularea.'
-      using errcode = 'check_violation';
+    raise exception 'Singura modificare permisă e anularea.';
   end if;
 
   return new;

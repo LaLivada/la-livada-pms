@@ -54,6 +54,19 @@ export async function rezervariCuFisa(idRezervari) {
   return new Set((data || []).map((r) => r.reservation_id));
 }
 
+/* Are rezervarea o fisa neanulata? Intrebarea apare la STERGEREA rezervarii:
+   `on delete cascade` duce stergerea pana la fisa, iar acolo triggerul
+   `fise_cazare_imuabila` o refuza — un document legal nu se sterge, se
+   anuleaza. Bine de aflat inainte, nu dupa ce receptia a apasat deja
+   butonul si i s-a revocat oaspetelui codul de usa.
+
+   Trece prin `rezervariCuFisa` ca sa existe o singura definitie a lui „are
+   fisa" — inclusiv pentru insotitori, care au alt `ordine` si pe care
+   `fisaActiva(id)` i-ar rata. */
+export async function areFisaActiva(idRezervare) {
+  return (await rezervariCuFisa([idRezervare])).has(idRezervare);
+}
+
 /* Fisa scrisa de la receptie.
  *
  * `completataDe` inseamna „cine a tastat", nu „in locul semnaturii": daca

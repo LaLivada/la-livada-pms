@@ -28,6 +28,7 @@ import { ROOM_TYPE, STATUS_LABEL, STATUS_GLYPH, STATUS_CLASS, CREATE_STATUSES, E
 import { Dialog, toaster, useModalLock, useAduInVizor, usePaginare, Paginare, Stat, Section, OccupantStepper } from "../ui/primitive.jsx";
 import { snakeRes } from "../data/mapari.js";
 import { syncTable } from "../data/nucleu.js";
+import * as dateFise from "../data/fise.js";
 import { ORA_SOSIRE_IMPLICITA, ORA_PLECARE_IMPLICITA } from "../lib/acces.js";
 import { SectiuneAcces, cheamaAcces, reconciliazaAcces } from "./acces.jsx";
 import { SectiuneFisa } from "./fise.jsx";
@@ -1370,13 +1371,37 @@ export function ReservationModal({ data, core, updateCore, reservations, updateR
   };
 
   const removeInner = async () => {
+    /* Fișa semnată blochează ștergerea — și e mai bine să afli asta ÎNAINTE
+       de a-i revoca oaspetelui codul de ușă. `on delete cascade` duce
+       ștergerea rezervării până la fișă, iar acolo `fise_cazare_imuabila` o
+       refuză: un document legal nu se șterge, se anulează.
+
+       S-a întâmplat pe 9 septembrie 2026, camera 1001: codul a fost revocat
+       de pe yală, baza a refuzat ștergerea, iar oaspetele a rămas cu o ușă
+       moartă pentru o ștergere care nu avusese loc. */
+    try {
+      if (await dateFise.areFisaActiva(editing.id)) {
+        toaster.show(
+          "Rezervarea are fișă de cazare semnată, deci nu se poate șterge. "
+          + "Anulează întâi fișa (Documente → Fișa de cazare), apoi rezervarea.",
+          { tone: "danger" });
+        return;
+      }
+    } catch (e) {
+      /* Dacă verificarea n-a mers, mergem mai departe: baza refuză oricum, iar
+         compensarea de mai jos repune codul. */
+      console.error("verificare fișă la ștergere", e);
+    }
+
     /* Revocarea ÎNAINTE de ștergere, nu după: odată rândul dispărut,
        funcția edge nu mai are ce căuta, iar `on delete cascade` șterge și
        codul din access_codes. Fără pasul ăsta ar rămâne un cod activ pe
        yală despre care nu mai există nicio urmă nicăieri — cazul cel mai
        urât, fiindcă nimeni n-ar mai ști nici măcar că trebuie căutat. */
+    let revocat = false;
     try {
       const rev = await cheamaAcces("revoke", { reservationId: editing.id });
+      revocat = rev?.ok === true;
       if (rev && rev.ok === false && rev.reason !== "neconfigurat") {
         toaster.show(
           "Atenție: codul de acces nu a putut fi șters de pe yală. Verifică în TTHOTEL înainte de a șterge rezervarea.",
@@ -1385,7 +1410,26 @@ export function ReservationModal({ data, core, updateCore, reservations, updateR
     } catch (e) { console.error("Revocare acces la ștergere", e); }
 
     const nextRes = reservations.filter((r) => r.id !== editing.id);
-    await updateReservations(nextRes);
+    /* Dacă baza a refuzat ștergerea, tot ce urmează ar minți: toastul ar
+       spune „a fost ștearsă", jurnalul la fel, iar rezervarea ar reapărea la
+       prima reîncărcare. Mesajul de eroare l-a dat deja `raporteazaEroare`. */
+    if (!await updateReservations(nextRes)) {
+      /* Compensare: codul a fost revocat pentru o ștergere care n-a avut loc.
+         Îl punem la loc — altfel oaspetele rămâne blocat afară. Codul NOU
+         diferă de cel trimis, deci recepția trebuie să-l retrimită; toastul
+         o spune, fiindcă altfel e o schimbare tăcută pe care o descoperă
+         oaspetele, în fața ușii. */
+      if (revocat) {
+        const reemis = await cheamaAcces("issue", { reservationId: editing.id });
+        toaster.show(reemis?.ok
+          ? "Ștergerea a eșuat. Codul de acces fusese revocat, așa că am generat altul — retrimite-l oaspetelui."
+          : "Ștergerea a eșuat, iar codul de acces rămâne revocat. Generează-l din nou din rezervare.",
+          { tone: "danger" });
+        await audit.push(reemis?.ok ? "Cod acces repus după ștergere eșuată" : "Cod acces rămas revocat",
+          `${core.rooms.find((r) => r.id === editing.roomId)?.name || editing.roomId}`);
+      }
+      return;
+    }
 
     // A group with no reservations left would linger as an orphan.
     if (editing.groupId && !nextRes.some((r) => r.groupId === editing.groupId)) {
