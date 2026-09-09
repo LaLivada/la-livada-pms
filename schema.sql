@@ -4221,6 +4221,34 @@ create policy "citeste rulari legionela" on device_legionella_runs
 create policy "citeste override automatizare" on device_automation_override
   for select to authenticated using (is_admin() or staff_role() = 'receptionist');
 
+-- Fiecare regula automata se poate opri separat, din ecranul Automatizari.
+-- O regula oprita NU mai comanda nimic, dar nu stinge ce a pornit deja:
+-- releele raman unde sunt, sub control manual. Consecinta de care depinde
+-- corectitudinea: cand ambele reguli de boiler sunt oprite, ciclul trebuie
+-- sa SARA peste boilere, nu sa le stinga (vezi garda din index.ts).
+create table automation_rules (
+  key        text primary key
+               check (key in ('preincalzire_boiler', 'lumini_exterioare', 'anti_legionella')),
+  enabled    boolean not null default true,
+  updated_at timestamptz not null default now()
+);
+
+insert into automation_rules (key) values
+  ('preincalzire_boiler'), ('lumini_exterioare'), ('anti_legionella');
+
+alter table automation_rules enable row level security;
+
+-- Citire pentru personal (receptia trebuie sa vada de ce s-a pornit sau nu
+-- boilerul), scriere doar pentru admin — oprirea unei reguli e configurare,
+-- nu operare; receptia are deja comanda manuala si suprascrierea de lumini.
+create policy "citeste reguli automate" on automation_rules
+  for select to authenticated using (is_admin() or staff_role() = 'receptionist');
+create policy "admin modifica reguli automate" on automation_rules
+  for update to authenticated using (is_admin()) with check (is_admin());
+
+comment on table automation_rules is
+  'Pornit/oprit per regula automata. Oprita = nu mai comanda; nu stinge releele deja pornite.';
+
 comment on table device_legionella_runs is
   'Cadenta anti-legionela per boiler: ultima zi (locala) in care ciclul 11:00-14:00 chiar a pornit boilerul.';
 comment on table device_automation_override is
@@ -4241,6 +4269,13 @@ comment on table device_automation_override is
 --         'Content-Type', 'application/json',
 --         'Authorization', 'Bearer ' || (select decrypted_secret from vault.decrypted_secrets where name = 'service_role_key' limit 1)
 --       ),
---       body := jsonb_build_object('action', 'cron_reconciliaza')
+--       body := jsonb_build_object('action', 'cron_reconciliaza'),
+--       timeout_milliseconds := 120000
 --     );
 --   $$);
+--
+-- `timeout_milliseconds` NU e decorativ: implicitul pg_net e 5000, iar ciclul
+-- citeste starea de la Shelly si apoi comanda releele unul cate unul, cu o
+-- secunda pauza intre ele (limita de ritm Shelly) — 7 lumini plus 7 boilere
+-- inseamna pana la ~15 secunde. La 5s, pg_net taia conexiunea si raspunsul
+-- (cate au reusit, ce a esuat) se pierdea, desi functia mergea mai departe.

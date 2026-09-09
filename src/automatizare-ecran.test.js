@@ -18,6 +18,15 @@ import { act } from "react";
 vi.mock("./supabase.js", () => ({ supabase: {} }));
 
 const cheamaDispozitiv = vi.fn(async () => ({ ok: true, actualizate: 4 }));
+const comutaRegula = vi.fn(async () => {});
+
+/* Una oprita din trei, deliberat: asa acelasi ecran arata si „Activ" si
+   „Oprit", si amandoua etichetele de buton. */
+const REGULI = [
+  { key: "preincalzire_boiler", titlu: "Preîncălzire boiler", descriere: "Cu 4 ore înainte.", activ: true },
+  { key: "lumini_exterioare", titlu: "Lumini exterioare după soare", descriere: "De la apus la răsărit.", activ: true },
+  { key: "anti_legionella", titlu: "Anti-legionella", descriere: "O dată la 10 zile.", activ: false },
+];
 
 /* Se mockeaza doar functiile care ating reteaua; CAMERE_TEHNICE si CANALE
    raman cele reale, fiindca tocmai maparea canal->camera e ce merita
@@ -28,6 +37,8 @@ vi.mock("./data/dispozitive.js", async (importOriginal) => {
     ...real,
     toateDispozitivele: vi.fn(async () => DISPOZITIVE),
     cheamaDispozitiv,
+    reguliAutomate: vi.fn(async () => REGULI),
+    comutaRegula,
   };
 });
 
@@ -296,9 +307,9 @@ describe("AutomatizareView — cele doua sectiuni", () => {
     expect(sectiuni[0].getAttribute("aria-selected")).toBe("true");
   });
 
-  /* Cele trei reguli ruleaza server-side (pg_cron -> device-provider),
-     nu din acest ecran — panoul e text static, descriptiv. */
-  it("descrie cele trei reguli active, fara vreun buton al lor", async () => {
+  /* Regulile ruleaza server-side (pg_cron -> device-provider); din ecran se
+     schimba doar steagul lor. */
+  it("listeaza cele trei reguli", async () => {
     const g = await randeaza();
     await treciLaAutomatizari(g);
     expect(g.textContent).toContain("Preîncălzire boiler");
@@ -306,6 +317,68 @@ describe("AutomatizareView — cele doua sectiuni", () => {
     expect(g.textContent).toContain("Anti-legionella");
     // Panoul de camere tehnice dispare cat timp esti in cealalta sectiune.
     expect(g.textContent).not.toContain("Camera tehnică 1");
+  });
+});
+
+const randRegula = (g, titlu) => [...g.querySelectorAll(".dv-row")]
+  .find((r) => r.querySelector(".dv-regula-cap")?.textContent.includes(titlu));
+
+describe("AutomatizareView — pornit/oprit per regula", () => {
+  it("arata starea si butonul pe acelasi rand cu numele regulii", async () => {
+    const g = await randeaza();
+    await treciLaAutomatizari(g);
+
+    /* Amandoua trebuie sa fie in CAPUL randului, langa nume — nu oriunde in
+       rand. Daca ar cadea sub descriere, testul asta pica. */
+    const cap = randRegula(g, "Preîncălzire boiler").querySelector(".dv-regula-cap");
+    expect(cap.querySelector(".dv-stare").textContent).toBe("Activ");
+    expect(cap.querySelector("button").textContent).toBe("Oprește");
+  });
+
+  it("o regula oprita arata Oprit si butonul de pornire", async () => {
+    const g = await randeaza();
+    await treciLaAutomatizari(g);
+
+    const cap = randRegula(g, "Anti-legionella").querySelector(".dv-regula-cap");
+    expect(cap.querySelector(".dv-stare").textContent).toBe("Oprit");
+    expect(cap.querySelector("button").textContent).toBe("Pornește");
+  });
+
+  it("apasarea comuta exact regula aia, nu alta", async () => {
+    const g = await randeaza();
+    await treciLaAutomatizari(g);
+    comutaRegula.mockClear();
+
+    const buton = randRegula(g, "Lumini exterioare după soare").querySelector(".dv-regula-cap button");
+    await act(async () => { buton.click(); });
+
+    expect(comutaRegula).toHaveBeenCalledTimes(1);
+    expect(comutaRegula).toHaveBeenCalledWith("lumini_exterioare", false);
+  });
+
+  /* Comutarea unei reguli NU trece prin `device-provider`: schimba un steag in
+     baza, iar ciclul server-side il citeste la urmatoarea rulare. Daca ar
+     ajunge sa cheme functia edge, ar insemna ca cineva a legat butonul de o
+     comanda de releu. */
+  it("nu trimite nicio comanda catre relee cand opresti o regula", async () => {
+    const g = await randeaza();
+    await treciLaAutomatizari(g);
+    cheamaDispozitiv.mockClear();
+
+    await act(async () => {
+      randRegula(g, "Preîncălzire boiler").querySelector(".dv-regula-cap button").click();
+    });
+
+    expect(cheamaDispozitiv).not.toHaveBeenCalled();
+  });
+
+  it("camerista nu poate opri o automatizare", async () => {
+    audit.user = { name: "Test", role: "housekeeping" };
+    const g = await randeaza();
+    await treciLaAutomatizari(g);
+
+    const buton = randRegula(g, "Anti-legionella").querySelector(".dv-regula-cap button");
+    expect(buton.disabled).toBe(true);
   });
 });
 

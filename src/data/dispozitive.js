@@ -167,6 +167,51 @@ export async function comutaActiv(idDispozitiv, activ) {
   if (error) throw error;
 }
 
+/* REGULILE AUTOMATE.
+ *
+ * Ruleaza server-side (pg_cron -> device-provider la fiecare 10 minute), deci
+ * de aici se citeste si se comuta doar STEAGUL — nimic din ecran nu declanseaza
+ * si nu opreste un ciclu. Textele stau tot aici, langa chei, ca sa nu ajunga
+ * descrierea unei reguli sa spuna altceva decat face codul care o executa.
+ *
+ * O regula oprita NU stinge releele deja pornite: inseamna „nu mai comand",
+ * nu „opreste tot". De-aia scrie „nu mai comandă" in fiecare descriere. */
+export const REGULI_AUTOMATE = [
+  {
+    key: "preincalzire_boiler",
+    titlu: "Preîncălzire boiler",
+    descriere: "Pornește cu 4 ore înainte de ora de cazare și rămâne pornit pe toată durata sejurului. Nu se oprește dacă a doua zi mai vine cineva pe oricare din cele două camere ale releului.",
+  },
+  {
+    key: "lumini_exterioare",
+    titlu: "Lumini exterioare după soare",
+    descriere: "Cât timp există măcar o cameră cazată oriunde în pensiune, toate luminile exterioare se aprind la apus și se sting la răsărit. O comandă manuală suprascrie automatizarea până la următoarea tranziție.",
+  },
+  {
+    key: "anti_legionella",
+    titlu: "Anti-legionella",
+    descriere: "O dată la 10 zile, între 11:00 și 14:00, pornește boilerul dacă nicio cameră a lui n-a fost cazată în ultimele 10 zile.",
+  },
+];
+
+/* Lista fixa de mai sus, imbogatita cu steagul din baza. Ordinea si textele
+   vin din cod, nu din baza: un rand lipsa inseamna „inca activa", nu o regula
+   disparuta de pe ecran. */
+export async function reguliAutomate() {
+  const { data, error } = await supabase.from("automation_rules").select("key, enabled");
+  if (error) throw error;
+  const steaguri = new Map((data || []).map((r) => [r.key, r.enabled]));
+  return REGULI_AUTOMATE.map((r) => ({ ...r, activ: steaguri.get(r.key) !== false }));
+}
+
+/* Doar adminul trece de RLS aici — vezi politica din schema.sql. */
+export async function comutaRegula(key, activ) {
+  const { error } = await supabase.from("automation_rules")
+    .update({ enabled: activ, updated_at: new Date().toISOString() })
+    .eq("key", key);
+  if (error) throw error;
+}
+
 /* Ultimele comenzi, pentru ecranul de istoric. */
 export async function comenziRecente(limita = 100) {
   const { data, error } = await supabase.from("device_commands")

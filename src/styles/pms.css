@@ -752,6 +752,30 @@
 .dv-icon-offline{ color:var(--warning); }
 .dv-icon-necunoscut{ color:var(--text-muted); }
 
+/* Randul unei reguli automate. Starea si butonul stau pe ACELASI rand cu
+   numele, iar descrierea curge dedesubt pe toata latimea — de-aia exista
+   capul asta separat: `.dv-row` centreaza pe verticala, deci fara el butonul
+   ar fi cazut la mijlocul descrierii, adica vizual sub nume, nu langa el.
+   Nu foloseste `.dv-ctrl`: acela impune min-width:112px butonului, iar aici
+   butonul trebuie sa fie mic. */
+/* nowrap deliberat: cu `wrap`, un titlu lung („Lumini exterioare după soare")
+   impingea starea si butonul pe rândul de dedesubt pe telefon — adica exact
+   sub nume, nu lângă el. Asa titlul se rupe INTERN pe doua randuri, iar
+   controlul ramane in dreapta lui. */
+.dv-regula-cap{ display:flex; align-items:center; gap:10px; flex-wrap:nowrap; }
+.dv-regula-cap .dv-title{ flex:1 1 auto; min-width:0; }
+.dv-regula-ctrl{ display:flex; align-items:center; gap:10px; margin-left:auto; flex:0 0 auto; }
+.dv-stare{
+  font-size:var(--fs-xs); font-weight:700; letter-spacing:.04em; text-transform:uppercase;
+}
+.dv-stare-on{ color:var(--led-on); }
+/* Oprit e gri, nu rosu: e o alegere, nu o defectiune. Rosul ramane pentru
+   relee stinse, unde chiar inseamna „nu merge acum". */
+.dv-stare-off{ color:var(--text-muted); }
+/* Deliberat mai mic decat butoanele de comanda: opreste o regula, nu un
+   releu. Pe touch ramane la 44px prin regula generala de la `.btn`. */
+.dv-btn-mic{ width:auto; padding:6px 12px; font-size:var(--fs-sm); }
+
 /* Consumul general, deasupra camerelor tehnice. Se rupe pe mai multe randuri
    pe telefon: sunt opt cifre cu unitati, si niciuna n-are voie sa fie taiata
    — un „1,2" din care lipseste un digit e mai rau decat nicio cifra. */

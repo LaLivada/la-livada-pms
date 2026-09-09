@@ -34,6 +34,15 @@ export const ORA_STOP_LEGIONELA = 14;
 export const ORE_PREINCALZIRE = 4;
 export const FUS_ORAR = "Europe/Bucharest";
 
+/* Cheile din `automation_rules`. Fiecare regula se poate opri separat din
+   ecranul Automatizari; o regula oprita nu mai COMANDA nimic, dar nu stinge
+   ce a pornit deja — releele raman unde sunt, sub control manual. */
+export const REGULI = {
+  PREINCALZIRE: "preincalzire_boiler",
+  LUMINI: "lumini_exterioare",
+  LEGIONELA: "anti_legionella",
+} as const;
+
 /* Coordonatele pensiunii — sursa e src/guest/continut.js:41 (`ACASA`),
    folosite acolo pentru harta din guest app. Funcția edge nu poate importa
    peste granița guest-app/edge-function (deploy-uri separate), deci
@@ -153,18 +162,32 @@ export function legionelaDorit(opts: {
   return !ocupatRecentLegionela(rezervari, acum);
 }
 
+/* Cele doua reguli care ating boilerul se combina AICI, intr-un singur
+   raspuns, tocmai ca sa nu se calce: altfel anti-legionela ar stinge la 14:00
+   un boiler pe care preincalzirea tocmai l-a pornit pentru un oaspete.
+ *
+ * Steagurile vin din `automation_rules`. Cand AMANDOUA sunt oprite, apelantul
+ * nu are voie sa foloseasca `pornit: false` ca sa stinga boilerul — o regula
+ * oprita inseamna "nu mai comand", nu "opreste tot". Vezi garda din index.ts. */
 export function boilerDorit(opts: {
   rezervari: Rezervare[];
   acum: Date;
   curentPornit: boolean;
   ultimaRulareLegionela: string | null;
   fus?: string;
+  preincalzireActiva?: boolean;
+  legionelaActiva?: boolean;
 }): { pornit: boolean; motivLegionela: boolean } {
-  const { rezervari, acum, curentPornit, ultimaRulareLegionela, fus = FUS_ORAR } = opts;
+  const {
+    rezervari, acum, curentPornit, ultimaRulareLegionela, fus = FUS_ORAR,
+    preincalzireActiva = true, legionelaActiva = true,
+  } = opts;
 
-  const sejur = sejurActiv(rezervari, acum)
-    || (curentPornit && sejurCurandSauMaine(rezervari, acum, fus));
-  const legionela = legionelaDorit({ rezervari, acum, ultimaRulare: ultimaRulareLegionela, fus });
+  const sejur = preincalzireActiva && (
+    sejurActiv(rezervari, acum)
+    || (curentPornit && sejurCurandSauMaine(rezervari, acum, fus)));
+  const legionela = legionelaActiva
+    && legionelaDorit({ rezervari, acum, ultimaRulare: ultimaRulareLegionela, fus });
 
   return { pornit: sejur || legionela, motivLegionela: legionela };
 }

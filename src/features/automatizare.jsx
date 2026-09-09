@@ -20,7 +20,7 @@ import { fmtDateTime } from "../lib/format.js";
 import { Dialog, toaster, useModalLock } from "../ui/primitive.jsx";
 import {
   CAMERE_TEHNICE, CANALE, toateDispozitivele, adaugaShelly, stergeShelly,
-  cheamaDispozitiv, contorul, ETICHETE_KIND,
+  cheamaDispozitiv, contorul, ETICHETE_KIND, reguliAutomate, comutaRegula,
 } from "../data/dispozitive.js";
 
 /* Iconul spune ce comanda releul, deci merita sa fie cel concret, nu unul
@@ -31,6 +31,15 @@ const PICTOGRAMA = {
   boiler: ShowerHead,
   iluminat_exterior: Spotlight,
   prize: PlugZap,
+};
+
+/* Aceleasi pictograme ca la relee acolo unde regula comanda acelasi lucru —
+   scutul e pentru anti-legionela, care nu e o comoditate, ci o masura
+   sanitara. */
+const PICTOGRAMA_REGULA = {
+  preincalzire_boiler: ShowerHead,
+  lumini_exterioare: Spotlight,
+  anti_legionella: ShieldCheck,
 };
 
 /* Cat de des se reciteste contorul cat timp ecranul e deschis.
@@ -49,6 +58,7 @@ const PAUZA_DUPA_COMANDA_MS = 4000;
 
 export function AutomatizareView({ core }) {
   const [dispozitive, setDispozitive] = useState([]);
+  const [reguli, setReguli] = useState([]);
   const [seIncarca, setSeIncarca] = useState(true);
   const [ocupat, setOcupat] = useState(null);
   const [adauga, setAdauga] = useState(null);
@@ -68,7 +78,11 @@ export function AutomatizareView({ core }) {
 
   const reincarca = useCallback(async () => {
     try {
-      setDispozitive(await toateDispozitivele());
+      /* Impreuna, nu una dupa alta: ecranul le arata pe amandoua deodata,
+         iar doua asteptari inseriate ar dubla degeaba timpul de incarcare. */
+      const [disp, reg] = await Promise.all([toateDispozitivele(), reguliAutomate()]);
+      setDispozitive(disp);
+      setReguli(reg);
     } catch (e) {
       toaster.show(mesajEroare(e, "Nu am putut citi dispozitivele."), { tone: "danger" });
     } finally {
@@ -204,6 +218,28 @@ export function AutomatizareView({ core }) {
     await reincarca();
   }, [reincarca]);
 
+  /* Oprirea/pornirea unei reguli nu atinge niciun releu — schimba doar
+     steagul din baza, iar ciclul server-side il citeste la urmatoarea rulare.
+     De-aia nu trece prin `cheamaDispozitiv` si nu misca `ultimaComanda`. */
+  const comutaRegulaAutomata = useCallback(async (regula, activ) => {
+    setOcupat("regula:" + regula.key);
+    try {
+      await comutaRegula(regula.key, activ);
+      audit.push(activ ? "Pornit automatizare" : "Oprit automatizare", regula.titlu);
+      toaster.show(
+        activ
+          ? `${regula.titlu}: pornită.`
+          : `${regula.titlu}: oprită. Releele rămân cum sunt acum.`,
+        { tone: "ok" },
+      );
+      await reincarca();
+    } catch (e) {
+      toaster.show(mesajEroare(e, "Nu am putut schimba automatizarea."), { tone: "danger" });
+    } finally {
+      setOcupat(null);
+    }
+  }, [reincarca]);
+
   /* Dispozitivele grupate pe camera tehnica. Legatura se face prin ID-ul de
      Shelly: toate cele patru randuri ale unui releu il au pe acelasi. */
   const peCameraTehnica = useMemo(() => {
@@ -243,7 +279,10 @@ export function AutomatizareView({ core }) {
       </div>
 
       {sectiune === "automatizari" ? (
-        <Automatizari dispozitive={dispozitive} ocupat={ocupat} onComanda={comandaGrup} />
+        <Automatizari
+          dispozitive={dispozitive} reguli={reguli} ocupat={ocupat}
+          onComanda={comandaGrup} onComutaRegula={comutaRegulaAutomata}
+        />
       ) : (
         <>
       <ConsumCurent
@@ -375,7 +414,11 @@ const GRUPURI = [
   { kind: "boiler", titlu: "Boilere" },
 ];
 
-function Automatizari({ dispozitive, ocupat, onComanda }) {
+function Automatizari({ dispozitive, reguli, ocupat, onComanda, onComutaRegula }) {
+  /* Oprirea unei reguli e configurare, nu operare: receptia comanda manual si
+     suprascrie luminile, dar nu taie o masura sanitara. Acelasi prag ca la
+     adaugarea/stergerea unui Shelly, si aceeasi politica in RLS. */
+  const poateSchimba = isAdmin();
   return (
     <>
       <div className="panel" style={{ marginBottom: 14 }}>
@@ -396,48 +439,62 @@ function Automatizari({ dispozitive, ocupat, onComanda }) {
         ))}
       </div>
 
-      {/* Cele trei reguli ruleaza server-side (pg_cron, o data la 10 minute),
-          nu din acest ecran — text static, fara stare, fara buton. Vezi
+      {/* Regulile ruleaza server-side (pg_cron, o data la 10 minute); de aici
+          se schimba doar steagul lor. Vezi
           supabase/functions/device-provider/reguli-automate.ts. */}
       <div className="panel">
         <div className="dv-head">
-          <div className="dv-info"><div className="dv-title">Reguli active</div></div>
+          <div className="dv-info"><div className="dv-title">Reguli</div></div>
         </div>
-        <div className="dv-row">
-          <span className="dv-icon" aria-hidden="true"><ShowerHead size={34} /></span>
-          <div className="dv-info">
-            <div className="dv-title">Preîncălzire boiler</div>
-            <div className="dv-sub">
-              Pornește cu 4 ore înainte de ora de cazare și rămâne pornit pe toată
-              durata sejurului. Nu se oprește dacă a doua zi mai vine cineva pe
-              oricare din cele două camere ale releului.
-            </div>
-          </div>
-        </div>
-        <div className="dv-row">
-          <span className="dv-icon" aria-hidden="true"><Spotlight size={34} /></span>
-          <div className="dv-info">
-            <div className="dv-title">Lumini exterioare după soare</div>
-            <div className="dv-sub">
-              Cât timp există măcar o cameră cazată oriunde în pensiune, toate
-              luminile exterioare se aprind la apus și se sting la răsărit.
-              O comandă manuală suprascrie automatizarea până la următoarea
-              tranziție.
-            </div>
-          </div>
-        </div>
-        <div className="dv-row">
-          <span className="dv-icon" aria-hidden="true"><ShieldCheck size={34} /></span>
-          <div className="dv-info">
-            <div className="dv-title">Anti-legionella</div>
-            <div className="dv-sub">
-              O dată la 10 zile, între 11:00 și 14:00, pornește boilerul dacă
-              nicio cameră a lui n-a fost cazată în ultimele 10 zile.
-            </div>
-          </div>
-        </div>
+        {reguli.map((r) => (
+          <RegulaRand
+            key={r.key} regula={r} ocupat={ocupat}
+            poateSchimba={poateSchimba} onComuta={onComutaRegula}
+          />
+        ))}
       </div>
     </>
+  );
+}
+
+/* Un rand de regula. Starea si butonul stau pe ACELASI rand cu numele, iar
+   descrierea curge dedesubt pe toata latimea — de-aia exista `dv-regula-cap`:
+   fara el, `.dv-row` ar centra butonul pe inaltimea intregii descrieri, adica
+   vizual sub nume, nu langa el. */
+function RegulaRand({ regula, ocupat, poateSchimba, onComuta }) {
+  const Icon = PICTOGRAMA_REGULA[regula.key] || Clock;
+  const acestaOcupat = ocupat === "regula:" + regula.key;
+  return (
+    <div className="dv-row">
+      {/* Verde cand comanda, gri cand nu — nu rosu: o regula oprita e o
+          alegere, nu o defectiune. Rosul ramane pentru relee stinse. */}
+      <span
+        className={"dv-icon " + (regula.activ ? "dv-icon-on" : "dv-icon-necunoscut")}
+        aria-hidden="true"
+      >
+        <Icon size={34} />
+      </span>
+      <div className="dv-info">
+        <div className="dv-regula-cap">
+          <div className="dv-title">{regula.titlu}</div>
+          <div className="dv-regula-ctrl">
+            <span className={"dv-stare " + (regula.activ ? "dv-stare-on" : "dv-stare-off")}>
+              {regula.activ ? "Activ" : "Oprit"}
+            </span>
+            <button
+              className="btn btn-ghost dv-btn-mic"
+              disabled={!poateSchimba || acestaOcupat}
+              title={poateSchimba ? undefined : "Doar adminul poate opri o automatizare."}
+              aria-label={`${regula.activ ? "Oprește" : "Pornește"} automatizarea ${regula.titlu}`}
+              onClick={() => onComuta(regula, !regula.activ)}
+            >
+              {acestaOcupat ? "…" : regula.activ ? "Oprește" : "Pornește"}
+            </button>
+          </div>
+        </div>
+        <div className="dv-sub">{regula.descriere}</div>
+      </div>
+    </div>
   );
 }
 

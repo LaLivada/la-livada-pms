@@ -478,6 +478,16 @@ async function ruleazaReconciliere(
     .eq("status", "checkedin").lte("checkin", acum.toISOString()).gt("checkout", acum.toISOString());
   const luminiVor = reguli.luminiDorite(cazateAcumData || [], acum);
 
+  /* Steagurile de pornit/oprit per regula. Lipsa unui rand inseamna „activa" —
+     o regula noua adaugata in cod nu trebuie sa astepte un rand in baza ca sa
+     inceapa sa functioneze. */
+  const { data: reguliData } = await admin.from("automation_rules").select("key, enabled");
+  const activa = (cheie: string) =>
+    (reguliData || []).find((r: any) => r.key === cheie)?.enabled !== false;
+  const preincalzireActiva = activa(reguli.REGULI.PREINCALZIRE);
+  const legionelaActiva = activa(reguli.REGULI.LEGIONELA);
+  const luminiActive = activa(reguli.REGULI.LUMINI);
+
   const { data: rulariData } = await admin.from("device_legionella_runs")
     .select("device_id, last_run_on").in("device_id", boilere.map((d: any) => d.id));
   const ultimeRulari: Record<string, string> = {};
@@ -516,25 +526,35 @@ async function ruleazaReconciliere(
     }
   };
 
-  for (const d of boilere) {
-    const rezervariCamera = rezervariBoilere.filter((r: any) =>
-      (d.device_rooms || []).some((l: any) => l.room_id === r.room_id));
-    const { pornit, motivLegionela } = reguli.boilerDorit({
-      rezervari: rezervariCamera, acum,
-      curentPornit: Boolean(d.last_status?.on),
-      ultimaRulareLegionela: ultimeRulari[d.id] || null,
-    });
-    if (motivLegionela) {
-      await admin.from("device_legionella_runs").upsert({
-        device_id: d.id, last_run_on: reguli.dataLocala(acum), updated_at: new Date().toISOString(),
+  /* GARDA. Cand AMANDOUA regulile de boiler sunt oprite, ciclul nu are voie sa
+     atinga boilerele deloc. `boilerDorit` ar intoarce `pornit: false` — ceea ce
+     e corect ca „nicio regula nu-l cere pornit", dar folosit ca stare dorita ar
+     STINGE toate boilerele in clipa in care cineva opreste automatizarile.
+     „Oprit" inseamna „nu mai comand", nu „opreste tot". */
+  if (preincalzireActiva || legionelaActiva) {
+    for (const d of boilere) {
+      const rezervariCamera = rezervariBoilere.filter((r: any) =>
+        (d.device_rooms || []).some((l: any) => l.room_id === r.room_id));
+      const { pornit, motivLegionela } = reguli.boilerDorit({
+        rezervari: rezervariCamera, acum,
+        curentPornit: Boolean(d.last_status?.on),
+        ultimaRulareLegionela: ultimeRulari[d.id] || null,
+        preincalzireActiva, legionelaActiva,
       });
+      if (motivLegionela) {
+        await admin.from("device_legionella_runs").upsert({
+          device_id: d.id, last_run_on: reguli.dataLocala(acum), updated_at: new Date().toISOString(),
+        });
+      }
+      if (Boolean(d.last_status?.on) !== pornit) await comanda(d, pornit);
     }
-    if (Boolean(d.last_status?.on) !== pornit) await comanda(d, pornit);
   }
 
-  for (const d of luminiExt) {
-    if (overrideActiv.has(d.id)) continue;
-    if (Boolean(d.last_status?.on) !== luminiVor) await comanda(d, luminiVor);
+  if (luminiActive) {
+    for (const d of luminiExt) {
+      if (overrideActiv.has(d.id)) continue;
+      if (Boolean(d.last_status?.on) !== luminiVor) await comanda(d, luminiVor);
+    }
   }
 
   return { ok: erori.length === 0, verificate: lista.length, schimbate, erori: erori.length ? erori : undefined };

@@ -100,6 +100,45 @@ describe("regula 3 — preincalzire boiler", () => {
   });
 });
 
+describe("oprirea unei reguli din ecran (automation_rules)", () => {
+  const cazat = {
+    status: "checkedin", checkin: "2026-09-10T16:00:00Z", checkout: "2026-09-12T11:00:00Z",
+  };
+  const acum = new Date("2026-09-11T08:00:00Z"); // in plin sejur
+
+  it("preincalzirea oprita nu mai porneste boilerul, desi sejurul e activ", () => {
+    expect(boilerDorit({
+      rezervari: [cazat], acum, curentPornit: false, ultimaRulareLegionela: null,
+      preincalzireActiva: false,
+    }).pornit).toBe(false);
+  });
+
+  it("preincalzirea ramane activa implicit, cand steagul nu e dat", () => {
+    expect(boilerDorit({
+      rezervari: [cazat], acum, curentPornit: false, ultimaRulareLegionela: null,
+    }).pornit).toBe(true);
+  });
+
+  it("legionela oprita nu mai porneste boilerul in fereastra ei", () => {
+    const rezultat = boilerDorit({
+      rezervari: [], acum: new Date("2026-09-10T10:00:00Z"),
+      curentPornit: false, ultimaRulareLegionela: null,
+      legionelaActiva: false,
+    });
+    expect(rezultat.pornit).toBe(false);
+    // Fara motiv de legionela nu se scrie nici cadenta — altfel ciclul ar
+    // "consuma" o zi in care n-a pornit nimic.
+    expect(rezultat.motivLegionela).toBe(false);
+  });
+
+  it("cele doua reguli sunt independente: legionela oprita nu atinge preincalzirea", () => {
+    expect(boilerDorit({
+      rezervari: [cazat], acum, curentPornit: false, ultimaRulareLegionela: null,
+      legionelaActiva: false,
+    }).pornit).toBe(true);
+  });
+});
+
 describe("regula 1 — anti-legionela", () => {
   it("ocupatRecentLegionela vede o sedere reala (checkedout) in ultimele 10 zile", () => {
     const r = { status: "checkedout", checkin: "2026-09-01T14:00:00Z", checkout: "2026-09-03T11:00:00Z" };
