@@ -296,13 +296,14 @@ describe("AutomatizareView — cele doua sectiuni", () => {
     expect(sectiuni[0].getAttribute("aria-selected")).toBe("true");
   });
 
-  /* Regulile automate nu exista inca. Ecranul trebuie sa spuna asta deschis:
-     o lista goala nu lasa pe nimeni sa distinga o functie neterminata de
-     „n-a configurat inca nimeni nimic". */
-  it("spune deschis ca nu exista inca reguli automate", async () => {
+  /* Cele trei reguli ruleaza server-side (pg_cron -> device-provider),
+     nu din acest ecran — panoul e text static, descriptiv. */
+  it("descrie cele trei reguli active, fara vreun buton al lor", async () => {
     const g = await randeaza();
     await treciLaAutomatizari(g);
-    expect(g.textContent).toContain("Nicio regulă automată");
+    expect(g.textContent).toContain("Preîncălzire boiler");
+    expect(g.textContent).toContain("Lumini exterioare după soare");
+    expect(g.textContent).toContain("Anti-legionella");
     // Panoul de camere tehnice dispare cat timp esti in cealalta sectiune.
     expect(g.textContent).not.toContain("Camera tehnică 1");
   });

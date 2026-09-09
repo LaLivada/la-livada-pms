@@ -13,7 +13,7 @@
  * Shelly nu ajunge niciodata in browser.
  */
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
-import { Zap, ShowerHead, Spotlight, PlugZap, Gauge, RefreshCw, Plus, Trash2, Clock } from "lucide-react";
+import { Zap, ShowerHead, Spotlight, PlugZap, Gauge, RefreshCw, Plus, Trash2, Clock, ShieldCheck } from "lucide-react";
 import { audit, isAdmin } from "../lib/audit.js";
 import { mesajEroare } from "../lib/errors.js";
 import { fmtDateTime } from "../lib/format.js";
@@ -396,18 +396,45 @@ function Automatizari({ dispozitive, ocupat, onComanda }) {
         ))}
       </div>
 
-      {/* Regulile care ar porni singure releele nu exista inca. Ecranul o
-          spune deschis: o lista goala n-ar lasa pe nimeni sa distinga o
-          functie neterminata de „n-a configurat inca nimeni nimic". */}
+      {/* Cele trei reguli ruleaza server-side (pg_cron, o data la 10 minute),
+          nu din acest ecran — text static, fara stare, fara buton. Vezi
+          supabase/functions/device-provider/reguli-automate.ts. */}
       <div className="panel">
-        <div className="empty-state">
-          <Clock size={26} />
-          <h4>Nicio regulă automată</h4>
-          <p>
-            Butoanele de mai sus comandă manual. Aici vor sta regulile care le pornesc
-            singure — de exemplu „pornește boilerele cu două ore înainte de sosire"
-            sau „stinge iluminatul exterior la răsărit".
-          </p>
+        <div className="dv-head">
+          <div className="dv-info"><div className="dv-title">Reguli active</div></div>
+        </div>
+        <div className="dv-row">
+          <span className="dv-icon" aria-hidden="true"><ShowerHead size={34} /></span>
+          <div className="dv-info">
+            <div className="dv-title">Preîncălzire boiler</div>
+            <div className="dv-sub">
+              Pornește cu 4 ore înainte de ora de cazare și rămâne pornit pe toată
+              durata sejurului. Nu se oprește dacă a doua zi mai vine cineva pe
+              oricare din cele două camere ale releului.
+            </div>
+          </div>
+        </div>
+        <div className="dv-row">
+          <span className="dv-icon" aria-hidden="true"><Spotlight size={34} /></span>
+          <div className="dv-info">
+            <div className="dv-title">Lumini exterioare după soare</div>
+            <div className="dv-sub">
+              Cât timp există măcar o cameră cazată oriunde în pensiune, toate
+              luminile exterioare se aprind la apus și se sting la răsărit.
+              O comandă manuală suprascrie automatizarea până la următoarea
+              tranziție.
+            </div>
+          </div>
+        </div>
+        <div className="dv-row">
+          <span className="dv-icon" aria-hidden="true"><ShieldCheck size={34} /></span>
+          <div className="dv-info">
+            <div className="dv-title">Anti-legionella</div>
+            <div className="dv-sub">
+              O dată la 10 zile, între 11:00 și 14:00, pornește boilerul dacă
+              nicio cameră a lui n-a fost cazată în ultimele 10 zile.
+            </div>
+          </div>
         </div>
       </div>
     </>

@@ -28,6 +28,7 @@
 // deno-lint-ignore-file no-explicit-any
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import * as shelly from "./providers/shelly.ts";
+import * as reguli from "./reguli-automate.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY  = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -47,6 +48,27 @@ const PAUZA_INTRE_COMENZI_MS = 1000;
 
 const AUTH_KEY   = Deno.env.get("SHELLY_AUTH_KEY") || "";
 const SERVER_URI = (Deno.env.get("SHELLY_SERVER_URI") || "").replace(/^https?:\/\//, "").replace(/\/+$/, "");
+
+/* Actorul din spatele ciclului de reconciliere (pg_cron -> pg_net, fara
+   niciun utilizator uman in spate). Vezi `rolDinJwt` mai jos. */
+const ACTOR_SISTEM = "Automatizare (sistem)";
+
+/* JWT-ul de service_role nu are un user real in spate, deci
+   `admin.auth.getUser(jwt)` esueaza pentru el — de-aia identificarea lui
+   trece pe langa acel apel, nu prin el. Gateway-ul Supabase a validat deja
+   SEMNATURA JWT-ului inainte sa ajunga cererea aici (functia are
+   verify_jwt=true); decodarea de mai jos doar citeste rolul din payload,
+   fara sa re-verifice nimic — un JWT cu semnatura valida dar rol
+   falsificat nu poate trece de gateway ca sa ajunga pana aici. */
+function rolDinJwt(jwt: string): string {
+  try {
+    const segment = jwt.split(".")[1] || "";
+    const json = atob(segment.replace(/-/g, "+").replace(/_/g, "/"));
+    return JSON.parse(json)?.role || "";
+  } catch {
+    return "";
+  }
+}
 
 const corsPentru = (req: Request) => ({
   "Access-Control-Allow-Origin": "*",
@@ -71,24 +93,31 @@ Deno.serve(async (req) => {
 
   // --- Cine cere ---
   const jwt = (req.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "");
-  const { data: auth } = await admin.auth.getUser(jwt);
-  if (!auth?.user) return raspuns({ ok: false, error: "Neautentificat." }, 401);
+  const esteSistem = rolDinJwt(jwt) === "service_role";
 
-  const { data: staff } = await admin.from("staff")
-    .select("user_id, name, role").eq("user_id", auth.user.id).maybeSingle();
-  /* Camerista nu comandă relee. Nu e o restricție de principiu, ci una
-     de consecvență: ecranul ei nu are butoanele astea, iar tabelul
-     `devices` îi e deja închis prin RLS — dacă ar trece de aici, ar fi
-     singura cale prin care ar ajunge totuși la ele. */
-  if (!staff || !["admin", "receptionist"].includes(staff.role)) {
-    return raspuns({
-      ok: false,
-      error: staff
-        ? `Rolul „${staff.role}" nu poate comanda dispozitive.`
-        : "Contul tău nu e înregistrat ca membru al personalului.",
-    }, 403);
+  let actor: string;
+  if (esteSistem) {
+    actor = ACTOR_SISTEM;
+  } else {
+    const { data: auth } = await admin.auth.getUser(jwt);
+    if (!auth?.user) return raspuns({ ok: false, error: "Neautentificat." }, 401);
+
+    const { data: staff } = await admin.from("staff")
+      .select("user_id, name, role").eq("user_id", auth.user.id).maybeSingle();
+    /* Camerista nu comandă relee. Nu e o restricție de principiu, ci una
+       de consecvență: ecranul ei nu are butoanele astea, iar tabelul
+       `devices` îi e deja închis prin RLS — dacă ar trece de aici, ar fi
+       singura cale prin care ar ajunge totuși la ele. */
+    if (!staff || !["admin", "receptionist"].includes(staff.role)) {
+      return raspuns({
+        ok: false,
+        error: staff
+          ? `Rolul „${staff.role}" nu poate comanda dispozitive.`
+          : "Contul tău nu e înregistrat ca membru al personalului.",
+      }, 403);
+    }
+    actor = `${staff.name || staff.user_id} (${staff.role})`;
   }
-  const actor = `${staff.name || staff.user_id} (${staff.role})`;
 
   if (!AUTH_KEY || !SERVER_URI) {
     return raspuns({
@@ -102,7 +131,7 @@ Deno.serve(async (req) => {
   catch { return raspuns({ ok: false, error: "Corp de cerere invalid." }, 400); }
 
   const actiune = String(cerere?.action || "");
-  if (!["on", "off", "refresh"].includes(actiune)) {
+  if (!["on", "off", "refresh", "cron_reconciliaza"].includes(actiune)) {
     return raspuns({ ok: false, error: "Acțiune necunoscută." }, 400);
   }
 
@@ -117,6 +146,18 @@ Deno.serve(async (req) => {
   const jurnal = async (r: Record<string, unknown>) => {
     try { await admin.from("device_commands").insert(r); } catch { /* ignorat */ }
   };
+
+  /* Ciclul periodic (pg_cron, o data la 10 minute) recalculeaza starea
+     dorita a boilerelor si a luminilor exterioare — vezi ruleazaReconciliere
+     mai jos si docs/shelly-integration.md. Doar sistemul il poate declansa:
+     un JWT anon de pe internet nu are cum sa porneasca relee direct. */
+  if (actiune === "cron_reconciliaza") {
+    if (!esteSistem) {
+      return raspuns({ ok: false, error: "Doar sistemul poate declanșa acest ciclu." }, 403);
+    }
+    const rezultat = await ruleazaReconciliere(admin, jurnal);
+    return raspuns(rezultat, rezultat.ok ? 200 : 207);
+  }
 
   // --- refresh fără deviceId: toate dispozitivele, în loturi ---
   if (actiune === "refresh" && !cerere?.deviceId) {
@@ -215,6 +256,7 @@ Deno.serve(async (req) => {
           updated_at: new Date().toISOString(),
         }).eq("id", d.id);
         await jurnal({ ...context, action: actiune, result: "ok" });
+        if (d.kind === "iluminat_exterior" && !esteSistem) await inregistreazaOverride(admin, d.id);
         reusite.push(camere.join(", "));
       } catch (e) {
         const mesaj = shelly.faraCheie((e as Error).message);
@@ -292,6 +334,7 @@ Deno.serve(async (req) => {
       }).eq("id", device.id);
 
       await jurnal({ ...contextJurnal, action: actiune, result: "ok" });
+      if (device.kind === "iluminat_exterior" && !esteSistem) await inregistreazaOverride(admin, device.id);
       return raspuns({ ok: true, device: catreClient(device, stare, camere) });
     }
 
@@ -356,4 +399,143 @@ function catreClient(
     status: stare,
     lastSeenAt: new Date().toISOString(),
   };
+}
+
+/* Un OM tocmai a comandat manual un releu de iluminat exterior — regula 2
+   (lumini după soare) sare peste el pana la urmatoarea tranzitie naturala,
+   ca sa nu-l stinga/aprinda la 10 minute dupa ce cineva l-a atins special.
+   Nu se scrie pentru boiler: nu a fost cerut, iar acolo automatizarea isi
+   reimpune starea la urmatorul tick, fara mecanism de suprascriere. */
+async function inregistreazaOverride(admin: any, deviceId: string) {
+  try {
+    await admin.from("device_automation_override").upsert({
+      device_id: deviceId,
+      until: reguli.urmatoareaTranzitie(new Date()).toISOString(),
+      updated_at: new Date().toISOString(),
+    });
+  } catch { /* nu blocheaza comanda manuala daca scrierea esueaza */ }
+}
+
+/* Ciclul de reconciliere — apelat o data la 10 minute de pg_cron (vezi
+   migrarea `device-automatizari` din schema.sql). Recalculeaza din date
+   proaspete ce ar trebui sa fie pornit, pentru fiecare boiler si fiecare
+   releu de iluminat exterior, si schimba doar ce difera de starea reala. */
+async function ruleazaReconciliere(
+  admin: any,
+  jurnal: (r: Record<string, unknown>) => Promise<void>,
+): Promise<{ ok: boolean; verificate: number; schimbate: number; erori?: string[] }> {
+  const acum = new Date();
+
+  const { data: dispozitive } = await admin.from("devices")
+    .select("*, device_rooms(room_id, rooms(name))")
+    .eq("enabled", true).eq("provider", "shelly")
+    .in("kind", ["boiler", "iluminat_exterior"]);
+  const lista = dispozitive || [];
+  if (!lista.length) return { ok: true, verificate: 0, schimbate: 0 };
+
+  /* Stare reala de la Shelly, nu doar cache — o decizie de automatizare
+     bazata pe un cache invechit ar putea sari o schimbare sau ar putea
+     repeta o comanda deja executata manual intre timp. */
+  const idUnice = [...new Set(lista.map((d: any) => d.provider_device_id))];
+  const stari: Record<string, any> = {};
+  for (let i = 0; i < idUnice.length; i += shelly.MAX_PE_LOT) {
+    const lot = idUnice.slice(i, i + shelly.MAX_PE_LOT);
+    try {
+      Object.assign(stari, await shelly.citesteStare(SERVER_URI, AUTH_KEY, lot));
+    } catch { /* lotul asta ramane pe cache-ul vechi; se reincearca la tick-ul urmator */ }
+  }
+  for (const d of lista) {
+    const s = stari[d.provider_device_id];
+    if (!s) continue;
+    d.last_status = { on: shelly.citesteIesire(s.status, d.channel), online: s.online };
+    await admin.from("devices").update({
+      last_status: d.last_status, last_seen_at: new Date().toISOString(), updated_at: new Date().toISOString(),
+    }).eq("id", d.id);
+  }
+
+  const boilere = lista.filter((d: any) => d.kind === "boiler");
+  const luminiExt = lista.filter((d: any) => d.kind === "iluminat_exterior");
+
+  // --- rezervarile camerelor legate de boilere (pentru preincalzire + legionela) ---
+  const roomIdsBoilere = [...new Set(
+    boilere.flatMap((d: any) => (d.device_rooms || []).map((l: any) => l.room_id)),
+  )];
+  let rezervariBoilere: any[] = [];
+  if (roomIdsBoilere.length) {
+    const inceput = new Date(acum.getTime() - (reguli.ZILE_LEGIONELA + 1) * 86400000).toISOString();
+    const sfarsit = new Date(acum.getTime() + 2 * 86400000).toISOString();
+    const { data } = await admin.from("reservations")
+      .select("id, room_id, status, checkin, checkout")
+      .in("room_id", roomIdsBoilere)
+      .gt("checkout", inceput).lt("checkin", sfarsit);
+    rezervariBoilere = data || [];
+  }
+
+  /* Pentru lumini: "vreo camera cazata ACUM", pe toata pensiunea — nu doar
+     camerele unui CT, cerinta explicita ("se aprind toate luminile"). */
+  const { data: cazateAcumData } = await admin.from("reservations")
+    .select("id, room_id, status, checkin, checkout")
+    .eq("status", "checkedin").lte("checkin", acum.toISOString()).gt("checkout", acum.toISOString());
+  const luminiVor = reguli.luminiDorite(cazateAcumData || [], acum);
+
+  const { data: rulariData } = await admin.from("device_legionella_runs")
+    .select("device_id, last_run_on").in("device_id", boilere.map((d: any) => d.id));
+  const ultimeRulari: Record<string, string> = {};
+  for (const r of rulariData || []) ultimeRulari[r.device_id] = r.last_run_on;
+
+  const { data: overrideData } = await admin.from("device_automation_override")
+    .select("device_id").in("device_id", luminiExt.map((d: any) => d.id))
+    .gt("until", acum.toISOString());
+  const overrideActiv = new Set((overrideData || []).map((o: any) => o.device_id));
+
+  let schimbate = 0;
+  const erori: string[] = [];
+  let primaComanda = true;
+
+  const comanda = async (d: any, pornit: boolean) => {
+    if (!primaComanda) await new Promise((gata) => setTimeout(gata, PAUZA_INTRE_COMENZI_MS));
+    primaComanda = false;
+
+    const camere = numeCamere(d);
+    const context = {
+      actor: ACTOR_SISTEM, device_id: d.id, device_name: d.name,
+      rooms: camere.join(", ").slice(0, 120) || null,
+    };
+    try {
+      await shelly.seteazaComutator(SERVER_URI, AUTH_KEY, d.provider_device_id, d.channel, pornit);
+      await admin.from("devices").update({
+        last_status: { on: pornit, online: true },
+        last_seen_at: new Date().toISOString(), updated_at: new Date().toISOString(),
+      }).eq("id", d.id);
+      await jurnal({ ...context, action: pornit ? "on" : "off", result: "ok" });
+      schimbate++;
+    } catch (e) {
+      const mesaj = shelly.faraCheie((e as Error).message);
+      await jurnal({ ...context, action: pornit ? "on" : "off", result: "error", detail: mesaj.slice(0, 500) });
+      erori.push(`${d.name}: ${mesaj}`);
+    }
+  };
+
+  for (const d of boilere) {
+    const rezervariCamera = rezervariBoilere.filter((r: any) =>
+      (d.device_rooms || []).some((l: any) => l.room_id === r.room_id));
+    const { pornit, motivLegionela } = reguli.boilerDorit({
+      rezervari: rezervariCamera, acum,
+      curentPornit: Boolean(d.last_status?.on),
+      ultimaRulareLegionela: ultimeRulari[d.id] || null,
+    });
+    if (motivLegionela) {
+      await admin.from("device_legionella_runs").upsert({
+        device_id: d.id, last_run_on: reguli.dataLocala(acum), updated_at: new Date().toISOString(),
+      });
+    }
+    if (Boolean(d.last_status?.on) !== pornit) await comanda(d, pornit);
+  }
+
+  for (const d of luminiExt) {
+    if (overrideActiv.has(d.id)) continue;
+    if (Boolean(d.last_status?.on) !== luminiVor) await comanda(d, luminiVor);
+  }
+
+  return { ok: erori.length === 0, verificate: lista.length, schimbate, erori: erori.length ? erori : undefined };
 }

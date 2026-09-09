@@ -4186,3 +4186,61 @@ create policy "citeste comenzi dispozitive" on device_commands
 
 comment on table device_rooms is
   'Ce camere sunt servite de fiecare canal. Doua randuri pentru un canal partajat (boiler, iluminat exterior), unul pentru un canal dedicat (prize).';
+
+-- REGULI AUTOMATE (9 septembrie 2026) — anti-legionela, lumini exterioare
+-- dupa soare, preincalzire boiler. Logica de decizie e in
+-- supabase/functions/device-provider/reguli-automate.ts; tabelele de aici
+-- doar tin starea de care logica are nevoie intre doua tick-uri ale
+-- ciclului de reconciliere (pg_cron, o data la 10 minute).
+
+-- Anti-legionela: cadenta de 10 zile per boiler. `last_run_on` e o DATA
+-- locala (Europe/Bucharest), nu un timestamp — cadenta se compara in zile.
+create table device_legionella_runs (
+  device_id   text primary key references devices(id) on delete cascade,
+  last_run_on date not null,
+  updated_at  timestamptz not null default now()
+);
+
+-- Suprascrierea manuala a automatizarii de lumini exterioare: cat timp
+-- `until` e in viitor, ciclul de reconciliere sare peste dispozitivul asta.
+-- Doar iluminat_exterior foloseste tabelul asta — boilerul n-a primit acest
+-- mecanism (nu a fost cerut).
+create table device_automation_override (
+  device_id  text primary key references devices(id) on delete cascade,
+  until      timestamptz not null,
+  updated_at timestamptz not null default now()
+);
+
+alter table device_legionella_runs     enable row level security;
+alter table device_automation_override enable row level security;
+
+-- Doar citire pentru personal, la fel ca device_commands — scrierea o face
+-- exclusiv functia edge, prin service_role, care ocoleste RLS.
+create policy "citeste rulari legionela" on device_legionella_runs
+  for select to authenticated using (is_admin() or staff_role() = 'receptionist');
+create policy "citeste override automatizare" on device_automation_override
+  for select to authenticated using (is_admin() or staff_role() = 'receptionist');
+
+comment on table device_legionella_runs is
+  'Cadenta anti-legionela per boiler: ultima zi (locala) in care ciclul 11:00-14:00 chiar a pornit boilerul.';
+comment on table device_automation_override is
+  'Suprascriere manuala a automatizarii de iluminat exterior, valabila pana la urmatoarea tranzitie rasarit/apus.';
+
+-- pg_cron + pg_net cheama device-provider o data la 10 minute cu
+-- {"action": "cron_reconciliaza"}, autentificat cu cheia service_role
+-- pusa manual, o singura data, intr-un secret Vault numit
+-- 'service_role_key' (pas facut de administrator, nu de acest cod —
+-- vezi docs/shelly-integration.md):
+--
+--   create extension if not exists pg_cron;
+--   create extension if not exists pg_net;
+--   select cron.schedule('device-automatizari', '*/10 * * * *', $$
+--     select net.http_post(
+--       url := '<url-proiect>/functions/v1/device-provider',
+--       headers := jsonb_build_object(
+--         'Content-Type', 'application/json',
+--         'Authorization', 'Bearer ' || (select decrypted_secret from vault.decrypted_secrets where name = 'service_role_key' limit 1)
+--       ),
+--       body := jsonb_build_object('action', 'cron_reconciliaza')
+--     );
+--   $$);
