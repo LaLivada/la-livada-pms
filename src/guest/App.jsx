@@ -28,7 +28,7 @@ import {
 
 /* Codul se ia din fragment, nu din calea adresei.
  *
- * Linkul dat oaspetelui e guest.lalivada.ro/#Ajh6k. Fragmentul nu se
+ * Linkul dat oaspetelui e guest.lalivada.ro/#Q7moVrzk. Fragmentul nu se
  * trimite niciodata serverului, deci codul nu ajunge in logurile de acces
  * ale Vercel. Calea ramane citita ca rezerva, pentru cine nimereste pe
  * subdomeniu cu adresa scrisa de mana. */

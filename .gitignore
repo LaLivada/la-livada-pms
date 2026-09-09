@@ -47,3 +47,8 @@ dist-guest/
 backup-*.sql
 .refactor/
 .refactor/
+
+# Instantanee de lucru din refactorizari vechi. Cod mort, 265 KB bucata,
+# pastrate local daca mai trebuie privite. Regula acoperea doar `backup-*.sql`,
+# deci cele trei .jsx erau urmarite fara sa vrea nimeni.
+backup-*

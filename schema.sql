@@ -1298,7 +1298,19 @@ begin
     -- Chemată din afara unei cereri PostgREST (editor SQL, job): fără IP.
     return null;
   end;
-  return nullif(coalesce(v ->> 'cf-connecting-ip', v ->> 'sb-forwarded-for'), '');
+  -- ORDINEA CONTEAZĂ, şi era invers.
+  --
+  -- `cf-connecting-ip` e scris de Cloudflare, care îl rescrie la fiecare
+  -- cerere — deci în mod normal nu se poate falsifica. „În mod normal” e însă
+  -- o presupunere despre infrastructura altcuiva, iar pe ea atârnă toate
+  -- limitele de rată din fişierul ăsta: dacă antetul ar putea fi scris de
+  -- client, o valoare nouă la fiecare cerere ar da fiecărei încercări un buget
+  -- propriu, iar plafonul pe adresă n-ar mai opri nimic.
+  --
+  -- `sb-forwarded-for` îl pune platforma Supabase, mai aproape de noi şi cu
+  -- mai puţine verigi la mijloc. Pus primul, nu mai depindem de presupunerea
+  -- de mai sus decât atunci când el chiar lipseşte.
+  return nullif(coalesce(v ->> 'sb-forwarded-for', v ->> 'cf-connecting-ip'), '');
 end $$;
 
 -- Nu e chemată niciodată direct de client, doar din funcțiile de mai jos,
@@ -3167,29 +3179,55 @@ create policy "citeste audit acces" on access_audit
 -- Pagina proprie fiecarei cazari, deschisa de oaspete dintr-un link, activa
 -- doar pe durata sejurului. Plan complet: docs/guest-app.md.
 --
--- Adresa are forma lalivada.ro/guest/Ajh6k — cinci caractere, ceruta asa.
--- Alegerea muta securitatea din lungimea codului in limitarea de rata, si
--- merita spus pe fata, fiindca in capatul linkului e o usa:
+-- Adresa are forma guest.lalivada.ro/#Q7moVrzk — opt caractere.
+--
+-- A avut cinci, cerute asa, iar alegerea aceea muta securitatea din lungimea
+-- codului in limitarea de rata. Socoteala scrisa aici arata ca merge:
 --
 --   62^5              = 916.132.832 de coduri
---   valabile deodata  = cate sejururi sunt in curs (azi 18)
+--   valabile deodata  = cate sejururi sunt in curs (~18)
 --   ghiciri pt. 50%   = ~40 de milioane
+--   la 200 pe ora     = 22 de ani
 --
--- A doua cifra salveaza schema: nu se cauta un cod valid dintr-un milion
--- emise vreodata, ci unul din cateva zeci intr-un spatiu de un miliard.
--- La 200 de cautari esuate pe ora, cele 40 de milioane cer 22 de ani.
+-- Numai ca 200 nu era numarul din cod. `guest_poarta` avea PLAFON_GLOBAL la
+-- 5000, de 25 de ori mai larg, unsprezece randuri mai jos: 40 de milioane la
+-- 5000 pe ora inseamna 8.000 de ore, adica 11 luni. Argumentul si codul au
+-- stat unul langa altul si spuneau numere diferite, iar la capatul linkului
+-- e o usa. De aici toata schimbarea — 8 septembrie 2026.
+--
+-- Cu opt caractere intrebarea nu se mai pune:
+--
+--   62^8              = 218.340.105.584.896 de coduri
+--   ghiciri pt. 50%   = ~8,4 x 10^12
+--   la 5000 pe ora    = ~192.000 de ani
+--
+-- Si, mai important decat cifra: plafonul global nu mai are ce apara. El era
+-- singurul mod in care cineva putea inchide usa TUTUROR oaspetilor deodata —
+-- se ardeau 5000 de esecuri pe ora si toata lumea primea 'prea-multe'. Acum
+-- se aplica doar codurilor de 5, cate mai sunt.
+--
+-- TRECEREA. Cele 134 de coduri ale rezervarilor necazate au fost regenerate
+-- pe loc; linkul pleaca odata cu codul de acces, adica la check-in, deci
+-- niciunul nu era inca in mana cuiva. Cele cazate in acel moment au ramas cu
+-- codul vechi, ca sa nu li se rupa linkul din telefon.
+--
+-- DUPA ultimul checkout cu cod de 5 (13 septembrie 2026): regexul din
+-- `guest_poarta` devine {8} si tot blocul PLAFON_GLOBAL se sterge.
 
 create or replace function guest_code_nou()
 returns text language plpgsql volatile
 set search_path = public as $$
 declare
   ALFABET constant text := 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  -- Constanta, nu cifra scrisa in bucla: lungimea e chiar numarul din
+  -- socoteala de mai sus, si trebuie sa se vada ca atare.
+  LUNGIME constant int := 8;
   v_cod   text;
   v_octet int;
 begin
   loop
     v_cod := '';
-    while length(v_cod) < 5 loop
+    while length(v_cod) < LUNGIME loop
       -- gen_random_bytes, nu random(): random() e previzibil daca ii afli
       -- starea, iar un cod ghicibil din context ar anula toata socoteala
       -- de mai sus — acolo se presupune ca singura cale e ghicirea oarba.
@@ -3278,10 +3316,16 @@ create or replace function guest_poarta(
 language plpgsql volatile security definer
 set search_path = public as $$
 declare
-  PLAFON_GLOBAL constant int := 5000;  -- plasa anti-botnet, nu aparare
-  PLAFON_IP     constant int := 20;    -- esecuri pe ora, de la o adresa
+  -- Plafonul global se aplica DOAR codurilor de 5 caractere. Vezi blocul de
+  -- deasupra lui `guest_code_nou`: la 8 caractere n-are ce apara, iar singurul
+  -- lucru pe care il facea in plus era sa-i dea unui atacator butonul de
+  -- inchis usa tuturor oaspetilor deodata.
+  PLAFON_GLOBAL  constant int := 200;  -- cifra din socoteala originala
+  PLAFON_IP      constant int := 20;   -- esecuri pe ora, de la o adresa
+  PLAFON_FARA_IP constant int := 100;  -- esecuri pe ora, cand adresa nu se stie
   v_esecuri int;
   v_ip      text;
+  v_vechi   boolean;
 begin
   begin
     v_ip := ip_client();
@@ -3291,15 +3335,31 @@ begin
 
   delete from guest_code_attempts where created_at < now() - interval '1 day';
 
-  -- Plafonul GLOBAL e cel care conteaza: un atac vine de pe mii de adrese,
-  -- deci unul pus doar pe IP se ocoleste prin imprastiere.
-  select count(*) into v_esecuri from guest_code_attempts
-    where created_at > now() - interval '1 hour';
-  if v_esecuri >= PLAFON_GLOBAL then
-    motiv := 'prea-multe';
+  -- Forma gresita se opreste prima, inaintea oricarui plafon: e cea mai
+  -- ieftina verificare si nu atinge tabelul de rezervari. Doua lungimi cat
+  -- tine trecerea — 8 pentru codurile noi, 5 pentru cele mostenite — si
+  -- nimic intre ele, ca lungimea sa spuna limpede care e care.
+  if p_cod is null or p_cod !~ '^([A-Za-z0-9]{5}|[A-Za-z0-9]{8})$' then
+    insert into guest_code_attempts (cod, ip) values (left(coalesce(p_cod, ''), 16), v_ip);
+    motiv := 'necunoscut';
     return;
   end if;
 
+  v_vechi := length(p_cod) = 5;
+
+  if v_vechi then
+    select count(*) into v_esecuri from guest_code_attempts
+      where created_at > now() - interval '1 hour';
+    if v_esecuri >= PLAFON_GLOBAL then
+      motiv := 'prea-multe';
+      return;
+    end if;
+  end if;
+
+  -- Adresa necunoscuta NU e o scutire, cum era: `if v_ip is not null` sarea
+  -- peste verificare cu totul, deci necunoscutul deschidea poarta larga in
+  -- loc s-o inchida. Acum e o galeata a ei, mai larga fiindca poate aduna
+  -- mai multi oameni la un loc.
   if v_ip is not null then
     select count(*) into v_esecuri from guest_code_attempts
       where ip = v_ip and created_at > now() - interval '1 hour';
@@ -3307,12 +3367,13 @@ begin
       motiv := 'prea-multe';
       return;
     end if;
-  end if;
-
-  if p_cod is null or p_cod !~ '^[A-Za-z0-9]{5}$' then
-    insert into guest_code_attempts (cod, ip) values (left(coalesce(p_cod, ''), 16), v_ip);
-    motiv := 'necunoscut';
-    return;
+  else
+    select count(*) into v_esecuri from guest_code_attempts
+      where ip is null and created_at > now() - interval '1 hour';
+    if v_esecuri >= PLAFON_FARA_IP then
+      motiv := 'prea-multe';
+      return;
+    end if;
   end if;
 
   select * into rezervare from reservations where guest_code = p_cod;
