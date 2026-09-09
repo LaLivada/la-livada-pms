@@ -752,6 +752,23 @@
 .dv-icon-offline{ color:var(--warning); }
 .dv-icon-necunoscut{ color:var(--text-muted); }
 
+/* Starea ciclului automat, deasupra regulilor. Verde discret cand merge, ca
+   sa nu fure atentia; galben de avertisment cand tace sau cand un releu n-a
+   raspuns — atunci chiar trebuie sa se uite cineva. */
+.dv-ciclu{
+  display:flex; flex-wrap:wrap; align-items:center; gap:6px 10px;
+  padding:10px 14px; margin-bottom:14px; border-radius:var(--r-sm);
+  font-size:var(--fs-sm); color:var(--text-muted);
+  background:var(--surface); border:1px solid var(--border-soft);
+}
+.dv-ciclu svg{ color:var(--led-on); flex-shrink:0; }
+.dv-ciclu-tace{
+  color:var(--text); background:var(--warning-soft);
+  border-color:var(--warning);
+}
+.dv-ciclu-tace svg{ color:var(--warning); }
+.dv-ciclu-eroare{ flex-basis:100%; color:var(--danger); }
+
 /* Randul unei reguli automate. Starea si butonul stau pe ACELASI rand cu
    numele, iar descrierea curge dedesubt pe toata latimea — de-aia exista
    capul asta separat: `.dv-row` centreaza pe verticala, deci fara el butonul
@@ -794,6 +811,16 @@
   font-size:var(--fs-lg); font-weight:700; font-variant-numeric:tabular-nums;
 }
 .dv-consum-gol{ font-size:var(--fs-sm); color:var(--text-muted); }
+/* Cifrele cumulate, pe randul lor. `flex-basis:100%` le rupe pe o linie noua
+   in interiorul aceluiasi card: primele cifre se schimba din zece in zece
+   secunde, astea din zece in zece minute — amestecate, ar parea ca toate se
+   misca la fel. */
+.dv-consum-jos{
+  flex-basis:100%; display:flex; flex-wrap:wrap; gap:4px 20px;
+  padding-top:10px; border-top:1px solid var(--border-soft);
+  font-size:var(--fs-sm); color:var(--text-muted);
+}
+.dv-consum-jos b{ color:var(--text); font-weight:700; font-variant-numeric:tabular-nums; }
 /* Punctul care spune ca cifrele se reimprospateaza singure. */
 .dv-live{
   width:7px; height:7px; border-radius:50%; background:var(--led-on);

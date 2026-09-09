@@ -212,6 +212,67 @@ export async function comutaRegula(key, activ) {
   if (error) throw error;
 }
 
+/* Cat de veche poate fi ultima rulare inainte sa fie considerata o tacere
+   suspecta. Ciclul bate la 10 minute; 25 lasa loc pentru o rulare ratata si
+   inca una intarziata, fara sa alarmeze degeaba. */
+export const MINUTE_TACERE = 25;
+
+/* Ultima rulare a ciclului automat. Sursa de adevar e tabelul, nu raspunsul
+   HTTP: pg_net are propriul timeout si poate pierde raspunsul unei rulari
+   care a mers perfect. */
+export async function ultimaRulareAutomatizari() {
+  const { data, error } = await supabase.from("automation_runs")
+    .select("at, ok, verificate, schimbate, erori")
+    .order("at", { ascending: false }).limit(1).maybeSingle();
+  if (error) return null;
+  if (!data) return null;
+  const varsta = Date.now() - new Date(data.at).getTime();
+  return { ...data, tace: varsta > MINUTE_TACERE * 60000 };
+}
+
+/* Consumul din istoricul de citiri.
+ *
+ * `total` e odometrul contorului, luat ca atare. `kwh30` se calculeaza aici,
+ * ca DIFERENTA a doua citiri — nu ca o suma de masuratori instantanee: intre
+ * doua citiri de-ale noastre incap varfuri pe care nu le-am vedea, dar pe
+ * care contorul le-a numarat oricum.
+ *
+ * `deLa` spune de cand sunt datele. Cat timp n-avem inca 30 de zile de
+ * istoric, cifra e reala dar acopera mai putin — si interfata trebuie sa
+ * spuna asta, nu sa scrie „ultimele 30 de zile" peste trei zile de date. */
+export async function consumIstoric() {
+  const acum = Date.now();
+  const prag = new Date(acum - 30 * 86400000).toISOString();
+
+  const [{ data: ultima }, { data: veche }] = await Promise.all([
+    supabase.from("energy_readings").select("at, total_kwh")
+      .order("at", { ascending: false }).limit(1).maybeSingle(),
+    supabase.from("energy_readings").select("at, total_kwh")
+      .gte("at", prag).order("at", { ascending: true }).limit(1).maybeSingle(),
+  ]);
+
+  if (!ultima) return { total: null, kwh30: null, deLa: null, complet: false };
+
+  const total = Number(ultima.total_kwh);
+  let kwh30 = null;
+  let deLa = null;
+  if (veche && veche.at !== ultima.at) {
+    const diferenta = total - Number(veche.total_kwh);
+    /* Negativ inseamna ca odometrul a fost resetat (contor schimbat sau
+       contoare sterse din Shelly). O cifra negativa n-are sens ca „consum",
+       iar una „corectata" ar minti — deci nu se arata nimic. */
+    if (diferenta >= 0) {
+      kwh30 = diferenta;
+      deLa = veche.at;
+    }
+  }
+
+  /* „Complet" = avem citiri de dinainte de pragul de 30 de zile, deci
+     fereastra chiar acopera 30 de zile. */
+  const complet = Boolean(deLa) && new Date(deLa).getTime() - (acum - 30 * 86400000) < 2 * 86400000;
+  return { total, kwh30, deLa, complet };
+}
+
 /* Ultimele comenzi, pentru ecranul de istoric. */
 export async function comenziRecente(limita = 100) {
   const { data, error } = await supabase.from("device_commands")

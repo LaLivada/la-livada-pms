@@ -20,6 +20,12 @@ vi.mock("./supabase.js", () => ({ supabase: {} }));
 const cheamaDispozitiv = vi.fn(async () => ({ ok: true, actualizate: 4 }));
 const comutaRegula = vi.fn(async () => {});
 
+/* Rescrise de fiecare test care are nevoie de altceva — vezi beforeEach. */
+let ISTORIC = { total: 8914.2, kwh30: 412.7, deLa: "2026-08-11T00:00:00Z", complet: true };
+let RULARE = {
+  at: "2026-09-10T00:00:00Z", ok: true, verificate: 14, schimbate: 0, erori: null, tace: false,
+};
+
 /* Una oprita din trei, deliberat: asa acelasi ecran arata si „Activ" si
    „Oprit", si amandoua etichetele de buton. */
 const REGULI = [
@@ -39,6 +45,8 @@ vi.mock("./data/dispozitive.js", async (importOriginal) => {
     cheamaDispozitiv,
     reguliAutomate: vi.fn(async () => REGULI),
     comutaRegula,
+    consumIstoric: vi.fn(async () => ISTORIC),
+    ultimaRulareAutomatizari: vi.fn(async () => RULARE),
   };
 });
 
@@ -115,6 +123,12 @@ beforeEach(() => {
      urmatorul. */
   cheamaDispozitiv.mockReset();
   cheamaDispozitiv.mockResolvedValue({ ok: true, actualizate: 4 });
+  /* Fixturile mutabile se readuc la valoarea implicita, ca un test care le
+     schimba (ciclu tacut, istoric incomplet) sa nu se scurga in urmatorul. */
+  ISTORIC = { total: 8914.2, kwh30: 412.7, deLa: "2026-08-11T00:00:00Z", complet: true };
+  RULARE = {
+    at: "2026-09-10T00:00:00Z", ok: true, verificate: 14, schimbate: 0, erori: null, tace: false,
+  };
 });
 
 afterEach(async () => {
@@ -379,6 +393,79 @@ describe("AutomatizareView — pornit/oprit per regula", () => {
 
     const buton = randRegula(g, "Anti-legionella").querySelector(".dv-regula-cap button");
     expect(buton.disabled).toBe(true);
+  });
+});
+
+/* Ciclul comanda relee SINGUR, la 10 minute. Testele astea apara singurul
+   lucru care face o cadere vizibila — daca pica, sistemul redevine mut. */
+describe("AutomatizareView — starea ciclului automat", () => {
+  it("arata ultima rulare cand totul merge", async () => {
+    const g = await randeaza();
+    await treciLaAutomatizari(g);
+
+    const ciclu = g.querySelector(".dv-ciclu");
+    expect(ciclu.textContent).toContain("14 verificate");
+    expect(ciclu.classList.contains("dv-ciclu-tace")).toBe(false);
+  });
+
+  it("avertizeaza vizibil cand ciclul tace", async () => {
+    RULARE = { ...RULARE, tace: true };
+    const g = await randeaza();
+    await treciLaAutomatizari(g);
+
+    const ciclu = g.querySelector(".dv-ciclu");
+    expect(ciclu.classList.contains("dv-ciclu-tace")).toBe(true);
+    expect(ciclu.textContent).toContain("n-a mai rulat");
+  });
+
+  it("avertizeaza si cand a rulat, dar un releu n-a raspuns", async () => {
+    RULARE = { ...RULARE, ok: false, erori: "Boiler: Dispozitivul e offline." };
+    const g = await randeaza();
+    await treciLaAutomatizari(g);
+
+    const ciclu = g.querySelector(".dv-ciclu");
+    expect(ciclu.classList.contains("dv-ciclu-tace")).toBe(true);
+    // Eroarea concreta, nu un „ceva n-a mers" din care nu stii ce sa verifici.
+    expect(ciclu.textContent).toContain("Dispozitivul e offline");
+  });
+
+  it("spune deschis cand n-a rulat niciodata", async () => {
+    RULARE = null;
+    const g = await randeaza();
+    await treciLaAutomatizari(g);
+
+    expect(g.querySelector(".dv-ciclu").textContent).toContain("niciodată");
+  });
+});
+
+describe("AutomatizareView — consumul cumulat din card", () => {
+  it("arata consumul pe 30 de zile si totalul de pe contor", async () => {
+    const g = await randeaza();
+    const jos = g.querySelector(".dv-consum-jos");
+    expect(jos.textContent).toContain("Ultimele 30 de zile");
+    expect(jos.textContent).toContain("412,7 kWh");
+    expect(jos.textContent).toContain("8.914,2 kWh");
+  });
+
+  /* Cat timp n-avem 30 de zile de istoric, cifra e reala dar acopera mai
+     putin. Eticheta trebuie sa spuna asta — altfel primele zile dupa
+     pornire ar arata un consum lunar fals de mic, fara niciun indiciu. */
+  it("spune de cand sunt datele cat timp istoricul e mai scurt de 30 de zile", async () => {
+    ISTORIC = { total: 8914.2, kwh30: 12.3, deLa: "2026-09-08T00:00:00Z", complet: false };
+    const g = await randeaza();
+
+    const jos = g.querySelector(".dv-consum-jos");
+    expect(jos.textContent).not.toContain("Ultimele 30 de zile");
+    expect(jos.textContent).toContain("Din ");
+  });
+
+  it("arata liniuta, nu zero, cand contorul n-a fost citit inca", async () => {
+    ISTORIC = { total: null, kwh30: null, deLa: null, complet: false };
+    const g = await randeaza();
+
+    const jos = g.querySelector(".dv-consum-jos");
+    expect(jos.textContent).toContain("—");
+    expect(jos.textContent).not.toContain("0,0 kWh");
   });
 });
 

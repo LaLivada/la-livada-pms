@@ -237,6 +237,50 @@ export function citesteConsum(status: unknown): Consum | null {
 
 const numar = (v: unknown): number => (typeof v === "number" && isFinite(v) ? v : 0);
 
+/* ENERGIA CUMULATĂ (odometrul contorului), în kWh.
+ *
+ * Altă componentă decât puterea instantanee: `em:0` spune cât se consumă ACUM,
+ * `emdata:0` ține totalul de când e montat contorul. De aici vine „Consum
+ * total" din interfață, iar diferența dintre două citiri la distanță de 30 de
+ * zile dă consumul pe perioadă — mult mai exact decât dacă am integra noi
+ * puterea instantanuă din zece în zece minute, fiindcă între două citiri de-ale
+ * noastre încap vârfuri pe care nu le-am vedea, dar pe care contorul le-a
+ * numărat oricum.
+ *
+ * Shelly raportează în WAȚI-ORĂ; aici pleacă în kWh.
+ *
+ * `null` când nu se potrivește nicio formă cunoscută — o cifră lipsă e mai
+ * onestă decât una inventată dintr-o cheie ghicită greșit, mai ales pentru un
+ * odometru din care se scad valori. */
+export function citesteEnergieTotala(status: unknown): number | null {
+  if (!status || typeof status !== "object") return null;
+  const s = status as Record<string, any>;
+  const ed = s["emdata:0"] || s.emdata0 || s.emdata;
+
+  if (ed && typeof ed === "object") {
+    /* Totalul raportat de dispozitiv are prioritate față de suma fazelor,
+       pentru același motiv ca la `citesteConsum`: e calculat din aceleași
+       măsurători, dar fără trei rotunjiri adunate. */
+    if (typeof ed.total_act === "number" && isFinite(ed.total_act)) {
+      return ed.total_act / 1000;
+    }
+    const peFaza = ["a", "b", "c"].map((litera) => ed[`${litera}_total_act_energy`]);
+    if (peFaza.some((v) => typeof v === "number" && isFinite(v))) {
+      return peFaza.reduce((t: number, v) => t + numar(v), 0) / 1000;
+    }
+  }
+
+  // Gen1 (3EM vechi): `emeters[].total`, tot în Wh.
+  if (Array.isArray(s.emeters)) {
+    const cuTotal = s.emeters.filter((e: any) => typeof e?.total === "number" && isFinite(e.total));
+    if (cuTotal.length) {
+      return cuTotal.reduce((t: number, e: any) => t + numar(e.total), 0) / 1000;
+    }
+  }
+
+  return null;
+}
+
 /* Starea unui CANAL anume din răspunsul brut.
 
    Forma lui `status` diferă între familii de dispozitive. Pro 4PM (Gen2)

@@ -16,7 +16,7 @@
  * mesaj care citeaza URL-ul. O regresie aici scrie cheia in baza de date.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { citesteIesire, citesteConsum, faraCheie, seteazaComutator } from "../supabase/functions/device-provider/providers/shelly.ts";
+import { citesteIesire, citesteConsum, citesteEnergieTotala, faraCheie, seteazaComutator } from "../supabase/functions/device-provider/providers/shelly.ts";
 
 describe("citesteIesire — canalul cerut, nu primul gasit", () => {
   /* Forma reala a unui Pro 4PM: iesirile fizice 1-4 sunt `switch:0`..
@@ -154,6 +154,46 @@ describe("citesteConsum — contorul Pro 3EM pe trei faze", () => {
     expect(c.faze[1].kw).toBe(0);
     expect(c.faze[2].a).toBe(0);
     expect(Number.isFinite(c.totalKw)).toBe(true);
+  });
+});
+
+describe("citesteEnergieTotala — odometrul contorului", () => {
+  it("citeste totalul din emdata:0 si il da in kWh", () => {
+    // Shelly raporteaza in Wh; 8_914_200 Wh = 8914,2 kWh.
+    expect(citesteEnergieTotala({ "emdata:0": { total_act: 8914200 } })).toBeCloseTo(8914.2, 3);
+  });
+
+  it("aduna fazele cand lipseste totalul gata calculat", () => {
+    const stare = {
+      "emdata:0": {
+        a_total_act_energy: 1000, b_total_act_energy: 2000, c_total_act_energy: 3000,
+      },
+    };
+    expect(citesteEnergieTotala(stare)).toBeCloseTo(6, 6);
+  });
+
+  it("prefera totalul dispozitivului sumei fazelor", () => {
+    const stare = {
+      "emdata:0": {
+        total_act: 9000,
+        a_total_act_energy: 1000, b_total_act_energy: 1000, c_total_act_energy: 1000,
+      },
+    };
+    expect(citesteEnergieTotala(stare)).toBeCloseTo(9, 6);
+  });
+
+  it("accepta si forma Gen1 (emeters[].total)", () => {
+    const stare = { emeters: [{ total: 500 }, { total: 500 }, { total: 1000 }] };
+    expect(citesteEnergieTotala(stare)).toBeCloseTo(2, 6);
+  });
+
+  /* Nu inventeaza zero: un odometru din care se scad valori trebuie sa fie ori
+     real, ori absent — un zero fals ar face consumul pe 30 de zile sa arate ca
+     un salt urias la prima citire adevarata. */
+  it("intoarce null cand nu recunoaste forma, nu zero", () => {
+    expect(citesteEnergieTotala({ "em:0": { total_act_power: 1200 } })).toBeNull();
+    expect(citesteEnergieTotala(null)).toBeNull();
+    expect(citesteEnergieTotala({ emdata: {} })).toBeNull();
   });
 });
 

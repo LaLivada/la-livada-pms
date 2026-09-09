@@ -13,7 +13,7 @@
  * Shelly nu ajunge niciodata in browser.
  */
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
-import { Zap, ShowerHead, Spotlight, PlugZap, Gauge, RefreshCw, Plus, Trash2, Clock, ShieldCheck } from "lucide-react";
+import { Zap, ShowerHead, Spotlight, PlugZap, Gauge, RefreshCw, Plus, Trash2, Clock, ShieldCheck, AlertTriangle, CheckCircle2 } from "lucide-react";
 import { audit, isAdmin } from "../lib/audit.js";
 import { mesajEroare } from "../lib/errors.js";
 import { fmtDateTime } from "../lib/format.js";
@@ -21,6 +21,7 @@ import { Dialog, toaster, useModalLock } from "../ui/primitive.jsx";
 import {
   CAMERE_TEHNICE, CANALE, toateDispozitivele, adaugaShelly, stergeShelly,
   cheamaDispozitiv, contorul, ETICHETE_KIND, reguliAutomate, comutaRegula,
+  consumIstoric, ultimaRulareAutomatizari,
 } from "../data/dispozitive.js";
 
 /* Iconul spune ce comanda releul, deci merita sa fie cel concret, nu unul
@@ -59,6 +60,8 @@ const PAUZA_DUPA_COMANDA_MS = 4000;
 export function AutomatizareView({ core }) {
   const [dispozitive, setDispozitive] = useState([]);
   const [reguli, setReguli] = useState([]);
+  const [istoric, setIstoric] = useState(null);
+  const [rulare, setRulare] = useState(null);
   const [seIncarca, setSeIncarca] = useState(true);
   const [ocupat, setOcupat] = useState(null);
   const [adauga, setAdauga] = useState(null);
@@ -80,9 +83,13 @@ export function AutomatizareView({ core }) {
     try {
       /* Impreuna, nu una dupa alta: ecranul le arata pe amandoua deodata,
          iar doua asteptari inseriate ar dubla degeaba timpul de incarcare. */
-      const [disp, reg] = await Promise.all([toateDispozitivele(), reguliAutomate()]);
+      const [disp, reg, ist, rul] = await Promise.all([
+        toateDispozitivele(), reguliAutomate(), consumIstoric(), ultimaRulareAutomatizari(),
+      ]);
       setDispozitive(disp);
       setReguli(reg);
+      setIstoric(ist);
+      setRulare(rul);
     } catch (e) {
       toaster.show(mesajEroare(e, "Nu am putut citi dispozitivele."), { tone: "danger" });
     } finally {
@@ -280,13 +287,14 @@ export function AutomatizareView({ core }) {
 
       {sectiune === "automatizari" ? (
         <Automatizari
-          dispozitive={dispozitive} reguli={reguli} ocupat={ocupat}
+          dispozitive={dispozitive} reguli={reguli} rulare={rulare} ocupat={ocupat}
           onComanda={comandaGrup} onComutaRegula={comutaRegulaAutomata}
         />
       ) : (
         <>
       <ConsumCurent
         contor={contorul(dispozitive)}
+        istoric={istoric}
         oprit={liveOprit}
         eroare={liveEroare}
         onReia={() => { setLiveEroare(false); setLiveOprit(false); }}
@@ -360,7 +368,7 @@ export function AutomatizareView({ core }) {
    Randul e deasupra camerelor tehnice fiindca priveste toata pensiunea, nu o
    pereche de camere: cand cineva se uita de ce a sarit ceva, prima intrebare
    e cat trage in total si daca fazele sunt echilibrate. */
-function ConsumCurent({ contor, oprit, eroare, onReia }) {
+function ConsumCurent({ contor, istoric, oprit, eroare, onReia }) {
   if (!contor) return null;
 
   const c = contor.consum;
@@ -396,9 +404,30 @@ function ConsumCurent({ contor, oprit, eroare, onReia }) {
           ))}
         </>
       )}
+
+      {/* Cifrele cumulate stau pe randul lor, despartite de o linie: primele
+          se schimba din zece in zece secunde, astea din zece in zece minute.
+          Amestecate, ar parea ca toate se misca la fel. */}
+      <div className="dv-consum-jos">
+        <span>
+          {/* Eticheta spune adevarul despre fereastra acoperita: cat timp
+              n-avem 30 de zile de istoric, scrie de cand sunt datele, nu
+              „ultimele 30 de zile" peste trei zile de masuratori. */}
+          {istoric?.kwh30 == null || istoric.complet
+            ? "Ultimele 30 de zile"
+            : `Din ${zi(istoric.deLa)}`}{" "}
+          <b>{istoric?.kwh30 == null ? "—" : `${nr(istoric.kwh30, 1)} kWh`}</b>
+        </span>
+        <span>
+          Total <b>{istoric?.total == null ? "—" : `${nr(istoric.total, 1)} kWh`}</b>
+        </span>
+      </div>
     </div>
   );
 }
+
+/* Doar ziua si luna: anul n-aduce nimic pentru o fereastra de 30 de zile. */
+const zi = (d) => new Date(d).toLocaleDateString("ro-RO", { day: "numeric", month: "short" });
 
 /* Virgula zecimala, ca peste tot in aplicatie. */
 const nr = (v, zecimale) =>
@@ -414,13 +443,47 @@ const GRUPURI = [
   { kind: "boiler", titlu: "Boilere" },
 ];
 
-function Automatizari({ dispozitive, reguli, ocupat, onComanda, onComutaRegula }) {
+/* Ce vede omul despre sanatatea ciclului automat.
+ *
+ * Exista fiindca sistemul comanda relee SINGUR, la fiecare 10 minute, iar o
+ * cadere (Shelly offline, cheia de cont rotita odata cu parola, internet picat
+ * la pensiune) n-ar da niciun semn — primul indiciu ar fi un oaspete care suna
+ * de la dus. Randul asta face tacerea vizibila. */
+function StareCiclu({ rulare }) {
+  if (!rulare) {
+    return (
+      <div className="dv-ciclu dv-ciclu-tace">
+        <AlertTriangle size={15} />
+        <span>Ciclul automat n-a rulat încă niciodată.</span>
+      </div>
+    );
+  }
+
+  const rau = rulare.tace || !rulare.ok;
+  return (
+    <div className={"dv-ciclu " + (rau ? "dv-ciclu-tace" : "")}>
+      {rau ? <AlertTriangle size={15} /> : <CheckCircle2 size={15} />}
+      <span>
+        {rulare.tace
+          ? `Ciclul automat n-a mai rulat din ${fmtDateTime(rulare.at)} — ar trebui să bată la 10 minute.`
+          : `Ultima rulare ${fmtDateTime(rulare.at)} · ${rulare.verificate} verificate · ${rulare.schimbate} schimbate`}
+      </span>
+      {/* Eroarea se arata ca atare, nu rezumata: „ceva n-a mers" n-ar spune
+          nimanui care releu sa fie verificat. */}
+      {rulare.erori && <span className="dv-ciclu-eroare">{rulare.erori}</span>}
+    </div>
+  );
+}
+
+function Automatizari({ dispozitive, reguli, rulare, ocupat, onComanda, onComutaRegula }) {
   /* Oprirea unei reguli e configurare, nu operare: receptia comanda manual si
      suprascrie luminile, dar nu taie o masura sanitara. Acelasi prag ca la
      adaugarea/stergerea unui Shelly, si aceeasi politica in RLS. */
   const poateSchimba = isAdmin();
   return (
     <>
+      <StareCiclu rulare={rulare} />
+
       <div className="panel" style={{ marginBottom: 14 }}>
         {/* Titlul o singura data, deasupra: „control manual" e ce au in comun
             amandoua randurile, nu o insusire a fiecaruia. Repetat pe fiecare

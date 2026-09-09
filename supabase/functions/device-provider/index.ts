@@ -426,10 +426,13 @@ async function ruleazaReconciliere(
 ): Promise<{ ok: boolean; verificate: number; schimbate: number; erori?: string[] }> {
   const acum = new Date();
 
+  /* Contorul intră în aceeaşi citire ca releele, deşi nu se comandă: e pe
+     acelaşi cont Shelly, deci încape în acelaşi lot, iar aşa istoricul de
+     consum se scrie chiar şi când nu e nimeni cu ecranul deschis. */
   const { data: dispozitive } = await admin.from("devices")
     .select("*, device_rooms(room_id, rooms(name))")
     .eq("enabled", true).eq("provider", "shelly")
-    .in("kind", ["boiler", "iluminat_exterior"]);
+    .in("kind", ["boiler", "iluminat_exterior", "contor"]);
   const lista = dispozitive || [];
   if (!lista.length) return { ok: true, verificate: 0, schimbate: 0 };
 
@@ -447,10 +450,28 @@ async function ruleazaReconciliere(
   for (const d of lista) {
     const s = stari[d.provider_device_id];
     if (!s) continue;
-    d.last_status = { on: shelly.citesteIesire(s.status, d.channel), online: s.online };
+    /* Contorul citeşte altceva din acelaşi răspuns: puterea pe trei faze, nu
+       un întrerupător. Fără ramura asta i s-ar fi scris `on: false` peste
+       cifrele de consum. */
+    d.last_status = d.kind === "contor"
+      ? { online: s.online, consum: shelly.citesteConsum(s.status) }
+      : { on: shelly.citesteIesire(s.status, d.channel), online: s.online };
     await admin.from("devices").update({
       last_status: d.last_status, last_seen_at: new Date().toISOString(), updated_at: new Date().toISOString(),
     }).eq("id", d.id);
+
+    /* Odometrul, în istoric. Doar când chiar l-am citit: un `null` scris ca
+       zero ar face ca următoarea citire adevărată să arate ca un salt de mii
+       de kWh în consumul pe 30 de zile. */
+    if (d.kind === "contor") {
+      const totalKwh = shelly.citesteEnergieTotala(s.status);
+      if (totalKwh !== null) {
+        await admin.from("energy_readings").insert({
+          total_kwh: totalKwh,
+          putere_kw: d.last_status?.consum?.totalKw ?? null,
+        });
+      }
+    }
   }
 
   const boilere = lista.filter((d: any) => d.kind === "boiler");
@@ -557,5 +578,17 @@ async function ruleazaReconciliere(
     }
   }
 
-  return { ok: erori.length === 0, verificate: lista.length, schimbate, erori: erori.length ? erori : undefined };
+  /* Rezultatul, scris ÎNAINTE de a fi întors: răspunsul HTTP se poate pierde
+     (pg_net are propriul timeout), dar rândul din tabel rămâne — el e ce vede
+     ecranul, deci el trebuie să fie sursa de adevăr, nu răspunsul. */
+  const verificate = boilere.length + luminiExt.length;
+  try {
+    await admin.from("automation_runs").insert({
+      ok: erori.length === 0,
+      verificate, schimbate,
+      erori: erori.length ? erori.join(" · ").slice(0, 1000) : null,
+    });
+  } catch { /* jurnalul nu are voie sa rastoarne ciclul pe care il descrie */ }
+
+  return { ok: erori.length === 0, verificate, schimbate, erori: erori.length ? erori : undefined };
 }
