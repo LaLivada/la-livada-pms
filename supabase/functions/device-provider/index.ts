@@ -20,8 +20,9 @@
 // o funcție edge e un proces scurt, pornit per cerere și oprit după
 // răspuns, iar un WebSocket cere o conexiune ținută deschisă continuu. Ar
 // fi nevoie de un proces separat, mereu pornit — infrastructură nouă, exact
-// ce cerința inițială cerea să evităm. La 16 camere, un refresh în loturi
-// e suficient (status vechi de cel mult un minut) și n-are ce opera nimeni.
+// ce cerința inițială cerea să evităm. Interfața citește contorul din câteva
+// în câteva secunde cât timp ecranul e deschis, ceea ce arată la fel de viu
+// și nu cere niciun proces nou.
 // Vezi docs/shelly-integration.md secțiunea 9.
 //
 // deno-lint-ignore-file no-explicit-any
@@ -97,7 +98,13 @@ Deno.serve(async (req) => {
   }
 
   /* Auditul nu are voie să răstoarne operațiunea pe care o descrie —
-     același tipar ca `jurnal` din guest-unlock. */
+     același tipar ca `jurnal` din guest-unlock.
+
+     Se scrie DOAR la on/off, niciodată la refresh. Jurnalul e acolo ca să
+     arate cine a comutat ce, iar o citire nu schimbă nimic; de când
+     interfața citește contorul din câteva în câteva secunde, un rând per
+     citire ar fi însemnat sute de rânduri pe oră care ar fi îngropat exact
+     comenzile pentru care există tabelul. */
   const jurnal = async (r: Record<string, unknown>) => {
     try { await admin.from("device_commands").insert(r); } catch { /* ignorat */ }
   };
@@ -216,7 +223,6 @@ Deno.serve(async (req) => {
     const stari = await shelly.citesteStare(SERVER_URI, AUTH_KEY, [device.provider_device_id]);
     const brut = stari[device.provider_device_id];
     if (!brut) {
-      await jurnal({ ...contextJurnal, action: "refresh", result: "error", detail: "Shelly n-a raportat dispozitivul." });
       return raspuns({ ok: false, reason: "necunoscut", error: "Shelly nu cunoaște acest dispozitiv. Verifică ID-ul din setări." }, 404);
     }
     const stare = device.kind === "contor"
@@ -227,12 +233,13 @@ Deno.serve(async (req) => {
       last_seen_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     }).eq("id", device.id);
-    await jurnal({ ...contextJurnal, action: "refresh", result: "ok" });
     return raspuns({ ok: true, device: catreClient(device, stare, camere) });
   } catch (e) {
     const mesaj = shelly.faraCheie((e as Error).message);
     const cod = (e as Error & { cod?: string }).cod || "";
-    await jurnal({ ...contextJurnal, action: actiune, result: "error", detail: mesaj.slice(0, 500) });
+    if (actiune !== "refresh") {
+      await jurnal({ ...contextJurnal, action: actiune, result: "error", detail: mesaj.slice(0, 500) });
+    }
     /* Offline nu e o defecțiune a PMS-ului — 409, nu 502, ca interfața să
        poată deosebi „releul nu răspunde" de „Shelly Cloud e picat". */
     const status = cod === "DEVICE_OFFLINE" ? 409 : 502;

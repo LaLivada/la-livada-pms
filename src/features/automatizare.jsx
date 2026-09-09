@@ -33,6 +33,14 @@ const PICTOGRAMA = {
   prize: PlugZap,
 };
 
+/* Cat de des se reciteste contorul cat timp ecranul e deschis. Cinci secunde
+   arata „viu" fara sa se apropie de limita Shelly de o cerere pe secunda,
+   care ar fi atinsa abia pe la cinci ecrane deschise simultan. */
+const RITM_MS = 5000;
+/* Dupa atata timp de citire neintrerupta, se opreste singura. Vezi comentariul
+   de la `bate()`. */
+const LIVE_MAX_MS = 30 * 60 * 1000;
+
 export function AutomatizareView({ core }) {
   const [dispozitive, setDispozitive] = useState([]);
   const [seIncarca, setSeIncarca] = useState(true);
@@ -71,6 +79,70 @@ export function AutomatizareView({ core }) {
     await reincarca();
     toaster.push(r.actualizate ? `Stare actualizată pentru ${r.actualizate} ieșiri.` : "Niciun dispozitiv de actualizat.");
   }, [reincarca]);
+
+  /* CONSUM „ÎN TIMP REAL"
+   *
+   * Interfața reciteşte doar contorul, la câteva secunde, cât timp ecranul e
+   * deschis. Nu e un compromis din lene — e singura formă care nu cere
+   * infrastructură nouă:
+   *
+   * Un WebSocket direct din browser la Shelly ar cere ca browserul să țină
+   * cheia contului, aceeaşi cheie care comandă toate releele. Un bundle de
+   * browser e public, deci asta e exclus.
+   * Un WebSocket ținut de server ar cere un proces mereu pornit — o funcție
+   * edge trăieşte cât o cerere. Ar fi infrastructură nouă de administrat
+   * pentru un număr care oricum se citeşte cu ochiul.
+   *
+   * Deci: reîncărcare deasă, doar a contorului (o singură cerere Shelly),
+   * doar cât timp fila e vizibilă, cu trei opriri de siguranță mai jos.
+   */
+  const idContor = contorul(dispozitive)?.id || null;
+  const [liveOprit, setLiveOprit] = useState(false);
+  const [liveEroare, setLiveEroare] = useState(false);
+
+  useEffect(() => {
+    if (!idContor || sectiune !== "camere" || liveOprit) return;
+
+    let anulat = false;
+    let ceas;
+    let esecuri = 0;
+    const pornitLa = Date.now();
+
+    const bate = async () => {
+      if (anulat) return;
+
+      /* 1. Fila ascunsă nu consumă apeluri — nimeni nu se uită. */
+      if (document.hidden) { ceas = setTimeout(bate, RITM_MS); return; }
+
+      /* 2. Un ecran uitat deschis peste noapte ar trage ~17.000 de apeluri pe
+         zi, adică singur cât toată cota lunară a planului. După o jumătate de
+         oră se opreşte şi cere o apăsare ca să continue. */
+      if (Date.now() - pornitLa > LIVE_MAX_MS) { setLiveOprit(true); return; }
+
+      const r = await cheamaDispozitiv("refresh", { deviceId: idContor });
+      if (anulat) return;
+
+      if (r.ok && r.device?.status) {
+        esecuri = 0;
+        setLiveEroare(false);
+        const s = r.device.status;
+        setDispozitive((lista) => lista.map((d) =>
+          d.id === idContor
+            ? { ...d, consum: s.consum || null, online: s.online === true, vazutLa: r.device.lastSeenAt }
+            : d));
+      } else {
+        /* 3. Când Shelly nu răspunde, rărim în loc să insistăm: altfel o
+           pană de internet ar produce un apel la fiecare cinci secunde,
+           ore în şir, fără ca vreunul să aibă şanse. */
+        esecuri = Math.min(esecuri + 1, 4);
+        setLiveEroare(true);
+      }
+      ceas = setTimeout(bate, RITM_MS * 2 ** esecuri);
+    };
+
+    ceas = setTimeout(bate, RITM_MS);
+    return () => { anulat = true; clearTimeout(ceas); };
+  }, [idContor, sectiune, liveOprit]);
 
   const comuta = useCallback(async (dispozitiv, pornit) => {
     setOcupat(dispozitiv.id);
@@ -124,7 +196,12 @@ export function AutomatizareView({ core }) {
 
       {sectiune === "automatizari" ? <Automatizari /> : (
         <>
-      <ConsumCurent contor={contorul(dispozitive)} />
+      <ConsumCurent
+        contor={contorul(dispozitive)}
+        oprit={liveOprit}
+        eroare={liveEroare}
+        onReia={() => { setLiveEroare(false); setLiveOprit(false); }}
+      />
 
       <div className="tabs-bar">
         <div className="sub-tabs dv-tabs" role="tablist" aria-label="Camere tehnice">
@@ -194,7 +271,7 @@ export function AutomatizareView({ core }) {
    Randul e deasupra camerelor tehnice fiindca priveste toata pensiunea, nu o
    pereche de camere: cand cineva se uita de ce a sarit ceva, prima intrebare
    e cat trage in total si daca fazele sunt echilibrate. */
-function ConsumCurent({ contor }) {
+function ConsumCurent({ contor, oprit, eroare, onReia }) {
   if (!contor) return null;
 
   const c = contor.consum;
@@ -204,8 +281,16 @@ function ConsumCurent({ contor }) {
     <div className="dv-consum">
       <span className="dv-consum-titlu">
         <Gauge size={15} /> Consum curent
+        {/* Punctul spune ca cifrele se reimprospateaza singure. Fara el,
+            cineva ar sta si ar apasa „Actualizează starea" degeaba. */}
+        {!oprit && !eroare && <span className="dv-live" title={`Se reciteşte la ${RITM_MS / 1000} secunde`} aria-label="se actualizează automat" role="img" />}
       </span>
-      {necunoscut ? (
+      {oprit ? (
+        <span className="dv-consum-gol">
+          actualizarea automată s-a oprit după 30 de minute{" "}
+          <button type="button" className="dv-reia" onClick={onReia}>reia</button>
+        </span>
+      ) : necunoscut ? (
         <span className="dv-consum-gol">
           {contor.online === false && contor.vazutLa
             ? "contorul nu răspunde"

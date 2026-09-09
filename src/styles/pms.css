@@ -770,6 +770,21 @@
   font-size:var(--fs-lg); font-weight:700; font-variant-numeric:tabular-nums;
 }
 .dv-consum-gol{ font-size:var(--fs-sm); color:var(--text-muted); }
+/* Punctul care spune ca cifrele se reimprospateaza singure. */
+.dv-live{
+  width:7px; height:7px; border-radius:50%; background:var(--led-on);
+  box-shadow:0 0 0 3px color-mix(in srgb, var(--led-on) 20%, transparent);
+  animation:dv-puls 2s ease-in-out infinite;
+}
+@keyframes dv-puls{ 0%,100%{ opacity:1 } 50%{ opacity:.35 } }
+/* Cine a cerut mai putina miscare primeste punctul, dar fix. */
+@media (prefers-reduced-motion: reduce){
+  .dv-live{ animation:none; }
+}
+.dv-reia{
+  border:none; background:none; padding:0; font:inherit; font-weight:600;
+  color:var(--accent-strong); text-decoration:underline; cursor:pointer;
+}
 /* Fazele, mai discrete decat totalul: totalul se citeste de la distanta,
    fazele doar cand cauti dezechilibrul. */
 .dv-faza{

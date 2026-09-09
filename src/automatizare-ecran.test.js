@@ -10,7 +10,7 @@
  * singura camera. Testele de aici fixeaza structura, nu stilul — dar
  * structura e cea care a permis stilului sa taie.
  */
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import React from "react";
 import { createRoot } from "react-dom/client";
 import { act } from "react";
@@ -82,18 +82,57 @@ const DISPOZITIVE = [
     } },
 ];
 
+/* Tot ce s-a montat, ca sa poata fi demontat dupa fiecare test. Vezi
+   `afterEach` — nu e curatenie de forma. */
+const montate = [];
+
 async function randeaza() {
   const host = document.createElement("div");
   document.body.appendChild(host);
+  const root = createRoot(host);
+  montate.push({ root, host });
   await act(async () => {
-    createRoot(host).render(React.createElement(AutomatizareView, { core: CORE }));
+    root.render(React.createElement(AutomatizareView, { core: CORE }));
   });
   return host;
 }
 
 beforeEach(() => {
   audit.user = { name: "Test", role: "admin" };
-  cheamaDispozitiv.mockClear();
+  /* mockReset, nu mockClear: testele de mai jos schimba ce intoarce apelul,
+     iar un `mockResolvedValue` ramas de la testul anterior s-ar scurge in
+     urmatorul. */
+  cheamaDispozitiv.mockReset();
+  cheamaDispozitiv.mockResolvedValue({ ok: true, actualizate: 4 });
+});
+
+afterEach(async () => {
+  /* Demontarea NU e optionala aici. Ecranul citeste contorul cu un
+     `setTimeout` care se reprogrameaza singur; o componenta ramasa montata
+     de la un test anterior continua sa bata si dupa ce testul ei s-a
+     terminat. Testul care numara apeluri ar numara atunci si bataile ei —
+     exact ce s-a intamplat prima data cand am scris testele astea: treceau
+     rulate singure si picau in suita intreaga. */
+  await act(async () => { montate.forEach((m) => m.root.unmount()); });
+  montate.forEach((m) => m.host.remove());
+  montate.length = 0;
+  vi.useRealTimers();
+});
+
+const RASPUNS_CONTOR = (kw) => ({
+  ok: true,
+  device: {
+    id: "dv-441d647468c8-0",
+    lastSeenAt: "2026-09-09T16:00:00Z",
+    status: {
+      online: true,
+      consum: { totalKw: kw, totalA: 20.4, faze: [
+        { nume: "R", kw: kw / 3, a: 6.8, v: 231 },
+        { nume: "S", kw: kw / 3, a: 6.8, v: 231 },
+        { nume: "T", kw: kw / 3, a: 6.8, v: 231 },
+      ] },
+    },
+  },
 });
 
 describe("AutomatizareView — structura pe camere tehnice", () => {
@@ -168,6 +207,79 @@ describe("AutomatizareView — consumul general", () => {
       .find((p) => p.textContent.includes("Camera tehnică"));
     expect(panou.querySelectorAll(".dv-row").length).toBe(4);
     expect(panou.textContent).not.toContain("Contor");
+  });
+});
+
+describe("AutomatizareView — consumul se reciteste singur", () => {
+  it("cere DOAR contorul, nu toate dispozitivele", async () => {
+    vi.useFakeTimers();
+    cheamaDispozitiv.mockResolvedValue(RASPUNS_CONTOR(6.6));
+    const g = await randeaza();
+    await act(async () => { await vi.advanceTimersByTimeAsync(5000); });
+
+    expect(cheamaDispozitiv).toHaveBeenCalledWith("refresh", { deviceId: "dv-441d647468c8-0" });
+    // Un refresh general ar fi insemnat sapte apeluri Shelly la fiecare
+    // bataie, in loc de unul.
+    expect(cheamaDispozitiv.mock.calls.every((c) => c[1]?.deviceId)).toBe(true);
+    expect(g.querySelector(".dv-consum").textContent).toContain("6,60 kW");
+  });
+
+  it("continua sa citeasca, cu cifra care se schimba", async () => {
+    vi.useFakeTimers();
+    cheamaDispozitiv.mockResolvedValueOnce(RASPUNS_CONTOR(1.5))
+                    .mockResolvedValueOnce(RASPUNS_CONTOR(9.9));
+    const g = await randeaza();
+    await act(async () => { await vi.advanceTimersByTimeAsync(5000); });
+    expect(g.querySelector(".dv-consum").textContent).toContain("1,50 kW");
+    await act(async () => { await vi.advanceTimersByTimeAsync(5000); });
+    expect(g.querySelector(".dv-consum").textContent).toContain("9,90 kW");
+  });
+
+  /* Cea mai scumpa greseala posibila aici: sa citeasca in continuare dintr-o
+     sectiune care nici macar nu arata cifra. */
+  it("nu citeste nimic cat timp esti in sectiunea Automatizări", async () => {
+    vi.useFakeTimers();
+    cheamaDispozitiv.mockResolvedValue(RASPUNS_CONTOR(3.3));
+    const g = await randeaza();
+    const sectiuni = [...g.querySelectorAll('.sub-tabs:not(.dv-tabs) [role="tab"]')];
+    await act(async () => { sectiuni[1].click(); });
+    cheamaDispozitiv.mockClear();
+    await act(async () => { await vi.advanceTimersByTimeAsync(20000); });
+    expect(cheamaDispozitiv).not.toHaveBeenCalled();
+  });
+
+  it("rareste cand Shelly nu raspunde, in loc sa insiste", async () => {
+    vi.useFakeTimers();
+    cheamaDispozitiv.mockResolvedValue({ ok: false, error: "Shelly Cloud n-a răspuns." });
+    const g = await randeaza();
+
+    await act(async () => { await vi.advanceTimersByTimeAsync(5000); });
+    expect(cheamaDispozitiv).toHaveBeenCalledTimes(1);
+    // Dupa primul esec pauza se dubleaza, deci la +5s inca nu vine al doilea.
+    await act(async () => { await vi.advanceTimersByTimeAsync(5000); });
+    expect(cheamaDispozitiv).toHaveBeenCalledTimes(1);
+    await act(async () => { await vi.advanceTimersByTimeAsync(5000); });
+    expect(cheamaDispozitiv).toHaveBeenCalledTimes(2);
+    expect(g.querySelector(".dv-live")).toBeNull();
+  });
+
+  /* Un ecran uitat deschis peste noapte ar consuma singur toata cota lunara
+     de apeluri a planului. */
+  it("se opreste dupa 30 de minute si cere o apasare ca sa continue", async () => {
+    vi.useFakeTimers();
+    cheamaDispozitiv.mockResolvedValue(RASPUNS_CONTOR(2.2));
+    const g = await randeaza();
+    await act(async () => { await vi.advanceTimersByTimeAsync(31 * 60 * 1000); });
+
+    expect(g.querySelector(".dv-consum").textContent).toContain("actualizarea automată s-a oprit");
+    const inainte = cheamaDispozitiv.mock.calls.length;
+    await act(async () => { await vi.advanceTimersByTimeAsync(60000); });
+    expect(cheamaDispozitiv).toHaveBeenCalledTimes(inainte);
+
+    // ...si reporneste la cerere.
+    await act(async () => { g.querySelector(".dv-reia").click(); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(5000); });
+    expect(cheamaDispozitiv.mock.calls.length).toBeGreaterThan(inainte);
   });
 });
 
