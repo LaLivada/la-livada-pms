@@ -20,7 +20,7 @@ import { mesajEroare } from "../lib/errors.js";
 import { audit } from "../lib/audit.js";
 import { guestFullName, occupantName } from "../lib/nume.js";
 import { nightsBetween, rangesOverlap, validateStay, isLive, isStatsEligible, startOfDay } from "../lib/availability.js";
-import { reservationTotal, nightlyRate, liveReservationTotalOnline } from "../lib/pricing.js";
+import { reservationTotal, nightlyRate, liveReservationTotalOnline, diferentaDePret } from "../lib/pricing.js";
 import { splitEvenly } from "../lib/money.js";
 import { isSameDay, isToday, canCheckIn, canCheckOut, canCancel, canNoShow, checkouturiRestante, zileIntarziere, sosiriRestante, zileIntarziereSosire, ZILE_CHECKIN_DEVREME } from "../lib/tranzitii.js";
 import { fmtMoney, fmtDate, fmtDateFull, fmtDateTime, toDateInput, toLocalInputValue, withNewDate, initials, validatePrice, FMT_DATE, FMT_TIME, FMT_WEEKDAY, FMT_MONTH_YEAR } from "../lib/format.js";
@@ -1339,8 +1339,15 @@ export function ReservationModal({ data, core, updateCore, reservations, updateR
     if (!await updateReservations(nextRes)) return;
     const who = guestFullName(core.guests.find((g) => g.id === guestId)) || "Fără nume";
     const rn = core.rooms.find((r) => r.id === roomId)?.name;
+    /* Pretul, cu vechea si noua valoare, cand chiar s-a schimbat. Jurnalul
+       spunea doar „Rezervare modificată" — adevarat, dar inutil exact in
+       cazul in care cineva s-ar uita inapoi sa vada de ce s-a incasat mai
+       putin. Restul campurilor raman nedetaliate: pretul e singurul cerut
+       urmarit (decis pe 9 septembrie 2026). Formula sta in pricing.js,
+       fiindca si ecranul de grup scrie acelasi lucru. */
+    const pret = editing ? diferentaDePret(editing, record, core) : "";
     await audit.push(editing ? "Rezervare modificată" : "Rezervare creată",
-      `${who} · ${rn} · ${fmtDate(checkin)} → ${fmtDate(checkout)}`);
+      `${who} · ${rn} · ${fmtDate(checkin)} → ${fmtDate(checkout)}${pret}`);
     /* După salvare, nu înainte: dacă sincronizarea yalei cade, rezervarea
        rămâne modificată. Vezi comentariul de la reconciliazaAcces. */
     if (editing) {

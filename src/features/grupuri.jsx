@@ -13,7 +13,7 @@ import { mesajEroare } from "../lib/errors.js";
 import { audit, isAdmin } from "../lib/audit.js";
 import { guestFullName, occupantName } from "../lib/nume.js";
 import { nightsBetween, isLive, startOfDay, rangesOverlap, validateStay } from "../lib/availability.js";
-import { reservationTotal, liveReservationTotalOnline } from "../lib/pricing.js";
+import { reservationTotal, liveReservationTotalOnline, diferentaDePret, liniaDePret } from "../lib/pricing.js";
 import { isSameDay } from "../lib/tranzitii.js";
 import { fmtMoney, fmtDate, fmtDateFull, toDateInput, initials, withNewDate, FMT_DATE, FMT_DATE_FULL } from "../lib/format.js";
 import { ROOM_TYPE, STATUS_LABEL, TARI } from "../lib/constante.js";
@@ -267,15 +267,50 @@ export function GroupEditor({ group, core, groups, updateGroups, reservations, u
     if (row && row.priceOverride == null && PRICE_AFFECTING.some((f) => patch[f] !== undefined)) {
       finalPatch = { ...patch, bookedPrice: liveReservationTotalOnline({ ...row, ...patch }, core, reservations) };
     }
-    await updateReservations(reservations.map((r) => (r.id === id ? { ...r, ...finalPatch } : r)));
+    const salvat = await updateReservations(
+      reservations.map((r) => (r.id === id ? { ...r, ...finalPatch } : r)));
     setError("");
+
+    /* Dacă baza a respins scrierea — drepturi, suprapunere, conflict de
+       versiune — nu mai urmează nimic. Jurnalul ar consemna o schimbare
+       care nu s-a făcut, iar yala ar primi o perioadă pe care baza n-o are.
+       Aceeași regulă ca în fereastra rezervării (`saveInner`); aici lipsea,
+       și se vedea abia acum, când sub ea a apărut și jurnalul. */
+    if (!row || !salvat) return;
+
+    const dupa = { ...row, ...finalPatch };
+    const numeCamera = (rid) => core.rooms.find((x) => x.id === rid)?.name || rid;
+
+    /* Editările de aici nu ajungeau deloc în jurnal, deși trei dintre ele —
+       data, camera, ocuparea — recalculează prețul chiar mai sus. Un preț
+       schimbat fără urmă e exact ce s-a cerut să nu mai fie (9 septembrie
+       2026). Numele ocupantului se schimbă la fiecare tastă apăsată, deci
+       rămâne nejurnalizat intenționat: un patch care nu atinge niciunul
+       dintre câmpurile de mai jos nu scrie nicio linie. */
+    const bucati = [];
+    if (finalPatch.roomId && finalPatch.roomId !== row.roomId) {
+      bucati.push(`camera ${numeCamera(row.roomId)} → ${numeCamera(dupa.roomId)}`);
+    }
+    if (finalPatch.checkin !== undefined || finalPatch.checkout !== undefined) {
+      bucati.push(`${fmtDate(dupa.checkin)} → ${fmtDate(dupa.checkout)}`);
+    }
+    if (finalPatch.adults !== undefined && finalPatch.adults !== row.adults) {
+      bucati.push(`${dupa.adults} adulți`);
+    }
+    if (finalPatch.children !== undefined && finalPatch.children !== row.children) {
+      bucati.push(`${dupa.children} copii`);
+    }
+    if (bucati.length) {
+      await audit.push("Cameră din grup modificată",
+        `${group.name} · ${numeCamera(dupa.roomId)} · ${bucati.join(" · ")}`
+        + diferentaDePret(row, dupa, core));
+    }
+
     /* Editările din grup ocolesc fereastra rezervării, deci sincronizarea
        yalei trebuie chemată și de aici — altfel o cameră schimbată în grup
        ar lăsa codul vechi activ pe ușa veche. */
-    if (row) {
-      try { await reconciliazaAcces(row, { ...row, ...finalPatch }, core); }
-      catch (e) { console.error("Sincronizare acces", e); }
-    }
+    try { await reconciliazaAcces(row, dupa, core); }
+    catch (e) { console.error("Sincronizare acces", e); }
   };
 
   /* Keeps the free-text occupantName (used everywhere else for display)
@@ -314,13 +349,19 @@ export function GroupEditor({ group, core, groups, updateGroups, reservations, u
     }
 
     const ids = new Set(rows.map((r) => r.id));
-    await updateReservations(reservations.map((r) => {
+    const dupa = reservations.map((r) => {
       if (!ids.has(r.id)) return r;
       const patched = { ...r, checkin: ci.toISOString(), checkout: co.toISOString() };
       return r.priceOverride == null ? { ...patched, bookedPrice: liveReservationTotalOnline(patched, core, reservations) } : patched;
-    }));
+    });
+    await updateReservations(dupa);
+    /* O perioadă nouă pe tot grupul mișcă și totalul, uneori cu sute de lei
+       — cazul în care un preț schimbat fără urmă contează cel mai mult. */
+    const totalNou = dupa.filter((r) => ids.has(r.id))
+      .reduce((v, r) => v + reservationTotal(r, core), 0);
     await audit.push("Perioadă grup schimbată",
-      `${group.name}: ${fmtDate(ci)} → ${fmtDate(co)} · ${rows.length} camere`);
+      `${group.name}: ${fmtDate(ci)} → ${fmtDate(co)} · ${rows.length} camere`
+      + liniaDePret(totalValue, totalNou));
 
     /* Aceeași perioadă nouă pentru toate camerele: fiecare cod de acces
        trebuie adus la zi separat, fiindcă fiecare stă pe altă yală. */

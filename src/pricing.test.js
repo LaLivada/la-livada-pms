@@ -8,6 +8,7 @@ import {
 import {
   inSeason, nightlyRate, liveReservationTotal,
   liveReservationTotalOnline, reservationTotal, onlineNightAdjustmentPct,
+  diferentaDePret, liniaDePret,
 } from "./lib/pricing.js";
 import { calcAmounts, round2, splitEvenly } from "./lib/money.js";
 import { validateCUIFormat, validatePhone, validateEmail } from "./lib/validation.js";
@@ -131,6 +132,40 @@ describe("reservationTotal", () => {
     // bookedPrice/live pricing. Worth knowing since it means a stray
     // negative value silently zeroes an invoice line instead of erroring.
     expect(reservationTotal({ ...res, priceOverride: -5, bookedPrice: 555 }, core)).toBe(0);
+  });
+});
+
+describe("diferentaDePret / liniaDePret", () => {
+  const core = {
+    rooms: [{ id: "r1", type: "tiny" }],
+    rates: { base: { tiny: 300, adultSupplement: 80, childSupplement: 30 }, seasons: [] },
+  };
+  const res = { roomId: "r1", checkin: "2026-08-18T15:00:00Z", checkout: "2026-08-19T11:00:00Z", adults: 2, children: 0 };
+
+  it("nu scrie nimic cand pretul a ramas acelasi", () => {
+    expect(diferentaDePret({ ...res, priceOverride: 450 }, { ...res, priceOverride: 450, notes: "alta nota" }, core)).toBe("");
+  });
+  it("scrie vechea si noua valoare cand pretul manual s-a schimbat", () => {
+    expect(diferentaDePret({ ...res, priceOverride: 450 }, { ...res, priceOverride: 300 }, core))
+      .toContain("450");
+    expect(diferentaDePret({ ...res, priceOverride: 450 }, { ...res, priceOverride: 300 }, core))
+      .toContain("300");
+  });
+  /* Cazul pentru care nu se compara `priceOverride`: aici nu exista pret
+     manual nici inainte, nici dupa — s-a schimbat doar ocuparea, iar pretul
+     s-a mutat prin `bookedPrice`. O comparatie pe `priceOverride` ar fi
+     spus „nimic nu s-a schimbat". */
+  it("prinde si schimbarea venita din bookedPrice, fara pret manual", () => {
+    expect(diferentaDePret({ ...res, bookedPrice: 300 }, { ...res, bookedPrice: 380 }, core))
+      .not.toBe("");
+  });
+  it("intoarce sirul gol daca lipseste una dintre stari", () => {
+    expect(diferentaDePret(null, { ...res, priceOverride: 300 }, core)).toBe("");
+    expect(diferentaDePret({ ...res, priceOverride: 300 }, undefined, core)).toBe("");
+  });
+  it("liniaDePret compara doua totaluri deja calculate", () => {
+    expect(liniaDePret(900, 900)).toBe("");
+    expect(liniaDePret(900, 1200)).toContain("→");
   });
 });
 

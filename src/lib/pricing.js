@@ -7,6 +7,7 @@
 
 import { nightsBetween, occupancyForStay } from "./availability.js";
 import { round2 } from "./money.js";
+import { fmtMoney } from "./format.js";
 
 export function inSeason(date, season) {
   const md = `${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
@@ -154,4 +155,29 @@ export function reservationTotal(res, core) {
     if (Number.isFinite(n) && n >= 0) return round2(n);
   }
   return liveReservationTotal(res, core);
+}
+
+/* Diferenta de pret, scrisa pentru jurnal. Sirul gol daca nu s-a schimbat,
+ * altfel „ · preț 450 lei → 300 lei", gata de lipit la coada unei linii.
+ *
+ * DE CE AICI. Trei ecrane pot schimba pretul unei rezervari: fereastra
+ * rezervarii, randul unei camere din grup si mutarea perioadei intregului
+ * grup. Recepția are voie sa schimbe prețul — decis pe 9 septembrie 2026 —
+ * dar schimbarea trebuie sa se vada in jurnal, iar „se vede la fel" nu tine
+ * daca fiecare ecran isi scrie propria formula.
+ *
+ * Se compara `reservationTotal`, nu `priceOverride`: conteaza cat plateste
+ * omul, iar asta se schimba si fara pret manual — o zi in plus sau un adult
+ * in minus recalculeaza `bookedPrice`.
+ */
+export function diferentaDePret(inainte, dupa, core) {
+  if (!inainte || !dupa) return "";
+  return liniaDePret(reservationTotal(inainte, core), reservationTotal(dupa, core));
+}
+
+/* Aceeasi linie, pentru cand cele doua totaluri sunt deja calculate — cazul
+ * mutarii de perioada pe un grup intreg, unde se aduna mai multe rezervari
+ * si nu exista „o rezervare inainte" de dat mai sus. */
+export function liniaDePret(vechi, nou) {
+  return vechi === nou ? "" : ` · preț ${fmtMoney(vechi)} → ${fmtMoney(nou)}`;
 }
