@@ -371,14 +371,20 @@ const nr = (v, zecimale) =>
    boilerele. Aici, nu in „Camere tehnice", fiindca acolo fiecare rand
    priveste o pereche de camere — asta le priveste pe toate. */
 const GRUPURI = [
-  { kind: "iluminat_exterior", titlu: "Control manual lumini exterioare" },
-  { kind: "boiler", titlu: "Control manual boilere" },
+  { kind: "iluminat_exterior", titlu: "Lumini exterioare" },
+  { kind: "boiler", titlu: "Boilere" },
 ];
 
 function Automatizari({ dispozitive, ocupat, onComanda }) {
   return (
     <>
       <div className="panel" style={{ marginBottom: 14 }}>
+        {/* Titlul o singura data, deasupra: „control manual" e ce au in comun
+            amandoua randurile, nu o insusire a fiecaruia. Repetat pe fiecare
+            rand, lungea titlurile fara sa adauge nimic. */}
+        <div className="dv-head">
+          <div className="dv-info"><div className="dv-title">Control manual</div></div>
+        </div>
         {GRUPURI.map((g) => (
           <ComandaGrup
             key={g.kind} config={g}
@@ -430,21 +436,19 @@ function ComandaGrup({ config, aleGrupului, ocupat, onComanda }) {
             : `${pornite} din ${total} pornite`}
         </div>
       </div>
-      {/* Amandoua butoanele mereu vizibile, spre deosebire de randul unui
-          singur releu: un grup n-are o stare unica pe care s-o inverseze un
-          buton, poate fi pornit pe jumatate. */}
+      {/* Un singur buton, ca la randul unui releu.
+          Un grup poate fi pornit pe jumatate, deci trebuie ales ce inseamna
+          „starea lui": daca MACAR UNUL e aprins, butonul stinge. Asa, dintr-o
+          stare amestecata se ajunge la „totul stins" dintr-o apasare — iar
+          stins e starea in care nu consuma nimic degeaba. Cate sunt aprinse
+          scrie chiar deasupra, ca apasarea sa nu surprinda pe nimeni. */}
       <div className="dv-ctrl">
         <button
-          className="btn btn-primary" disabled={!total || acestaOcupat}
-          onClick={() => onComanda(config.kind, true)}
+          className={"btn " + (pornite ? "btn-ghost" : "btn-primary")}
+          disabled={!total || acestaOcupat}
+          onClick={() => onComanda(config.kind, !pornite)}
         >
-          {acestaOcupat ? "…" : "Pornește"}
-        </button>
-        <button
-          className="btn btn-ghost" disabled={!total || acestaOcupat}
-          onClick={() => onComanda(config.kind, false)}
-        >
-          {acestaOcupat ? "…" : "Oprește"}
+          {acestaOcupat ? "…" : pornite ? "Oprește" : "Pornește"}
         </button>
       </div>
     </div>

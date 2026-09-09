@@ -313,22 +313,46 @@ async function treciLaAutomatizari(g) {
   await act(async () => { sectiuni[1].click(); });
 }
 
+/* Cautare fara majuscule: titlurile randurilor incep cu litera mare
+   („Boilere"), dar testele de mai jos le numesc cum le zice omul. */
 const randGrup = (g, text) => [...g.querySelectorAll(".dv-row")]
-  .find((r) => r.textContent.includes(text));
+  .find((r) => r.textContent.toLowerCase().includes(text.toLowerCase()));
 
 describe("AutomatizareView — comanda manuala pe grup", () => {
-  it("are cate un rand pentru lumini si unul pentru boilere, cu doua butoane fiecare", async () => {
+  it("are cate un rand pentru lumini si unul pentru boilere, cu un singur buton", async () => {
     const g = await randeaza();
     await treciLaAutomatizari(g);
 
-    for (const titlu of ["Control manual lumini exterioare", "Control manual boilere"]) {
+    for (const titlu of ["Lumini exterioare", "Boilere"]) {
       const rand = randGrup(g, titlu);
       expect(rand).toBeTruthy();
-      const butoane = [...rand.querySelectorAll(".dv-ctrl .btn")].map((b) => b.textContent);
-      /* Amandoua mereu, nu un buton care inverseaza: un grup poate fi pornit
-         pe jumatate, deci n-are o stare unica de inversat. */
-      expect(butoane).toEqual(["Pornește", "Oprește"]);
+      expect(rand.querySelectorAll(".dv-ctrl .btn").length).toBe(1);
     }
+  });
+
+  /* „Control manual" e scris o singura data, ca titlu deasupra ambelor
+     randuri — nu repetat in fiecare dintre ele. Testul numara aparitiile:
+     daca ajung doua, textul s-a intors in titlurile randurilor. */
+  it("scrie Control manual o singura data, deasupra celor doua randuri", async () => {
+    const g = await randeaza();
+    await treciLaAutomatizari(g);
+
+    expect(g.textContent.match(/Control manual/g)).toHaveLength(1);
+    for (const titlu of ["Lumini exterioare", "Boilere"]) {
+      expect(randGrup(g, titlu).textContent).not.toContain("Control manual");
+    }
+  });
+
+  /* Regula aleasa pentru un grup amestecat: daca MACAR UNUL e aprins,
+     butonul stinge. Fixtura are iluminatul oprit si boilerul pornit, deci
+     cele doua randuri arata etichete diferite in acelasi ecran. */
+  it("butonul arata actiunea, nu starea: stinge daca macar unul e aprins", async () => {
+    const g = await randeaza();
+    await treciLaAutomatizari(g);
+    expect(randGrup(g, "lumini exterioare").querySelector(".dv-ctrl .btn").textContent)
+      .toBe("Pornește");   // 0 din 1 aprinse
+    expect(randGrup(g, "boilere").querySelector(".dv-ctrl .btn").textContent)
+      .toBe("Oprește");    // 1 din 1 aprinse
   });
 
   it("numara cate relee din grup sunt pornite", async () => {
@@ -348,23 +372,24 @@ describe("AutomatizareView — comanda manuala pe grup", () => {
     await treciLaAutomatizari(g);
     cheamaDispozitiv.mockClear();
 
+    // Boilerul e pornit in fixtura, deci butonul lui stinge.
     const rand = randGrup(g, "boilere");
-    await act(async () => { rand.querySelectorAll(".dv-ctrl .btn")[0].click(); });
+    await act(async () => { rand.querySelector(".dv-ctrl .btn").click(); });
 
     expect(cheamaDispozitiv).toHaveBeenCalledTimes(1);
-    expect(cheamaDispozitiv).toHaveBeenCalledWith("on", { kind: "boiler" });
+    expect(cheamaDispozitiv).toHaveBeenCalledWith("off", { kind: "boiler" });
   });
 
-  it("trimite „off” pe al doilea buton", async () => {
+  it("porneste grupul cand nu e aprins niciunul", async () => {
     cheamaDispozitiv.mockResolvedValue({ ok: true, reusite: 7, total: 7, esuate: [] });
     const g = await randeaza();
     await treciLaAutomatizari(g);
     cheamaDispozitiv.mockClear();
 
     const rand = randGrup(g, "lumini exterioare");
-    await act(async () => { rand.querySelectorAll(".dv-ctrl .btn")[1].click(); });
+    await act(async () => { rand.querySelector(".dv-ctrl .btn").click(); });
 
-    expect(cheamaDispozitiv).toHaveBeenCalledWith("off", { kind: "iluminat_exterior" });
+    expect(cheamaDispozitiv).toHaveBeenCalledWith("on", { kind: "iluminat_exterior" });
   });
 
   it("nu raporteaza succes cand doar o parte au raspuns", async () => {
@@ -381,7 +406,7 @@ describe("AutomatizareView — comanda manuala pe grup", () => {
     const g = await randeaza();
     await treciLaAutomatizari(g);
     const rand = randGrup(g, "boilere");
-    await act(async () => { rand.querySelectorAll(".dv-ctrl .btn")[0].click(); });
+    await act(async () => { rand.querySelector(".dv-ctrl .btn").click(); });
 
     expect(spion).toHaveBeenCalledWith(expect.stringContaining("n-au răspuns"), { tone: "danger" });
     spion.mockRestore();
