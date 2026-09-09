@@ -873,10 +873,7 @@ export function ReservationViewModal({ reservation, core, updateCore, groups, up
         <div style={{ minWidth: 0, flex: 1 }}>
           <div className="action-guest">{occupantName(reservation, core, groups) || "Fără nume"}</div>
           {guestFullName(guest) && guestFullName(guest) !== occupantName(reservation, core, groups) && (
-            <div className="action-meta" style={{ marginTop: 1 }}>
-              Rezervat de {guestFullName(guest)}
-              {editingGroup && ` · din grupul ${editingGroup.name}`}
-            </div>
+            <div className="action-meta" style={{ marginTop: 1 }}>Rezervat de {guestFullName(guest)}</div>
           )}
           <div className="action-meta" style={{ marginTop: 1 }}>
             <span className="mono">{room?.name}</span> · {fmtDate(reservation.checkin)} → {fmtDate(reservation.checkout)}
@@ -2285,6 +2282,7 @@ export function ReservationActions({ res: resSnapshot, core, groups, reservation
   const messages = res.messages || [];
   const guest = core.guests.find((g) => g.id === res.guestId);
   const room = core.rooms.find((r) => r.id === res.roomId);
+  const grup = res.groupId ? (groups || []).find((g) => g.id === res.groupId) : null;
   const now = new Date();
 
   const arrivesToday = isSameDay(res.checkin, now);
@@ -2335,6 +2333,13 @@ export function ReservationActions({ res: resSnapshot, core, groups, reservation
             <div className="action-guest">{occupantName(res, core, groups) || "Fără nume"}</div>
             {guestFullName(guest) && guestFullName(guest) !== occupantName(res, core, groups) && (
               <div className="action-meta">Rezervat de {guestFullName(guest)}</div>
+            )}
+            {/* Din ce grup face parte camera. Sarit cand numele grupului e
+                deja titlul de sus: `occupantName` cade pe numele grupului
+                cand camera n-are ocupant scris, iar atunci randul asta ar
+                repeta exact acelasi text cu doua cuvinte in fata. */}
+            {grup && grup.name !== occupantName(res, core, groups) && (
+              <div className="action-meta">Din grupul {grup.name}</div>
             )}
             <div className="action-meta">
               <span className="mono">{room?.name}</span> · {fmtDate(res.checkin)} → {fmtDate(res.checkout)}
