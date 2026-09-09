@@ -7,7 +7,7 @@
  */
 
 import React, { useState, useEffect, useMemo, useRef } from "react";
-import { Plus, X, Search, Check, Trash2, Pencil, History, Users, UsersRound, Phone, MessageCircle, Banknote, UserCheck, ArrowRight, ChevronLeft, ChevronRight, Receipt } from "lucide-react";
+import { Plus, X, Search, Check, Trash2, Pencil, History, Users, UsersRound, Phone, MessageCircle, Banknote, UserCheck, ArrowRight, ChevronLeft, ChevronRight, Receipt, FileText } from "lucide-react";
 import { supabase } from "../supabase.js";
 import { uid } from "../lib/uid.js";
 import { mesajEroare } from "../lib/errors.js";
@@ -21,6 +21,7 @@ import { fmtMoney, fmtDate, fmtDateFull, initials } from "../lib/format.js";
 import { JUDETE, TARI, PHONE_DIAL, DIAL_LIST, STATUS_LABEL, ROOM_TYPE, GUEST_HISTORY_PAGE_SIZE, INVOICE_STATUS_LABEL, INVOICE_STATUS_CLASS, sourceLabel } from "../lib/constante.js";
 import { Dialog, toaster, usePaginare, Paginare, useModalLock, Stat } from "../ui/primitive.jsx";
 import { GroupsView } from "./grupuri.jsx";
+import { FiseView } from "./fise.jsx";
 import { billingCustomerLabel, BillingCustomerModal } from "./facturare.jsx";
 
 export function ClientsView({ core, updateCore, groups, updateGroups, reservations, updateReservations, blocks, onNewGroup }) {
@@ -85,7 +86,11 @@ export function ClientsView({ core, updateCore, groups, updateGroups, reservatio
           <button className="btn btn-primary" style={{ width: "auto" }} onClick={() => setFirmModal({ customer: null })}>
             <Plus size={15} /> Firmă nouă
           </button>
-        ) : (
+        /* Nimic pe „Fișe": o fișă nu se deschide de la zero, ci pe o
+           rezervare anume — se completează din rezervarea ei, unde există
+           deja oaspetele și camera. Un buton „Fișă nouă" aici ar fi cerut
+           întâi „a cui?", adică drumul înapoi în rezervări. */
+        ) : tab === "fise" ? null : (
           <button className="btn btn-primary" style={{ width: "auto" }} onClick={() => setModal({ guest: null })}>
             <Plus size={15} /> Client nou
           </button>
@@ -110,6 +115,15 @@ export function ClientsView({ core, updateCore, groups, updateGroups, reservatio
         {header}
         <FirmsView core={core} updateCore={updateCore} reservations={reservations}
           modalExtern={firmModal} inchideModalExtern={() => setFirmModal(null)} />
+      </div>
+    );
+  }
+
+  if (tab === "fise") {
+    return (
+      <div>
+        {header}
+        <FiseView core={core} reservations={reservations} />
       </div>
     );
   }
@@ -709,6 +723,13 @@ export function SubTabs({ tab, setTab, guestCount, groupCount, firmCount }) {
       </button>
       <button className={tab === "groups" ? "on" : ""} onClick={() => setTab("groups")}>
         <UsersRound size={14} /> Grupuri <span className="tab-count">{groupCount}</span>
+      </button>
+      {/* Fără număr pe tab: fișele se citesc din baza de date abia când
+          intri aici, spre deosebire de celelalte trei, care sunt deja în
+          starea aplicației. Un contor ar fi cerut o cerere în plus la
+          fiecare deschidere a ecranului Clienți, doar ca să scrie o cifră. */}
+      <button className={tab === "fise" ? "on" : ""} onClick={() => setTab("fise")}>
+        <FileText size={14} /> Fișe
       </button>
     </div>
   );

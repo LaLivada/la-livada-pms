@@ -15,14 +15,14 @@
  * scrie alta. Vezi docs/fisa-cazare.md 2.
  */
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { FileText, FilePlus, Ban } from "lucide-react";
+import { FileText, FilePlus, Ban, Search } from "lucide-react";
 import * as dateFise from "../data/fise.js";
 import { audit } from "../lib/audit.js";
 import { mesajEroare } from "../lib/errors.js";
 import { fmtDateTime, fmtDateFull } from "../lib/format.js";
 import { CAMPURI, ACT_TIPURI, valideazaFisa, SABLON_VERSIUNE,
          precompletareDinOaspete, dataInParti, dataDinParti } from "../lib/fisa.js";
-import { Dialog, toaster } from "../ui/primitive.jsx";
+import { Dialog, toaster, usePaginare, Paginare } from "../ui/primitive.jsx";
 import { uid } from "../lib/uid.js";
 import { LATIME_PANZA, INALTIME_PANZA } from "../lib/semnatura.js";
 
@@ -108,6 +108,134 @@ export function SectiuneFisa({ res, core }) {
         <AnuleazaFisa fisa={fisa}
           onGata={() => { setAnulare(false); incarca(); }}
           onClose={() => setAnulare(false)} />
+      )}
+    </div>
+  );
+}
+
+/* ---------------------------------------------------------------
+   TOATE FISELE — ecranul din Clienti
+----------------------------------------------------------------*/
+
+/* DE CE EXISTA ECRANUL ASTA. Pana pe 9 septembrie 2026 o fisa se putea
+ * atinge doar din interiorul rezervarii ei. Mergea, cat timp stiai care
+ * rezervare — dar cand baza refuza stergerea unei rezervari fiindca are fisa
+ * semnata, omul trebuie sa gaseasca fisa ca s-o anuleze, si n-avea de unde
+ * s-o ia. Aici se vad toate, se cauta dupa nume si se anuleaza pe loc.
+ *
+ * Anulatele raman in lista, marcate. Un document legal care dispare din
+ * liste fara urma e mai rau decat unul gresit. */
+export function FiseView({ core, reservations }) {
+  const [fise, setFise] = useState(null);   // null = se incarca
+  const [q, setQ] = useState("");
+  const [eroare, setEroare] = useState("");
+  const [deschisa, setDeschisa] = useState(null);   // randul intreg, cu semnatura
+  const [anulare, setAnulare] = useState(null);
+
+  const incarca = useCallback(async () => {
+    try { setFise(await dateFise.toateFisele()); setEroare(""); }
+    catch (e) { console.error("citire fise", e); setFise([]); setEroare(mesajEroare(e)); }
+  }, []);
+  useEffect(() => { incarca(); }, [incarca]);
+
+  /* Camera si perioada nu stau in fisa, ci in rezervarea ei — le luam din
+     starea deja incarcata a aplicatiei, nu cu inca o cerere. O fisa a carei
+     rezervare lipseste din felia curenta ramane in lista, fara ele: mai bine
+     un rand incomplet decat un document care pare ca nu exista. */
+  const rezDupaId = new Map((reservations || []).map((r) => [r.id, r]));
+  const numeCamera = (id) => core.rooms.find((c) => c.id === id)?.name || null;
+
+  const filtrate = (fise || []).filter((f) => {
+    const t = q.trim().toLowerCase();
+    if (!t) return true;
+    const rez = rezDupaId.get(f.reservation_id);
+    return `${f.nume} ${f.prenume}`.toLowerCase().includes(t)
+      || (numeCamera(rez?.roomId) || "").toLowerCase().includes(t);
+  });
+  const paginare = usePaginare(filtrate);
+
+  const deschide = async (f) => {
+    try { setDeschisa(await dateFise.fisaIntreaga(f.id)); }
+    catch (e) { toaster.show(mesajEroare(e, "Fișa nu a putut fi deschisă"), { tone: "danger" }); }
+  };
+
+  if (fise === null) return <div className="ldv-mic" style={{ padding: 18 }}>Se încarcă…</div>;
+
+  return (
+    <div>
+      <div className="toolbar">
+        <div className="search-box">
+          <Search size={15} color="var(--text-muted)" />
+          <input placeholder="Caută după nume sau cameră" value={q}
+            onChange={(e) => setQ(e.target.value)} />
+        </div>
+        <span className="badge-count">{filtrate.length} fișe</span>
+      </div>
+
+      {eroare && <div className="error-text" role="alert">{eroare}</div>}
+
+      <div className="panel">
+        {filtrate.length === 0 ? (
+          <div className="empty-state">
+            <FileText size={26} /><h4>Nicio fișă</h4>
+            <p>Fișele completate de oaspeți sau de recepție apar aici.</p>
+          </div>
+        ) : paginare.feliate.map((f) => {
+          const rez = rezDupaId.get(f.reservation_id);
+          const camera = numeCamera(rez?.roomId);
+          return (
+            <div className="list-row" key={f.id}>
+              <div style={{ minWidth: 0 }}>
+                <div className="primary">
+                  {f.nume} {f.prenume}
+                  {f.anulata_la && <span className="badge-count" style={{ marginLeft: 8 }}>anulată</span>}
+                </div>
+                <div className="secondary">
+                  {[camera, rez && `${fmtDateFull(rez.checkin)} → ${fmtDateFull(rez.checkout)}`]
+                    .filter(Boolean).join(" · ") || "rezervare care nu mai e pe ecran"}
+                </div>
+                <div className="secondary" style={{ marginTop: 3 }}>
+                  Completată {fmtDateTime(f.semnat_la)}
+                  {f.completata_de ? ` · de ${f.completata_de}` : " · de oaspete"}
+                </div>
+                {!f.are_semnatura && (
+                  <div className="secondary" style={{ color: "var(--danger)" }}>
+                    Fără semnătură — {f.fara_semnatura_motiv}
+                  </div>
+                )}
+                {f.anulata_la && (
+                  <div className="secondary" style={{ color: "var(--danger)" }}>
+                    Anulată {fmtDateTime(f.anulata_la)}
+                    {f.anulata_de ? ` de ${f.anulata_de}` : ""}
+                    {f.anulata_motiv ? ` — ${f.anulata_motiv}` : ""}
+                  </div>
+                )}
+              </div>
+              <div className="quick-actions" style={{ flexShrink: 0 }}>
+                <button className="btn btn-ghost" onClick={() => deschide(f)}>
+                  <FileText size={14} color="var(--accent)" /> Vezi fișa
+                </button>
+                {/* Anulata o data, fisa nu se mai atinge — triggerul din baza
+                    refuza si a doua anulare, deci butonul dispare, nu ramane
+                    sa dea eroare. */}
+                {!f.anulata_la && (
+                  <button className="btn btn-ghost" onClick={() => setAnulare(f)}>
+                    <Ban size={14} color="var(--danger)" /> Anulează
+                  </button>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      <Paginare stare={paginare} eticheta={paginare.totalItems === 1 ? "fișă" : "fișe"} />
+
+      {deschisa && <VizualizareFisa fisa={deschisa} onClose={() => setDeschisa(null)} />}
+      {anulare && (
+        <AnuleazaFisa fisa={anulare}
+          onGata={() => { setAnulare(null); incarca(); }}
+          onClose={() => setAnulare(null)} />
       )}
     </div>
   );

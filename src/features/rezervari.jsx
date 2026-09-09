@@ -1381,9 +1381,13 @@ export function ReservationModal({ data, core, updateCore, reservations, updateR
        moartă pentru o ștergere care nu avusese loc. */
     try {
       if (await dateFise.areFisaActiva(editing.id)) {
+        /* Trimiterea e catre sectiunea „Fișă de cazare" din ACEASTA
+           fereastra, cu butonul „Anulează" in ea — fisa e chiar sub ochii
+           lui, nu in alt ecran. (Aceleasi fise se vad si toate odata, in
+           Clienți → Fișe.) */
         toaster.show(
           "Rezervarea are fișă de cazare semnată, deci nu se poate șterge. "
-          + "Anulează întâi fișa (Documente → Fișa de cazare), apoi rezervarea.",
+          + "Derulează la secțiunea Fișă de cazare, anuleaz-o, apoi șterge rezervarea.",
           { tone: "danger" });
         return;
       }

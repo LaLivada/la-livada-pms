@@ -54,6 +54,33 @@ export async function rezervariCuFisa(idRezervari) {
   return new Set((data || []).map((r) => r.reservation_id));
 }
 
+/* Toate fisele, pentru ecranul „Fise" din Clienti. Cele anulate sunt incluse:
+   un document legal care dispare din liste fara urma e mai rau decat unul
+   gresit — acelasi motiv ca la `fisePentruRezervare`.
+
+   Vine din vederea `fise_cazare_lista`, nu din tabel, ca sa NU vina si
+   semnaturile: la cateva sute de fise ar fi insemnat sute de kilobytes de
+   desen trimisi degeaba la fiecare intrare in ecran. Vederea pastreaza doar
+   `are_semnatura`, singurul lucru care conteaza in lista; desenul se cere
+   separat, prin `fisaIntreaga`, cand chiar se deschide una. */
+export async function toateFisele(limita = 500) {
+  const { data, error } = await supabase.from("fise_cazare_lista")
+    .select("*")
+    .order("semnat_la", { ascending: false })
+    .limit(limita);
+  if (error) throw error;
+  return data || [];
+}
+
+/* Randul intreg al unei fise, semnatura inclusa. O singura cerere, la
+   deschidere — perechea lui `toateFisele`. */
+export async function fisaIntreaga(idFisa) {
+  const { data, error } = await supabase.from("fise_cazare")
+    .select("*").eq("id", idFisa).maybeSingle();
+  if (error) throw error;
+  return data || null;
+}
+
 /* Are rezervarea o fisa neanulata? Intrebarea apare la STERGEREA rezervarii:
    `on delete cascade` duce stergerea pana la fisa, iar acolo triggerul
    `fise_cazare_imuabila` o refuza — un document legal nu se sterge, se
