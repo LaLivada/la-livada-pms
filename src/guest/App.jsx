@@ -459,9 +459,16 @@ function ContinutAcces() {
   return (
     <>
       {poze.map((p) => (
+        /* Textul sta DEASUPRA pozei, nu sub ea: e o indrumare, nu o
+           legenda. Cine urmeaza traseul citeste ce are de facut si abia
+           apoi se uita la poza ca sa recunoasca locul; invers, s-ar uita
+           intai la o poza care inca nu inseamna nimic.
+           `alt` ramane gol dinadins. Textul de deasupra spune deja ce e de
+           facut, iar pus si in `alt` s-ar auzi de doua ori la rand in
+           cititorul de ecran. Poza ilustreaza indrumarea, nu o inlocuieste. */
         <figure className="g-acces-foto" key={p.fisier}>
-          <img src={`/acces/${p.fisier}`} alt={p.descriere} loading="lazy" decoding="async" />
           {p.descriere && <figcaption>{p.descriere}</figcaption>}
+          <img src={`/acces/${p.fisier}`} alt="" loading="lazy" decoding="async" />
         </figure>
       ))}
       {pasi.length > 0 && (

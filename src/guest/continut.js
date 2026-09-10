@@ -83,14 +83,30 @@ export const HARTA_INCORPORATA =
 /* „Acces către camere" — cum se orienteaza omul in curtea interioara, dupa
    ce a ajuns la poarta.
  *
- * GOL PANA CAND E COMPLETAT. Textul si pozele vin de la proprietar; un
- * traseu inventat prin curtea altcuiva ar trimite oaspetii aiurea, noaptea,
- * cu bagajele in mana. Pana atunci, fereastra spune cinstit ca indrumarea
- * inca nu e pusa si da numarul de la receptie.
+ * ORDINEA DIN `poze` E ORDINEA DRUMULUI, si e singurul lucru care o
+ * stabileste. Nu numele fisierului, nu data pozei: sirul de aici. Cine
+ * schimba ordinea aici schimba traseul pe care il urmeaza oaspetele.
+ *
+ * `descriere` se afiseaza DEASUPRA pozei, nu sub ea: e o indrumare, nu o
+ * legenda. Omul citeste ce are de facut si abia apoi se uita la poza ca sa
+ * recunoasca locul. Lasata goala, poza apare fara text — nu se strica nimic.
+ *
+ * POZELE NU SE PUN DE MANA in public-guest/acces/. Vin din telefon cu 3-4 MB
+ * bucata, iar panoul se deschide pe date mobile, la poarta. Se pun numerotate
+ * 1..N in `poze-acces/` (folder ignorat de git) si se trec prin:
+ *
+ *   npm i --no-save sharp && node scripts/acces-poze.mjs
+ *
+ * Scriptul le duce la 720px, le roteste dupa EXIF, le comprima sub 220 KB si
+ * tipareste la final exact sirul de pus mai jos.
+ *
+ * GOL PANA CAND E COMPLETAT. Un traseu inventat prin curtea altcuiva ar
+ * trimite oaspetii aiurea, noaptea, cu bagajele in mana. Cat timp e gol,
+ * fereastra spune cinstit ca indrumarea nu e pusa si da numarul de la
+ * receptie — vezi `ContinutAcces` din App.jsx.
  *
  * Forma:
- *   poze:  [{ fisier: "curte-1.jpg", descriere: "Poarta dinspre DN24" }]
- *          fisierele se pun in `public-guest/acces/`
+ *   poze:  [{ fisier: "1-intrarea.jpg", descriere: "Text deasupra pozei" }]
  *   pasi:  ["Intri pe poarta din dreapta clădirii…", "…"]
  */
 export const ACCES_CAMERE = {

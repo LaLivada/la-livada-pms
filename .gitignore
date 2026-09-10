@@ -52,3 +52,8 @@ backup-*.sql
 # pastrate local daca mai trebuie privite. Regula acoperea doar `backup-*.sql`,
 # deci cele trei .jsx erau urmarite fara sa vrea nimeni.
 backup-*
+
+# Pozele brute de pe telefon, inainte de scripts/acces-poze.mjs. Sunt de
+# 3-4 MB bucata si nu au ce cauta in istoric — in repo intra doar cele
+# procesate, din public-guest/acces/.
+poze-acces/

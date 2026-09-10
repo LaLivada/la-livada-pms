@@ -628,9 +628,22 @@ body{
 .g-fereastra-corp{
   padding:16px; overflow-y:auto; -webkit-overflow-scrolling:touch;
 }
-.g-acces-foto{ margin:0 0 14px; }
-.g-acces-foto img{ display:block; width:100%; height:auto; border-radius:12px; }
-.g-acces-foto figcaption{ margin:6px 2px 0; font-size:12.5px; color:var(--g-muted); }
+/* Pozele traseului prin curte. Sunt portret, facute cu telefonul din locul
+   in care sta omul — deci se limiteaza inaltimea, altfel una singura ar umple
+   ecranul si nu s-ar vedea ca urmeaza altele. Taierea taie de sus
+   si de jos, unde e cer si asfalt, si pastreaza mijlocul, unde e reperul. */
+.g-acces-foto{ margin:0 0 18px; }
+.g-acces-foto img{
+  display:block; width:100%; height:auto; max-height:64vh;
+  object-fit:cover; border-radius:12px;
+}
+/* Indrumarea, DEASUPRA pozei. Nu mai e legenda marunta de sub imagine, ci
+   randul care se citeste primul, deci are culoarea textului obisnuit si
+   greutate. */
+.g-acces-foto figcaption{
+  margin:0 2px 7px; font-size:14.5px; line-height:1.45;
+  color:var(--g-text); font-weight:500;
+}
 .g-pasi{ margin:0; padding-left:20px; }
 .g-pasi li{ padding:5px 0; font-size:14px; }
 
