@@ -1243,3 +1243,55 @@ Verificarea se uită la fișierul scris, nu la ce credem că am scris: mărime,
 lipsa canalului alfa, cele patru colțuri fildeș curat, mijlocul auriu (altfel
 sigla n-a intrat deloc, iar cartonașul ar fi o pagină goală pe care nimeni n-o
 observă lipsind) și sub 300 KB.
+
+## 20. Tema de noapte — patru locuri necitibile (10 septembrie 2026)
+
+Semnalat de proprietar, cu poză: pe telefonul cu temă întunecată, textul din
+casetele fișei nu se vedea. Am măsurat toată pagina în loc să repar doar ce s-a
+arătat, și erau **patru** locuri, toate din același tipar — iar cel mai rău nu
+era cel semnalat.
+
+| ce | înainte | acum |
+|---|---|---|
+| data plecării, pe cardul principal | **1,06** | 16,98 |
+| textul tastat în casete | **1,21** | 14,94 |
+| semnătura, pe pânză | **1,21** | 14,94 |
+| butonul „Semnez și trimit" | **1,94** | 8,25 |
+
+**Tiparul.** `--ivory` e hârtia paginii și se **inversează** în tema de noapte:
+din `#f5f1e8` devine `#15170f`. Pusă ca `color:` pe o suprafață care rămâne
+închisă în ambele teme — un buton măsliniu, cardul principal — litera devine
+aproape neagră pe verde închis. Simetric, `background:#fff` scris literal în
+regulă, cu `color:var(--g-text)` deasupra, dă text aproape alb pe alb: perechea
+nu se întoarce împreună.
+
+**Cel mai rău era invizibil pentru noi.** Data plecării de pe cardul principal,
+la contrast 1,06, adică practic nimic. Vecinii ei din foaia de stil —
+`.g-diez`, `.g-valabil`, `.g-cod-lipsa` — foloseau deja `rgba(245,241,232,…)`
+scris ca valoare, exact ca să nu se inverseze. Un singur rând ieșise din rând.
+
+**Semnătura era a doua ca gravitate**, deși nimeni n-o semnalase: pânza avea
+`background:#fff` iar traseul `stroke:var(--g-text)`. În tema de noapte
+oaspetele ar fi desenat aproape alb pe alb — ar fi văzut o casetă goală și ar fi
+conchis că semnătura nu merge.
+
+**Reparat cu două jetoane**, nu cu valori împrăștiate prin reguli:
+
+- `--g-camp` — suprafața casetelor și a pânzei. Se **inversează**, ca să se
+  întoarcă împreună cu textul de deasupra. În tema de noapte e `#14170f`, puțin
+  mai închis decât cardul pe care stă, ca să se citească drept adâncitură.
+- `--g-pe-inchis` — text pe suprafețe închise în **ambele** teme. **Nu** se
+  redefinește, și ăsta e tot rostul lui.
+
+**Trei teste țin tiparul închis**, fiindcă niciunul din cele patru nu se vedea
+la lumina zilei: `color:var(--ivory)` nu mai are voie să apară nicăieri;
+`--g-pe-inchis` nu are voie să fie redefinit în blocul de noapte; iar casetele
+și pânza trebuie să-și ia fundalul din jeton, care la rândul lui trebuie să se
+inverseze. Ultimul a și prins ceva imediat: pusesem jetonul, dar uitasem
+inversarea lui — adică jumătatea care repară.
+
+**Ce am lăsat neatins, deliberat.** Etichetele-sprânceană ale cardurilor
+(`.g-card h2`, 11px majuscule spațiate), „(dacă are)" și subsolul stau pe
+`--g-faint` și ies la ~2,5 în tema de zi, ~3,5 în cea de noapte. Sunt decor
+intenționat, dinaintea acestei schimbări și în ambele teme — de ridicat numai
+dacă se hotărăște că e de ridicat, nu pe furiș într-o reparație.

@@ -109,4 +109,44 @@ describe("foaia de stil, încărcată", () => {
     expect(regula).not.toContain("var(--ivory)");
     expect(regula).not.toContain("var(--charcoal)");
   });
+
+  /* JETOANELE DE HARTIE NU SE FOLOSESC CA CERNEALA.
+     `--ivory` e hartia paginii, si se INVERSEAZA in tema de noapte: din
+     #f5f1e8 devine #15170f. Pusa ca `color:` pe o suprafata care ramane
+     inchisa in ambele teme — un buton masliniu, cardul principal — litera
+     devine aproape neagra pe verde inchis si dispare.
+     Nu e o grija inchipuita. Pe 10 septembrie 2026 erau patru locuri stricate
+     asa, iar cel mai rau ajunsese la contrast 1.06: data plecarii de pe cardul
+     principal, invizibila pe telefoanele cu tema intunecata. Niciunul nu se
+     vedea la lumina zilei.
+     Pentru text pe inchis exista `--g-pe-inchis`, care nu se redefineste. */
+  it("nu foloseste hârtia paginii drept cerneală", async () => {
+    const { STILURI } = await import("./guest/styles.js");
+    expect(STILURI).not.toContain("color:var(--ivory)");
+  });
+
+  it("jetonul pentru text pe închis chiar nu se inversează", async () => {
+    const { STILURI } = await import("./guest/styles.js");
+    expect(STILURI).toContain("--g-pe-inchis:");
+    /* Redefinit in blocul de noapte, ar fi exact jetonul de care fugim. */
+    const noapte = STILURI.slice(STILURI.indexOf("@media (prefers-color-scheme: dark)"));
+    expect(noapte).not.toContain("--g-pe-inchis:");
+  });
+
+  /* Casetele si panza de semnat au fundalul din jeton, nu #fff scris in
+     regula: textul din ele e --g-text, care se inverseaza. Perechea trebuie
+     sa se intoarca impreuna — altfel textul tastat iese aproape alb pe alb,
+     iar semnatura nu se vede deloc. */
+  it("casetele și panza își iau fundalul din jeton", async () => {
+    const { STILURI } = await import("./guest/styles.js");
+    for (const selector of [".g-camp input", ".g-semnatura-panza{"]) {
+      const de = STILURI.indexOf(selector);
+      const regula = STILURI.slice(de, STILURI.indexOf("}", de));
+      expect(regula, selector).toContain("background:var(--g-camp)");
+      expect(regula, selector).not.toContain("background:#fff");
+    }
+    /* Si jetonul TREBUIE sa se inverseze — altfel n-am rezolvat nimic. */
+    const noapte = STILURI.slice(STILURI.indexOf("@media (prefers-color-scheme: dark)"));
+    expect(noapte).toContain("--g-camp:");
+  });
 });

@@ -35,6 +35,16 @@ export const STILURI = `
   --g-line:rgba(63,74,61,.16);
   --g-hair:rgba(63,74,61,.09);
   --g-card:#fffdf8;
+  /* Suprafata casetelor de formular si a panzei de semnat. Jeton, nu #fff
+     scris in regula: textul din ele e --g-text, care se inverseaza in tema de
+     noapte. Perechea trebuie sa se intoarca IMPREUNA — altfel textul tastat
+     iese aproape alb pe alb, iar semnatura nu se vede deloc. */
+  --g-camp:#fff;
+  /* Text asezat pe suprafete inchise in AMBELE teme: butoanele masline si
+     cardul principal. NU se redefineste in blocul de noapte, si asta e
+     rostul lui — pana acum aici statea --ivory, care se inverseaza si lasa
+     litera neagra pe verde inchis. */
+  --g-pe-inchis:#f5f1e8;
   --g-radius:18px;
 }
 *,*::before,*::after{ box-sizing:border-box; }
@@ -193,7 +203,7 @@ body{
    se deschide, iar asta nu se tine minte in fata usii. */
 .g-diez{ color:rgba(245,241,232,.5); margin-left:.06em; }
 .g-valabil{ margin:0; font-size:13px; color:rgba(245,241,232,.62); }
-.g-valabil b{ color:var(--ivory); font-weight:600; }
+.g-valabil b{ color:var(--g-pe-inchis); font-weight:600; }
 .g-cod-lipsa{ margin:8px 0 0; font-size:14px; color:rgba(245,241,232,.75); }
 
 .g-usa{
@@ -410,7 +420,7 @@ body{
 .g-camp input, .g-camp select{
   width:100%; font:inherit; font-size:16px;
   padding:9px 11px; border:1px solid var(--g-line); border-radius:9px;
-  background:#fff; color:var(--g-text);
+  background:var(--g-camp); color:var(--g-text);
 }
 /* Data nasterii: zi, luna, an, in randul asta. Latimile sunt proportionale
    cu ce se scrie in ele — 2, 2 si 4 cifre — ca sa se vada dintr-o privire
@@ -427,7 +437,7 @@ body{
    pe cardul inchis la culoare, si ar fi mostenit culorile de acolo. */
 .g-fisa-trimit{
   display:block; width:100%; margin-top:16px; padding:14px;
-  border:0; border-radius:12px; background:var(--olive); color:var(--ivory);
+  border:0; border-radius:12px; background:var(--olive); color:var(--g-pe-inchis);
   font:inherit; font-size:16px; font-weight:600; cursor:pointer;
 }
 .g-fisa-trimit:disabled{ opacity:.55; cursor:default; }
@@ -448,7 +458,7 @@ body{
    de un test in guest-stiluri.test.js. */
 .g-semnatura-panza{
   display:block; width:100%; height:auto; aspect-ratio:2/1;
-  background:#fff; border:1px solid var(--g-line);
+  background:var(--g-camp); border:1px solid var(--g-line);
   border-radius:10px; touch-action:none; cursor:crosshair;
 }
 .g-semnatura-linie{
@@ -487,7 +497,7 @@ body{
 .g-contact{
   flex:1 1 130px; display:inline-flex; align-items:center; justify-content:center;
   gap:8px; min-height:46px; padding:11px 14px; border-radius:12px;
-  background:var(--olive); color:var(--ivory);
+  background:var(--olive); color:var(--g-pe-inchis);
   font:inherit; font-size:15px; font-weight:600; text-decoration:none;
 }
 /* Sigla WhatsApp isi pastreaza culorile ei — e singurul strop de verde din
@@ -711,8 +721,12 @@ body{
   font-family:var(--editorial); font-weight:400; font-size:26px; margin:0 0 8px;
 }
 .g-mesaj p{ margin:0 0 18px; color:var(--g-muted); }
+/* Culoarea literei vine din jetonul care NU se inverseaza, desi blocul de
+   noapte suprascrie oricum si fundalul, si litera, mai jos. Asa regula se
+   citeste corect singura: pana acum parea stricata si scapa doar fiindca o
+   repara ceva aflat la trei sute de randuri distanta. */
 .g-buton{
-  display:inline-block; background:var(--olive); color:var(--ivory);
+  display:inline-block; background:var(--olive); color:var(--g-pe-inchis);
   text-decoration:none; padding:12px 22px; border-radius:12px;
   font-weight:600; font-size:15px;
 }
@@ -722,6 +736,10 @@ body{
 @media (prefers-color-scheme: dark){
   :root{
     --ivory:#15170f; --beige:#2a2e22; --g-card:#1d2018;
+    /* Caseta e mai inchisa decat cardul pe care sta, ca sa se citeasca drept
+       adancitura, nu drept petec. Cu --g-text deasupra da un contrast de
+       peste 15:1 — pana acum era 1.21, adica nimic. */
+    --g-camp:#14170f;
     --g-text:#ece9e2;
     --g-muted:rgba(236,233,226,.66); --g-faint:rgba(236,233,226,.42);
     --g-line:rgba(236,233,226,.14); --g-hair:rgba(236,233,226,.09);
