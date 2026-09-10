@@ -24,6 +24,11 @@ export const camelRes = (r) => ({
      iar interfata n-are de ce sa-l trimita inapoi. Trimis, ar fi doar o cale
      prin care o stare veche din browser ar putea suprascrie un cod bun. */
   guestCode: r.guest_code || "",
+  /* Cand a intrat rezervarea, nu cand incepe sejurul. Citit, nu scris —
+     lipseste din `snakeRes` deliberat, la fel ca `guestCode`: coloana are
+     `default now()` si nimeni din interfata n-are ce corecta la ea.
+     Foloseste-l cardul „De pe site" de pe ecranul Azi (lib/rezervari-online.js). */
+  createdAt: r.created_at || null,
   updatedAt: r.updated_at || null,
 });
 /* Rezervarea asa cum o vede camerista: cand e prinsa camera, si atat.

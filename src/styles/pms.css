@@ -1521,6 +1521,15 @@ label.field input, label.field select, label.field textarea{ cursor:auto; }
   font-family:'IBM Plex Mono',monospace;
 }
 .pb-manual input:focus{ outline:none; border-color:var(--accent); box-shadow:0 0 0 3px rgba(43,92,138,.15); }
+/* ---------- Azi: cardul „De pe site" ----------
+   Panou obisnuit, cu doua adaugiri: pictograma langa titlu si ora din
+   dreapta randului. `.co-cand` nu se poate rupe — „acum 20 de minute"
+   despartit pe doua linii ar impinge randul in inaltime pe telefon. */
+.card-online{ margin-bottom:20px; }
+.co-titlu{ display:inline-flex; align-items:center; gap:7px; }
+.co-titlu svg{ color:var(--accent); flex-shrink:0; }
+.co-cand{ font-size:var(--fs-sm); color:var(--text-muted); white-space:nowrap; }
+.co-moarta{ background:var(--danger-soft); color:var(--danger); }
 .stat-row{ display:grid; grid-template-columns:repeat(4,1fr); gap:16px; margin-bottom:20px; }
 .stat{ min-width:0; padding-left:14px; border-left:1px solid var(--border); }
 .stat:first-child{ padding-left:0; border-left:none; }

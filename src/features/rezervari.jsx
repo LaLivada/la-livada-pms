@@ -13,7 +13,7 @@ import {
   Sparkles, Check, Trash2, Pencil, UsersRound, LogIn, LogOut, Printer, Eye,
   ArrowRight, MoveRight, XCircle, MessageSquare, AlertTriangle, RefreshCw,
   Undo2, Copy, Info, Wrench, Tag as TagIcon, Rows2, Rows3, Columns2, Columns3,
-  Zap, Flame, Wind, Snowflake, UserCheck, Clock,
+  Zap, Flame, Wind, Snowflake, UserCheck, Clock, Globe,
 } from "lucide-react";
 import { uid } from "../lib/uid.js";
 import { mesajEroare } from "../lib/errors.js";
@@ -30,6 +30,7 @@ import { snakeRes } from "../data/mapari.js";
 import { syncTable } from "../data/nucleu.js";
 import * as dateFise from "../data/fise.js";
 import { ORA_SOSIRE_IMPLICITA, ORA_PLECARE_IMPLICITA } from "../lib/acces.js";
+import { ultimeleOnline, candAVenit } from "../lib/rezervari-online.js";
 import { SectiuneAcces, cheamaAcces, reconciliazaAcces } from "./acces.jsx";
 import { SectiuneFisa } from "./fise.jsx";
 import { FolioPanel, InvoicePrint, BillingCustomerPicker, BillingCustomerModal, billingCustomerLabel } from "./facturare.jsx";
@@ -2044,6 +2045,58 @@ export async function doCheckOut(res, reservations, updateReservations, core, ho
    unavailable. Print styles isolate this sheet on paper.
 ----------------------------------------------------------------*/
 
+/* CE A INTRAT DE PE SITE — primul card de pe primul ecran.
+ *
+ * O rezervare facuta de pe site vine singura, adesea noaptea, peste ecranul
+ * nimanui: pana acum se vedea doar daca cineva derula calendarul pana la data
+ * ei. Aici sunt ultimele cinci, in ordinea in care au intrat.
+ *
+ * ANULATELE RAMAN IN LISTA, cu statusul la vedere. Scoase, cardul ar fi spus
+ * „ultimele cinci" si ar fi aratat altceva — iar o anulare venita de pe site
+ * e exact felul de veste pentru care exista cardul.
+ */
+export function CardOnline({ rezervari, numeOaspete, numeCamera, core, onDeschide }) {
+  const acum = new Date();
+  const ultimele = useMemo(() => ultimeleOnline(rezervari), [rezervari]);
+
+  return (
+    <div className="panel section-panel card-online">
+      <div className="section-head">
+        <span className="co-titlu"><Globe size={14} /> De pe site</span>
+        <span className="badge-count">{ultimele.length}</span>
+      </div>
+      {ultimele.length ? ultimele.map((r) => (
+        <div className="list-row" key={r.id}>
+          <div style={{ minWidth: 0, cursor: "pointer" }}
+            role="button" tabIndex={0}
+            onClick={() => onDeschide(r)}
+            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onDeschide(r); } }}
+          >
+            <div className="primary">{numeOaspete(r)}</div>
+            <div className="secondary">
+              <span className="mono">{numeCamera(r.roomId)}</span> ·{" "}
+              {fmtDate(r.checkin)} → {fmtDate(r.checkout)} · {fmtMoney(reservationTotal(r, core))}
+            </div>
+          </div>
+          <div className="row-actions">
+            {/* Statusul apare doar cand NU e cel asteptat: rezervarile de pe
+                site intra 'confirmed', deci o eticheta pe fiecare rand ar fi
+                fost zgomot in care nu s-ar mai fi vazut o anulare. */}
+            {r.status !== "confirmed" && (
+              <span className={"role-tag " + (isLive(r) ? "role-admin" : "co-moarta")}>
+                {STATUS_LABEL[r.status]}
+              </span>
+            )}
+            <span className="co-cand">{candAVenit(r.createdAt, acum, fmtDateTime)}</span>
+          </div>
+        </div>
+      )) : (
+        <div className="section-empty">Nicio rezervare de pe site încă.</div>
+      )}
+    </div>
+  );
+}
+
 export function TodayView({ core, updateCore, reservations, updateReservations, housekeeping, updateHousekeeping, setView, groups, updateGroups, blocks, updateBlocks }) {
   const [arrivalRes, setArrivalRes] = useState(null);
   const [viewRes, setViewRes] = useState(null);
@@ -2121,6 +2174,9 @@ export function TodayView({ core, updateCore, reservations, updateReservations, 
 
   return (
     <div>
+      <CardOnline rezervari={reservations} numeOaspete={guestName} numeCamera={roomName}
+        core={core} onDeschide={setViewRes} />
+
       <div className="stat-row">
         <Stat label="Ocupare" value={`${occupancy}%`} sub={`${occupiedNow} din ${core.rooms.length} camere`} />
         <Stat label="Sosiri" value={arrivals.length} sub="astăzi" />
