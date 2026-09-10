@@ -325,6 +325,23 @@ localitate, țară — și nu din întâmplare: două precompletări diferite ar
 într-o funcție pură, `precompletareDinOaspete` ([lib/fisa.js](../src/lib/fisa.js)),
 iar un test verifică structural că nu scoate niciodată un câmp marcat `sensibil`.
 
+**Numele vine de la ocupant, când există unul** — adăugat 10 septembrie 2026.
+Într-un grup, titularul e o singură persoană pentru zece camere: precompletat
+cu numele lui, recepționerul îl ștergea de zece ori. Ocupantul e cel care
+doarme efectiv în cameră, deci el semnează fișa.
+
+Când numele vine de la ocupant, **adresa nu mai vine de la titular**. Ar fi
+fost cea mai urâtă formă de greșit: o fișă care *arată* completă, cu numele
+unui om și domiciliul altuia, semnată așa și pusă la dosar. Golul se vede,
+amestecul nu. Dacă ocupantul e chiar titularul — același nume scris în
+amândouă locurile — adresa rămâne, fiindcă e a lui.
+
+Regula e scrisă în două locuri, ca și restul precompletării:
+`precompletareDinOaspete` pentru recepție și `guest_fisa_precompletare` pentru
+linkul oaspetelui. Diferă deliberat de `guest_stay_by_cod`, care pe o rezervare
+fără grup ignoră ocupantul: acolo e un salut, aici e un act oficial despre cine
+doarme în cameră.
+
 **Naționalitatea nu se ia din `country`**, deși ar fi la îndemână: `country` e
 țara de domiciliu, iar un român cu domiciliul în Germania ar fi ieșit „Germania"
 la naționalitate. E greșeala pe care coala tipărită o făcea deja.

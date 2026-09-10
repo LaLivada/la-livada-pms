@@ -156,6 +156,58 @@ describe("precompletarea din fisa oaspetelui", () => {
     expect(precompletareDinOaspete(null)).toEqual({});
     expect(precompletareDinOaspete(undefined)).toEqual({});
   });
+
+  /* OCUPANTUL. La un grup, titularul e o singura persoana pentru zece camere:
+     numele lui precompletat pe zece fise ar fi fost sters de zece ori. */
+  describe("cand rezervarea are ocupant", () => {
+    const cuOcupant = {
+      occupantLastName: "Patap", occupantFirstName: "Simion",
+      occupantPhone: "0722333444",
+    };
+
+    it("ia numele ocupantului, nu pe al titularului", () => {
+      const date = precompletareDinOaspete(oaspete, cuOcupant);
+      expect(date.nume).toBe("Patap");
+      expect(date.prenume).toBe("Simion");
+    });
+
+    /* Testul care conteaza aici: o fisa cu numele unui om si domiciliul
+       altuia ARATA completa, se semneaza asa si ajunge la dosar. Golul se
+       vede, amestecul nu. */
+    it("nu amesteca numele ocupantului cu domiciliul titularului", () => {
+      const date = precompletareDinOaspete(oaspete, cuOcupant);
+      expect(date).not.toHaveProperty("adresa");
+      expect(date).not.toHaveProperty("localitate");
+      expect(date).not.toHaveProperty("tara");
+    });
+
+    /* Acelasi om scris in amandoua locurile — se intampla la o rezervare
+       obisnuita — nu trebuie sa piarda adresa pe care baza o are deja. */
+    it("pastreaza domiciliul cand ocupantul e chiar titularul", () => {
+      const date = precompletareDinOaspete(oaspete,
+        { occupantLastName: " popescu ", occupantFirstName: "ION" });
+      expect(date.nume).toBe("Popescu");
+      expect(date.adresa).toBe("Str. Ștefan cel Mare 12");
+    });
+
+    it("merge si fara oaspete titular", () => {
+      expect(precompletareDinOaspete(null, cuOcupant))
+        .toEqual({ nume: "Patap", prenume: "Simion" });
+    });
+
+    it("ignora ocupantul gol sau umplut cu liniuta", () => {
+      const gol = precompletareDinOaspete(oaspete,
+        { occupantLastName: "  ", occupantFirstName: "-" });
+      expect(gol.nume).toBe("Popescu");
+      expect(gol.adresa).toBe("Str. Ștefan cel Mare 12");
+    });
+
+    it("nu scoate niciodata un camp sensibil nici pe calea ocupantului", () => {
+      const sensibile = CAMPURI.filter((c) => c.sensibil).map((c) => c.cheie);
+      const scoase = Object.keys(precompletareDinOaspete(oaspete, cuOcupant));
+      for (const cheie of sensibile) expect(scoase).not.toContain(cheie);
+    });
+  });
 });
 
 /* Data nasterii in trei casete. Formatul pastrat ramane „AAAA-LL-ZZ" —

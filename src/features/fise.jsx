@@ -363,7 +363,7 @@ function FormularFisa({ res, core, onGata, onClose }) {
      Si e doar punct de PORNIRE: de aici incolo starea e a formularului, deci
      ce corecteaza receptionerul ramane corectat. */
   const oaspete = core?.guests?.find((g) => g.id === res.guestId) || null;
-  const [date, setDate] = useState(() => precompletareDinOaspete(oaspete));
+  const [date, setDate] = useState(() => precompletareDinOaspete(oaspete, res));
   const [motiv, setMotiv] = useState("");
   const [erori, setErori] = useState({});
   const [lucrez, setLucrez] = useState(false);

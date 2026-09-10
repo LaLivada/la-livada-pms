@@ -48,7 +48,8 @@ export const CAMPURI = [
  *
  * CELE CINCI CAMPURI SUNT ACELEASI ca la oaspete, si nu din intamplare: doua
  * precompletari diferite ar fi insemnat ca aceeasi rezervare arata altfel
- * dupa cine deschide fisa.
+ * dupa cine deschide fisa. Din acelasi motiv, regula ocupantului de mai jos e
+ * scrisa si in `guest_fisa_precompletare` (schema.sql).
  *
  * Nationalitatea NU se ia din `country`, desi ar fi la indemana: `country` e
  * tara de domiciliu. Un roman cu domiciliul in Germania ar fi iesit cu
@@ -68,18 +69,51 @@ const DIN_OASPETE = {
   tara:       (o) => o.country,
 };
 
-export function precompletareDinOaspete(oaspete) {
-  if (!oaspete) return {};
+/* Campurile care descriu DOMICILIUL, nu persoana. Cand fisa se scrie pe
+   numele ocupantului, ele nu mai au voie sa vina din fisa titularului: vezi
+   comentariul de la `precompletareDinOaspete`. */
+const ALE_DOMICILIULUI = ["adresa", "localitate", "tara"];
+
+const curat = (v) => {
+  /* Golurile se sar, nu se scriu ca sir vid: baza tine „-" ca valoare de
+     umplutura la `city` si `country`, iar un camp precompletat cu „-" arata
+     completat si trece de validare. */
+  const t = v == null ? "" : String(v).trim();
+  return t === "" || t === "-" ? "" : t;
+};
+
+/* OCUPANTUL, cand exista, e cel care doarme in camera — deci el semneaza fisa,
+ * nu titularul care a platit. La un grup, titularul e o singura persoana
+ * pentru zece camere; precompletat cu numele lui, receptionerul retasta
+ * numele real la fiecare fisa.
+ *
+ * Cand numele vine de la ocupant, ADRESA NU MAI VINE de la titular. Ar fi
+ * fost cea mai urata forma de gresit: o fisa care arata completa, cu numele
+ * unui om si domiciliul altuia, semnata asa si pusa la dosar. Golul se vede,
+ * amestecul nu.
+ */
+const eAcelasiOm = (rezervare, oaspete) => {
+  const nume = (a, b) => `${curat(a)} ${curat(b)}`.trim().toLowerCase();
+  const alOcupantului = nume(rezervare?.occupantLastName, rezervare?.occupantFirstName);
+  return alOcupantului !== "" && alOcupantului === nume(oaspete?.lastName, oaspete?.firstName);
+};
+
+export function precompletareDinOaspete(oaspete, rezervare) {
+  const ocupant = {
+    nume: curat(rezervare?.occupantLastName),
+    prenume: curat(rezervare?.occupantFirstName),
+  };
+  const dinOcupant = (ocupant.nume !== "" || ocupant.prenume !== "")
+    && !eAcelasiOm(rezervare, oaspete);
+
+  if (!oaspete && !dinOcupant) return {};
   const date = {};
   for (const [cheie, ia] of Object.entries(DIN_OASPETE)) {
     if (CAMPURI.find((c) => c.cheie === cheie)?.sensibil) continue;
-    const v = ia(oaspete);
-    /* Golurile se sar, nu se scriu ca sir vid: baza tine „-" ca valoare de
-       umplutura la `city` si `country`, iar un camp precompletat cu „-" arata
-       completat si trece de validare. */
-    if (v != null && String(v).trim() !== "" && String(v).trim() !== "-") {
-      date[cheie] = String(v).trim();
-    }
+    if (dinOcupant && ALE_DOMICILIULUI.includes(cheie)) continue;
+    const v = dinOcupant && cheie in ocupant ? ocupant[cheie] : (oaspete ? ia(oaspete) : null);
+    const t = curat(v);
+    if (t !== "") date[cheie] = t;
   }
   return date;
 }
