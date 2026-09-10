@@ -2045,7 +2045,7 @@ export async function doCheckOut(res, reservations, updateReservations, core, ho
    unavailable. Print styles isolate this sheet on paper.
 ----------------------------------------------------------------*/
 
-/* CE A INTRAT DE PE SITE — primul card de pe primul ecran.
+/* CE A INTRAT DE PE SITE — pe ecranul Azi, sub scurtaturile de sus.
  *
  * O rezervare facuta de pe site vine singura, adesea noaptea, peste ecranul
  * nimanui: pana acum se vedea doar daca cineva derula calendarul pana la data
@@ -2174,9 +2174,6 @@ export function TodayView({ core, updateCore, reservations, updateReservations, 
 
   return (
     <div>
-      <CardOnline rezervari={reservations} numeOaspete={guestName} numeCamera={roomName}
-        core={core} onDeschide={setViewRes} />
-
       <div className="stat-row">
         <Stat label="Ocupare" value={`${occupancy}%`} sub={`${occupiedNow} din ${core.rooms.length} camere`} />
         <Stat label="Sosiri" value={arrivals.length} sub="astăzi" />
@@ -2214,6 +2211,9 @@ export function TodayView({ core, updateCore, reservations, updateReservations, 
           <ArrowRight size={15} className="ta-arrow" />
         </button>
       </div>
+
+      <CardOnline rezervari={reservations} numeOaspete={guestName} numeCamera={roomName}
+        core={core} onDeschide={setViewRes} />
 
       <div className="sub-tabs">
         <button className={todayTab === "arrivals" ? "on" : ""} onClick={() => setTodayTab("arrivals")}>
