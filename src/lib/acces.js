@@ -177,6 +177,43 @@ export const dataMesaj = (iso) => {
 export const numeInMesaj = (prenume, nume) =>
   [prenume, nume].filter(Boolean).join(" ").trim();
 
+const doarCifre = (text) => String(text || "").replace(/[^\d]/g, "");
+
+/* CINE PRIMESTE MESAJUL DE ACCES PE WHATSAPP.
+ *
+ * La o rezervare de grup, titularul rezerva pentru altcineva: ocupantul e cel
+ * care doarme in camera, deci lui ii trebuie codul de la usa — nu celui care
+ * a facut rezervarea. Pana acum butonul lua mereu telefonul titularului, deci
+ * la un grup de zece camere toate cele zece coduri plecau pe acelasi numar.
+ *
+ * NUMELE URMEAZA TELEFONUL, nu se aleg separat. Un mesaj care incepe cu
+ * „Bună, Ana" trimis pe telefonul lui Simion e o greseala vizibila pentru
+ * amandoi, si exact genul de amestec pe care il face un cod care alege
+ * destinatarul dintr-o parte si salutul din alta.
+ *
+ * Telefonul e cel care decide, nu numele: e singurul camp fara de care
+ * mesajul n-are unde sa plece. Cand ocupantul are telefon dar n-are numele
+ * scris, mesajul tot lui ii pleaca, doar ca salutul ramane generic —
+ * preferabil unui mesaj adresat altcuiva.
+ *
+ * Emailul NU se schimba: ocupantul n-are camp de email, deci codul pe email
+ * ramane al titularului. */
+export function destinatarWhatsapp(rezervare, oaspete) {
+  const cifreOcupant = doarCifre(rezervare?.occupantPhone);
+  if (cifreOcupant) {
+    return {
+      cifre: cifreOcupant,
+      nume: numeInMesaj(rezervare?.occupantFirstName, rezervare?.occupantLastName),
+      esteOcupant: true,
+    };
+  }
+  return {
+    cifre: doarCifre(oaspete?.phone),
+    nume: numeInMesaj(oaspete?.firstName, oaspete?.lastName),
+    esteOcupant: false,
+  };
+}
+
 /* Sablonul mesajului de acces — unul singur pentru amandoua caile.
  *
  * A stat pana pe 7 septembrie 2026 in access-provider/index.ts, iar

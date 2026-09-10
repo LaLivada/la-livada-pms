@@ -19,7 +19,7 @@ import { fmtDateTime } from "../lib/format.js";
 import { loadShared, K } from "../data/stare-partajata.js";
 import {
   decideActiuneAcces, randeazaSablon, SABLON_IMPLICIT, linkOaspete, dataMesaj,
-  numeInMesaj, NUME_HOTEL_IMPLICIT, TELEFON_ASISTENTA,
+  destinatarWhatsapp, NUME_HOTEL_IMPLICIT, TELEFON_ASISTENTA,
 } from "../lib/acces.js";
 import { toaster } from "../ui/primitive.jsx";
 
@@ -259,7 +259,12 @@ export function SectiuneAcces({ res, core }) {
                Consemnăm doar că mesajul a fost pregătit — nu putem confirma
                livrarea, și nu pretindem că o facem. */
             const oaspete = core.guests.find((g) => g.id === res.guestId);
-            const cifre = String(oaspete?.phone || "").replace(/[^\d]/g, "");
+            /* La grup, codul pleacă la OCUPANT când i s-a scris telefonul —
+               vezi destinatarWhatsapp. Numele din salut vine de acolo, nu
+               separat: altfel mesajul ar saluta titularul pe telefonul
+               ocupantului. */
+            const catre = destinatarWhatsapp(res, oaspete);
+            const cifre = catre.cifre;
             if (!cifre) {
               return <span className="ldv-mic" style={{ alignSelf: "center" }}>
                 Numărul de WhatsApp nu este disponibil.
@@ -271,7 +276,7 @@ export function SectiuneAcces({ res, core }) {
                tocmai pentru că mesajul pleacă tot de aici: recepționerul îl
                vede în WhatsApp înainte să apese trimite. */
             const text = randeazaSablon(setari.messageTemplate || SABLON_IMPLICIT, {
-              guest_name:  numeInMesaj(oaspete?.firstName, oaspete?.lastName) || "oaspete",
+              guest_name:  catre.nume || "oaspete",
               hotel_name:  setari.hotelName || NUME_HOTEL_IMPLICIT,
               room_number: camera.name,
               access_code: cod.code,
@@ -283,6 +288,12 @@ export function SectiuneAcces({ res, core }) {
             return (
               <a className="btn btn-ghost" href={`https://wa.me/${cifre}?text=${encodeURIComponent(text)}`}
                 target="_blank" rel="noopener noreferrer"
+                /* Cui pleacă, scris explicit: la un grup, destinatarul nu mai
+                   e cel din capul rezervării, iar recepția trebuie s-o poată
+                   verifica înainte de a apăsa. */
+                title={catre.esteOcupant
+                  ? `Către ocupant${catre.nume ? ` · ${catre.nume}` : ""} · ${cifre}`
+                  : `Către titular${catre.nume ? ` · ${catre.nume}` : ""} · ${cifre}`}
                 onClick={() => {
                   cheamaAcces("log-whatsapp", { reservationId: res.id, recipient: cifre })
                     .then(() => incarca());

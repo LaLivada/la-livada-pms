@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   laOraLocala, expirareCod, inceputCod, randeazaSablon, decideActiuneAcces, decalajFus,
   genereazaCodPin, lungimeCod, SABLON_IMPLICIT, linkOaspete, dataMesaj, numeInMesaj,
+  destinatarWhatsapp,
 } from "./lib/acces.js";
 
 /* Ora locala se citeste inapoi in fusul hotelului, nu in cel al masinii pe
@@ -194,6 +195,53 @@ describe("numele din mesaj", () => {
     expect(numeInMesaj("Ion", "")).toBe("Ion");
     expect(numeInMesaj("", "Popescu")).toBe("Popescu");
     expect(numeInMesaj(null, undefined)).toBe("");
+  });
+});
+
+/* Bugul din spatele functiei: la un grup de zece camere, toate cele zece
+   coduri de usa plecau pe telefonul titularului, fiindca butonul lua mereu
+   `guests[res.guestId].phone`. */
+describe("destinatarWhatsapp — codul pleaca la cine doarme in camera", () => {
+  const titular = { firstName: "Ana", lastName: "Popescu", phone: "0740 111 222" };
+
+  it("ia telefonul ocupantului cand exista", () => {
+    const r = { occupantFirstName: "Simion", occupantLastName: "Patap", occupantPhone: "0722 333 444" };
+    expect(destinatarWhatsapp(r, titular).cifre).toBe("0722333444");
+  });
+
+  it("ia numele ocupantului odata cu telefonul lui, nu pe al titularului", () => {
+    const r = { occupantFirstName: "Simion", occupantLastName: "Patap", occupantPhone: "0722333444" };
+    const catre = destinatarWhatsapp(r, titular);
+    expect(catre.nume).toBe("Simion Patap");
+    expect(catre.esteOcupant).toBe(true);
+  });
+
+  it("ramane pe titular cand ocupantul n-are telefon", () => {
+    const r = { occupantFirstName: "Simion", occupantLastName: "Patap", occupantPhone: "" };
+    const catre = destinatarWhatsapp(r, titular);
+    expect(catre.cifre).toBe("0740111222");
+    expect(catre.nume).toBe("Ana Popescu");
+    expect(catre.esteOcupant).toBe(false);
+  });
+
+  /* Telefonul decide, nu numele: fara el mesajul n-are unde sa plece. Salutul
+     generic e preferabil unuia adresat altcuiva decat destinatarului. */
+  it("trimite tot ocupantului cand are telefon dar nu si nume", () => {
+    const r = { occupantFirstName: "", occupantLastName: "", occupantPhone: "0722333444" };
+    const catre = destinatarWhatsapp(r, titular);
+    expect(catre.cifre).toBe("0722333444");
+    expect(catre.nume).toBe("");
+    expect(catre.esteOcupant).toBe(true);
+  });
+
+  it("curata prefixul si separatoarele din numar", () => {
+    const r = { occupantPhone: "+40 722-333.444" };
+    expect(destinatarWhatsapp(r, titular).cifre).toBe("40722333444");
+  });
+
+  it("nu crapa pe o rezervare fara campuri de ocupant", () => {
+    expect(destinatarWhatsapp({}, titular).cifre).toBe("0740111222");
+    expect(destinatarWhatsapp(null, null).cifre).toBe("");
   });
 });
 
