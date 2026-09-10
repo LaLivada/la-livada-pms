@@ -1054,6 +1054,10 @@ label.field input, label.field select, label.field textarea{ cursor:auto; }
 .field .fl{ letter-spacing:0.01em; }
 .field-row{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
 .field-row-dates{ grid-template-columns:1fr 84px 1fr; }
+/* Nume · Prenume · Telefon, pe un rand. Redefinit si in blocul de sub 600px:
+   acolo `.field-row` revine la o coloana cu gap 0, iar la specificitate egala
+   castiga regula de mai jos, fiind mai tarziu in fisier. */
+.field-row-3col{ grid-template-columns:1fr 1fr 1fr; }
 .modal-actions{ display:flex; gap:8px; margin-top:18px; }
 .subform{ background:var(--surface-2); border-radius:var(--r-md); padding:14px 14px 2px; margin-bottom:14px; }
 .link-btn{
@@ -1843,6 +1847,9 @@ label.field input, label.field select, label.field textarea{ cursor:auto; }
   .modal{ padding:18px 16px calc(18px + env(safe-area-inset-bottom)); }
   .field-row{ grid-template-columns:1fr; gap:0; }
   .field-row-2col{ grid-template-columns:1fr 1fr; gap:10px; }
+  /* Trei campuri unul sub altul pe telefon — inghesuite pe un rand, „Prenume"
+     nu mai incape in caseta lui. `gap` explicit: `.field-row` il duce la 0. */
+  .field-row-3col{ grid-template-columns:1fr; gap:10px; }
   .grp-dates{ flex-direction:column; align-items:stretch; }
   .grp-dates .grp-nights{ flex-direction:row; justify-content:center; gap:5px; }
   .price-box{ padding:11px 12px; gap:10px; }

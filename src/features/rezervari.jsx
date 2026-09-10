@@ -1100,6 +1100,15 @@ export function ReservationModal({ data, core, updateCore, reservations, updateR
   const [blockReason, setBlockReason] = useState("");
   const [showArrival, setShowArrival] = useState(false);
   const [notes, setNotes] = useState(editing?.notes || "");
+  /* Ocupantul: cine doarme efectiv in camera, cand nu e acelasi cu clientul
+     din capul rezervarii. Se putea scrie doar din Grupuri → editeaza grupul,
+     desi telefonul lui decide unde pleaca codul de acces pe WhatsApp (vezi
+     destinatarWhatsapp din lib/acces.js). Aceleasi trei campuri ca acolo, in
+     aceeasi ordine — altfel aceeasi persoana ar fi introdusa diferit din
+     doua ecrane. */
+  const [occupantLastName, setOccupantLastName] = useState(editing?.occupantLastName || "");
+  const [occupantFirstName, setOccupantFirstName] = useState(editing?.occupantFirstName || "");
+  const [occupantPhone, setOccupantPhone] = useState(editing?.occupantPhone || "");
   const [error, setError] = useState("");
   /* Blocheaza butoanele cat timp scrierea e in curs: un dublu-click putea
      altfel trimite doua scrieri suprapuse (a doua cu o stampila deja
@@ -1320,6 +1329,19 @@ export function ReservationModal({ data, core, updateCore, reservations, updateR
       status: statusFinal, notes,
       adults: Number(adults) || 1, children: Number(children) || 0, source, tags: [...tags],
       messages: editing?.messages || [], billingCustomerId: billingCustomerId || null,
+      /* Scrise explicit, DUPA spread-ul lui `editing`: acum formularul le
+         expune, deci ele sunt adevarul, nu valoarea veche din rezervare —
+         altfel stergerea unui ocupant din formular n-ar avea niciun efect. */
+      occupantLastName: occupantLastName.trim(),
+      occupantFirstName: occupantFirstName.trim(),
+      occupantPhone: occupantPhone.trim(),
+      /* `occupantName` e campul COMPUS pe care il citeste `lib/nume.js` in
+         calendar, liste si fise. Nu se salveaza in baza (camelRes il
+         recalculeaza la citire), dar randul ramane in starea locala pana la
+         urmatoarea incarcare — fara linia asta, numele vechi ar continua sa
+         apara pe ecran dupa salvare. Aceeasi compunere ca in grupuri.jsx. */
+      occupantName: [occupantLastName.trim(), occupantFirstName.trim()]
+        .filter(Boolean).join(" "),
     };
     /* Pretul manual e mereu explicit. Cel "auto" ramane inghetat in
        bookedPrice pana cand ceva ce chiar afecteaza pretul se schimba
@@ -1624,6 +1646,40 @@ export function ReservationModal({ data, core, updateCore, reservations, updateR
             </div>
           )}
         </div>}
+
+        {/* Ocupantul, sub client: cine doarme efectiv in camera, cand nu e
+            acelasi cu cel care a rezervat. Telefonul lui decide unde pleaca
+            codul de acces pe WhatsApp (vezi destinatarWhatsapp).
+            Nu apare la CREAREA unui grup: acolo ocupantii sunt per camera si
+            se completeaza dupa creare, din Grupuri → editeaza grupul (vezi
+            nota de mai jos). La editarea unei rezervari din grup, `isGroup` e
+            fals, deci campul apare — exact unde e nevoie de el. */}
+        {!isBlock && !isGroup && (
+          <div className="field">
+            <label>Ocupant</label>
+            <div className="field-row field-row-3col">
+              <input
+                value={occupantLastName} placeholder="Nume"
+                aria-label="Numele ocupantului"
+                onChange={(e) => setOccupantLastName(e.target.value)}
+              />
+              <input
+                value={occupantFirstName} placeholder="Prenume"
+                aria-label="Prenumele ocupantului"
+                onChange={(e) => setOccupantFirstName(e.target.value)}
+              />
+              <input
+                value={occupantPhone} placeholder="Telefon" type="tel" inputMode="tel"
+                aria-label="Telefonul ocupantului"
+                onChange={(e) => setOccupantPhone(e.target.value)}
+              />
+            </div>
+            <div className="ldv-mic" style={{ marginTop: 6 }}>
+              Completează doar dacă în cameră stă altcineva decât clientul.
+              Codul de acces pleacă pe WhatsApp la acest număr.
+            </div>
+          </div>
+        )}
 
         {!isBlock && (
           <div className="field-row field-row-2col">
