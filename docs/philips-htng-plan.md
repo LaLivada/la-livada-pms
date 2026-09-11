@@ -10,16 +10,16 @@ cu o afirmație sigură pe ea.**
 
 ## 0. Concluzia care schimbă cererea — citește asta întâi
 
-**Televizoarele Philips nu vorbesc HTNG.** Niciun model, nici
-MediaSuite, nici Signature.
+**Televizoarele Philips nu vorbesc HTNG.** Niciun model, nici cel montat
+la La Livadă.
 
 HTNG e protocolul dintre **PMS** și un **server de management al
 camerelor** — la Philips, acela e *CMND & Check-in*. Serverul acela
-vorbește mai departe cu televizoarele, în protocoalele lor proprii
-(JointSpace/JAPIT, Serial Xpress, JEDI). Manualul MediaSuite listează
-exact astea trei ca interfețe de control ale televizorului — HTNG nu
-apare nicăieri în el ([manual
-MediaSuite](https://manuals.plus/philips/32hfl5014-12-32-inch-mediasuite-professional-tv-manual)).
+vorbește mai departe cu televizoarele, în protocoalele lor proprii.
+Fișa tehnică a modelului nostru listează exact patru interfețe de
+control — **JAPIT, Serial Xpress, JEDI, Crestron Connected** — și **nici
+HTNG, nici SICP nu apar printre ele**
+([fișa 50HFL6214U/12](https://www.philips.co.uk/p-p/50HFL6214U_12/professional-tv)).
 
 PPDS spune același lucru din partea cealaltă: *„PPDS offers another way
 to connect to a PMS with a FIAS and HTNG interface"* — adică FIAS și
@@ -31,22 +31,57 @@ Deci cererea, tradusă în ce se poate construi efectiv:
 > **La Livada PMS joacă rolul de PMS într-o conversație HTNG cu CMND &
 > Check-in, care comandă mai departe televizoarele.**
 
-Asta se poate face. Dar nu e singura cale, iar pentru 16 unități
-detașate probabil nici cea potrivită — vezi secțiunea 6.
+Vestea bună: cu aparatul pe care îl avem, **asta chiar se poate face**.
 
 ---
 
-## 1. Lanțul, așa cum arată de fapt
+## 1. Aparatul: 50HFL6214U/12 — confirmat
+
+Model comunicat de proprietar pe 11 septembrie 2026. Verificat pe fișa
+oficială; nu mai e o ipoteză.
+
+| | |
+|---|---|
+| Gamă | **MediaSuite** (seria HFL, profesională) |
+| Platformă | **Android TV 9 (Pie)**, Google Play, Chromecast Ultra |
+| Streaming | **Netflix integrat**, cu buton dedicat pe telecomandă |
+| Management | **CMND & Control** (remote management over IP/RF) |
+| Integrare PMS | **CMND & Check-in** — *„guest name, language, messages, and billing functions"* |
+| Control | JAPIT (JSON API for TV), Serial Xpress, JEDI, Crestron Connected |
+| Rețea | Ethernet RJ-45 · **Wi-Fi 802.11ac** |
+| Control extern | RJ-48 (IR In/Out + Serial Xpress) |
+| Hotel mode | limitare volum, blocare meniu instalare, welcome app, Bill on TV, express checkout |
+
+**Trei consecințe care contează:**
+
+1. **Varianta A e realizabilă.** CMND & Check-in e suportat pe acest
+   model, cu exact câmpurile de care ar avea nevoie o integrare PMS:
+   nume, limbă, mesaje, factură.
+2. **Netflix e integrat, cu buton pe telecomandă.** Nu e o discuție
+   teoretică: oaspeții *se vor* autentifica, iar fără ștergere la
+   check-out următorul găsește sesiunea deschisă. Ăsta e cel mai
+   serios argument pentru CMND & Check-in — vezi secțiunea 7.
+3. **Wi-Fi 802.11ac.** Nu e nevoie de cablu tras în fiecare tiny house,
+   ceea ce elimină cea mai scumpă necunoscută a planului inițial.
+
+Un lucru de semnalat, nu de ascuns: **Android TV 9 e din 2018.** În
+septembrie 2026 platforma are opt ani. Merită întrebat PPDS până când
+mai primește aparatul actualizări de securitate și suport CMND — nu
+schimbă planul, dar schimbă cât de mult merită investit în el.
+
+---
+
+## 2. Lanțul, așa cum arată de fapt
 
 ```mermaid
 flowchart LR
   PMS["La Livada PMS<br/>(Supabase + edge functions)"]
   CMND["CMND & Check-in<br/>(server Philips, local sau cloud)"]
-  TV["Televizoare HFL<br/>în cele 16 unități"]
+  TV["16 × 50HFL6214U<br/>Wi-Fi 802.11ac"]
 
   PMS -->|"HTNG (XML)<br/>check-in / check-out / mesaje"| CMND
-  CMND -->|"JointSpace / SXP / JEDI<br/>peste LAN"| TV
-  CMND -.->|"postări (VOD, minibar)<br/>dacă se activează"| PMS
+  CMND -->|"JAPIT / Serial Xpress / JEDI"| TV
+  CMND -.->|"postări (Bill on TV)<br/>dacă se activează"| PMS
 ```
 
 Alternativa fără mijlocitor, discutată la secțiunea 6:
@@ -54,58 +89,33 @@ Alternativa fără mijlocitor, discutată la secțiunea 6:
 ```mermaid
 flowchart LR
   PMS2["La Livada PMS<br/>device-provider (există deja)"]
-  TV2["Televizoare HFL"]
-  PMS2 -->|"JointSpace v6, HTTPS :1926"| TV2
+  TV2["16 × 50HFL6214U"]
+  PMS2 -->|"JAPIT, HTTPS :1926"| TV2
 ```
 
 ---
 
-## 2. Ce vorbește fiecare verigă
+## 3. Ce vorbește fiecare verigă
 
 | Verigă | Protocol | Transport | Documentație |
 |---|---|---|---|
 | PMS → CMND | HTNG 2008B (XML asincron) | TCP/HTTP | **închisă** — membri AHLA/HTNG |
 | PMS → CMND | FIAS (alternativă la HTNG) | socket text | închisă (Oracle/Fidelio) |
-| CMND → TV | JointSpace / JAPIT | HTTPS :1926 (Android), HTTP :1925 | comunitate, [pylips](https://github.com/eslavnov/pylips/blob/master/docs/Home.md) |
+| CMND → TV | **JAPIT** — *JSON API for TV* | HTTPS :1926 (Android TV) | Philips, la cerere; comunitate: [pylips](https://github.com/eslavnov/pylips/blob/master/docs/Home.md) |
 | CMND → TV | Serial Xpress (SXP) | RS-232, conector RJ-48 | manual Philips |
-| Semnalistică (nu HFL) | SICP | TCP :5000 | [SICP v2.03](https://community.xibo.org.uk/uploads/short-url/vwVq2nPyhJKL4kTCYpa6VYhQUa8.pdf) |
+| — | Crestron Connected | IP | Crestron, publică |
+| — | ~~SICP~~ | — | **nu e pe acest model** (e pentru semnalistică) |
 
 Două precizări care contează:
 
-- **SICP e pentru display-uri de semnalistică**, nu pentru televizoarele
-  hoteliere HFL. Portul 5000 e real și documentat, dar pe altă familie de
-  aparate. Nu construi pe el fără să confirmi pe modelul cumpărat.
-- **JointSpace v6 cere împerechere cu PIN** afișat pe ecran, apoi
-  autentificare digest. Se face o dată per aparat, la montaj — dar e un
-  pas manual × 16, nu o configurare de la distanță.
-
----
-
-## 3. Ce trebuie stabilit înainte de orice linie de cod
-
-Astea nu sunt formalități: fiecare dintre ele poate anula planul.
-
-1. **Ce televizoare există sau se cumpără?** Un televizor Philips *de
-   consum* nu are nimic din ce scrie mai sus — fără CMND, fără profil
-   hotelier, fără welcome message. E nevoie de seria **HFL**
-   (MediaSuite / Signature). Dacă în tiny house-uri sunt televizoare
-   normale, planul începe cu o achiziție, nu cu un API.
-2. **Există CMND & Check-in, sau doar CMND?** CMND simplu (conținut și
-   configurare) nu face check-in. Integrarea PMS e modul licențiat
-   separat.
-3. **Rețea în fiecare unitate.** Cele 14 tiny house-uri sunt clădiri
-   separate. Există deja curent și rețea în cele 7 camere tehnice (vezi
-   [shelly-integration.md](shelly-integration.md)), dar televizorul are
-   nevoie de LAN sau Wi-Fi *stabil* în locuință, nu în camera tehnică.
-4. **Specificația HTNG.** HTNG a intrat sub AHLA, iar specificațiile sunt
-   pentru membri. Fără documentul de interfață de la PPDS, „implementez
-   HTNG" nu e o sarcină — e o ghicitoare. **Primul pas real al acestui
-   plan e un e-mail către PPDS prin care ceri documentul de integrare
-   PMS.**
-
-Până la răspunsurile de mai sus, restul planului e scris sub ipoteza:
-*televizoare MediaSuite HFL, CMND & Check-in licențiat, rețea în
-fiecare unitate.*
+- **JAPIT pe Android TV folosește HTTPS :1926** și cere împerechere cu
+  PIN afișat pe ecran, apoi autentificare digest. Se face o dată per
+  aparat, la montaj — dar e un pas manual × 16, nu o configurare de la
+  distanță. Porturile vin din documentația comunității; se confirmă în
+  cinci minute pe un aparat real.
+- **Crestron Connected e a treia cale**, oficială și documentată public,
+  dacă JAPIT se dovedește greu de împerecheat. Nu am explorat-o — o
+  notez ca ieșire de rezervă, nu ca recomandare.
 
 ---
 
@@ -123,7 +133,7 @@ datelor care există azi în bază:
 | `GuestChange` | se schimbă numele, ocupantul sau data plecării | idem check-in |
 | `RoomMove` | `roomId` se schimbă pe o rezervare cazată | camera veche + cea nouă |
 | `GuestMessage` | recepția trimite un mesaj | cameră, text |
-| `PostTransaction` | **de la TV spre PMS** — VOD, minibar | — (nu se folosește, vezi 4.4) |
+| `PostTransaction` | **de la TV spre PMS** — Bill on TV | — (vezi 4.4) |
 
 ### 4.2 Trei capcane care vin din codul existent
 
@@ -132,7 +142,7 @@ Astea trei nu sunt teoretice. Fiecare e o regulă deja scrisă și testată
 
 **(a) `checkedin` NU înseamnă „e cineva în cameră".** Recepția poate
 face check-in cu până la 14 zile înainte de sosire
-(`ZILE_CHECKIN_DEVREME`, [tranzitii.js](../src/lib/tranzitii.js:22)).
+(`ZILE_CHECKIN_DEVREME`, [tranzitii.js:22](../src/lib/tranzitii.js:22)).
 Un `GuestCheckIn` trimis pe schimbarea de status ar aprinde televizorul
 cu „Bine ați venit, domnule Popescu" într-o casă goală, două săptămâni.
 Predicatul corect e `cazatAcum(r, now)`
@@ -148,13 +158,13 @@ unică în cod: `occupantName(res, core, groups)`
 fișa de cazare și de butonul de WhatsApp. Televizorul trebuie să o
 folosească pe aceeași, altfel zece tiny house-uri salută aceeași persoană.
 
-**(c) Limba NU se deduce din țară.** `guests` nu are câmp de limbă — are
-`country`, care e țara de **domiciliu**. Un român cu domiciliul în
-Germania ar fi întâmpinat în germană. E exact greșeala scrisă negru pe
-alb la naționalitate în [fisa-cazare.md](fisa-cazare.md) și evitată
-acolo deliberat. Deci: ori se adaugă un câmp explicit de limbă pe
-`guests`, ori televizorul pornește în română cu engleza la un buton.
-**Nu deduce.**
+**(c) Limba NU se deduce din țară.** CMND & Check-in primește explicit un
+câmp de limbă, dar `guests` nu are așa ceva — are `country`, care e țara
+de **domiciliu**. Un român cu domiciliul în Germania ar fi întâmpinat în
+germană. E exact greșeala scrisă negru pe alb la naționalitate în
+[fisa-cazare.md](fisa-cazare.md) și evitată acolo deliberat. Deci: ori se
+adaugă un câmp explicit de limbă pe `guests`, ori televizorul pornește în
+română cu engleza la un buton. **Nu deduce.**
 
 ### 4.3 Unde intră în cod
 
@@ -180,107 +190,127 @@ Schema, adăugiri minime:
 -- acelasi mesaj la fiecare tick. Cheia e dispozitivul, nu camera:
 -- un televizor mutat intre camere isi pastreaza istoricul.
 create table tv_guest_state (
-  device_id   text primary key references devices(id) on delete cascade,
+  device_id      text primary key references devices(id) on delete cascade,
   reservation_id text,
-  nume_afisat text,
-  limba       text,
-  pana_la     timestamptz,
-  trimis_la   timestamptz not null default now()
+  nume_afisat    text,
+  limba          text,
+  pana_la        timestamptz,
+  trimis_la      timestamptz not null default now()
 );
 ```
 
-### 4.4 Ce NU se face
+### 4.4 Ce nu aș activa
 
-- **Bill on TV / express checkout.** Ar însemna `PostTransaction` în
-  sens invers și expunerea folio-ului pe un ecran dintr-o casă
-  detașată. La 16 unități, factura se dă la plecare, la recepție. Nu
-  merită suprafața de atac.
-- **VOD.** Nu există conținut de vândut.
+- **Bill on TV / express checkout.** Aparatul le suportă, dar ar însemna
+  `PostTransaction` în sens invers și expunerea folio-ului pe un ecran
+  dintr-o casă detașată, fără recepție la câțiva metri. La 16 unități,
+  factura se dă la plecare. Nu merită suprafața de atac — dar e decizia
+  ta, nu a mea, și se poate activa oricând ulterior.
 - **Wake-up call de pe TV.** Oaspeții au telefoane.
 
 ---
 
 ## 5. Varianta B — direct pe LAN, fără HTNG și fără CMND
 
-PMS-ul vorbește direct cu televizorul, exact cum vorbește azi cu
-releele Shelly: JointSpace v6, HTTPS pe :1926, digest auth cu
-credențialele obținute la împerechere.
+PMS-ul vorbește direct cu televizorul prin **JAPIT**, exact cum vorbește
+azi cu releele Shelly: HTTPS pe :1926, digest auth cu credențialele
+obținute la împerechere.
 
-Ce se poate face așa: pornit/oprit, volum, canal/sursă la pornire,
-**mesaj pe ecran**, resetare la starea inițială la plecare.
+Ce se poate face așa: pornit/oprit, volum, sursă/canal la pornire,
+**mesaj pe ecran**, revenire la starea inițială la plecare.
 
-Ce **nu** se poate: ștergerea garantată a credențialelor Netflix la
-check-out (asta e chiar funcția pentru care Philips vinde CMND &
-Check-in), meniu hotelier brandat, actualizări de firmware
+Ce **nu** se poate: ștergerea garantată a credențialelor Netflix și a
+sesiunii Chromecast la check-out — chiar funcția pentru care Philips
+vinde CMND & Check-in. Nici meniu hotelier brandat, nici actualizări
 centralizate.
 
-Cost: zero licențe, zero server nou, ~o săptămână de lucru, și refolosind
+Cost: zero licențe, zero server nou, ~o săptămână de lucru, refolosind
 `device-provider` aproape integral.
 
-Riscul real: **JointSpace nu e un API public susținut de Philips.** E
-documentat de comunitate. O actualizare de firmware îl poate schimba,
-și n-ai la cine reclama.
+Riscul real: **JAPIT nu are documentație publică.** Philips o dă la
+cerere; restul e documentat de comunitate. O actualizare de firmware îl
+poate schimba — deși pe Android 9, în 2026, riscul ăsta e mai degrabă
+mic decât mare.
 
 ---
 
-## 6. Comparație și recomandare
+## 6. Comparație
 
-| | A — HTNG + CMND | B — direct JointSpace |
+| | A — HTNG + CMND | B — direct JAPIT |
 |---|---|---|
-| Suportat oficial | da | nu |
+| Suportat oficial | da | parțial (API la cerere) |
 | Licențe | CMND & Check-in | niciuna |
 | Server nou | da | nu |
-| Netflix șters la check-out | da | nu garantat |
+| **Netflix șters la check-out** | **da** | **nu** |
+| Mesaj de bun venit cu numele | da | da |
 | Efort | luni, dependent de PPDS | ~1 săptămână |
-| Documentație necesară | închisă, se cere | publică |
-
-**Recomandarea mea: începe cu B, și treci la A doar dacă apare un motiv
-concret** — cel mai probabil Netflix, dacă vrei ca oaspeții să se
-conecteze cu contul lor fără ca următorul să le găsească sesiunea.
-Ăsta chiar e un motiv serios, și e singurul pentru care aș cheltui pe
-CMND & Check-in.
-
-Pentru 16 unități detașate, un lanț PMS → HTNG → CMND → TV e o
-infrastructură de hotel de 200 de camere pusă să facă un lucru pe care
-îl face o cerere HTTPS. Aceeași judecată ca la Shelly: *nimic
-„enterprise" de dragul lui enterprise*.
-
-Dacă preferi totuși A — pentru că vrei suport oficial și nu vrei să
-depinzi de un API de comunitate — e o alegere legitimă, și planul de la
-secțiunea 4 stă în picioare. Spune-mi și îl duc mai departe.
 
 ---
 
-## 7. Etape livrabile
+## 7. Recomandare
+
+**Modelul schimbă recomandarea față de prima variantă a acestui
+document.**
+
+Când nu știam ce aparate sunt, spuneam: începe cu B, treci la A doar
+dacă apare un motiv concret. **Motivul acela e acum pe masă:
+50HFL6214U are Netflix integrat, cu buton dedicat pe telecomandă.**
+
+Un oaspete care se autentifică la Netflix și pleacă își lasă contul
+deschis pentru următorul. Nu e o ipoteză — e comportamentul implicit al
+aparatului. Ștergerea garantată a credențialelor la check-out e exact
+funcția pentru care există CMND & Check-in, și e singurul lucru din
+varianta A pe care varianta B nu-l poate face.
+
+Deci:
+
+- **Dacă lași Netflix activ** → merită CMND & Check-in, adică varianta A.
+- **Dacă dezactivezi Netflix** din meniul hotelier și lași doar
+  Chromecast (care se asociază per sesiune și e mai ușor de resetat) →
+  varianta B acoperă restul, cu o săptămână de lucru și zero licențe.
+
+Asta e o decizie comercială, nu tehnică: cât valorează Netflix în camera
+pentru oaspeții tăi față de prețul licenței. Eu n-o pot lua. Ce pot
+spune e că **a lăsa Netflix activ fără ștergere la check-out e singura
+variantă care nu e în regulă** — acolo primul oaspete plătește
+abonamentul pentru toți ceilalți.
+
+---
+
+## 8. Etape livrabile
 
 | # | Ce | Livrabil singur | Depinde de |
 |---|---|---|---|
-| 0 | Inventar: ce televizoare, ce rețea în unități | da | — |
-| 1 | Cerere de documentație către PPDS (interfața PMS) | da | 0 |
-| 2 | Un televizor de probă, împerecheat, comandat din `curl` | da | 0 |
+| 0 | ~~Inventar: ce televizoare~~ | **făcut** — 50HFL6214U/12 | — |
+| 1 | Cerere la PPDS: interfața PMS + documentația JAPIT + preț CMND & Check-in | da | — |
+| 2 | Un televizor de probă, împerecheat, comandat din `curl` | da | — |
 | 3 | `providers/philips.ts` + `kind = 'tv'` în `devices` | da | 2 |
 | 4 | Mesaj de bun venit la sosirea reală (`cazatAcum`) | da | 3 |
-| 5 | Resetare la check-out | da | 3 |
-| 6 | Varianta A, dacă se decide: HTNG către CMND | nu | 1 |
+| 5 | Revenire la starea inițială la check-out | da | 3 |
+| 6 | Varianta A, dacă se decide Netflix: HTNG către CMND | nu | 1 |
 
-Etapele 0–2 nu cer nicio schimbare în cod și se pot face săptămâna
+Etapele 1 și 2 nu cer nicio schimbare în cod și se pot face săptămâna
 asta. Ele decid restul.
 
 ---
 
-## 8. Ce nu am verificat
+## 9. Ce nu am verificat
 
 Spus pe față, ca să nu fie luat drept sigur:
 
 - **Nu am văzut specificația HTNG.** E pentru membri AHLA. Numele de
   mesaje din tabelul 4.1 sunt din familia 2008B așa cum e descrisă
-  public de Oracle și de HTNG, nu copiate dintr-un document de
-  interfață. **Se confirmă din documentul PPDS, la etapa 1.**
+  public de [Oracle](https://docs.oracle.com/cd/E53547_01/opera_5_04_03_core_help/21401.htm)
+  și de HTNG, nu copiate dintr-un document de interfață. **Se confirmă
+  din documentul PPDS, la etapa 1.**
 - **Nu am văzut documentația de integrare PMS a CMND.** Pagina
   [pms.cmnd.pro](https://pms.cmnd.pro/information/) e de marketing:
   nici protocoale, nici porturi, nici formate de mesaj.
-- **Nu știu ce televizoare sunt montate la La Livadă.** Nimic din depozit
-  nu pomenește vreunul.
-- **Porturile 1925/1926 sunt din documentația comunității**, nu dintr-un
-  manual Philips. Se confirmă în cinci minute pe un aparat real, la
-  etapa 2.
+- **Nu am văzut specificația JAPIT.** Fișa aparatului o listează ca
+  interfață suportată; documentul în sine e la cerere de la Philips.
+- **Portul 1926 vine din documentația comunității**, nu dintr-un manual
+  Philips. Se confirmă pe un aparat real, la etapa 2.
+- **Nu știu câte televizoare sunt montate** — planul presupune unul per
+  unitate, adică 16.
+- **Nu știu până când mai primește Android TV 9 actualizări** pe acest
+  model. De întrebat la etapa 1.
