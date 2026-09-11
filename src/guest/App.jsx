@@ -459,14 +459,20 @@ function ContinutAcces() {
   return (
     <>
       {poze.map((p, i) => (
-        /* Textul sta DEASUPRA pozei, nu sub ea: e o indrumare, nu o
-           legenda. Cine urmeaza traseul citeste ce are de facut si abia
-           apoi se uita la poza ca sa recunoasca locul; invers, s-ar uita
-           intai la o poza care inca nu inseamna nimic.
-           `alt` ramane gol dinadins. Textul de deasupra spune deja ce e de
+        /* Textul sta SUPRAPUS peste poza, in partea de sus, pe un fade alb
+           — nu ca bloc separat deasupra. E o indrumare, nu o legenda: omul
+           citeste ce are de facut chiar in timp ce se uita la reper, fara
+           sa-si mute privirea intre doua blocuri.
+           Fade-ul e ALB si FIX, nu jeton: pe o fotografie reala, un fundal
+           care s-ar inversa in tema de noapte ar arata ca o pata gri peste
+           cer. `--charcoal` la fel — nu se inverseaza (vezi blocul de
+           noapte din styles.js) — asa textul ramane citibil pe fade in
+           ambele teme, nu doar in cea luminoasa.
+           `alt` ramane gol dinadins. Textul de pe poza spune deja ce e de
            facut, iar pus si in `alt` s-ar auzi de doua ori la rand in
-           cititorul de ecran. Poza ilustreaza indrumarea, nu o inlocuieste. */
+           cititorul de ecran. */
         <figure className="g-acces-foto" key={p.fisier}>
+          <img src={`/acces/${p.fisier}`} alt="" loading="lazy" decoding="async" />
           {/* Cifra vine din POZITIA in lista, nu e scrisa in text: daca
              cineva rearanjeaza pozele mai tarziu, numarul urmeaza poza, nu
              ramane lipit de una gresita. */}
@@ -476,7 +482,6 @@ function ContinutAcces() {
               {p.descriere}
             </figcaption>
           )}
-          <img src={`/acces/${p.fisier}`} alt="" loading="lazy" decoding="async" />
         </figure>
       ))}
       {pasi.length > 0 && (

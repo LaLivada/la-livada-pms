@@ -632,26 +632,42 @@ body{
    in care sta omul — deci se limiteaza inaltimea, altfel una singura ar umple
    ecranul si nu s-ar vedea ca urmeaza altele. Taierea taie de sus
    si de jos, unde e cer si asfalt, si pastreaza mijlocul, unde e reperul. */
-.g-acces-foto{ margin:0 0 18px; }
+/* position:relative face din figure ancora pentru figcaption-ul
+   suprapus — fara ea, position:absolute de mai jos s-ar pozitiona fata de
+   cea mai apropiata ruda pozitionata, care e fereastra intreaga, nu poza. */
+.g-acces-foto{ position:relative; margin:0 0 18px; }
 .g-acces-foto img{
   display:block; width:100%; height:auto; max-height:64vh;
   object-fit:cover; border-radius:12px;
 }
-/* Indrumarea, DEASUPRA pozei. Nu mai e legenda marunta de sub imagine, ci
-   randul care se citeste primul, deci are culoarea textului obisnuit si
-   greutate. */
+/* Indrumarea, SUPRAPUSA peste poza, sus. Fade-ul e ALB SI FIX (nu jeton, nu
+   --ivory): pe o fotografie reala, un fundal care s-ar inversa in tema de
+   noapte ar arata ca o pata gri peste cer, iar poza n-are alta versiune
+   pentru noapte. pointer-events:none lasa zona de sus a pozei atingibila
+   sub fade — pe telefon, degetul care deruleaza fereastra nu trebuie sa
+   evite figcaption-ul. */
 .g-acces-foto figcaption{
+  position:absolute; inset:0 0 auto 0; z-index:1; pointer-events:none;
   display:flex; align-items:flex-start; gap:9px;
-  margin:0 2px 7px; font-size:14.5px; line-height:1.45;
-  color:var(--g-text); font-weight:500;
+  padding:14px 14px 30px;
+  background:linear-gradient(to bottom, rgba(255,255,255,.96) 0%,
+    rgba(255,255,255,.85) 55%, rgba(255,255,255,0) 100%);
+  border-radius:12px 12px 0 0;
+  font-size:14.5px; line-height:1.4; font-weight:500;
+  /* Fix, nu var(--g-text): textul sta pe alb in AMBELE teme, deci nu are
+     voie sa devina aproape-alb cand jetonul se inverseaza noaptea — exact
+     greseala reparata pe 10 septembrie 2026, acum pentru un fundal fix in
+     loc de unul care se inversa cu el. */
+  color:var(--charcoal);
 }
 /* Cifra insasi nu poarta niciun sens pentru cititorul de ecran — pasul se
    intelege din text, ordinea din DOM. De aceea e aria-hidden in JSX si de
-   aceea aici e doar decor. */
+   aceea aici e doar decor. Fundal FIX, din acelasi motiv ca mai sus: sta pe
+   fade alb in ambele teme. */
 .g-acces-numar{
   flex-shrink:0; display:flex; align-items:center; justify-content:center;
   width:22px; height:22px; margin-top:1px; border-radius:50%;
-  background:var(--olive); color:var(--g-pe-inchis);
+  background:var(--charcoal); color:#fff;
   font-size:12.5px; font-weight:700; font-variant-numeric:tabular-nums;
 }
 .g-pasi{ margin:0; padding-left:20px; }
