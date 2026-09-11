@@ -113,10 +113,10 @@ export const ACCES_CAMERE = {
   /* Drumul, in ordine, asa cum il vede cine vine dinspre sosea. Descrierile
      sunt goale pana le da proprietarul; poza apare si fara text. */
   poze: [
-    { fisier: "1-intrarea.jpg", descriere: "" },
-    { fisier: "2-aleea.jpg",    descriere: "" },
-    { fisier: "3-parcarea.jpg", descriere: "" },
-    { fisier: "4-poteca.jpg",   descriere: "" },
+    { fisier: "1-intrarea.jpg", descriere: "Intrați prin parcarea din dreapta și urmați sensul de mers." },
+    { fisier: "2-aleea.jpg",    descriere: "La acest panou continuați să mergeți drept înainte." },
+    { fisier: "3-parcarea.jpg", descriere: "Ați ajuns în parcare." },
+    { fisier: "4-poteca.jpg",   descriere: "Accesul spre camere se face pe aleea din dreapta, prin fața Grand'Or Ballroom." },
   ],
   pasi: [],
 };

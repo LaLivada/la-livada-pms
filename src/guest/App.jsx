@@ -458,7 +458,7 @@ function ContinutAcces() {
   }
   return (
     <>
-      {poze.map((p) => (
+      {poze.map((p, i) => (
         /* Textul sta DEASUPRA pozei, nu sub ea: e o indrumare, nu o
            legenda. Cine urmeaza traseul citeste ce are de facut si abia
            apoi se uita la poza ca sa recunoasca locul; invers, s-ar uita
@@ -467,7 +467,15 @@ function ContinutAcces() {
            facut, iar pus si in `alt` s-ar auzi de doua ori la rand in
            cititorul de ecran. Poza ilustreaza indrumarea, nu o inlocuieste. */
         <figure className="g-acces-foto" key={p.fisier}>
-          {p.descriere && <figcaption>{p.descriere}</figcaption>}
+          {/* Cifra vine din POZITIA in lista, nu e scrisa in text: daca
+             cineva rearanjeaza pozele mai tarziu, numarul urmeaza poza, nu
+             ramane lipit de una gresita. */}
+          {p.descriere && (
+            <figcaption>
+              <span className="g-acces-numar" aria-hidden="true">{i + 1}</span>
+              {p.descriere}
+            </figcaption>
+          )}
           <img src={`/acces/${p.fisier}`} alt="" loading="lazy" decoding="async" />
         </figure>
       ))}

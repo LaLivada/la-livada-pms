@@ -641,8 +641,18 @@ body{
    randul care se citeste primul, deci are culoarea textului obisnuit si
    greutate. */
 .g-acces-foto figcaption{
+  display:flex; align-items:flex-start; gap:9px;
   margin:0 2px 7px; font-size:14.5px; line-height:1.45;
   color:var(--g-text); font-weight:500;
+}
+/* Cifra insasi nu poarta niciun sens pentru cititorul de ecran — pasul se
+   intelege din text, ordinea din DOM. De aceea e aria-hidden in JSX si de
+   aceea aici e doar decor. */
+.g-acces-numar{
+  flex-shrink:0; display:flex; align-items:center; justify-content:center;
+  width:22px; height:22px; margin-top:1px; border-radius:50%;
+  background:var(--olive); color:var(--g-pe-inchis);
+  font-size:12.5px; font-weight:700; font-variant-numeric:tabular-nums;
 }
 .g-pasi{ margin:0; padding-left:20px; }
 .g-pasi li{ padding:5px 0; font-size:14px; }
