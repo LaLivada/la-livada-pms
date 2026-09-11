@@ -110,7 +110,14 @@ export const HARTA_INCORPORATA =
  *   pasi:  ["Intri pe poarta din dreapta clădirii…", "…"]
  */
 export const ACCES_CAMERE = {
-  poze: [],
+  /* Drumul, in ordine, asa cum il vede cine vine dinspre sosea. Descrierile
+     sunt goale pana le da proprietarul; poza apare si fara text. */
+  poze: [
+    { fisier: "1-intrarea.jpg", descriere: "" },
+    { fisier: "2-aleea.jpg",    descriere: "" },
+    { fisier: "3-parcarea.jpg", descriere: "" },
+    { fisier: "4-poteca.jpg",   descriere: "" },
+  ],
   pasi: [],
 };
 
