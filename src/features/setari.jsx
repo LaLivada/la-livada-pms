@@ -16,6 +16,7 @@ import { ROLE_LABEL, ROOM_TYPE, SOURCES, sourceLabel, STATUS_CLASS, PERMISSIONS,
 import { nightsBetween, isStatsEligible } from "../lib/availability.js";
 import { reservationTotal } from "../lib/pricing.js";
 import { Dialog, toaster, useModalLock, Stat, PdfPreview } from "../ui/primitive.jsx";
+import { cameraDinDetaliu, sorteazaJurnal, COLOANE } from "../lib/jurnal.js";
 import { generatePdfBlob, pregatesteFila, arataInFila, inchideFila } from "../lib/pdf.js";
 
 export function UsersView() {
@@ -625,24 +626,91 @@ export function ReportsView({ core, reservations }) {
    LOG VIEW
 ----------------------------------------------------------------*/
 
-export function LogView({ entries }) {
+/* Capul de tabel: două coloane pe care se poate sorta, Zi și Cameră.
+ *
+ * Un buton, nu un `<select>`: sortarea unui tabel se cere apăsând pe capul
+ * coloanei, iar săgeata arată pe loc ce s-a întâmplat.
+ *
+ * FĂRĂ `aria-sort` și fără `role="row"`, deși ar fi fost prima tentație:
+ * amândouă sunt valide numai într-un arbore de tabel (`role="table"` cu
+ * rânduri și celule), iar rândurile de aici sunt `.list-row`-urile obișnuite
+ * ale aplicației, nu celule. Un `aria-sort` agățat de un buton oarecare e
+ * ignorat — adică promite accesibilitate fără s-o dea. Starea se spune deci
+ * în text, în `aria-label`, unde chiar se aude.
+ */
+function CapJurnal({ dupa, desc, onSort }) {
+  const cap = (cheie, eticheta) => {
+    const activa = dupa === cheie;
+    const sens = desc ? "descrescător" : "crescător";
+    return (
+      <button
+        className={"jrn-cap-btn" + (activa ? " on" : "")}
+        aria-label={activa
+          ? `${eticheta}, sortat ${sens}. Apasă pentru a schimba sensul.`
+          : `Sortează după ${eticheta.toLowerCase()}`}
+        onClick={() => onSort(cheie)}
+      >
+        {eticheta}
+        <span className="jrn-sageata" aria-hidden="true">{activa ? (desc ? "▾" : "▴") : "⇅"}</span>
+      </button>
+    );
+  };
+  return (
+    <div className="jrn-cap">
+      <span className="jrn-c-actiune">Acțiune</span>
+      {cap(COLOANE.CAMERA, "Cameră")}
+      {cap(COLOANE.ZI, "Zi")}
+    </div>
+  );
+}
+
+export function LogView({ entries, core }) {
+  const [dupa, setDupa] = useState(COLOANE.ZI);
+  const [desc, setDesc] = useState(true);
+
+  /* Numele camerelor, în ordinea din Camere — aceeași ordine pe care o vede
+     recepția peste tot altundeva. `sort_order` e deja aplicat la încărcare. */
+  const numeCamere = useMemo(
+    () => (core?.rooms || []).map((r) => r.name),
+    [core?.rooms]);
+
+  const sortate = useMemo(
+    () => sorteazaJurnal(entries, { dupa, desc }, numeCamere),
+    [entries, dupa, desc, numeCamere]);
+
+  /* Apăsarea pe coloana activă întoarce sensul; pe alta, o alege pe ea și
+     pornește descrescător — cel mai nou și camera cea mai mare întâi, ca
+     ordinea implicită a jurnalului. */
+  const sorteaza = (cheie) => {
+    if (cheie === dupa) { setDesc((d) => !d); return; }
+    setDupa(cheie);
+    setDesc(true);
+  };
+
   if (!entries.length) {
     return <div className="empty-state"><History size={26} /><h4>Jurnal gol</h4><p>Aici apar modificările făcute în aplicație.</p></div>;
   }
   return (
-    <div className="panel">
-      {entries.map((e) => (
-        <div className="list-row" key={e.id}>
-          <div style={{ minWidth: 0 }}>
-            <div className="primary">{e.action}</div>
-            <div className="secondary">{e.detail}</div>
+    <div className="panel jrn-panel">
+      <CapJurnal dupa={dupa} desc={desc} onSort={sorteaza} />
+      {sortate.map((e) => {
+        const camera = cameraDinDetaliu(e.detail, numeCamere);
+        return (
+          <div className="list-row jrn-rand" key={e.id}>
+            <div style={{ minWidth: 0 }}>
+              <div className="primary">{e.action}</div>
+              <div className="secondary">{e.detail}</div>
+            </div>
+            {/* „—" cand actiunea n-are camera (tarife, clienti, useri). Golul
+                ar fi aratat ca o coloana stricata, nu ca un raspuns. */}
+            <div className="jrn-camera mono">{camera || "—"}</div>
+            <div className="jrn-cand">
+              <div style={{ fontSize: 12, fontWeight: 600 }}>{e.userName}</div>
+              <div className="secondary mono" style={{ fontSize: 11 }}>{fmtDateTime(e.ts)}</div>
+            </div>
           </div>
-          <div style={{ textAlign: "right", flexShrink: 0 }}>
-            <div style={{ fontSize: 12, fontWeight: 600 }}>{e.userName}</div>
-            <div className="secondary mono" style={{ fontSize: 11 }}>{fmtDateTime(e.ts)}</div>
-          </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }

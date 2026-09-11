@@ -1088,7 +1088,7 @@ function Shell({ user, view, setView, onLogout, core, updateCore, reservations, 
               updateGroups={updateGroups} blocks={blocks} updateBlocks={updateBlocks} />
           )}
           {safeView === "reports" && <ReportsView core={core} reservations={reservations} />}
-          {safeView === "log" && <LogView entries={logEntries} />}
+          {safeView === "log" && <LogView entries={logEntries} core={core} />}
           {safeView === "calendar" && (
             <CalendarView core={core} updateCore={updateCore} reservations={reservations}
               updateReservations={updateReservations} groups={groups} updateGroups={updateGroups}
