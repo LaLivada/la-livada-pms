@@ -1,14 +1,9 @@
-/* Jurnalul de activitate — sortarea si citirea camerei din detaliu.
+/* Jurnalul de activitate — filtrarea pe camera si pe zi, gruparea pe zile.
  *
  * Logica pura, testabila fara DOM. Regula pe care o apara: camera NU e un
- * camp in `activity_log`, e text liber in `detail`. Ca sa se poata sorta
+ * camp in `activity_log`, e text liber in `detail`. Ca sa se poata filtra
  * dupa ea, trebuie citita din sir — iar o citire lacoma scoate camere care
  * nu exista.
- *
- * De ce nu e coloana in tabel: jurnalul consemneaza si actiuni fara nicio
- * camera (tarife, clienti, useri), si actiuni cu doua (un boiler partajat,
- * o rezervare mutata). O coloana ar fi trebuit sa minta la amandoua.
- * Sortarea are nevoie doar de PRIMA camera mentionata, si atat.
  */
 
 /* CAMERELE SE CAUTA DUPA NUMELE REAL, nu dupa un tipar de patru cifre.
@@ -62,39 +57,68 @@ export function ziLocala(ts) {
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
 }
 
-export const COLOANE = { ZI: "zi", CAMERA: "camera" };
-
 const timp = (e) => {
   const t = new Date(e?.ts ?? NaN).getTime();
   return Number.isNaN(t) ? 0 : t;
 };
 
-/* Sortarea dupa camera pastreaza TIMPUL ca cheie secundara, mereu
- * descrescator. Fara asta, cele 40 de intrari ale camerei 1001 ar fi iesit
- * intr-o ordine oarecare, si tocmai ordinea lor e ce cauti cand grupezi pe
- * camera: „ce s-a intamplat la 1001, in ordine".
- *
- * Camerele fara nume („Tarife modificate") cad la coada in amandoua
- * sensurile. O actiune fara camera n-are ce cauta prima intr-o lista
- * sortata pe camere, nici crescator, nici descrescator.
+/* Filtrul din spatele celor doua select-uri. Camera goala („") sau zi goala
+ * inseamna „toate" — acelasi contract ca optiunea „Toate camerele"/„Toate
+ * zilele" din select, ca ecranul sa nu traduca „” in altceva.
  */
-export function sorteazaJurnal(intrari, { dupa = COLOANE.ZI, desc = true } = {}, numeCamere = []) {
-  const lista = (intrari || []).slice();
-  if (dupa === COLOANE.CAMERA) {
-    const rang = new Map((numeCamere || []).map((n, i) => [String(n), i]));
-    const cheie = (e) => {
-      const c = cameraDinDetaliu(e?.detail, numeCamere);
-      return c === "" ? Infinity : (rang.get(c) ?? Infinity);
-    };
-    return lista.sort((a, b) => {
-      const ca = cheie(a), cb = cheie(b);
-      if (ca !== cb) {
-        if (ca === Infinity) return 1;
-        if (cb === Infinity) return -1;
-        return desc ? cb - ca : ca - cb;
-      }
-      return timp(b) - timp(a);
-    });
+export function filtreazaJurnal(intrari, { camera = "", zi = "" } = {}, numeCamere = []) {
+  let lista = intrari || [];
+  if (camera) lista = lista.filter((e) => cameraDinDetaliu(e?.detail, numeCamere) === camera);
+  if (zi) lista = lista.filter((e) => ziLocala(e?.ts) === zi);
+  return lista;
+}
+
+/* Zilele care chiar au o intrare, pentru optiunile select-ului — nu tot
+ * calendarul, ca sa nu apara zile goale de ales. Descrescator: cea mai
+ * recenta zi prima, la fel ca restul jurnalului.
+ */
+export function ziiDistincte(intrari) {
+  const zile = new Set();
+  for (const e of intrari || []) {
+    const z = ziLocala(e?.ts);
+    if (z) zile.add(z);
   }
-  return lista.sort((a, b) => (desc ? timp(b) - timp(a) : timp(a) - timp(b)));
+  return [...zile].sort((a, b) => (a < b ? 1 : a > b ? -1 : 0));
+}
+
+/* Gruparea pe zile calendaristice, cea mai noua zi prima; in interiorul unei
+ * zile, cea mai noua intrare prima — acelasi sens peste tot in jurnal.
+ * Intrarile fara zi valida (fara `ts`) nu ar trebui sa existe in practica,
+ * dar cad intr-un grup separat, la coada, in loc sa strice sortarea celor
+ * cu data buna.
+ */
+export function grupeazaPeZi(intrari) {
+  const pe_zi = new Map();
+  for (const e of intrari || []) {
+    const z = ziLocala(e?.ts);
+    if (!pe_zi.has(z)) pe_zi.set(z, []);
+    pe_zi.get(z).push(e);
+  }
+  const zile = [...pe_zi.keys()].sort((a, b) => {
+    if (a === "") return 1;
+    if (b === "") return -1;
+    return a < b ? 1 : a > b ? -1 : 0;
+  });
+  return zile.map((zi) => ({
+    zi,
+    intrari: pe_zi.get(zi).slice().sort((a, b) => timp(b) - timp(a)),
+  }));
+}
+
+/* Eticheta zilei din antetul grupului, ex. „Vineri, 11.09.2026". Construita
+ * din partile sirului „AAAA-LL-ZZ", nu din `new Date(zi)`: acela e interpretat
+ * ca miezul noptii UTC, iar la vest de Greenwich Intl.DateTimeFormat cu fus
+ * local l-ar fi afisat cu o zi in urma. */
+export function etichetaZi(zi) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(zi || ""));
+  if (!m) return "Fără dată";
+  const d = new Date(+m[1], +m[2] - 1, +m[3]);
+  const zileSapt = ["Duminică", "Luni", "Marți", "Miercuri", "Joi", "Vineri", "Sâmbătă"];
+  const p = (n) => String(n).padStart(2, "0");
+  return `${zileSapt[d.getDay()]}, ${p(d.getDate())}.${p(d.getMonth() + 1)}.${d.getFullYear()}`;
 }

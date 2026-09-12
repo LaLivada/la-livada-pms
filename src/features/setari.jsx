@@ -11,12 +11,12 @@ import { supabase } from "../supabase.js";
 import * as datePersonal from "../data/personal.js";
 import { mesajEroare } from "../lib/errors.js";
 import { audit } from "../lib/audit.js";
-import { fmtMoney, fmtDate, fmtDateTime, initials, FMT_MONTH_YEAR } from "../lib/format.js";
+import { fmtMoney, fmtDate, fmtDateTime, FMT_TIME, initials, FMT_MONTH_YEAR } from "../lib/format.js";
 import { ROLE_LABEL, ROOM_TYPE, SOURCES, sourceLabel, STATUS_CLASS, PERMISSIONS, ALL_PERMS } from "../lib/constante.js";
 import { nightsBetween, isStatsEligible } from "../lib/availability.js";
 import { reservationTotal } from "../lib/pricing.js";
 import { Dialog, toaster, useModalLock, Stat, PdfPreview } from "../ui/primitive.jsx";
-import { cameraDinDetaliu, sorteazaJurnal, COLOANE } from "../lib/jurnal.js";
+import { cameraDinDetaliu, filtreazaJurnal, ziiDistincte, grupeazaPeZi, etichetaZi } from "../lib/jurnal.js";
 import { generatePdfBlob, pregatesteFila, arataInFila, inchideFila } from "../lib/pdf.js";
 
 export function UsersView() {
@@ -626,47 +626,14 @@ export function ReportsView({ core, reservations }) {
    LOG VIEW
 ----------------------------------------------------------------*/
 
-/* Capul de tabel: două coloane pe care se poate sorta, Zi și Cameră.
- *
- * Un buton, nu un `<select>`: sortarea unui tabel se cere apăsând pe capul
- * coloanei, iar săgeata arată pe loc ce s-a întâmplat.
- *
- * FĂRĂ `aria-sort` și fără `role="row"`, deși ar fi fost prima tentație:
- * amândouă sunt valide numai într-un arbore de tabel (`role="table"` cu
- * rânduri și celule), iar rândurile de aici sunt `.list-row`-urile obișnuite
- * ale aplicației, nu celule. Un `aria-sort` agățat de un buton oarecare e
- * ignorat — adică promite accesibilitate fără s-o dea. Starea se spune deci
- * în text, în `aria-label`, unde chiar se aude.
+/* Doua select-uri, nu un cap de coloana: cerinta e sa alegi O cameră și să
+ * vezi TOT istoricul ei, nu să răstorni ordinea unei liste amestecate.
+ * Selectul de Zi se strânge la zilele care chiar au o intrare PENTRU CAMERA
+ * ALEASĂ — altfel ai alege dintr-un calendar plin de zile goale.
  */
-function CapJurnal({ dupa, desc, onSort }) {
-  const cap = (cheie, eticheta) => {
-    const activa = dupa === cheie;
-    const sens = desc ? "descrescător" : "crescător";
-    return (
-      <button
-        className={"jrn-cap-btn" + (activa ? " on" : "")}
-        aria-label={activa
-          ? `${eticheta}, sortat ${sens}. Apasă pentru a schimba sensul.`
-          : `Sortează după ${eticheta.toLowerCase()}`}
-        onClick={() => onSort(cheie)}
-      >
-        {eticheta}
-        <span className="jrn-sageata" aria-hidden="true">{activa ? (desc ? "▾" : "▴") : "⇅"}</span>
-      </button>
-    );
-  };
-  return (
-    <div className="jrn-cap">
-      <span className="jrn-c-actiune">Acțiune</span>
-      {cap(COLOANE.CAMERA, "Cameră")}
-      {cap(COLOANE.ZI, "Zi")}
-    </div>
-  );
-}
-
 export function LogView({ entries, core }) {
-  const [dupa, setDupa] = useState(COLOANE.ZI);
-  const [desc, setDesc] = useState(true);
+  const [camera, setCamera] = useState("");
+  const [zi, setZi] = useState("");
 
   /* Numele camerelor, în ordinea din Camere — aceeași ordine pe care o vede
      recepția peste tot altundeva. `sort_order` e deja aplicat la încărcare. */
@@ -674,43 +641,79 @@ export function LogView({ entries, core }) {
     () => (core?.rooms || []).map((r) => r.name),
     [core?.rooms]);
 
-  const sortate = useMemo(
-    () => sorteazaJurnal(entries, { dupa, desc }, numeCamere),
-    [entries, dupa, desc, numeCamere]);
+  const dinCamera = useMemo(
+    () => filtreazaJurnal(entries, { camera }, numeCamere),
+    [entries, camera, numeCamere]);
 
-  /* Apăsarea pe coloana activă întoarce sensul; pe alta, o alege pe ea și
-     pornește descrescător — cel mai nou și camera cea mai mare întâi, ca
-     ordinea implicită a jurnalului. */
-  const sorteaza = (cheie) => {
-    if (cheie === dupa) { setDesc((d) => !d); return; }
-    setDupa(cheie);
-    setDesc(true);
-  };
+  const ziiOptiuni = useMemo(() => ziiDistincte(dinCamera), [dinCamera]);
+
+  const filtrate = useMemo(
+    () => filtreazaJurnal(dinCamera, { zi }),
+    [dinCamera, zi]);
+
+  const grupuri = useMemo(() => grupeazaPeZi(filtrate), [filtrate]);
+
+  /* Schimbarea camerei reseteaza ziua: o zi aleasa pentru 1102 n-are de ce
+     sa ramana selectata cand receptia trece la 1005 — cel mai probabil n-are
+     nicio intrare acolo, si selectul ar arata gol fara motiv vizibil. */
+  const alegeCamera = (c) => { setCamera(c); setZi(""); };
 
   if (!entries.length) {
     return <div className="empty-state"><History size={26} /><h4>Jurnal gol</h4><p>Aici apar modificările făcute în aplicație.</p></div>;
   }
+
   return (
-    <div className="panel jrn-panel">
-      <CapJurnal dupa={dupa} desc={desc} onSort={sorteaza} />
-      {sortate.map((e) => {
-        const camera = cameraDinDetaliu(e.detail, numeCamere);
-        return (
-          <div className="list-row jrn-rand" key={e.id}>
-            <div style={{ minWidth: 0 }}>
-              <div className="primary">{e.action}</div>
-              <div className="secondary">{e.detail}</div>
-            </div>
-            {/* „—" cand actiunea n-are camera (tarife, clienti, useri). Golul
-                ar fi aratat ca o coloana stricata, nu ca un raspuns. */}
-            <div className="jrn-camera mono">{camera || "—"}</div>
-            <div className="jrn-cand">
-              <div style={{ fontSize: 12, fontWeight: 600 }}>{e.userName}</div>
-              <div className="secondary mono" style={{ fontSize: 11 }}>{fmtDateTime(e.ts)}</div>
-            </div>
+    <div>
+      <div className="toolbar">
+        <label className="field" style={{ marginBottom: 0, flex: "1 1 160px" }}>
+          <span className="fl">Cameră</span>
+          <select value={camera} onChange={(e) => alegeCamera(e.target.value)}>
+            <option value="">Toate camerele</option>
+            {numeCamere.map((n) => <option key={n} value={n}>{n}</option>)}
+          </select>
+        </label>
+        <label className="field" style={{ marginBottom: 0, flex: "1 1 160px" }}>
+          <span className="fl">Zi</span>
+          <select value={zi} onChange={(e) => setZi(e.target.value)} disabled={!ziiOptiuni.length}>
+            <option value="">Toate zilele</option>
+            {ziiOptiuni.map((z) => <option key={z} value={z}>{fmtDate(z)}</option>)}
+          </select>
+        </label>
+      </div>
+
+      {!filtrate.length ? (
+        <div className="empty-state">
+          <History size={26} /><h4>Nicio modificare</h4>
+          <p>{camera ? `Nimic pentru camera ${camera}${zi ? " în ziua aleasă" : ""}.` : "Nimic pentru ziua aleasă."}</p>
+        </div>
+      ) : grupuri.map((g) => (
+        <div key={g.zi || "fara-data"} className="jrn-grup">
+          <div className="jrn-zi-cap">{etichetaZi(g.zi)}</div>
+          <div className="panel">
+            {g.intrari.map((e) => {
+              const cameraRand = cameraDinDetaliu(e.detail, numeCamere);
+              return (
+                <div className="list-row" key={e.id}>
+                  <div style={{ minWidth: 0 }}>
+                    <div className="primary">{e.action}</div>
+                    <div className="secondary">{e.detail}</div>
+                  </div>
+                  <div style={{ textAlign: "right", flexShrink: 0 }}>
+                    <div style={{ fontSize: 12, fontWeight: 600 }}>
+                      {e.userName}
+                      {/* Camera apare aici doar cand vezi TOATE camerele —
+                          selectand una, e deja titlul filtrului, deci a o
+                          repeta pe fiecare rand ar fi zgomot. */}
+                      {!camera && cameraRand ? ` · ${cameraRand}` : ""}
+                    </div>
+                    <div className="secondary mono" style={{ fontSize: 11 }}>{FMT_TIME.format(new Date(e.ts))}</div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
-        );
-      })}
+        </div>
+      ))}
     </div>
   );
 }

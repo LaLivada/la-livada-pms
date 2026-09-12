@@ -1,9 +1,11 @@
-/* Capul de tabel al jurnalului, randat cu componenta reala.
+/* Filtrele jurnalului (select Cameră, select Zi), randate cu componenta
+ * reala.
  *
- * Testele din jurnal.test.js apara regulile de sortare; astea apara
- * legatura dintre ele si ecran. Ce s-ar strica tacut: butonul sa arate
- * sageata schimbata fara ca lista sa se miste, sau a doua apasare pe aceeasi
- * coloana sa reia sortarea in loc s-o intoarca.
+ * Testele din jurnal.test.js apara regulile de filtrare si grupare; astea
+ * apara legatura dintre ele si ecran. Ce s-ar strica tacut: selectul de zi
+ * sa nu se ingusteze la camera aleasa, sau schimbarea camerei sa lase o zi
+ * selectata care nu mai are nicio intrare — selectul ar arata gol fara
+ * niciun motiv vizibil.
  */
 import { describe, it, expect, vi, afterEach } from "vitest";
 import React from "react";
@@ -31,13 +33,13 @@ const INTRARI = [
 
 const montate = [];
 
-async function deschide(intrari = INTRARI) {
+async function deschide(intrari = INTRARI, core = CORE) {
   const host = document.createElement("div");
   document.body.appendChild(host);
   const root = createRoot(host);
   montate.push({ root, host });
   await act(async () => {
-    root.render(React.createElement(LogView, { entries: intrari, core: CORE }));
+    root.render(React.createElement(LogView, { entries: intrari, core }));
   });
   return host;
 }
@@ -48,68 +50,79 @@ afterEach(async () => {
   montate.length = 0;
 });
 
-const actiuni = (host) =>
-  [...host.querySelectorAll(".jrn-rand .primary")].map((e) => e.textContent);
-const camere = (host) =>
-  [...host.querySelectorAll(".jrn-camera")].map((e) => e.textContent);
-const buton = (host, eticheta) =>
-  [...host.querySelectorAll(".jrn-cap-btn")].find((b) => b.textContent.startsWith(eticheta));
-const apasa = async (b) => { await act(async () => { b.click(); }); };
+const selectCamera = (host) => host.querySelectorAll("select")[0];
+const selectZi = (host) => host.querySelectorAll("select")[1];
+const capeteZi = (host) => [...host.querySelectorAll(".jrn-zi-cap")].map((e) => e.textContent);
+const actiuniDinGrup = (host, i) =>
+  [...host.querySelectorAll(".jrn-grup")][i].querySelectorAll(".primary");
 
-describe("LogView — capul de tabel", () => {
-  it("porneste cu cele mai noi intai", async () => {
+async function alege(select, valoare) {
+  await act(async () => {
+    const setter = Object.getOwnPropertyDescriptor(
+      window.HTMLSelectElement.prototype, "value").set;
+    setter.call(select, valoare);
+    select.dispatchEvent(new Event("change", { bubbles: true }));
+  });
+}
+
+describe("LogView — filtre", () => {
+  it("arata cele doua select-uri, cu Toate camerele/zilele implicit", async () => {
     const host = await deschide();
-    expect(actiuni(host)).toEqual(["D", "B", "C", "A"]);
+    expect(selectCamera(host).value).toBe("");
+    expect(selectZi(host).value).toBe("");
+    expect([...selectCamera(host).options].map((o) => o.textContent)[0]).toBe("Toate camerele");
   });
 
-  it("arata camera pe fiecare rand, si linie cand nu e niciuna", async () => {
+  it("grupeaza pe zi calendaristica, cea mai noua zi prima", async () => {
     const host = await deschide();
-    expect(camere(host)).toEqual(["—", "1002", "1102", "1102"]);
+    expect(capeteZi(host)).toEqual(["Vineri, 11.09.2026", "Joi, 10.09.2026", "Miercuri, 09.09.2026"]);
   });
 
-  it("sorteaza dupa camera cand se apasa pe capul ei", async () => {
+  it("selectand o camera, arata TOT istoricul ei, in celelalte zile disparand", async () => {
     const host = await deschide();
-    await apasa(buton(host, "Cameră"));
-    /* Descrescator: 1102 intai, apoi 1002, iar actiunea fara camera la
-       coada. In interiorul lui 1102, timpul ramane descrescator. */
-    expect(camere(host)).toEqual(["1102", "1102", "1002", "—"]);
-    expect(actiuni(host)).toEqual(["C", "A", "B", "D"]);
+    await alege(selectCamera(host), "1102");
+    expect(capeteZi(host)).toEqual(["Joi, 10.09.2026", "Miercuri, 09.09.2026"]);
+    expect([...host.querySelectorAll(".primary")].map((e) => e.textContent)).toEqual(["C", "A"]);
   });
 
-  /* A doua apasare pe aceeasi coloana INTOARCE sensul, nu reia sortarea.
-     Fara asta butonul ar fi parut ca nu face nimic. */
-  it("a doua apasare intoarce sensul", async () => {
+  /* Testul cerut explicit: selectul de Zi trebuie sa se ingusteze la
+     camera aleasa, nu sa ramana cu toate zilele din jurnal. */
+  it("selectul de Zi se ingusteaza la zilele camerei alese", async () => {
     const host = await deschide();
-    const b = buton(host, "Cameră");
-    await apasa(b);
-    await apasa(b);
-    expect(camere(host)).toEqual(["1002", "1102", "1102", "—"]);
+    await alege(selectCamera(host), "1102");
+    const zile = [...selectZi(host).options].map((o) => o.textContent);
+    expect(zile).toEqual(["Toate zilele", "10.09", "09.09"]);
   });
 
-  it("intoarcerea pe zi da cele mai vechi intai", async () => {
+  it("combina camera si zi", async () => {
     const host = await deschide();
-    await apasa(buton(host, "Zi"));
-    expect(actiuni(host)).toEqual(["A", "C", "B", "D"]);
+    await alege(selectCamera(host), "1102");
+    await alege(selectZi(host), "2026-09-10");
+    expect(capeteZi(host)).toEqual(["Joi, 10.09.2026"]);
+    expect(actiuniDinGrup(host, 0)[0].textContent).toBe("C");
   });
 
-  /* Starea se spune in text, nu prin `aria-sort`: acela e valid doar
-     intr-un arbore de tabel, iar randurile de aici sunt `.list-row`-uri. */
-  it("spune in cuvinte ce coloana e activa si in ce sens", async () => {
+  /* O zi aleasa pentru 1102 n-are ce cauta cand receptia trece la 1005 —
+     selectul trebuie sa revina la „Toate zilele", nu sa ramana pe o valoare
+     pe care noua camera n-o mai are. */
+  it("schimbarea camerei reseteaza ziua aleasa", async () => {
     const host = await deschide();
-    expect(buton(host, "Zi").getAttribute("aria-label")).toMatch(/sortat descrescător/);
-    expect(buton(host, "Cameră").getAttribute("aria-label")).toMatch(/^Sortează după/);
-    await apasa(buton(host, "Zi"));
-    expect(buton(host, "Zi").getAttribute("aria-label")).toMatch(/sortat crescător/);
+    await alege(selectCamera(host), "1102");
+    await alege(selectZi(host), "2026-09-10");
+    await alege(selectCamera(host), "1002");
+    expect(selectZi(host).value).toBe("");
+    expect(capeteZi(host)).toEqual(["Vineri, 11.09.2026"]);
   });
 
-  it("nu se sufoca fara camere in core", async () => {
-    const host = document.createElement("div");
-    document.body.appendChild(host);
-    const root = createRoot(host);
-    montate.push({ root, host });
-    await act(async () => {
-      root.render(React.createElement(LogView, { entries: INTRARI, core: undefined }));
-    });
-    expect(camere(host)).toEqual(["—", "—", "—", "—"]);
+  it("o camera fara nicio intrare arata mesajul, nu o lista goala tacuta", async () => {
+    const host = await deschide();
+    await alege(selectCamera(host), "1005");
+    expect(host.querySelector(".empty-state h4").textContent).toBe("Nicio modificare");
+    expect(host.querySelector(".empty-state p").textContent).toMatch(/1005/);
+  });
+
+  it("jurnal complet gol arata starea goala dintotdeauna", async () => {
+    const host = await deschide([]);
+    expect(host.querySelector(".empty-state h4").textContent).toBe("Jurnal gol");
   });
 });

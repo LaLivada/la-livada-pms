@@ -1,14 +1,15 @@
-/* Sortarea jurnalului dupa zi si dupa camera.
+/* Filtrarea jurnalului pe camera si pe zi, si gruparea pe zile calendaristice.
  *
  * Camera NU e un camp in `activity_log` — e text liber in `detail`. Tot ce
  * se poate strica aici se strica TACUT: o citire lacoma scoate camere care
- * nu exista (un pret de 1002 lei devine camera 1002), iar o sortare fara
- * cheie secundara amesteca cele patruzeci de intrari ale unei camere.
+ * nu exista (un pret de 1002 lei devine camera 1002), iar o grupare fara
+ * cheie secundara amesteca intrarile unei zile.
  *
  * Sirurile de mai jos sunt copiate din jurnalul real, nu inventate.
  */
 import { describe, it, expect } from "vitest";
-import { cameraDinDetaliu, ziLocala, sorteazaJurnal, COLOANE } from "./lib/jurnal.js";
+import { cameraDinDetaliu, ziLocala, filtreazaJurnal, ziiDistincte, grupeazaPeZi, etichetaZi }
+  from "./lib/jurnal.js";
 
 const CAMERE = [
   "1001", "1002", "1003", "1004", "1005", "1006", "1007", "1008",
@@ -58,7 +59,7 @@ describe("cameraDinDetaliu", () => {
   });
 
   /* Prima camera mentionata, nu prima din lista de camere: la o mutare,
-     „de unde" e informatia care conteaza pentru sortare. */
+     „de unde" e informatia care conteaza. */
   it("ia prima camera din text, nu cea mai mica", () => {
     expect(cameraDinDetaliu("Boiler · 1013, 1011", CAMERE)).toBe("1013");
     expect(cameraDinDetaliu("X: 1014 12.09 → 1002 12.09", CAMERE)).toBe("1014");
@@ -80,64 +81,116 @@ describe("ziLocala", () => {
     expect(ziLocala("2026-09-11T23:59:00")).toBe("2026-09-11");
   });
 
-  it("tace pe o data stricata", () => {
+  it("tace pe o data stricata sau lipsa", () => {
     expect(ziLocala("nu-e-o-data")).toBe("");
     expect(ziLocala(null)).toBe("");
   });
 });
 
-describe("sorteazaJurnal", () => {
-  const e = (id, ts, detail) => ({ id, ts, detail, action: "X", userName: "Y" });
-  /* ORDINEA DIN LISTA E DELIBERAT GRESITA pentru perechea de 1005: „c" (9
-     sept) sta INAINTEA lui „a" (10 sept). `Array.sort` e stabil, deci un
-     comparator care intoarce 0 pentru doua intrari ale aceleiasi camere ar
-     lasa perechea asa cum a primit-o si ar trece testul fara sa sorteze
-     nimic. Asezate invers, singurul fel in care ies corect e ca timpul sa
-     fie chiar a doua cheie. */
-  const intrari = [
-    e("c", "2026-09-09T07:00:00", "1005 · perioadă schimbată"),
-    e("b", "2026-09-11T09:00:00", "1002 · Cotaie Andrei"),
-    e("a", "2026-09-10T08:00:00", "1005 → Curată"),
-    e("d", "2026-09-11T10:00:00", "Configurare tarife actualizată"),
-  ];
+const e = (id, ts, detail) => ({ id, ts, detail, action: "X", userName: "Y" });
 
-  it("implicit: cele mai noi intai", () => {
-    expect(sorteazaJurnal(intrari, {}, CAMERE).map((x) => x.id))
-      .toEqual(["d", "b", "a", "c"]);
+const JURNAL = [
+  e("a", "2026-09-10T08:00:00", "1005 → Curată"),
+  e("b", "2026-09-11T09:00:00", "1002 · Cotaie Andrei"),
+  e("c", "2026-09-09T07:00:00", "1005 · perioadă schimbată"),
+  e("d", "2026-09-11T10:00:00", "Configurare tarife actualizată"),
+  e("f", "2026-09-11T07:00:00", "1005 → Curată"),
+];
+
+describe("filtreazaJurnal", () => {
+  it("camera goala inseamna toate", () => {
+    expect(filtreazaJurnal(JURNAL, { camera: "" }, CAMERE)).toHaveLength(5);
   });
 
-  it("intoarce sensul pe zi", () => {
-    expect(sorteazaJurnal(intrari, { dupa: COLOANE.ZI, desc: false }, CAMERE).map((x) => x.id))
-      .toEqual(["c", "a", "b", "d"]);
+  it("filtreaza dupa camera aleasa, la fel ca selectul din ecran", () => {
+    expect(filtreazaJurnal(JURNAL, { camera: "1005" }, CAMERE).map((x) => x.id))
+      .toEqual(["a", "c", "f"]);
   });
 
-  /* Cheia secundara e timpul, mereu descrescator: cand grupezi pe camera,
-     ce cauti e „ce s-a intamplat la 1005, in ordine". Fara ea, cele doua
-     intrari ale lui 1005 ar fi iesit intr-o ordine oarecare. */
-  it("grupeaza pe camera si tine timpul ca a doua cheie", () => {
-    const ids = sorteazaJurnal(intrari, { dupa: COLOANE.CAMERA, desc: false }, CAMERE)
-      .map((x) => x.id);
-    expect(ids).toEqual(["b", "a", "c", "d"]);
+  it("filtreaza dupa zi", () => {
+    expect(filtreazaJurnal(JURNAL, { zi: "2026-09-11" }, CAMERE).map((x) => x.id))
+      .toEqual(["b", "d", "f"]);
   });
 
-  /* O actiune fara camera n-are ce cauta prima intr-o lista sortata pe
-     camere — nici crescator, nici descrescator. */
-  it("tine intrarile fara camera la coada in ambele sensuri", () => {
-    for (const desc of [true, false]) {
-      const ids = sorteazaJurnal(intrari, { dupa: COLOANE.CAMERA, desc }, CAMERE)
-        .map((x) => x.id);
-      expect(ids[ids.length - 1], `desc=${desc}`).toBe("d");
-    }
+  it("combina camera si zi", () => {
+    expect(filtreazaJurnal(JURNAL, { camera: "1005", zi: "2026-09-11" }, CAMERE).map((x) => x.id))
+      .toEqual(["f"]);
   });
 
-  it("nu modifica lista primita", () => {
-    const copie = intrari.slice();
-    sorteazaJurnal(intrari, { dupa: COLOANE.CAMERA }, CAMERE);
-    expect(intrari).toEqual(copie);
+  it("o camera fara nicio intrare da lista goala, nu toate", () => {
+    expect(filtreazaJurnal(JURNAL, { camera: "1099" }, CAMERE)).toEqual([]);
   });
 
   it("nu se sufoca pe o lista lipsa", () => {
-    expect(sorteazaJurnal(undefined, {}, CAMERE)).toEqual([]);
-    expect(sorteazaJurnal(null, { dupa: COLOANE.CAMERA }, CAMERE)).toEqual([]);
+    expect(filtreazaJurnal(undefined, { camera: "1005" }, CAMERE)).toEqual([]);
+  });
+});
+
+describe("ziiDistincte", () => {
+  it("da zilele care chiar au o intrare, cea mai noua prima", () => {
+    expect(ziiDistincte(JURNAL)).toEqual(["2026-09-11", "2026-09-10", "2026-09-09"]);
+  });
+
+  /* Motivul pentru care exista functia separat de grupeazaPeZi: optiunile
+     selectului de Zi trebuie calculate DIN CAMERA ALEASA, nu din tot
+     jurnalul — altfel ai putea alege o zi in care camera n-a avut nimic. */
+  it("se ingusteaza la zilele unei singure camere", () => {
+    const dinCamera = filtreazaJurnal(JURNAL, { camera: "1005" }, CAMERE);
+    expect(ziiDistincte(dinCamera)).toEqual(["2026-09-11", "2026-09-10", "2026-09-09"]);
+    const dinAlta = filtreazaJurnal(JURNAL, { camera: "1002" }, CAMERE);
+    expect(ziiDistincte(dinAlta)).toEqual(["2026-09-11"]);
+  });
+
+  it("nu repeta o zi cu doua intrari", () => {
+    expect(ziiDistincte(JURNAL).filter((z) => z === "2026-09-11")).toHaveLength(1);
+  });
+
+  it("nu se sufoca pe o lista lipsa", () => {
+    expect(ziiDistincte(undefined)).toEqual([]);
+  });
+});
+
+describe("grupeazaPeZi", () => {
+  it("grupeaza pe zi calendaristica, cea mai noua zi prima", () => {
+    const grupuri = grupeazaPeZi(JURNAL);
+    expect(grupuri.map((g) => g.zi)).toEqual(["2026-09-11", "2026-09-10", "2026-09-09"]);
+  });
+
+  /* Testul care conteaza: in interiorul unei zile, ordinea NU e cea din
+     lista primita — e cea mai noua intrare intai, mereu. Grupul de 11
+     septembrie primeste b (09:00), d (10:00), f (07:00) in aceasta ordine
+     din `JURNAL`, si trebuie sa iasa d, b, f — sortate descrescator pe ora,
+     nu pastrate in ordinea de intrare. */
+  it("in interiorul zilei, cea mai noua intrare e prima", () => {
+    const grup11 = grupeazaPeZi(JURNAL).find((g) => g.zi === "2026-09-11");
+    expect(grup11.intrari.map((x) => x.id)).toEqual(["d", "b", "f"]);
+  });
+
+  it("un singur grup pentru o singura zi", () => {
+    const grupuri = grupeazaPeZi([e("x", "2026-09-05T10:00:00", "1001"), e("y", "2026-09-05T11:00:00", "1002")]);
+    expect(grupuri).toHaveLength(1);
+    expect(grupuri[0].intrari.map((z) => z.id)).toEqual(["y", "x"]);
+  });
+
+  it("nu se sufoca pe o lista lipsa", () => {
+    expect(grupeazaPeZi(undefined)).toEqual([]);
+  });
+});
+
+describe("etichetaZi", () => {
+  /* Constructia trebuie sa fie din PARTILE sirului, nu din `new Date(zi)`:
+     acela e miezul noptii UTC, iar la vest de Greenwich formatarea cu fus
+     local ar fi aratat ziua precedenta. 11 septembrie 2026 e o vineri. */
+  it("da ziua saptamanii si data, pentru o zi cunoscuta", () => {
+    expect(etichetaZi("2026-09-11")).toBe("Vineri, 11.09.2026");
+  });
+
+  it("nu aluneca o zi in spate", () => {
+    expect(etichetaZi("2026-01-01")).toMatch(/01\.01\.2026$/);
+  });
+
+  it("are un raspuns si pentru o zi lipsa/stricata", () => {
+    expect(etichetaZi("")).toBe("Fără dată");
+    expect(etichetaZi(undefined)).toBe("Fără dată");
   });
 });

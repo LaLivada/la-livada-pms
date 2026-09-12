@@ -1521,73 +1521,15 @@ label.field input, label.field select, label.field textarea{ cursor:auto; }
   font-family:'IBM Plex Mono',monospace;
 }
 .pb-manual input:focus{ outline:none; border-color:var(--accent); box-shadow:0 0 0 3px rgba(43,92,138,.15); }
-/* ---------- Jurnal: cap de tabel sortabil ----------
-   Aceleasi trei coloane in cap si in rand, ca sa se citeasca pe verticala:
-   actiunea ia latimea ramasa, camera si „cand" au latimi fixe. Fara latimi
-   fixe, coloana camerei isi schimba pozitia de la un rand la altul (o
-   camera goala „—" e mai ingusta decat „1102") si capul nu mai sta deasupra
-   nimanui.
-
-   LATIMILE STAU INTR-O SINGURA VARIABILA, folosita si de cap si de rand.
-   Scrise de doua ori, au si fost diferite — 96 in cap, 84 in rand — si capul
-   „Cameră" statea cu 18px la stanga coloanei pe care o sorteaza. Masurat, nu
-   vazut: la o coloana de doua cifre, 18px arata ca o alegere de design.
-
-   Butonul din cap are 6px de padding, deci celula din rand primeste acelasi
-   padding la stanga: se aliniaza TEXTUL cu textul, nu cutia cu cutia. */
-.jrn-panel{ --jrn-w-camera:84px; --jrn-w-cand:116px; }
-.jrn-cap{
-  display:flex; align-items:center; gap:12px; padding:10px 18px;
-  border-bottom:1px solid var(--border);
-  font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.05em;
-  color:var(--text-muted);
-  /* `line-height` explicit: index.css pune `font: 18px/145%` pe `:root`, iar
-     un procent se rezolva ACOLO si se mosteneste ca 26,1px fix — la un cap
-     de 11px asta inseamna 52px inaltime, cat un rand de lista. */
-  line-height:1.2;
-}
-.jrn-c-actiune{ flex:1 1 auto; min-width:0; }
-.jrn-cap-btn{
-  display:inline-flex; align-items:center; gap:5px; flex:0 0 auto;
-  background:none; border:none; padding:4px 6px; border-radius:var(--r-xs);
-  font:inherit; color:inherit; text-transform:inherit; letter-spacing:inherit;
-  cursor:pointer;
-}
-.jrn-cap-btn:hover{ background:var(--surface-2); color:var(--text); }
-.jrn-cap-btn.on{ color:var(--accent-strong); }
-.jrn-sageata{ font-size:10px; opacity:.7; }
-.jrn-cap-btn.on .jrn-sageata{ opacity:1; }
-.jrn-cap-btn:nth-of-type(1),
-.jrn-camera{ flex:0 0 var(--jrn-w-camera); width:var(--jrn-w-camera); }
-.jrn-cap-btn:nth-of-type(2),
-.jrn-cand{ flex:0 0 var(--jrn-w-cand); width:var(--jrn-w-cand); }
-/* `nowrap`: butonul are latime fixa, iar „CAMERĂ" cu majuscule si spatiere
-   nu incape in ea pe telefon. Fara asta se rupea in doua randuri si capul
-   crestea la 52px, cu sageata singura pe randul doi. */
-.jrn-cap-btn{ justify-content:flex-start; white-space:nowrap; }
-.jrn-camera{ padding-left:6px; font-size:var(--fs-sm); color:var(--text-2); }
-.jrn-cand{ padding-left:6px; }
-/* Capul si randul trebuie sa aiba acelasi padding lateral, altfel coloanele
-   fixe pornesc din alt loc. Ramane 18px peste tot, si asta nu e o scapare:
-   exista un `.list-row{ padding:15px 16px }` intr-un bloc
-   `@media (pointer: coarse)`, dar el sta INAINTEA regulii de baza din
-   sectiunea Lists, iar la specificitate egala castiga ultima scrisa. Deci
-   randul are 18px si pe telefon. Masurat, nu presupus. Daca cineva repara
-   vreodata acea regula moarta, capul de aici trebuie mutat odata cu ea.
-
-   Latimile scad pe telefon, dar nu sub cat ii trebuie capului „CAMERĂ" —
-   coloana e dimensionata de eticheta, nu de cele patru cifre din ea. */
-@media (max-width:600px){
-  .jrn-panel{ --jrn-w-camera:76px; --jrn-w-cand:92px; }
-}
-/* Tinta de atingere, nu marimea scrisului: capul stramt lasa butoane de 21px
-   inaltime, sub jumatate din cat trebuie unui deget. Creste paddingul
-   butonului si scade al capului, deci zona apasabila ajunge la ~37px fara ca
-   randul sa se inalte pe masura. Blocul sta DUPA regula de baza dinadins —
-   la specificitate egala castiga ultima scrisa (vezi nota de la padding). */
-@media (pointer: coarse){
-  .jrn-cap{ padding-top:4px; padding-bottom:4px; }
-  .jrn-cap-btn{ padding-top:12px; padding-bottom:12px; }
+/* ---------- Jurnal: filtre pe cameră/zi, grupat pe zile calendaristice ----------
+   Cele doua select-uri stau in `.toolbar`, refolosind `.field`/`.fl` de la
+   formulare — nimic nou de stilizat acolo. Ramane doar antetul fiecarui
+   grup de zi. */
+.jrn-grup{ margin-bottom:20px; }
+.jrn-grup:last-child{ margin-bottom:0; }
+.jrn-zi-cap{
+  font-size:12px; font-weight:700; color:var(--text-muted);
+  margin:0 0 8px 2px; text-transform:uppercase; letter-spacing:.03em;
 }
 
 /* ---------- Azi: cardul „De pe site" ----------
