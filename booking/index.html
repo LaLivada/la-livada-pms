@@ -137,12 +137,18 @@
 
     <main>
       <section class="ldv-phead">
-        <!-- Același film ca pe prima pagină a lalivada.ro (hero-desktop/
-             hero-mobile.mp4) — comprimat exact cum e comprimat acolo,
-             fiindcă sunt literalmente aceleași fișiere. Sursele stau în
-             marcaj, nu se pun din script: pe iOS, un element gol în clipa
-             în care Safari hotărăște dacă are voie să pornească singur
-             pierde dreptul definitiv — vezi booking/film.js. -->
+        <!-- Montajul propriu (poze-acces/Hotel.mp4, 13 septembrie 2026),
+             nu mai e filmul de pe lalivada.ro. Tăiat la 26,6 s, înainte de
+             fade-ul la negru de la final — într-o buclă ar fi clipit negru
+             la fiecare reluare. Pe desktop, banda 16:9 e aleasă PE CADRU
+             (semnul 1004, canapeaua, patul rămân în imagine); pe telefon,
+             cadrul întreg cu margini estompate, ca înainte. Compresie 2-pass,
+             H.264 High 4.0 — măsurată cu VMAF peste rețeta veche la medie,
+             la cele mai slabe 5% din cadre și la minim, cu ~14% mai puțini
+             octeți. Sursele stau în marcaj, nu se pun din script: pe iOS,
+             un element gol în clipa în care Safari hotărăște dacă are voie
+             să pornească singur pierde dreptul definitiv — vezi
+             booking/film.js. -->
         <video id="ldv-film" class="ldv-phead-img"
           autoplay muted loop playsinline preload="metadata"
           poster="/film/poster.jpg"

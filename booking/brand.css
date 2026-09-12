@@ -497,16 +497,13 @@ body {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  object-position: center 65%;
-}
-/* Pe telefon cadrul stă centrat, nu împins în jos: fişierul vertical e
-   deja tăiat pe proporţia ecranului de telefon (vezi hero-mobile.mp4),
-   aşa că `cover` nu mai are ce decupa — orice deplasare pe verticală ar
-   scoate din cadru tocmai casele. */
-@media (max-width: 700px), (orientation: portrait) {
-  .ldv-phead-img {
-    object-position: center center;
-  }
+  /* Centrat pe ambele fișiere, deci fără regulă separată pentru telefon.
+     Desktopul e încadrat cadru cu cadru pe subiect (vezi comentariul din
+     index.html): pe un ecran ultralat, unde `cover` taie sus și jos, vechiul
+     `center 65%` ar fi scos tocmai subiectul din centrul ales la montaj.
+     Fișierul de telefon e deja tăiat pe proporția ecranului, deci `cover` nu
+     mai are ce decupa. */
+  object-position: center center;
 }
 .ldv-phead::after {
   content: "";
