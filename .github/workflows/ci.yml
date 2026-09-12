@@ -27,3 +27,13 @@ jobs:
 
       - name: Build
         run: npm run build
+
+      # Site-ul de rezervări și aplicația de oaspete se construiesc din
+      # același repo, dar cu alte configurații Vite. Fără pașii ăștia un
+      # import rupt în src/booking sau src/guest trecea verde aici și pica
+      # abia în Vercel.
+      - name: Build rezervari.lalivada.ro
+        run: npm run build:booking
+
+      - name: Build guest.lalivada.ro
+        run: npm run build:guest
