@@ -187,15 +187,27 @@ body{
   margin:0; font-size:11px; font-weight:600; letter-spacing:.12em;
   text-transform:uppercase; color:rgba(245,241,232,.55);
 }
-/* Codul: singurul lucru de pe pagina care se citeste de la un metru, cu o
-   mana pe clanta. Cifre monospatiate si distantate, ca 8 si 0 sa nu se
-   confunde la lumina slaba a unei terase. Doar fonturi de sistem — un al
-   treilea font, cerut pentru patru cifre, ar fi inca o descarcare inainte
-   ca omul sa vada codul. */
+/* Blocul de rezerva, sub separator. Codul a fost pana acum PRIMUL lucru
+   sub eticheta, la 46px — atat de mare incat era, implicit, „ce ai de
+   facut". Oaspetii tastau cifrele pe incuietoare fara sa mai ajunga cu
+   ochii la buton, mai jos. Acum e sub el, dupa o linie, cu propria
+   eticheta mica ce spune direct ca e varianta secundara. Ramane totusi
+   citibil de la un metru: cand nu e semnal, butonul n-are cum sa ceara
+   serverul, iar atunci codul de aici e singurul drum spre usa. */
+.g-hero-rezerva{
+  margin-top:16px; padding-top:14px;
+  border-top:1px solid rgba(245,241,232,.14);
+}
+.g-hero-rezerva .g-eticheta{ margin-bottom:4px; }
+/* Cifre monospatiate si distantate, ca 8 si 0 sa nu se confunde la lumina
+   slaba a unei terase. Doar fonturi de sistem — un al treilea font, cerut
+   pentru patru cifre, ar fi inca o descarcare inainte ca omul sa vada
+   codul. 32px, nu cei 46px de dinainte: mai mic decat butonul de deasupra,
+   dar tot de doua ori cat restul textului de pe card. */
 .g-cod{
   font-family:ui-monospace,'SF Mono',Menlo,Consolas,monospace;
-  font-size:46px; font-weight:600; letter-spacing:.16em;
-  margin:6px 0 5px; line-height:1.1;
+  font-size:32px; font-weight:600; letter-spacing:.14em;
+  margin:0 0 4px; line-height:1.15;
   user-select:all; -webkit-user-select:all;
 }
 /* Diezul e ce se apasa dupa cifre pe tastatura yalei. Ceva mai stins decat
@@ -204,14 +216,26 @@ body{
 .g-diez{ color:rgba(245,241,232,.5); margin-left:.06em; }
 .g-valabil{ margin:0; font-size:13px; color:rgba(245,241,232,.62); }
 .g-valabil b{ color:var(--g-pe-inchis); font-weight:600; }
-.g-cod-lipsa{ margin:8px 0 0; font-size:14px; color:rgba(245,241,232,.75); }
+/* Acelasi separator ca g-hero-rezerva, chiar daca elementul e altul: cardul
+   trebuie sa arate la fel de asezat cu codul gata sau nepregatit, nu doar
+   in cazul fericit. */
+.g-cod-lipsa{
+  margin:16px 0 0; padding-top:14px;
+  border-top:1px solid rgba(245,241,232,.14);
+  font-size:14px; color:rgba(245,241,232,.75);
+}
 
+/* PRIMUL lucru de sub eticheta, inaintea codului — vezi comentariul din
+   App.jsx pentru motivul reasezarii. Cu nimic altceva deasupra care sa-i
+   ia ochiul, marimea de aici conteaza mai mult decat inainte: font si
+   padding usor peste vechile 16px/15px, ca sa poarte greutatea de „primul
+   pas", nu doar de actiune oarecare intr-un card. */
 .g-usa{
-  margin-top:18px; width:100%; border:0; border-radius:12px;
+  margin-top:16px; width:100%; border:0; border-radius:12px;
   background:var(--champagne); color:var(--charcoal);
-  font:inherit; font-size:16px; font-weight:600;
-  padding:15px 18px; cursor:pointer;
-  display:flex; align-items:center; justify-content:center; gap:9px;
+  font:inherit; font-size:17px; font-weight:600;
+  padding:17px 18px; cursor:pointer;
+  display:flex; align-items:center; justify-content:center; gap:10px;
   touch-action:manipulation;
 }
 .g-usa:disabled{ opacity:.5; cursor:default; }
@@ -229,7 +253,7 @@ body{
     animation:none; background:#eadcc4; box-shadow:0 0 0 4px rgba(200,177,138,.35);
   }
 }
-.g-usa svg{ width:19px; height:19px; stroke:currentColor; fill:none;
+.g-usa svg{ width:21px; height:21px; stroke:currentColor; fill:none;
   stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
 .g-usa-stare{
   margin:10px 0 0; font-size:13.5px; text-align:center;

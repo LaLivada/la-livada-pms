@@ -916,11 +916,18 @@ export default function App() {
          Si e legatura de telefon, nu text: exact aici oaspetele are o mana
          pe clanta si cealalta pe telefon — un numar de copiat cu degetul e
          un pas in plus fix in clipa in care nu are rabdare de el.
+         Ordinea pasilor urmeaza acum ordinea de pe card: butonul intai (e
+         gratis sa incerci din nou), codul pe tastatura ca rezerva, apelul la
+         urma. Inainte spunea „incearca intai codul" — exact obiceiul pe care
+         schimbarea din card incearca sa-l descurajeze; ramas asa, ar fi
+         contrazis cardul chiar in panoul care explica ce sa faci cand ceva
+         nu merge.
          `text` primeste noduri, nu doar siruri; restul punctelor vin din
          continut.js, care e .js si nu poate purta JSX. */
       text: (
         <>
-          Încearcă întâi codul pe tastatură, apoi sună-l pe {ASISTENTA.nume} la{" "}
+          Apasă din nou butonul de deschidere. Dacă tot nu merge, tastează
+          codul pe ușă sau sună-l pe {ASISTENTA.nume} la{" "}
           <a href={`tel:${ASISTENTA.telefon}`}>{ASISTENTA.scris}</a>. Răspundem non-stop.
         </>
       ),
@@ -960,12 +967,12 @@ export default function App() {
       </div>
 
       <div className="g-hero">
-        {/* Eticheta codului in stanga, camera in dreapta, pe acelasi rand.
-            Randul de sus al cardului raspunde astfel la amandoua intrebarile
-            omului din fata usii — la ce usa si cu ce cod — fara sa coste
+        {/* Eticheta in stanga, camera in dreapta, pe acelasi rand. Randul de
+            sus al cardului raspunde astfel la amandoua intrebarile omului
+            din fata usii — la ce usa si ce poate face aici — fara sa coste
             doua randuri. */}
         <div className="g-hero-sus">
-          <p className="g-eticheta">Cod de acces</p>
+          <p className="g-eticheta">Acces cameră</p>
           {(felCamera || nrCamera) && (
             <p className="g-hero-camera">
               {felCamera && <span className="g-hero-camera-fel">{felCamera}</span>}
@@ -973,26 +980,39 @@ export default function App() {
             </p>
           )}
         </div>
+
+        {/* SCHIMBARE RADICALA fata de asezarea veche (cod urias, apoi buton
+            mic dedesubt): proprietarul a vazut in practica oaspeti care
+            tastau codul de mana pe incuietoare, fara sa observe ca exista un
+            buton care deschide direct. Ordinea veche spunea implicit „iata
+            ce ai de facut" despre cifre, inaintea oricarui indemn spre
+            buton — cine citeste un numar mare, in fata usii, porneste sa-l
+            tasteze inainte ca ochii sa ajunga mai jos.
+            Butonul e acum primul lucru de sub eticheta. Codul ramane pe
+            pagina — e inca necesar cand nu e semnal, caz in care butonul
+            n-are cum sa ceara serverul — dar cadrat explicit ca rezerva,
+            sub un separator, nu ca pasul de urmat.
+            Butonul tot NU depinde de cod: cand generarea codului esueaza la
+            yala, oaspetele ramane fara cifre, iar deschiderea de aici e
+            singurul lucru care il baga in camera. */}
+        <ButonUsa cod={cod} />
+
         {acces?.code ? (
-          <>
+          <div className="g-hero-rezerva">
+            <p className="g-eticheta">Sau tastează codul pe ușă</p>
             {/* Diezul face parte din ce se tasteaza pe yala, deci se
                 afiseaza langa cifre, nu se lasa pe seama memoriei. */}
             <p className="g-cod">{acces.code}<span className="g-diez">#</span></p>
             <p className="g-valabil">
               Valabil până <b>{ziSiOra(acces.validUntil)}</b>
             </p>
-          </>
+          </div>
         ) : (
           <p className="g-cod-lipsa">
             Codul nu e încă pregătit. Reîncarcă pagina în câteva minute sau
-            sună-ne — între timp, poți intra cu butonul de mai jos.
+            sună-ne — între timp, poți intra cu butonul de mai sus.
           </p>
         )}
-        {/* Butonul NU depinde de cod. Cand generarea codului esueaza la
-            yala, oaspetele ramane fara cifre — si atunci deschiderea de
-            aici e singurul lucru care il baga in camera. Legat de cod,
-            ar fi lipsit exact cand e mai necesar. */}
-        <ButonUsa cod={cod} />
       </div>
 
       {/* Fisa sta AICI, sub cardul cu codul si usa: deasupra ei ramane tot ce-i
