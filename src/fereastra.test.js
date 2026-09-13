@@ -1,4 +1,11 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
+
+/* Functiile testate sunt pure, dar stau in stratul de date, care
+   construieste clientul Supabase la import — iar `createClient` arunca fara
+   VITE_SUPABASE_URL. Local trece fiindca exista .env; in CI nu exista, si
+   exact asa a picat pe 13 septembrie 2026. Testul nu atinge reteaua. */
+vi.mock("./supabase.js", () => ({ supabase: {} }));
+
 import {
   fereastraImplicita, bucatiLipsa, uneste, doarNoi,
   FEREASTRA_ZILE_IN_URMA, FEREASTRA_ZILE_INAINTE, PAS_LARGIRE_ZILE,
