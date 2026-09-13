@@ -1016,7 +1016,11 @@ export default function App() {
       {fisaGata !== true && (
         <>
           <button type="button" className="g-fisa-banner" onClick={() => setAratFisa(true)}>
-            <Foaie />
+            {/* Span propriu, nu iconita direct: inelul care pulseaza (vezi
+                .g-fisa-banner-icon in styles.js) se ancoreaza cu :after de
+                acest invelis, nu de svg — un svg n-are cutie proprie fata de
+                care sa pozitionezi un inel in jurul lui. */}
+            <span className="g-fisa-banner-icon"><Foaie /></span>
             <span className="g-fisa-banner-text">
               <span className="g-fisa-banner-titlu">Completează fișa de cazare</span>
               <span className="g-fisa-banner-sub">Obligatorie la cazare, o singură dată.</span>

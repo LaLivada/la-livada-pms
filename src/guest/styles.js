@@ -279,6 +279,30 @@ body{
   stroke:currentColor; fill:none;
   stroke-width:1.6; stroke-linecap:round; stroke-linejoin:round;
 }
+/* Inelul care pulseaza in jurul iconitei — cerut dupa un test pe telefon:
+   bannerul static nu sarea suficient in ochi. Continuu, nu de cateva ori si
+   gata (ca la usa): un oaspete care ajunge, se uita in alta parte o clipa
+   si revine tot il gaseste miscandu-se, nu inghetat de mult.
+   Un singur element animat pe acest ecran (iconita), nu tot bannerul —
+   o pulsatie pe fond, text si icon deodata ar fi fost mai multa miscare
+   decat ajuta, nu mai putina. Champagne, nu olive sau alb: e acelasi accent
+   cald folosit la clipirea usii (rgba(200,177,138,...) de mai sus), deci
+   „asta cere atentie" arata la fel in toata pagina. */
+.g-fisa-banner-icon{
+  position:relative; display:flex; flex-shrink:0;
+}
+.g-fisa-banner-icon::after{
+  content:""; position:absolute; inset:-6px;
+  border-radius:50%; border:2px solid var(--champagne);
+  animation:g-fisa-puls 2s ease-out infinite;
+}
+@keyframes g-fisa-puls{
+  0%{ transform:scale(.7); opacity:.9; }
+  70%,100%{ transform:scale(1.55); opacity:0; }
+}
+@media (prefers-reduced-motion: reduce){
+  .g-fisa-banner-icon::after{ animation:none; opacity:0; }
+}
 .g-fisa-banner-text{ display:block; min-width:0; }
 .g-fisa-banner-titlu{ display:block; font-size:15px; font-weight:600; }
 /* Opacitate, nu un jeton nou: --g-pe-inchis e fix in ambele teme (vezi
