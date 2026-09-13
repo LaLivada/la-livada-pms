@@ -2070,7 +2070,7 @@ export async function doCheckOut(res, reservations, updateReservations, core, ho
   if (!canCheckOut(res)) return false;
   const next = reservations.map((r) => (r.id === res.id ? { ...r, status: "checkedout" } : r));
   await updateReservations(next);
-  await updateHousekeeping({ ...housekeeping, [res.roomId]: { status: "dirty", updatedAt: new Date().toISOString() } });
+  await updateHousekeeping(res.roomId, "dirty");
   const room = core.rooms.find((x) => x.id === res.roomId);
   await audit.push("Check-out", `${room?.name || res.roomId} · camera trecută pe „murdară”`);
   toaster.show(`Check-out făcut · ${room?.name || ""} trecută pe „murdară”`, { tone: "ok" });

@@ -16,9 +16,10 @@
  */
 import { supabase } from "../supabase.js";
 import {
-  camelRes, camelOcupare, camelGuest, camelRoom, camelGroup,
+  camelRes, camelOcupare, camelGuest, camelRoom, camelGroup, camelBlocaj,
   camelBillingCustomer, camelVatRate, camelProduct, camelPaymentMethod,
 } from "./mapari.js";
+import { mapaStatusCamere } from "./curatenie.js";
 
 /* Trimite doar diferentele: randuri noi/modificate, prin upsert.
  *
@@ -176,9 +177,7 @@ function mapeazaFereastra(fer, doarOcupare) {
   const res = fer?.reservations || [];
   return {
     reservations: res.filter((r) => r.source !== "blocaj").map(doarOcupare ? camelOcupare : camelRes),
-    blocks: res.filter((r) => r.source === "blocaj").map((b) => ({
-      id: b.id, roomId: b.room_id, start: b.checkin, end: b.checkout, reason: b.notes || "",
-    })),
+    blocks: res.filter((r) => r.source === "blocaj").map(camelBlocaj),
     groups: (fer?.groups || []).map(camelGroup),
     guests: (fer?.guests || []).map(camelGuest),
   };
@@ -203,6 +202,15 @@ export async function incarcaPerioada(rol, de, pana) {
   return mapeazaFereastra(await cereFereastra(de, pana, false), rol === "housekeeping");
 }
 
+/* Grupurile dupa id — pentru o rezervare de grup sosita prin Realtime, cand
+   grupul ei nu e inca in browser (lib/schimbari-live.js, ceLipseste). */
+export async function incarcaGrupuri(ids) {
+  if (!ids?.length) return [];
+  const { data, error } = await supabase.from("res_groups").select("*").in("id", ids);
+  if (error) throw error;
+  return (data || []).map(camelGroup);
+}
+
 /* `rol` decide DE UNDE se citesc rezervarile.
  *
  * Camerista nu mai citeste tabelul `reservations`, ci vederea
@@ -224,7 +232,7 @@ export async function incarcaPerioada(rol, de, pana) {
  * pornire; le aduce calendarul cand ajunge acolo (incarcaPerioada). */
 export async function loadAll(rol, fereastra = fereastraImplicita()) {
   const doarOcupare = rol === "housekeeping";
-  const [rooms, fer, rates, seasons, onlineTiers, billingCustomers, vatRates, products, paymentMethods] = await Promise.all([
+  const [rooms, fer, rates, seasons, onlineTiers, billingCustomers, vatRates, products, paymentMethods, statusCamere] = await Promise.all([
     supabase.from("rooms").select("*").order("sort_order"),
     cereFereastra(fereastra.de, fereastra.pana, true),
     supabase.from("rates").select("*").order("room_type"),
@@ -234,8 +242,9 @@ export async function loadAll(rol, fereastra = fereastraImplicita()) {
     supabase.from("vat_rates").select("*"),
     supabase.from("products").select("*").order("sort_order"),
     supabase.from("payment_methods").select("*").order("sort_order"),
+    supabase.from("room_status").select("*"),
   ]);
-  for (const r of [rooms, rates, seasons, onlineTiers, billingCustomers, vatRates, products, paymentMethods]) if (r.error) throw r.error;
+  for (const r of [rooms, rates, seasons, onlineTiers, billingCustomers, vatRates, products, paymentMethods, statusCamere]) if (r.error) throw r.error;
 
   const base = {};
   rates.data.forEach((r) => {
@@ -262,5 +271,8 @@ export async function loadAll(rol, fereastra = fereastraImplicita()) {
     vatRates: vatRates.data.map(camelVatRate),
     products: products.data.map(camelProduct),
     paymentMethods: paymentMethods.data.map(camelPaymentMethod),
+    /* Statusul de curatenie, din `room_status` (faza 2, A6) — vezi
+       data/curatenie.js. */
+    housekeeping: mapaStatusCamere(statusCamere.data),
   };
 }

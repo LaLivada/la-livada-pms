@@ -13,7 +13,7 @@ import { ziLocala, adaugaZile } from "../lib/timp.js";
 import { cazatAcum } from "../lib/tranzitii.js";
 import { mesajEroare } from "../lib/errors.js";
 import { audit, isAdmin } from "../lib/audit.js";
-import { fmtMoney, fmtDate, validatePrice } from "../lib/format.js";
+import { fmtMoney, fmtDate, fmtDateTime, validatePrice } from "../lib/format.js";
 import { ROOM_TYPE, DEFAULT_TAGS, HK_STATUSES, DEFAULT_ONLINE_TIERS } from "../lib/constante.js";
 import { Dialog, toaster, useModalLock } from "../ui/primitive.jsx";
 import { cheamaAcces } from "./acces.jsx";
@@ -180,8 +180,9 @@ export function HousekeepingView({ core, reservations, housekeeping, updateHouse
     reservations.some((r) => r.roomId === roomId && cazatAcum(r));
 
   const setStatus = async (roomId, status) => {
-    const next = { ...housekeeping, [roomId]: { status, updatedAt: new Date().toISOString() } };
-    await updateHousekeeping(next);
+    /* Un rand, o camera (room_status). Jurnalul doar daca s-a scris — un
+       status respins de baza nu e o actiune. */
+    if (!(await updateHousekeeping(roomId, status))) return;
     const label = HK_STATUSES.find((x) => x.key === status)?.label || status;
     await audit.push("Status cameră", `${core.rooms.find((r) => r.id === roomId)?.name} → ${label}`);
   };
@@ -219,6 +220,11 @@ export function HousekeepingView({ core, reservations, housekeeping, updateHouse
                       </button>
                     ))}
                   </div>
+                  {/* Cine a bifat ultima dată și când — semnate de trigger, nu
+                      de browser. Lipsesc cât timp salvarea e pe drum. */}
+                  {hk.updatedAt && (
+                    <div className="hk-meta">{hk.deCine ? `${hk.deCine} · ` : ""}{fmtDateTime(hk.updatedAt)}</div>
+                  )}
                   {/* Camera fără yală asociată n-are ce deschide — glisorul
                       lipsește cu totul, nu apare dezactivat degeaba. */}
                   {room.accessLockId && (

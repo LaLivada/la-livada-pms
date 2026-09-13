@@ -159,3 +159,18 @@ export const snakeBillingCustomer = (c) => ({
   postal_code: c.postalCode || null, country: c.country || "România",
   email: c.email || null, phone: c.phone || null, guest_id: c.guestId || null,
 });
+
+/* Blocajul e un rand din `reservations` cu source = 'blocaj'; aplicatia il
+   tine intr-o lista separata, cu forma asta. Folosit la incarcarea ferestrei
+   (nucleu.js) si la evenimentele Realtime (lib/schimbari-live.js) — o
+   singura definitie, ca cele doua drumuri sa nu se departeze. */
+export const camelBlocaj = (b) => ({
+  id: b.id, roomId: b.room_id, start: b.checkin, end: b.checkout, reason: b.notes || "",
+});
+
+/* Statusul de curatenie, din tabelul `room_status` (faza 2, A6). Forma e cea
+   pe care o aveau intrarile din vechiul blob `pms:housekeeping:v3`, plus cine
+   a pus statusul — semnat de trigger, nu de browser. */
+export const camelStatusCamera = (r) => ({
+  status: r.status, updatedAt: r.changed_at, deCine: r.changed_by_name || "",
+});

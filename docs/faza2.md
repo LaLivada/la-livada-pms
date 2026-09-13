@@ -10,8 +10,8 @@ Realtime), apoi restul.
 |---|---|---|
 | 4 | B6 — fusul orar unificat | **făcut**, 14 septembrie 2026 (§1) |
 | 6 | D7 — erorile din producție în jurnal | **făcut**, 14 septembrie 2026 (§2) |
-| 1 | A6 — `room_status` ca tabel + Realtime | de făcut |
-| 2 | B3 — Realtime pe `reservations` în fereastră | de făcut |
+| 1 | A6 — `room_status` ca tabel + Realtime | **făcut**, 14 septembrie 2026 (§3) |
+| 2 | B3 — Realtime pe `reservations` în fereastră | **făcut**, 14 septembrie 2026 (§3) |
 | 5 | B7 — facturare atomică | de făcut |
 | 3 | A4 — `activity_log` cu `room_id`/`reservation_id` + arhivare | de făcut |
 | 7 | B5 — integrare + e2e în CI pe baza din migrații | cere al doilea proiect Supabase (la proprietar) |
@@ -152,3 +152,90 @@ tabelul existent: fără serviciu nou, fără cheie nouă, și rândul apare exa
 - Site-ul de rezervări și aplicația de oaspete nu au captură: rulează ca
   `anon`, care nu poate scrie în `activity_log`. Rămâne pentru când vor
   avea un canal propriu.
+
+---
+
+## 3. Statusul camerelor ca tabel (A6) și Realtime (B3)
+
+### 3.1 Ce era greșit
+
+Statusul de curățenie stătea într-un blob JSON din `app_state` (cheia
+`pms:housekeeping:v3`), citit la pornire și **rescris întreg** la fiecare
+bifare: cine punea „curată" pe o cameră trimitea de fapt toate cele 16, cu
+starea pe care o avea el în browser. Două cameriste pe două telefoane își
+puteau anula reciproc bifările fără să vadă nimic — ultimul care scria
+câștiga.
+
+Iar fără Realtime, două tablete deschise nu se vedeau una pe alta deloc:
+starea se reîncărca doar la pornire, după două minute de stat în fundal
+(`lib/reincarcare.js`) și după o salvare eșuată. O cameră „liberă" în
+calendarul unui recepționer putea fi deja ocupată de celălalt; conflictul se
+afla abia la salvare, din refuzul pe `updated_at`.
+
+### 3.2 Cum funcționează
+
+**Tabelul** (migrarea `room_status_si_realtime`, oglindită în `schema.sql`):
+`room_status (room_id pk, status, changed_at, changed_by, changed_by_name)`,
+o linie per cameră. Browserul trimite doar `room_id` și `status` (upsert pe
+un singur rând, `data/curatenie.js`); trigger-ul `room_status_semneaza` pune
+momentul și cine — ca la `activity_log`. RLS: citește și scrie oricine e în
+`staff`, camerista inclusiv; nu șterge nimeni (rândul pleacă odată cu
+camera). Rândurile de azi au fost aduse din blob cu stampilele lor; cheia
+veche rămâne în `app_state`, ca `pms:log:v3`, pentru filele cu bundle-ul
+vechi.
+
+**Realtime**: publicația `supabase_realtime` cuprinde `reservations` și
+`room_status`. Un singur canal ([src/data/live.js](../src/data/live.js)),
+deschis după autentificare; RLS se aplică și pe flux, deci fiecare filă
+primește doar ce ar putea citi cu un SELECT. Ce se face cu un eveniment e în
+[src/lib/schimbari-live.js](../src/lib/schimbari-live.js), pur și testat:
+
+- **după id**: INSERT/UPDATE înlocuiește rândul (sau îl adaugă, dacă e din
+  afara ferestrei încărcate), DELETE îl scoate; un blocaj (`source =
+  'blocaj'`) merge în lista de blocaje, nu în rezervări;
+- **mai vechi nu se aplică**: un eveniment cu `updated_at` / `changed_at`
+  sub ce e deja în browser e ignorat — evenimentele vin în ordinea
+  commit-ului, dar pot ajunge după o reîncărcare care le conținea deja;
+- **oaspetele și grupul** unei rezervări sosite de pe altă tabletă se aduc
+  la cerere (`oaspetiDupaId`, `incarcaGrupuri`) și intră în cache ca la
+  căutare — `core.guests` e parțial (docs/faza1.md, 2.4);
+- **fără găuri**: încărcarea inițială pornește abia după prima abonare (cel
+  mult 4 secunde de așteptare, apoi pornește oricum, fără live, iar abonarea
+  venită mai târziu reîncarcă); evenimentele sosite cât timp o încărcare e
+  pe drum stau în coadă și se rejoacă peste starea proaspătă; la orice
+  re-abonare după o întrerupere se reîncarcă tot, fiindcă evenimentele din
+  pauză s-au pierdut (Realtime nu are replay);
+- **plasa de siguranță** de două minute la revenirea pe tab rămâne: un
+  socket căzut în buzunar e observat de heartbeat abia după zeci de secunde.
+
+**Ecranul cameristei**: bifarea se vede pe loc (optimist, fără stampilă),
+apoi cardul arată cine și când a bifat ultima dată, semnate de server; la
+eșec revine doar camera atinsă. Check-out-ul din recepție trece camera pe
+„murdară" prin același rând.
+
+**Cost**: planul Free are 200 de conexiuni concurente și 2 milioane de mesaje
+pe lună; aplicația are trei conturi și un canal per filă.
+
+### 3.3 Verificare
+
+- `src/schimbari-live.test.js` — aplicarea evenimentelor (INSERT / UPDATE /
+  DELETE, blocaje, vederea cameristei, „mai vechi nu se aplică", ecoul
+  propriei salvări), ce lipsește, urmăritorul abonării, coada.
+- În bază, după migrare: 16 rânduri în `room_status` cu stampilele din blob,
+  trigger-ul și cele trei politici, `reservations` și `room_status` în
+  publicație.
+- **De verificat de proprietar, pe două dispozitive**: o bifare în Status
+  camere apare pe celălalt fără refresh; o rezervare nouă din calendar apare
+  în calendarul celuilalt. Eu nu am cont în aplicație și nu mă autentific.
+
+### 3.4 Ce NU s-a schimbat
+
+- `activity_log` nu e pe Realtime: jurnalul se citește la pornire, ca până
+  acum. Auditul îl lista la B3, dar câștigul e mic (e un ecran de
+  consultare) și ecoul propriei scrieri s-ar dubla cu intrarea locală pusă
+  de `audit.push`.
+- Modificările de nume la oaspeți și grupuri nu vin live — doar rezervările
+  și statusul camerelor.
+- Camerista nu primește evenimente pe `reservations` (n-are politică de
+  citire pe tabel; calendarul ei e vederea de ocupare) — pentru ea
+  rezervările se reîncarcă ca înainte, statusul camerelor vine live.

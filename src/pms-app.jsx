@@ -47,8 +47,14 @@ import {
 } from "./data/mapari.js";
 import {
   syncTable, syncTableIntreg, stergeRanduri, saveRatesAndSeasons, loadAll,
-  incarcaPerioada, fereastraImplicita, bucatiLipsa, uneste, doarNoi,
+  incarcaPerioada, fereastraImplicita, bucatiLipsa, uneste, doarNoi, incarcaGrupuri,
 } from "./data/nucleu.js";
+import { scrieStatusCamera } from "./data/curatenie.js";
+import { aboneazaLaSchimbari } from "./data/live.js";
+import {
+  aplicaSchimbareRezervare, aplicaSchimbareStatusCamera, ceLipseste,
+  urmaritorAbonament, coadaEvenimente, ASTEPTARE_CANAL_MS,
+} from "./lib/schimbari-live.js";
 import {
   Dialog, toaster, ToastHost, Paginare, usePaginare,
   useModalLock, useAduInVizor, useVisualViewportHeight, PdfPreview,
@@ -382,6 +388,11 @@ function PMSApp() {
   const [blocks, setBlocks] = useState([]);
   const [initError, setInitError] = useState(null);
   const [reloadKey, setReloadKey] = useState(0);
+  /* Realtime (faza 2, B3): incarcarea porneste abia dupa prima abonare, iar
+     evenimentele sosite in timpul unei incarcari asteapta in coada — vezi
+     efectul de abonare, mai jos, si lib/schimbari-live.js. */
+  const [canalGata, setCanalGata] = useState(false);
+  const coadaRef = useRef(coadaEvenimente());
   /* Intervalul de rezervari incarcat in browser ({de, pana} ISO) — vezi
      docs/faza1.md. Ref, nu stare: nu se deseneaza nicaieri, iar cine il
      citeste (asiguraPerioada) are nevoie de valoarea de acum, nu de cea de la
@@ -475,12 +486,13 @@ function PMSApp() {
     };
   }, [currentUser]);
 
-  /* Reincarcare la revenirea pe tab dupa o absenta mai lunga. Fara
-     realtime, un tab tinut in fundal (tableta lasata pe masa, telefonul in
-     buzunar) arata la intoarcere starea de cand a plecat. Pragul si motivul
-     lui stau in lib/reincarcare.js; reincarcarea trece prin acelasi
-     reloadKey ca cea de dupa o salvare esuata, deci fara skeleton — datele
-     vechi raman pe ecran pana vin cele noi. */
+  /* Reincarcare la revenirea pe tab dupa o absenta mai lunga — plasa de
+     siguranta de dinaintea Realtime-ului, pastrata: daca socketul a cazut
+     cat timp tableta a stat in buzunar si nimeni n-a observat inca,
+     intoarcerea dupa doua minute reincarca oricum. Pragul si motivul lui
+     stau in lib/reincarcare.js; reincarcarea trece prin acelasi reloadKey
+     ca cea de dupa o salvare esuata, deci fara skeleton — datele vechi raman
+     pe ecran pana vin cele noi. */
   useEffect(() => {
     if (!currentUser) return;
     let ascunsDeLa = null;
@@ -493,12 +505,107 @@ function PMSApp() {
     return () => document.removeEventListener("visibilitychange", laVizibilitate);
   }, [currentUser]);
 
+  /* Oglinzi sincrone ale starii. Functiile de scriere de mai jos si
+     evenimentele Realtime citesc de aici, nu din starea React: doua scrieri
+     una dupa alta, sau un eveniment sosit intre doua randari, ar porni
+     altfel de la o lista deja depasita. Se tin la zi si prin useEffect, si
+     direct, acolo unde ordinea conteaza. */
+  const coreRef = useRef(core);
+  useEffect(() => { coreRef.current = core; }, [core]);
+  const resRef = useRef(reservations);
+  useEffect(() => { resRef.current = reservations; }, [reservations]);
+  const grRef = useRef(groups);
+  useEffect(() => { grRef.current = groups; }, [groups]);
+  const blRef = useRef(blocks);
+  useEffect(() => { blRef.current = blocks; }, [blocks]);
+  const housekeepingRef = useRef(housekeeping);
+  useEffect(() => { housekeepingRef.current = housekeeping; }, [housekeeping]);
+
+  /* Oaspetele si grupul unei rezervari sosite prin Realtime de pe alta
+     tableta: `core.guests` e un cache partial (docs/faza1.md, 2.4), deci
+     de obicei nu-i are. Se aduc la cerere si intra in cache ca la cautare —
+     doar cei necunoscuti (doarNoi). */
+  const aduLipsurile = useCallback(async (rand) => {
+    const { guestIds, groupIds } = ceLipseste(rand, { guests: coreRef.current.guests, groups: grRef.current });
+    if (!guestIds.length && !groupIds.length) return;
+    try {
+      const [oa, gr] = await Promise.all([
+        guestIds.length ? dateOaspeti.oaspetiDupaId(guestIds) : [],
+        groupIds.length ? incarcaGrupuri(groupIds) : [],
+      ]);
+      if (oa.length) {
+        coreRef.current = { ...coreRef.current, guests: doarNoi(coreRef.current.guests || [], oa) };
+        setCore((c) => ({ ...c, guests: doarNoi(c.guests || [], oa) }));
+      }
+      if (gr.length) {
+        grRef.current = doarNoi(grRef.current, gr);
+        setGroups((cur) => doarNoi(cur, gr));
+      }
+    } catch (e) {
+      console.error("Oaspetele sau grupul rezervarii sosite live nu s-a putut aduce", e);
+    }
+  }, []);
+
+  /* REALTIME (faza 2, B3 — docs/faza2.md §3). Un canal pe `reservations` si
+     `room_status`: ce scrie alta tableta apare aici in aceeasi secunda, fara
+     refresh. Logica de aplicare e pura, in lib/schimbari-live.js; aici doar
+     legarea:
+       - incarcarea initiala porneste abia dupa prima abonare (canalGata),
+         ca sa nu ramana nicio gaura intre snapshot si primul eveniment;
+         daca Realtime nu raspunde in cateva secunde, pornim oricum, fara
+         live, iar abonarea venita mai tarziu reincarca;
+       - evenimentele din timpul unei incarcari se tin in coada si se
+         rejoaca peste starea proaspata (efectul de incarcare, mai jos);
+       - la RE-abonare (dupa o intrerupere) se reincarca tot, fiindca
+         evenimentele din pauza s-au pierdut. */
+  useEffect(() => {
+    if (!currentUser) { setCanalGata(false); return; }
+    const doarOcupare = currentUser.role === "housekeeping";
+    const decide = urmaritorAbonament();
+    const aplica = (tabel, ev) => {
+      if (coadaRef.current.retine({ tabel, ev })) return;
+      if (tabel === "room_status") {
+        const dupa = aplicaSchimbareStatusCamera(housekeepingRef.current, ev);
+        if (dupa === housekeepingRef.current) return;
+        housekeepingRef.current = dupa; setHousekeeping(dupa);
+        return;
+      }
+      const inainte = { reservations: resRef.current, blocks: blRef.current };
+      const dupa = aplicaSchimbareRezervare(inainte, ev, doarOcupare);
+      if (dupa === inainte) return;
+      resRef.current = dupa.reservations; setReservations(dupa.reservations);
+      blRef.current = dupa.blocks; setBlocks(dupa.blocks);
+      if (ev.tip !== "DELETE") {
+        const rand = dupa.reservations.find((x) => x.id === ev.nou.id);
+        if (rand) aduLipsurile(rand);
+      }
+    };
+    const laDecizie = (d) => {
+      if (d === "porneste") setCanalGata(true);
+      else if (d === "reincarca") setReloadKey((k) => k + 1);
+    };
+    const asteptare = setTimeout(() => laDecizie(decide("asteptare")), ASTEPTARE_CANAL_MS);
+    const opreste = aboneazaLaSchimbari({
+      laRezervare: (ev) => aplica("reservations", ev),
+      laStatusCamera: (ev) => aplica("room_status", ev),
+      laStare: (stare, eroare) => {
+        if (eroare) console.error("Canalul Realtime:", stare, eroare);
+        laDecizie(decide(stare));
+      },
+    });
+    return () => { clearTimeout(asteptare); opreste(); };
+  }, [currentUser, aduLipsurile]);
+
   useEffect(() => {
     if (!authChecked) return;
+    /* Cu utilizator, asteptam prima abonare Realtime (sau renuntarea la ea)
+       — vezi efectul de abonare, mai sus. */
+    if (currentUser && !canalGata) return;
     let alive = true;
     (async () => {
       try {
         if (!currentUser) { if (alive) setLoading(false); return; }
+        if (!coadaRef.current.inCurs) coadaRef.current.incepe();
         const db = await loadAll(currentUser.role, fereastraImplicita());
         // Setarile care nu au tabel propriu (useri, ore check-in etc.)
         // raman in app_state; restul vine acum din tabele reale.
@@ -546,18 +653,32 @@ function PMSApp() {
         const gr = db.groups.filter((g) => r.some((x) => x.groupId === g.id));
         const bl = db.blocks;
 
-        let h = await loadShared(K.hk, null);
-        if (!h || typeof h !== "object" || Array.isArray(h)) {
-          h = {};
-          c.rooms.forEach((rm) => { h[rm.id] = { status: "clean", updatedAt: new Date().toISOString() }; });
-          await saveShared(K.hk, h);
-        }
         const lg = await incarcaJurnal();
         if (!alive) return;
+        /* Evenimentele Realtime sosite cat timp incarcarea era pe drum se
+           rejoaca peste starea proaspata — altfel le-ar sterge listele abia
+           sosite (lib/schimbari-live.js, coadaEvenimente). Cele deja
+           cuprinse in snapshot nu schimba nimic (aceeasi stampila). */
+        let rez = { reservations: r, blocks: bl }, h = db.housekeeping;
+        const doarOcupare = currentUser.role === "housekeeping";
+        const sositeLive = [];
+        for (const { tabel, ev } of coadaRef.current.termina()) {
+          if (tabel === "room_status") { h = aplicaSchimbareStatusCamera(h, ev); continue; }
+          rez = aplicaSchimbareRezervare(rez, ev, doarOcupare);
+          if (ev.tip !== "DELETE") sositeLive.push(ev.nou.id);
+        }
         audit.entries = lg; audit.setEntries = setLogEntries;
         fereastraRef.current = db.fereastra;
-        setCore(c); setReservations(r); setHousekeeping(h);
-        setGroups(gr); setBlocks(bl); setLogEntries(lg);
+        /* Oglinzile se pun la zi ACUM, nu la urmatoarea randare: un eveniment
+           sosit intre timp ar porni altfel de la listele vechi. */
+        coreRef.current = c; resRef.current = rez.reservations; blRef.current = rez.blocks;
+        grRef.current = gr; housekeepingRef.current = h;
+        setCore(c); setReservations(rez.reservations); setHousekeeping(h);
+        setGroups(gr); setBlocks(rez.blocks); setLogEntries(lg);
+        for (const id of sositeLive) {
+          const rand = rez.reservations.find((x) => x.id === id);
+          if (rand) aduLipsurile(rand);
+        }
       } catch (err) {
         console.error("PMS init failed", err);
         if (alive) setInitError(mesajEroare(err, "Aplicația nu a putut porni"));
@@ -566,7 +687,7 @@ function PMSApp() {
       }
     })();
     return () => { alive = false; };
-  }, [reloadKey, currentUser, authChecked]);
+  }, [reloadKey, currentUser, authChecked, canalGata, aduLipsurile]);
 
   /* Fiecare functie trimite doar randurile schimbate. Starea locala
      se actualizeaza imediat, iar daca scrierea esueaza (de ex. camera
@@ -579,16 +700,6 @@ function PMSApp() {
      „Rezervare creată" langa mesajul de eroare, pentru o rezervare care nu
      exista. Cine anunta un succes trebuie sa verifice valoarea; cine doar
      salveaza in fundal poate sa o ignore, ca inainte. */
-  const coreRef = useRef(core);
-  useEffect(() => { coreRef.current = core; }, [core]);
-  const resRef = useRef(reservations);
-  useEffect(() => { resRef.current = reservations; }, [reservations]);
-  const grRef = useRef(groups);
-  useEffect(() => { grRef.current = groups; }, [groups]);
-  const blRef = useRef(blocks);
-  useEffect(() => { blRef.current = blocks; }, [blocks]);
-  const housekeepingRef = useRef(housekeeping);
-  useEffect(() => { housekeepingRef.current = housekeeping; }, [housekeeping]);
 
   const raporteazaEroare = useCallback((e) => {
     /* Traducerea (coduri Postgres -> limbaj de recepție) sta in
@@ -806,21 +917,30 @@ function PMSApp() {
     }
   }, [currentUser, modificaCacheOaspeti]);
 
-  const updateHousekeeping = useCallback(async (next) => {
-    const before = housekeepingRef.current;
-    setHousekeeping(next);
-    housekeepingRef.current = next;
+  /* O singura camera, un singur rand (`room_status`, faza 2 A6) — nu tot
+     blobul, ca pana pe 14 septembrie 2026. Optimist: cardul se schimba pe
+     loc, fara stampila (o stampila pusa de browser ar putea fi „mai noua"
+     decat cea reala si ar bloca ecoul Realtime al propriei scrieri); cea
+     reala si semnatura vin de la server, prin trigger. La esec revine DOAR
+     camera asta — intre timp pot fi sosit statusuri live pentru altele. */
+  const updateHousekeeping = useCallback(async (roomId, status) => {
+    const inainte = housekeepingRef.current;
+    const optimist = { ...inainte, [roomId]: { status, updatedAt: null, deCine: currentUser?.name || "" } };
+    setHousekeeping(optimist); housekeepingRef.current = optimist;
     try {
-      await saveShared(K.hk, next);
+      const salvat = await scrieStatusCamera(roomId, status);
+      const cuServer = { ...housekeepingRef.current, [roomId]: salvat };
+      setHousekeeping(cuServer); housekeepingRef.current = cuServer;
+      return true;
     } catch (e) {
-      /* Fara asta, un status de curatenie care nu s-a putut salva ramanea
-         afisat ca si cum ar fi fost scris, pana la urmatoarea reincarcare. */
-      console.error("Salvarea statusului camerelor a esuat", e);
-      setHousekeeping(before);
-      housekeepingRef.current = before;
+      console.error("Salvarea statusului camerei a esuat", e);
+      const revenit = { ...housekeepingRef.current };
+      if (inainte[roomId]) revenit[roomId] = inainte[roomId]; else delete revenit[roomId];
+      setHousekeeping(revenit); housekeepingRef.current = revenit;
       toaster.show(mesajEroare(e, "Statusul camerei nu a putut fi salvat"), { tone: "danger" });
+      return false;
     }
-  }, []);
+  }, [currentUser]);
 
   useEffect(() => { audit.user = currentUser; }, [currentUser]);
 
@@ -854,8 +974,8 @@ function PMSApp() {
       : defaultViewFor(currentUser.role));
   }, [currentUser]);
 
-  /* Ceas propriu pentru night audit. Aplicatia nu are realtime si nici
-     polling pe rezervari, deci o fila lasata deschisa peste noapte n-ar
+  /* Ceas propriu pentru night audit. Realtime aduce schimbarile facute de
+     altii, nu trecerea timpului: o fila lasata deschisa peste noapte n-ar
      observa singura ca plecarile de ieri au devenit restante — blocajul ar
      aparea abia la urmatorul refresh. Un tick pe minut e destul: pragul e
      ziua, nu ora. */

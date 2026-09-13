@@ -103,3 +103,13 @@ export async function salveazaOaspete(oaspete) {
   if (error) throw error;
   return camelGuest(data);
 }
+
+/* Oaspetii dupa id — pentru o rezervare sosita prin Realtime de pe alta
+   tableta, al carei oaspete nu e inca in cache (lib/schimbari-live.js,
+   ceLipseste). Intra in cache ca la cautare: doar cei necunoscuti. */
+export async function oaspetiDupaId(ids) {
+  if (!ids?.length) return [];
+  const { data, error } = await supabase.from("guests").select("*").in("id", ids);
+  if (error) throw error;
+  return (data || []).map(camelGuest);
+}

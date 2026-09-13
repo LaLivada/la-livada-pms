@@ -2,7 +2,8 @@
  *
  * Ce a mai ramas din vremea in care TOATA aplicatia traia in cateva blob-uri
  * JSON. Restul s-a mutat pe tabele reale (vezi nucleu.js); aici raman doar
- * lucrurile care chiar sunt niste setari libere: curatenia si blocajele.
+ * lucrurile care chiar sunt niste setari libere (`pms:core:v3`) si cheia
+ * yalelor. Curatenia a plecat si ea, pe 14 septembrie 2026, in `room_status`.
  *
  * Jurnalul a plecat si el, pe 9 septembrie 2026, in tabelul `activity_log`
  * (vezi lib/audit.js). Un blob rescris intreg la fiecare adaugare nu poate fi
@@ -16,7 +17,9 @@ import { supabase } from "../supabase.js";
 export const K = {
   core: "pms:core:v3",
   res: "pms:reservations:v3",
-  hk: "pms:housekeeping:v3",
+  /* `pms:housekeeping:v3` nu se mai citeste din 14 septembrie 2026: statusul
+     de curatenie sta in tabelul `room_status` (data/curatenie.js). Cheia
+     ramane in baza, ca `pms:log:v3`, pentru filele cu bundle-ul vechi. */
   groups: "pms:groups:v3",
   blocks: "pms:blocks:v3",
   /* Setarile accesului electronic. Spre deosebire de restul cheilor de aici,
