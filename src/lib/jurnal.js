@@ -60,13 +60,26 @@ const timp = (e) => {
   return Number.isNaN(t) ? 0 : t;
 };
 
+/* Cat asteapta ecranul Jurnal, dupa o intrare noua, inainte sa receara
+   lista camerei din baza — cat sa fi ajuns inserarea acolo. */
+export const INTARZIERE_RECERERE_JURNAL_MS = 1500;
+
 /* Filtrul din spatele celor doua select-uri. Camera goala („") sau zi goala
  * inseamna „toate" — acelasi contract ca optiunea „Toate camerele"/„Toate
  * zilele" din select, ca ecranul sa nu traduca „” in altceva.
+ *
+ * Din 14 septembrie 2026 (faza 2, A4) intrarile pot avea `roomId` — coloana
+ * din activity_log. Cand exista, ea decide (dupa `cameraId`); cand lipseste
+ * (intrari vechi, sau scrise de un ecran care nu stie camera), se citeste
+ * din text, ca inainte (dupa numele `camera`).
  */
-export function filtreazaJurnal(intrari, { camera = "", zi = "" } = {}, numeCamere = []) {
+export function filtreazaJurnal(intrari, { camera = "", cameraId = "", zi = "" } = {}, numeCamere = []) {
   let lista = intrari || [];
-  if (camera) lista = lista.filter((e) => cameraDinDetaliu(e?.detail, numeCamere) === camera);
+  if (camera || cameraId) {
+    lista = lista.filter((e) => (e?.roomId
+      ? e.roomId === cameraId
+      : cameraDinDetaliu(e?.detail, numeCamere) === camera));
+  }
   if (zi) lista = lista.filter((e) => ziuaIntrarii(e?.ts) === zi);
   return lista;
 }

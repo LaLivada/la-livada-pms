@@ -13,7 +13,7 @@ Realtime), apoi restul.
 | 1 | A6 — `room_status` ca tabel + Realtime | **făcut**, 14 septembrie 2026 (§3) |
 | 2 | B3 — Realtime pe `reservations` în fereastră | **făcut**, 14 septembrie 2026 (§3) |
 | 5 | B7 — facturare atomică | **făcut**, 14 septembrie 2026 (§4) |
-| 3 | A4 — `activity_log` cu `room_id`/`reservation_id` + arhivare | de făcut |
+| 3 | A4 — `activity_log` cu `room_id`/`reservation_id` + arhivare | **făcut**, 14 septembrie 2026 (§5) |
 | 7 | B5 — integrare + e2e în CI pe baza din migrații | cere al doilea proiect Supabase (la proprietar) |
 
 ---
@@ -309,3 +309,67 @@ Suita JS nu are ce testa aici — sunt apeluri de rețea; logica stă în SQL.
   intenționată.
 - Plata peste sold rămâne permisă, ca înainte (trigger-ul o marchează
   „plătită").
+
+---
+
+## 5. Jurnalul: camera și rezervarea ca coloane, arhivă anuală (A4)
+
+### 5.1 Ce era greșit
+
+Camera unei intrări exista doar în textul din `detail`. Filtrul „pe cameră"
+din ecranul Jurnal parsa numele camerelor din șir (`lib/jurnal.js`,
+`cameraDinDetaliu`) și vedea doar cele 400 de intrări încărcate pe ecran —
+istoricul mai vechi al unei camere nu se putea afla din aplicație. Iar
+tabelul creștea la nesfârșit, cu tot cu indexul pe care îl citește ecranul.
+
+### 5.2 Cum funcționează
+
+Migrarea `jurnal_camera_rezervare_si_arhiva`, oglindită în `schema.sql`:
+
+- **coloane** `room_id` și `reservation_id` pe `activity_log` (nullable,
+  `on delete set null` — rândul rămâne după ce rezervarea sau camera
+  dispar), index `(room_id, at desc)`. `audit.push(action, detail, { roomId,
+  reservationId })` le scrie la 29 de locuri: rezervări (creare, modificare,
+  mutare, check-in/out, no-show, anulare, ștergere, mesaje), curățenie și
+  deschiderea ușii, grupuri, coduri de acces, factura din folio. Se trimit
+  doar id-uri care există în acel moment: la „Rezervare ștearsă" merge doar
+  camera — cheia străină ar respinge rândul.
+- **backfill** pentru intrările vechi, din text, cu regulile parserului
+  (numele camerei delimitat de ne-alfanumerice, nu urmat de „lei", prima
+  apariție din text), scrise ca regex cu lookahead în `regexp_instr`.
+- **filtrul din Jurnal** ține id-ul camerei; cu o cameră aleasă lista vine
+  din bază (`incarcaJurnal(…, { roomId })`, până la 400 de rânduri ale
+  camerei, oricât de vechi), instant se arată ce e deja pe ecran, iar după o
+  intrare nouă se recere după 1,5 s, ca inserarea să fi ajuns în bază. Pe
+  fiecare rând camera se ia din coloană; pentru intrările fără coloană, din
+  text, ca înainte.
+- **arhiva**: `activity_log_arhiva` (aceleași coloane + `arhivat_la`),
+  funcția `arhiveaza_jurnal(p_inainte_de)` — `security definer`, mută
+  într-o singură instrucțiune, neexecutabilă prin API — și jobul pg_cron
+  `jurnal-arhivare-anuala`, pe 2 ianuarie la 04:00 UTC: tot ce e dinaintea
+  lui 1 ianuarie a anului **precedent**. Tabelul curent ține deci anul
+  curent și anul trecut; arhiva are aceeași politică de citire (admin,
+  recepție) și e la fel de nemodificabilă (fără politici de update/delete).
+
+### 5.3 Verificare
+
+- `src/jurnal.test.js`: cu `roomId` filtrul merge pe coloană, fără — pe
+  text. `src/jurnal-ecran.test.js`: lista camerei vine din bază (cu o
+  intrare mai veche decât cele 400 de pe ecran), până la răspuns se vede ce e
+  deja aici, zilele se îngustează la cele ale camerei, camera fără intrări
+  arată mesajul.
+- În bază: 548 din 687 de intrări au primit `room_id` din text; regula SQL
+  dă același rezultat ca parserul din browser pe toate cele 21 de cazuri-limită
+  din testele lui (prețuri care nimeresc un număr de cameră, numere lipite
+  de text, prima cameră din două); jobul e în `cron.job`; arhiva e goală.
+
+### 5.4 Ce NU s-a schimbat
+
+- Intrările fără cameră (facturi, produse, useri, tarife, automatizări pe
+  camere tehnice) rămân fără `room_id`. O comandă pe două camere („Boiler ·
+  1003, 1005") a primit prima, ca în parser — o coloană ține o singură
+  cameră.
+- La „Toate camerele" ecranul arată tot ultimele 400 de intrări.
+- Arhiva n-are ecran; se citește din SQL sau export. Prima rulare a jobului
+  e pe 2 ianuarie 2027 și nu mută nimic (jurnalul începe în august 2026);
+  prima mutare reală, pe 2 ianuarie 2028, pentru 2026.

@@ -504,7 +504,7 @@ export function InvoiceBuilderModal({ reservation, folio, items, core, updateCor
         linii: lines, creatDe: audit.user?.id || null,
       });
 
-      await audit.push("Factură creată (draft)", `${fmtMoney(total)} · ${nrLinii} poziții`);
+      await audit.push("Factură creată (draft)", `${fmtMoney(total)} · ${nrLinii} poziții`, { roomId: reservation.roomId, reservationId: reservation.id });
       onCreated(finalInvoice);
     } catch (e) {
       setError(mesajEroare(e, "Salvarea facturii a eșuat"));

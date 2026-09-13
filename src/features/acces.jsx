@@ -89,7 +89,7 @@ export async function reconciliazaAcces(inainte, dupa, core) {
   if (anulata) {
     const r = await cheamaAcces("revoke", { reservationId: dupa.id });
     await audit.push(r?.ok ? "Cod acces revocat" : "Revocare cod eșuată",
-      `${camera?.name || dupa.roomId}`);
+      `${camera?.name || dupa.roomId}`, { roomId: dupa.roomId, reservationId: dupa.id });
     if (!r?.ok) {
       toaster.show(
         "Rezervarea e anulată, dar codul de acces NU a putut fi șters de pe yală. Verifică în TTHOTEL.",
@@ -100,7 +100,7 @@ export async function reconciliazaAcces(inainte, dupa, core) {
 
   const r = await cheamaAcces("issue", { reservationId: dupa.id });
   await audit.push(r?.ok ? "Cod acces actualizat" : "Actualizare cod eșuată",
-    `${camera?.name || dupa.roomId}${inainte.roomId !== dupa.roomId ? " · cameră schimbată" : " · perioadă schimbată"}`);
+    `${camera?.name || dupa.roomId}${inainte.roomId !== dupa.roomId ? " · cameră schimbată" : " · perioadă schimbată"}`, { roomId: dupa.roomId, reservationId: dupa.id });
   if (r?.ok) {
     toaster.show("Codul de acces a fost actualizat — oaspetele are alt cod.", { tone: "ok" });
   } else {
@@ -152,7 +152,7 @@ export function SectiuneAcces({ res, core }) {
     if (r?.ok) {
       await incarca();
       await audit.push(r.reused ? "Cod acces refolosit" : "Cod acces generat",
-        `${camera?.name || res.roomId}`);
+        `${camera?.name || res.roomId}`, { roomId: res.roomId, reservationId: res.id });
       toaster.show(r.reused ? "Codul exista deja." : "Cod de acces generat.", { tone: "ok" });
     } else {
       setEroare(r?.error || "Codul nu a putut fi generat.");

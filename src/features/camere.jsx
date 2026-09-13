@@ -74,7 +74,7 @@ function GlisorDeschidere({ room, blocat, motivBlocare }) {
     const r = await cheamaAcces("unlock", { roomId: room.id });
     if (r?.ok) {
       setStare("deschis");
-      await audit.push("Deschidere ușă", `${room.name} — de la cardul de status`);
+      await audit.push("Deschidere ușă", `${room.name} — de la cardul de status`, { roomId: room.id });
       /* Revine la starea inițială după câteva secunde: cardul rămâne pe
          ecran, iar un glisor înțepenit pe „deschis" ar sugera că ușa e
          încă deschisă, ceea ce nu e adevărat — yala se încuie la loc. */
@@ -184,7 +184,7 @@ export function HousekeepingView({ core, reservations, housekeeping, updateHouse
        status respins de baza nu e o actiune. */
     if (!(await updateHousekeeping(roomId, status))) return;
     const label = HK_STATUSES.find((x) => x.key === status)?.label || status;
-    await audit.push("Status cameră", `${core.rooms.find((r) => r.id === roomId)?.name} → ${label}`);
+    await audit.push("Status cameră", `${core.rooms.find((r) => r.id === roomId)?.name} → ${label}`, { roomId });
   };
 
   const groups = ["tiny", "loft"].map((t) => ({ type: t, rooms: core.rooms.filter((r) => r.type === t) })).filter((g) => g.rooms.length);
@@ -262,7 +262,7 @@ export function RoomsView({ core, updateCore, reservations, updateReservations, 
       ? core.rooms.map((r) => (r.id === room.id ? { ...r, ...room } : r))
       : [...core.rooms, room];
     await updateCore({ ...core, rooms: next });
-    await audit.push(exists ? "Cameră modificată" : "Cameră adăugată", room.name);
+    await audit.push(exists ? "Cameră modificată" : "Cameră adăugată", room.name, { roomId: room.id });
     setModal(null);
   };
   const remove = async (id) => {
@@ -294,7 +294,7 @@ export function RoomsView({ core, updateCore, reservations, updateReservations, 
         await updateCore(beforeCore);
         await updateReservations(beforeRes);
         await updateBlocks(beforeBlocks);
-        await audit.push("Ștergere anulată", rm?.name || id);
+        await audit.push("Ștergere anulată", rm?.name || id, { roomId: id });
       },
     });
   };

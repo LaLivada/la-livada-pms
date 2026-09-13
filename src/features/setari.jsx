@@ -10,7 +10,7 @@ import { Plus, X, Check, Trash2, Pencil, UserCog, LogOut, ShieldCheck, History, 
 import { supabase } from "../supabase.js";
 import * as datePersonal from "../data/personal.js";
 import { mesajEroare } from "../lib/errors.js";
-import { audit } from "../lib/audit.js";
+import { audit, incarcaJurnal } from "../lib/audit.js";
 import { fmtMoney, fmtDate, fmtDateTime, FMT_TIME, initials, FMT_MONTH_YEAR } from "../lib/format.js";
 import { ROLE_LABEL, ROOM_TYPE, sourceLabel, STATUS_CLASS, PERMISSIONS, ALL_PERMS } from "../lib/constante.js";
 import { nightsBetween } from "../lib/availability.js";
@@ -20,7 +20,7 @@ import { inceputDeLuna, statisticiDinSql } from "../lib/rapoarte.js";
 import { FUS_HOTEL, partiLocale, adaugaZile } from "../lib/timp.js";
 import * as dateRapoarte from "../data/rapoarte.js";
 import { Dialog, toaster, useModalLock, Stat, PdfPreview } from "../ui/primitive.jsx";
-import { cameraDinDetaliu, filtreazaJurnal, ziiDistincte, grupeazaPeZi, etichetaZi } from "../lib/jurnal.js";
+import { cameraDinDetaliu, filtreazaJurnal, ziiDistincte, grupeazaPeZi, etichetaZi, INTARZIERE_RECERERE_JURNAL_MS } from "../lib/jurnal.js";
 import { ACTIUNE_EROARE } from "../lib/erori-productie.js";
 import { generatePdfBlob, pregatesteFila, arataInFila, inchideFila } from "../lib/pdf.js";
 
@@ -560,18 +560,41 @@ export function ReportsView({ core }) {
  * ALEASĂ — altfel ai alege dintr-un calendar plin de zile goale.
  */
 export function LogView({ entries, core }) {
-  const [camera, setCamera] = useState("");
+  const [cameraId, setCameraId] = useState("");
   const [zi, setZi] = useState("");
 
-  /* Numele camerelor, în ordinea din Camere — aceeași ordine pe care o vede
-     recepția peste tot altundeva. `sort_order` e deja aplicat la încărcare. */
-  const numeCamere = useMemo(
-    () => (core?.rooms || []).map((r) => r.name),
-    [core?.rooms]);
+  /* Camerele, în ordinea din Camere — aceeași ordine pe care o vede recepția
+     peste tot altundeva. `sort_order` e deja aplicat la încărcare. Numele
+     rămân necesare pentru intrările fără `room_id`, unde camera se citește
+     din text (cameraDinDetaliu). */
+  const camere = useMemo(() => core?.rooms || [], [core?.rooms]);
+  const numeCamere = useMemo(() => camere.map((r) => r.name), [camere]);
+  const numeDupaId = useMemo(() => new Map(camere.map((r) => [r.id, r.name])), [camere]);
+  const camera = numeDupaId.get(cameraId) || "";
+
+  /* Cu o cameră aleasă, lista vine din bază (coloana `room_id`, faza 2 A4),
+     nu din cele 400 de intrări de pe ecran: filtrul vede tot istoricul
+     camerei. Până sosește răspunsul se arată ce e deja aici (instant); după
+     fiecare intrare nouă se recere, cu o mică întârziere, ca inserarea să fi
+     ajuns în bază. */
+  const [dinServer, setDinServer] = useState(null);
+  const cameraAnterioara = useRef("");
+  useEffect(() => {
+    const schimbata = cameraAnterioara.current !== cameraId;
+    cameraAnterioara.current = cameraId;
+    if (schimbata) setDinServer(null);
+    if (!cameraId) return undefined;
+    let alive = true;
+    const t = setTimeout(() => {
+      incarcaJurnal(undefined, { roomId: cameraId })
+        .then((randuri) => { if (alive) setDinServer(randuri); });
+    }, schimbata ? 0 : INTARZIERE_RECERERE_JURNAL_MS);
+    return () => { alive = false; clearTimeout(t); };
+  }, [cameraId, entries]);
 
   const dinCamera = useMemo(
-    () => filtreazaJurnal(entries, { camera }, numeCamere),
-    [entries, camera, numeCamere]);
+    () => dinServer ?? filtreazaJurnal(entries, { camera, cameraId }, numeCamere),
+    [dinServer, entries, camera, cameraId, numeCamere]);
 
   const ziiOptiuni = useMemo(() => ziiDistincte(dinCamera), [dinCamera]);
 
@@ -584,7 +607,7 @@ export function LogView({ entries, core }) {
   /* Schimbarea camerei reseteaza ziua: o zi aleasa pentru 1102 n-are de ce
      sa ramana selectata cand receptia trece la 1005 — cel mai probabil n-are
      nicio intrare acolo, si selectul ar arata gol fara motiv vizibil. */
-  const alegeCamera = (c) => { setCamera(c); setZi(""); };
+  const alegeCamera = (id) => { setCameraId(id); setZi(""); };
 
   if (!entries.length) {
     return <div className="empty-state"><History size={26} /><h4>Jurnal gol</h4><p>Aici apar modificările făcute în aplicație.</p></div>;
@@ -595,9 +618,9 @@ export function LogView({ entries, core }) {
       <div className="toolbar">
         <label className="field" style={{ marginBottom: 0, flex: "1 1 160px" }}>
           <span className="fl">Cameră</span>
-          <select value={camera} onChange={(e) => alegeCamera(e.target.value)}>
+          <select value={cameraId} onChange={(e) => alegeCamera(e.target.value)}>
             <option value="">Toate camerele</option>
-            {numeCamere.map((n) => <option key={n} value={n}>{n}</option>)}
+            {camere.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
           </select>
         </label>
         <label className="field" style={{ marginBottom: 0, flex: "1 1 160px" }}>
@@ -619,7 +642,7 @@ export function LogView({ entries, core }) {
           <div className="jrn-zi-cap">{etichetaZi(g.zi)}</div>
           <div className="panel">
             {g.intrari.map((e) => {
-              const cameraRand = cameraDinDetaliu(e.detail, numeCamere);
+              const cameraRand = numeDupaId.get(e.roomId) || cameraDinDetaliu(e.detail, numeCamere);
               return (
                 <div className={"list-row" + (e.action === ACTIUNE_EROARE ? " list-row-eroare" : "")} key={e.id}>
                   <div style={{ minWidth: 0 }}>

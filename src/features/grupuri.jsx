@@ -325,7 +325,7 @@ export function GroupEditor({ group, core, groups, updateGroups, reservations, u
     if (bucati.length) {
       await audit.push("Cameră din grup modificată",
         `${group.name} · ${numeCamera(dupa.roomId)} · ${bucati.join(" · ")}`
-        + diferentaDePret(row, dupa, core));
+        + diferentaDePret(row, dupa, core), { roomId: dupa.roomId, reservationId: dupa.id });
     }
 
     /* Editările din grup ocolesc fereastra rezervării, deci sincronizarea
@@ -417,7 +417,7 @@ export function GroupEditor({ group, core, groups, updateGroups, reservations, u
     }
     await patchRow(id, { checkin: ci.toISOString(), checkout: co.toISOString() });
     await audit.push("Interval schimbat în grup",
-      `${group.name} · ${core.rooms.find((x) => x.id === row.roomId)?.name}: ${fmtDate(ci)} → ${fmtDate(co)}`);
+      `${group.name} · ${core.rooms.find((x) => x.id === row.roomId)?.name}: ${fmtDate(ci)} → ${fmtDate(co)}`, { roomId: row.roomId, reservationId: id });
   };
 
   const moveRow = async (id, newRoomId) => {
@@ -435,7 +435,7 @@ export function GroupEditor({ group, core, groups, updateGroups, reservations, u
     const from = core.rooms.find((x) => x.id === row.roomId)?.name;
     const to = core.rooms.find((x) => x.id === newRoomId)?.name;
     await patchRow(id, { roomId: newRoomId });
-    await audit.push("Cameră schimbată în grup", `${group.name}: ${from} → ${to}`);
+    await audit.push("Cameră schimbată în grup", `${group.name}: ${from} → ${to}`, { roomId: newRoomId, reservationId: id });
     toaster.show(`Mutat din ${from} în ${to}`, { tone: "ok" });
   };
 
@@ -452,7 +452,7 @@ export function GroupEditor({ group, core, groups, updateGroups, reservations, u
     const record = { ...recordBase, bookedPrice: liveReservationTotalOnline(recordBase, core, reservations) };
     await updateReservations([...reservations, record]);
     const rn = core.rooms.find((x) => x.id === roomId)?.name;
-    await audit.push("Cameră adăugată în grup", `${group.name}: ${rn}`);
+    await audit.push("Cameră adăugată în grup", `${group.name}: ${rn}`, { roomId, reservationId: record.id });
     toaster.show(`Camera ${rn} adăugată în grup`, { tone: "ok" });
     setAddOpen(false);
     setError("");
@@ -479,7 +479,7 @@ export function GroupEditor({ group, core, groups, updateGroups, reservations, u
         { tone: "danger" });
       return;
     }
-    await audit.push("Cameră scoasă din grup", `${group.name}: ${rn}`);
+    await audit.push("Cameră scoasă din grup", `${group.name}: ${rn}`, { roomId: row?.roomId || null });
     toaster.show(`Camera ${rn} scoasă din grup`, {
       tone: "danger",
       onUndo: async () => { await updateReservations(before); },
@@ -681,7 +681,7 @@ export function GroupEditor({ group, core, groups, updateGroups, reservations, u
                         onBlur={() => {
                           if (lastVal.trim() && firstVal.trim() && phoneVal.trim()) {
                             audit.push("Ocupant setat",
-                              `${group.name} · ${core.rooms.find((x) => x.id === r.roomId)?.name}: ${lastVal.trim()} ${firstVal.trim()}`);
+                              `${group.name} · ${core.rooms.find((x) => x.id === r.roomId)?.name}: ${lastVal.trim()} ${firstVal.trim()}`, { roomId: r.roomId, reservationId: r.id });
                           }
                         }}
                       />

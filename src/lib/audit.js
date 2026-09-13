@@ -38,25 +38,27 @@ const MAX_DETAIL = 1000;
 const catreEcran = (r) => ({
   id: String(r.id), ts: r.at, userName: r.user_name,
   userRole: r.user_role, action: r.action, detail: r.detail || "",
+  roomId: r.room_id || "", reservationId: r.reservation_id || "",
 });
 
 /* Intrarea locala e doar pentru ecran, ca lista sa se miste imediat. Cea
    care conteaza e randul din baza, semnat acolo. `id`-ul ei nu se va
    potrivi cu al randului real, dar traieste doar pana la reincarcare si
    nu-l foloseste nimeni la nimic altceva decat la `key`. */
-function adaugaPeEcran(a, d) {
+function adaugaPeEcran(a, d, legaturi = {}) {
   const entry = {
     id: uid(), ts: new Date().toISOString(),
     userName: audit.user?.name || "?", userRole: audit.user?.role || "?",
     action: a, detail: d || "",
+    roomId: legaturi.room_id || "", reservationId: legaturi.reservation_id || "",
   };
   const next = [entry, ...audit.entries].slice(0, LIMITA_ECRAN);
   audit.entries = next;
   if (audit.setEntries) audit.setEntries(next);
 }
 
-async function insereaza(a, d) {
-  const { error } = await supabase.from("activity_log").insert({ action: a, detail: d });
+async function insereaza(a, d, legaturi = {}) {
+  const { error } = await supabase.from("activity_log").insert({ action: a, detail: d, ...legaturi });
   if (error) throw error;
 }
 
@@ -64,16 +66,22 @@ export const audit = {
   user: null,
   entries: [],
   setEntries: null,
-  async push(action, detail) {
+  /* `roomId` / `reservationId` (faza 2, A4): camera si rezervarea despre
+     care e vorba, cand apelantul le stie — coloane, nu text, ca filtrul din
+     Jurnal sa fie o interogare. Se trimit doar id-uri care EXISTA in acel
+     moment: rezervarea unei intrari „Rezervare stearsa" e deja stearsa, deci
+     acolo merge doar camera (cheia straina ar respinge randul). */
+  async push(action, detail, { roomId = null, reservationId = null } = {}) {
     const a = String(action ?? "").slice(0, MAX_ACTION);
     const d = detail == null ? null : String(detail).slice(0, MAX_DETAIL);
-    adaugaPeEcran(a, d);
+    const legaturi = { room_id: roomId || null, reservation_id: reservationId || null };
+    adaugaPeEcran(a, d, legaturi);
     /* Jurnalul e secundar fata de actiunea in sine: daca scrierea lui
        esueaza, actiunea utilizatorului (rezervarea, plata) e deja
        salvata si nu are rost sa fie anulata. Anuntam discret si mergem
        mai departe. */
     try {
-      await insereaza(a, d);
+      await insereaza(a, d, legaturi);
     } catch (e) {
       console.error("Jurnalul nu a putut fi salvat", e);
       toaster.show("Acțiunea a fost salvată, dar nu a putut fi trecută în jurnal.", { tone: "danger" });
@@ -101,13 +109,17 @@ export async function scrieInJurnalTacut(action, detail) {
    citeste la pornirea aplicatiei, iar aplicatia n-are voie sa refuze sa
    porneasca fiindca n-a putut citi jurnalul. Camerista primeste tot [],
    dar prin RLS — pentru ea nu e eroare, e pur si simplu gol. */
-export async function incarcaJurnal(limita = LIMITA_ECRAN) {
+export async function incarcaJurnal(limita = LIMITA_ECRAN, { roomId = "" } = {}) {
   try {
-    const { data, error } = await supabase
+    let cerere = supabase
       .from("activity_log")
-      .select("id, at, user_name, user_role, action, detail")
+      .select("id, at, user_name, user_role, action, detail, room_id, reservation_id")
       .order("at", { ascending: false })
       .limit(limita);
+    /* Filtrul pe camera e o interogare pe index (faza 2, A4), nu o cernere
+       a celor 400 de intrari de pe ecran: vede tot istoricul camerei. */
+    if (roomId) cerere = cerere.eq("room_id", roomId);
+    const { data, error } = await cerere;
     if (error) throw error;
     return (data || []).map(catreEcran);
   } catch (e) {

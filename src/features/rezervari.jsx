@@ -47,14 +47,14 @@ export function NightAuditGate({ restante, sosiri, core, updateCore, groups, upd
   const marcheazaNoShow = async (r) => {
     const camera = core.rooms.find((x) => x.id === r.roomId);
     await updateReservations(reservations.map((x) => (x.id === r.id ? { ...x, status: "noshow" } : x)));
-    await audit.push("No-show", `${camera?.name || r.roomId} · ${occupantName(r, core, groups) || "Fără nume"}`);
+    await audit.push("No-show", `${camera?.name || r.roomId} · ${occupantName(r, core, groups) || "Fără nume"}`, { roomId: r.roomId, reservationId: r.id });
   };
 
   const anuleaza = async (r) => {
     const camera = core.rooms.find((x) => x.id === r.roomId);
     await updateReservations(reservations.map((x) => (x.id === r.id ? { ...x, status: "cancelled" } : x)));
     await audit.push("Rezervare anulată",
-      `${camera?.name || r.roomId} · ${occupantName(r, core, groups) || "Fără nume"} · ${fmtDate(r.checkin)}`);
+      `${camera?.name || r.roomId} · ${occupantName(r, core, groups) || "Fără nume"} · ${fmtDate(r.checkin)}`, { roomId: r.roomId, reservationId: r.id });
   };
 
   return (
@@ -382,7 +382,7 @@ export function CalendarView({ core, updateCore, reservations, updateReservation
     const toRoom = core.rooms.find((r) => r.id === targetRoomId)?.name;
     const who = guestFullName(core.guests.find((g) => g.id === res.guestId)) || "Fără nume";
     await audit.push("Rezervare mutată",
-      `${who}: ${fromRoom} ${fmtDate(oldCi)} → ${toRoom} ${fmtDate(newCi)}`);
+      `${who}: ${fromRoom} ${fmtDate(oldCi)} → ${toRoom} ${fmtDate(newCi)}`, { roomId: targetRoomId, reservationId: res.id });
   };
 
   useEffect(() => {
@@ -770,7 +770,7 @@ export function CalendarView({ core, updateCore, reservations, updateReservation
                 const before = blocks || [];
                 if (!await stergeBlocaje([blockInfo.id])) return;
                 await audit.push("Blocaj eliminat",
-                  `${core.rooms.find((r) => r.id === blockInfo.roomId)?.name} · ${blockInfo.reason}`);
+                  `${core.rooms.find((r) => r.id === blockInfo.roomId)?.name} · ${blockInfo.reason}`, { roomId: blockInfo.roomId });
                 toaster.show("Blocajul a fost eliminat", {
                   tone: "danger",
                   onUndo: async () => { await updateBlocks(before); },
@@ -1420,7 +1420,7 @@ export function ReservationModal({ data, core, updateCore, reservations, updateR
        fiindca si ecranul de grup scrie acelasi lucru. */
     const pret = editing ? diferentaDePret(editing, record, core) : "";
     await audit.push(editing ? "Rezervare modificată" : "Rezervare creată",
-      `${who} · ${rn} · ${fmtDate(checkin)} → ${fmtDate(checkout)}${pret}`);
+      `${who} · ${rn} · ${fmtDate(checkin)} → ${fmtDate(checkout)}${pret}`, { roomId: record.roomId, reservationId: record.id });
     /* După salvare, nu înainte: dacă sincronizarea yalei cade, rezervarea
        rămâne modificată. Vezi comentariul de la reconciliazaAcces. */
     if (editing) {
@@ -1508,7 +1508,7 @@ export function ReservationModal({ data, core, updateCore, reservations, updateR
           : "Ștergerea a eșuat, iar codul de acces rămâne revocat. Generează-l din nou din rezervare.",
           { tone: "danger" });
         await audit.push(reemis?.ok ? "Cod acces repus după ștergere eșuată" : "Cod acces rămas revocat",
-          `${core.rooms.find((r) => r.id === editing.roomId)?.name || editing.roomId}`);
+          `${core.rooms.find((r) => r.id === editing.roomId)?.name || editing.roomId}`, { roomId: editing.roomId, reservationId: editing.id });
       }
       return;
     }
@@ -1522,14 +1522,14 @@ export function ReservationModal({ data, core, updateCore, reservations, updateR
 
     const who = guestFullName(core.guests.find((g) => g.id === editing.guestId)) || "Fără nume";
     const rn = core.rooms.find((r) => r.id === editing.roomId)?.name;
-    await audit.push("Rezervare ștearsă", `${who} · ${rn} · ${fmtDate(editing.checkin)}`);
+    await audit.push("Rezervare ștearsă", `${who} · ${rn} · ${fmtDate(editing.checkin)}`, { roomId: editing.roomId });
     const beforeRes = reservations, beforeGroups = groups;
     toaster.show(`Rezervarea ${who} · ${rn} a fost ștearsă`, {
       tone: "danger",
       onUndo: async () => {
         await updateReservations(beforeRes);
         await updateGroups(beforeGroups);
-        await audit.push("Ștergere anulată", `${who} · ${rn}`);
+        await audit.push("Ștergere anulată", `${who} · ${rn}`, { roomId: editing.roomId, reservationId: editing.id });
       },
     });
     onClose();
@@ -2030,14 +2030,14 @@ export async function doCheckIn(res, reservations, updateReservations, core, { f
     const who = guestFullName(core.guests.find((g) => g.id === blocker.guestId)) || "alt oaspete";
     const room = core.rooms.find((x) => x.id === res.roomId);
     await audit.push("Check-in blocat",
-      `${room?.name || res.roomId} · încă ocupată de ${who}`);
+      `${room?.name || res.roomId} · încă ocupată de ${who}`, { roomId: res.roomId, reservationId: res.id });
     return { error: `Camera ${room?.name || ""} este încă ocupată de ${who}. Fă întâi check-out.` };
   }
 
   const next = reservations.map((r) => (r.id === res.id ? { ...r, status: "checkedin" } : r));
   await updateReservations(next);
   const room = core.rooms.find((x) => x.id === res.roomId);
-  await audit.push("Check-in", `${room?.name || res.roomId} · ${guestFullName(core.guests.find((g) => g.id === res.guestId))}`);
+  await audit.push("Check-in", `${room?.name || res.roomId} · ${guestFullName(core.guests.find((g) => g.id === res.guestId))}`, { roomId: res.roomId, reservationId: res.id });
   toaster.show(`Check-in făcut · ${room?.name || ""}`, { tone: "ok" });
 
   /* Codul de acces se cere DUPĂ ce check-in-ul e salvat, și nu are voie
@@ -2072,7 +2072,7 @@ export async function doCheckOut(res, reservations, updateReservations, core, ho
   await updateReservations(next);
   await updateHousekeeping(res.roomId, "dirty");
   const room = core.rooms.find((x) => x.id === res.roomId);
-  await audit.push("Check-out", `${room?.name || res.roomId} · camera trecută pe „murdară”`);
+  await audit.push("Check-out", `${room?.name || res.roomId} · camera trecută pe „murdară”`, { roomId: res.roomId, reservationId: res.id });
   toaster.show(`Check-out făcut · ${room?.name || ""} trecută pe „murdară”`, { tone: "ok" });
 
   /* Codul se șterge ACUM, nu lăsat să expire singur la ora calculată la
@@ -2498,7 +2498,7 @@ export function ReservationActions({ res: resSnapshot, core, groups, reservation
     await updateReservations(reservations.map((r) =>
       (r.id === res.id ? { ...r, messages: [...(r.messages || []), entry] } : r)));
     await audit.push("Mesaj adăugat la rezervare",
-      `${guestFullName(guest) || "Fără nume"} · ${room?.name}: ${text.slice(0, 60)}`);
+      `${guestFullName(guest) || "Fără nume"} · ${room?.name}: ${text.slice(0, 60)}`, { roomId: res.roomId, reservationId: res.id });
     setMsgText(""); setMsgOpen(false);
     onClose();
   };
@@ -2506,13 +2506,13 @@ export function ReservationActions({ res: resSnapshot, core, groups, reservation
   const cancel = async () => {
     await updateReservations(reservations.map((r) => (r.id === res.id ? { ...r, status: "cancelled" } : r)));
     await audit.push("Rezervare anulată",
-      `${guestFullName(guest) || "Fără nume"} · ${room?.name} · ${fmtDate(res.checkin)}`);
+      `${guestFullName(guest) || "Fără nume"} · ${room?.name} · ${fmtDate(res.checkin)}`, { roomId: res.roomId, reservationId: res.id });
     const before = reservations;
     toaster.show(`Rezervarea ${guestFullName(guest) || ""} a fost anulată`, {
       tone: "danger",
       onUndo: async () => {
         await updateReservations(before);
-        await audit.push("Anulare revocată", `${guestFullName(guest) || ""} · ${room?.name}`);
+        await audit.push("Anulare revocată", `${guestFullName(guest) || ""} · ${room?.name}`, { roomId: res.roomId, reservationId: res.id });
       },
     });
     onClose();
@@ -2624,7 +2624,7 @@ export function ReservationActions({ res: resSnapshot, core, groups, reservation
             <button className="action-item" disabled={busy} onClick={() => ruleaza(async () => {
               await updateReservations(reservations.map((r) => (r.id === res.id ? { ...r, status: "noshow" } : r)));
               await audit.push("No-show",
-                `${guestFullName(guest) || "Fără nume"} · ${room?.name} · ${fmtDate(res.checkin)}`);
+                `${guestFullName(guest) || "Fără nume"} · ${room?.name} · ${fmtDate(res.checkin)}`, { roomId: res.roomId, reservationId: res.id });
               onClose();
             })}>
               <span className="ai-ico"><UserCheck size={17} /></span>

@@ -128,6 +128,23 @@ describe("filtreazaJurnal", () => {
   });
 });
 
+describe("filtreazaJurnal cu room_id (faza 2, A4)", () => {
+  const CU_ID = [
+    { id: "x", ts: "2026-09-12T10:00:00Z", detail: "1005 · text", roomId: "r1005" },
+    { id: "y", ts: "2026-09-12T10:01:00Z", detail: "preț 1005 lei", roomId: "r1002" },
+    { id: "z", ts: "2026-09-12T10:02:00Z", detail: "1005 · intrare veche, fara coloana" },
+  ];
+
+  it("coloana bate textul: cu room_id se filtreaza dupa id, fara — dupa text", () => {
+    expect(filtreazaJurnal(CU_ID, { camera: "1005", cameraId: "r1005" }, CAMERE).map((x) => x.id)).toEqual(["x", "z"]);
+    expect(filtreazaJurnal(CU_ID, { camera: "1002", cameraId: "r1002" }, CAMERE).map((x) => x.id)).toEqual(["y"]);
+  });
+
+  it("fara filtru de camera, toate", () => {
+    expect(filtreazaJurnal(CU_ID, {}, CAMERE)).toHaveLength(3);
+  });
+});
+
 describe("ziiDistincte", () => {
   it("da zilele care chiar au o intrare, cea mai noua prima", () => {
     expect(ziiDistincte(JURNAL)).toEqual(["2026-09-11", "2026-09-10", "2026-09-09"]);
