@@ -2042,3 +2042,14 @@ label.field input, label.field select, label.field textarea{ cursor:auto; }
   font-weight:700; text-transform:uppercase; letter-spacing:.04em;
 }
 .conflict-nota{ margin-top:10px; }
+
+/* ---------------------------------------------------------------
+   INDICATOR DE CONEXIUNE (faza 3, C8) — apare doar offline sau cat timp
+   coada de salvari are ceva de trimis.
+----------------------------------------------------------------*/
+.retea-pastila{
+  display:inline-flex; align-items:center; gap:6px; padding:5px 10px; border-radius:var(--r-pill);
+  font-size:var(--fs-xs); font-weight:600; white-space:nowrap; line-height:1.2;
+}
+.retea-offline{ background:var(--danger-soft); color:var(--danger); border:1px solid var(--danger); }
+.retea-trimite{ background:var(--warning-soft); color:var(--warning); border:1px solid var(--warning); }

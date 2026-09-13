@@ -11,6 +11,7 @@
  * aplicatiei ({ status, updatedAt, deCine }), erorile aruncate mai departe.
  */
 import { supabase } from "../supabase.js";
+import { amanaDacaERetea } from "./coada.js";
 import { camelStatusCamera } from "./mapari.js";
 
 /* Randurile tabelului -> harta { roomId: { status, updatedAt, deCine } },
@@ -31,9 +32,17 @@ export async function incarcaStatusCamere() {
    ecranul nu trebuie sa stie diferenta. `.select()` aduce inapoi stampila si
    semnatura puse de trigger. */
 export async function scrieStatusCamera(roomId, status) {
+  const rand = { room_id: roomId, status };
   const { data, error } = await supabase.from("room_status")
-    .upsert({ room_id: roomId, status }, { onConflict: "room_id" })
+    .upsert(rand, { onConflict: "room_id" })
     .select().single();
-  if (error) throw error;
+  if (error) {
+    /* Fara retea (faza 3, C8): randul intra in coada, ecranul ramane cu
+       bifarea optimista (fara stampila), iar cel real vine cand se scrie. */
+    if (amanaDacaERetea(error, [{ tip: "upsert", tabel: "room_status", rand, onConflict: "room_id", cheie: "room_id" }])) {
+      return { status, updatedAt: null, deCine: "" };
+    }
+    throw error;
+  }
   return camelStatusCamera(data);
 }

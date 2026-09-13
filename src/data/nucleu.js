@@ -20,6 +20,7 @@ import {
   camelBillingCustomer, camelVatRate, camelProduct, camelPaymentMethod,
 } from "./mapari.js";
 import { mapaStatusCamere } from "./curatenie.js";
+import { amanaDacaERetea } from "./coada.js";
 
 /* Trimite doar diferentele: randuri noi/modificate, prin upsert.
  *
@@ -46,7 +47,14 @@ export async function syncTable(table, before, after, toRow) {
      a completat serverul (de ex. updated_at pus de trigger) — apelantul
      le poate folosi ca sa-si actualizeze starea locala. */
   const { data, error } = await supabase.from(table).upsert(schimbate, { onConflict: "id" }).select();
-  if (error) throw error;
+  if (error) {
+    /* Reteaua cazuta (faza 3, C8): randurile intra in coada si se scriu
+       cand revine; apelantul merge mai departe ca si cum s-ar fi scris —
+       starea locala e deja actualizata. Stampilele vin cand se scriu, prin
+       `laScris` din pornesteCoada. Un verdict al bazei ramane eroare. */
+    if (amanaDacaERetea(error, schimbate.map((rand) => ({ tip: "upsert", tabel: table, rand })))) return [];
+    throw error;
+  }
   return data || [];
 }
 
@@ -63,7 +71,10 @@ export async function syncTableIntreg(table, before, after, toRow) {
 export async function stergeRanduri(table, ids) {
   if (!ids || !ids.length) return;
   const { error } = await supabase.from(table).delete().in("id", ids);
-  if (error) throw error;
+  if (error) {
+    if (amanaDacaERetea(error, ids.map((id) => ({ tip: "delete", tabel: table, id })))) return;
+    throw error;
+  }
 }
 
 /* Uneste doua liste dupa id: randurile din `prioritare` castiga, restul din

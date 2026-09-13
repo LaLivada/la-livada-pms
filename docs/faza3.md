@@ -12,7 +12,7 @@ se pune peste.
 | 1 | C1 — căutare globală (`Ctrl+K`, `/`) | **făcut**, 14 septembrie 2026 (§1) |
 | 2 | C2 — scurtături de tastatură | **făcut**, 14 septembrie 2026 (§2) |
 | 3 | C5 — conflictul de concurență cu diff și alegere | **făcut**, 14 septembrie 2026 (§3) |
-| 4 | C8 — indicator offline + coadă de salvări | de făcut |
+| 4 | C8 — indicator offline + coadă de salvări | **făcut**, 14 septembrie 2026 (§4) |
 | 5 | C3 — calendarul pe tabletă (7 zile, coloană lipicioasă) | de făcut |
 | 6 | C4 — fișa de rezervare cu secțiuni pliabile | de făcut |
 | 7 | C6 — rapoarte cu delta față de anul trecut + CSV | de făcut |
@@ -198,3 +198,74 @@ butoanele; închiderea = null.
   la ele rămâne „ultimul care scrie câștigă", ca înainte.
 - Fereastra din care s-a salvat nu se reîmprospătează singură cu versiunea
   lor; o vezi în calendar după ce o închizi.
+
+---
+
+## 4. Offline: indicator și coadă de salvări (C8)
+
+### 4.1 Ce era greșit
+
+Când cădea internetul la recepție, aplicația nu spunea nimic înainte; la
+prima salvare dădea „Conexiunea a eșuat", apoi **reîncărca datele** — care
+nici ele nu veneau — și rămânea pe ecranul „Aplicația nu a putut porni".
+Ce se apăsase (o bifare de curățenie, un check-in) era pierdut.
+
+### 4.2 Cum funcționează
+
+- **Indicatorul** (`src/features/retea.jsx`, în antet): nu apare deloc cât
+  timp totul e în regulă. „Offline" când browserul pierde rețeaua
+  (`navigator.onLine`, evenimentele `online`/`offline`), cu numărul de
+  salvări care așteaptă; „Se trimite · N" când rețeaua a revenit și coada
+  se golește. Titlul pastilei explică: ce salvezi rămâne în aplicație și
+  pleacă la revenirea conexiunii — nu închide fila.
+- **Coada** (`src/lib/coada-salvari.js`, pur; `src/data/coada.js`, rețea și
+  browser): o scriere care pică **de rețea** — nu de verdict: drepturi,
+  suprapunere, conflict de versiune, alea au `code` și rămân erori — intră
+  în coadă, iar apelantul merge mai departe ca și cum s-ar fi scris; starea
+  locală e deja actualizată optimist, ca la orice salvare. Intră: upsert-urile
+  din `syncTable` (rezervări, grupuri, blocaje, tabelele mici), ștergerile
+  din `stergeRanduri`, statusul camerelor (`room_status`) și intrările de
+  jurnal. **Nu** intră RPC-urile (emitere de factură, încasare, stornare):
+  acolo o cerere repetată ar putea număra de două ori; rămân erori, ca
+  înainte.
+- **Coalescere pe rând**: a doua salvare a aceluiași rând o înlocuiește pe
+  prima (rămâne ultima formă, pe poziția primei); o ștergere scoate
+  upsert-urile rândului; intrările de jurnal se adună. La trimitere,
+  operațiile consecutive de același fel pe același tabel pleacă într-o
+  singură cerere — o salvare de grup rămâne o singură instrucțiune.
+- **Reîncercarea**: la `online`, la revenirea pe filă și la fiecare 20 s
+  cât e ceva în coadă. Loturile pleacă în ordine; la o nouă eroare de rețea
+  se oprește și păstrează restul; la un verdict al bazei (de exemplu
+  „modificată de altcineva" pentru o rezervare editată offline) lotul e scos
+  și eroarea ajunge la om ca orice eroare de salvare (mesaj + reîncărcare
+  — dialogul C5 nu se poate deschide aici, baza de pornire nu mai există).
+  Stampilele rezervărilor și rândurile de `room_status` scrise atunci
+  intră în stare ca la o salvare obișnuită.
+- **Memorie, nu disc**: coada trăiește în filă. La închiderea filei cu
+  salvări neurcate browserul întreabă (`beforeunload`); la prima operație
+  intrată într-o coadă goală apare un mesaj o singură dată. Fără IndexedDB,
+  fără sync engine — auditul (§5) cere exact asta.
+- `raporteazaEroare` nu mai reîncarcă datele la o eroare de rețea (n-ar
+  aduce nimic, ar lăsa aplicația pe ecranul de pornire eșuată); arată doar
+  mesajul.
+
+### 4.3 Verificare
+
+`src/coada-salvari.test.js`: recunoașterea erorilor de transport în formele
+lor reale (și un verdict cu `code` nu e rețea, oricât ar suna textul);
+înlocuirea pe rând, ștergerea care scoate upsert-urile, `room_status` pe
+`room_id`, jurnalul care se adună; loturile; rularea în ordine, oprirea la
+rețea cu păstrarea restului, verdictul care scoate lotul și merge mai
+departe, o singură rulare o dată, operațiile adăugate în timpul rulării.
+`src/retea-ecran.test.js`: pastila lipsește când totul e în regulă,
+„Offline" și numărul salvărilor, „Se trimite" la revenire, dispare când
+coada se golește. În previzualizare: evenimentele `offline`/`online`
+trimise din consolă arată și ascund pastila.
+
+### 4.4 Ce NU s-a schimbat
+
+- Citirile (lărgirea ferestrei calendarului, căutarea, istoricul) nu se
+  reîncearcă automat: dau mesajul lor și se refac la următoarea acțiune.
+- Realtime își reface singur canalul (faza 2, B3); coada nu se ocupă de el.
+- O salvare făcută offline și rămasă în coadă se pierde dacă fila e
+  închisă forțat (după avertisment) sau dacă browserul e omorât.

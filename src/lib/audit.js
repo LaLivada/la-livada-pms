@@ -22,6 +22,7 @@
 import { uid } from "./uid.js";
 import { supabase } from "../supabase.js";
 import { toaster } from "../ui/primitive.jsx";
+import { amanaDacaERetea } from "../data/coada.js";
 
 /* Cate intrari tine ecranul. Baza le pastreaza pe toate — plafonul de 400
    de dinainte nu era o alegere de afisare, era limita blobului, si taia
@@ -58,8 +59,13 @@ function adaugaPeEcran(a, d, legaturi = {}) {
 }
 
 async function insereaza(a, d, legaturi = {}) {
-  const { error } = await supabase.from("activity_log").insert({ action: a, detail: d, ...legaturi });
-  if (error) throw error;
+  const rand = { action: a, detail: d, ...legaturi };
+  const { error } = await supabase.from("activity_log").insert(rand);
+  if (error) {
+    /* Fara retea (faza 3, C8): intrarea pleaca odata cu restul cozii. */
+    if (amanaDacaERetea(error, [{ tip: "insert", tabel: "activity_log", rand }])) return;
+    throw error;
+  }
 }
 
 export const audit = {

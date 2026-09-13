@@ -50,7 +50,10 @@ import {
   syncTable, syncTableIntreg, stergeRanduri, randuriSchimbate, saveRatesAndSeasons, loadAll,
   incarcaPerioada, fereastraImplicita, bucatiLipsa, uneste, doarNoi, incarcaGrupuri,
 } from "./data/nucleu.js";
-import { scrieStatusCamera } from "./data/curatenie.js";
+import { scrieStatusCamera, mapaStatusCamere } from "./data/curatenie.js";
+import { pornesteCoada, esteOffline } from "./data/coada.js";
+import { esteEroareDeRetea } from "./lib/coada-salvari.js";
+import { IndicatorRetea } from "./features/retea.jsx";
 import { aboneazaLaSchimbari } from "./data/live.js";
 import {
   aplicaSchimbareRezervare, aplicaSchimbareStatusCamera, ceLipseste,
@@ -723,6 +726,10 @@ function PMSApp() {
        lib/errors.js, ca sa fie o singura definitie folosita peste tot,
        nu cate un lant de if-uri in fiecare ecran. */
     toaster.show(mesajEroare(e, "Salvarea a eșuat"), { tone: "danger" });
+    /* Fara retea reincarcarea n-ar aduce nimic — ar lasa aplicatia pe
+       ecranul „nu a putut porni" (faza 3, C8). Scrierile de retea nici nu
+       ajung aici (intra in coada); asta prinde RPC-urile si citirile. */
+    if (esteEroareDeRetea(e, !esteOffline())) return;
     setReloadKey((k) => k + 1);
   }, []);
 
@@ -766,6 +773,32 @@ function PMSApp() {
     } catch (e) { raporteazaEroare(e); return false; }
   }, [raporteazaEroare]);
 
+  /* Stampila noua vine de la server; fara pasul asta, urmatoarea
+     salvare a aceluiasi utilizator ar trimite-o pe cea veche si ar fi
+     respinsa ca modificare concurenta, desi e tot el.
+
+     Odata cu ea vine si `guest_code`, din acelasi motiv: si el se
+     completeaza pe server, de trigger, si nu se afla in obiectul
+     construit aici. Fara pasul asta, o rezervare creata si trimisa pe
+     WhatsApp in aceeasi sesiune ar fi plecat cu randul „Pagina sejurului
+     tau:" gol — linkul apare in mesaj din 7 septembrie 2026, iar codul
+     lui ar fi ajuns in browser abia la urmatoarea reincarcare.
+
+     Aceeasi aplicare si pentru randurile scrise din coada de salvari
+     (faza 3, C8), dupa ce revine conexiunea. */
+  const aplicaStampile = useCallback((scrise) => {
+    if (!scrise?.length) return;
+    const dinBaza = new Map(scrise.map((r) => [r.id, r]));
+    const actualizate = resRef.current.map((r) => {
+      const server = dinBaza.get(r.id);
+      return server
+        ? { ...r, updatedAt: server.updated_at, guestCode: server.guest_code || r.guestCode || "" }
+        : r;
+    });
+    resRef.current = actualizate;
+    setReservations(actualizate);
+  }, []);
+
   /* Conflict de concurenta (faza 3, C5, lib/conflict.js): baza a refuzat
      scrierea fiindca altcineva a salvat aceeasi rezervare intre timp. In
      loc de „reincarca si reia": aducem versiunea lor, aratam campurile
@@ -804,28 +837,6 @@ function PMSApp() {
        salvari rapide una dupa alta ar citi altfel starea veche si ar
        trimite o stampila deja depasita, respinsa inutil ca si conflict. */
     resRef.current = combinat;
-    /* Stampila noua vine de la server; fara pasul asta, urmatoarea
-       salvare a aceluiasi utilizator ar trimite-o pe cea veche si ar fi
-       respinsa ca modificare concurenta, desi e tot el.
-
-       Odata cu ea vine si `guest_code`, din acelasi motiv: si el se
-       completeaza pe server, de trigger, si nu se afla in obiectul
-       construit aici. Fara pasul asta, o rezervare creata si trimisa pe
-       WhatsApp in aceeasi sesiune ar fi plecat cu randul „Pagina sejurului
-       tau:" gol — linkul apare in mesaj din 7 septembrie 2026, iar codul
-       lui ar fi ajuns in browser abia la urmatoarea reincarcare. */
-    const aplicaStampile = (scrise) => {
-      if (!scrise.length) return;
-      const dinBaza = new Map(scrise.map((r) => [r.id, r]));
-      const actualizate = resRef.current.map((r) => {
-        const server = dinBaza.get(r.id);
-        return server
-          ? { ...r, updatedAt: server.updated_at, guestCode: server.guest_code || r.guestCode || "" }
-          : r;
-      });
-      resRef.current = actualizate;
-      setReservations(actualizate);
-    };
     try {
       aplicaStampile(await syncTable("reservations", before, combinat, snakeRes));
       return true;
@@ -840,7 +851,7 @@ function PMSApp() {
         return true;
       } catch (e2) { raporteazaEroare(e2); return false; }
     }
-  }, [raporteazaEroare, rezolvaConflictul]);
+  }, [raporteazaEroare, rezolvaConflictul, aplicaStampile]);
 
   const updateGroups = useCallback(async (next) => {
     const before = grRef.current;
@@ -995,6 +1006,27 @@ function PMSApp() {
   }, [currentUser]);
 
   useEffect(() => { audit.user = currentUser; }, [currentUser]);
+
+  /* Coada de salvari (faza 3, C8): ce a picat de retea se trimite cand
+     revine conexiunea. Stampilele rezervarilor si randurile de room_status
+     scrise atunci intra in stare ca la o salvare obisnuita; un verdict al
+     bazei pentru un lot amanat ajunge la om ca orice eroare de salvare. */
+  useEffect(() => {
+    if (!currentUser) return;
+    return pornesteCoada({
+      laScris: (lot, data) => {
+        if (lot[0].tabel === "reservations") aplicaStampile(data);
+        if (lot[0].tabel === "room_status") {
+          const h = { ...housekeepingRef.current, ...mapaStatusCamere(data) };
+          housekeepingRef.current = h; setHousekeeping(h);
+        }
+      },
+      laEsec: (lot, e) => raporteazaEroare(e),
+      laAmanare: () => toaster.show(
+        "Fără conexiune — salvarea rămâne în aplicație și se trimite când revine internetul. Nu închide fila.",
+        { tone: "danger" }),
+    });
+  }, [currentUser, aplicaStampile, raporteazaEroare]);
 
   /* Adminii au automat tot (vezi canBilling); pentru restul, incarcam
      doar drepturile explicit acordate din billing_permissions. */
@@ -1422,6 +1454,7 @@ function Shell({ user, view, setView, onLogout, core, updateCore, reservations, 
           </button>
 
           <div className="topbar-actions">
+            <IndicatorRetea />
             {poateCauta && (
               <button
                 className="icon-btn" onClick={() => setCautare(true)}
