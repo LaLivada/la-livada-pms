@@ -30,15 +30,17 @@ import { mapaStatusCamere } from "./curatenie.js";
  * `next`-ul construit de un ecran cu o inchidere veche, ar fi fost STEARSA
  * din baza. Stergerile sunt acum explicite — `stergeRanduri` — iar pentru
  * tabelele mici, incarcate intregi, exista `syncTableIntreg`. */
-export async function syncTable(table, before, after, toRow) {
+export function randuriSchimbate(before, after) {
   const prevById = new Map((before || []).map((x) => [x.id, x]));
-  const schimbate = (after || [])
-    .map((x, idx) => [x, idx])
-    .filter(([x]) => {
-      const old = prevById.get(x.id);
-      return !old || JSON.stringify(x) !== JSON.stringify(old);
-    })
-    .map(([x, idx]) => toRow(x, idx));
+  return (after || []).filter((x) => {
+    const old = prevById.get(x.id);
+    return !old || JSON.stringify(x) !== JSON.stringify(old);
+  });
+}
+export async function syncTable(table, before, after, toRow) {
+  /* Indexul e cel din `after`, ca inainte: unele mapare (snakeTier) il
+     folosesc drept ordine. */
+  const schimbate = randuriSchimbate(before, after).map((x) => toRow(x, (after || []).indexOf(x)));
   if (!schimbate.length) return [];
   /* .select() ne intoarce randurile asa cum au ramas in baza, cu tot ce
      a completat serverul (de ex. updated_at pus de trigger) — apelantul

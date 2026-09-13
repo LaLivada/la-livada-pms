@@ -47,7 +47,7 @@ import {
   camelBillingCustomer, snakeBillingCustomer,
 } from "./data/mapari.js";
 import {
-  syncTable, syncTableIntreg, stergeRanduri, saveRatesAndSeasons, loadAll,
+  syncTable, syncTableIntreg, stergeRanduri, randuriSchimbate, saveRatesAndSeasons, loadAll,
   incarcaPerioada, fereastraImplicita, bucatiLipsa, uneste, doarNoi, incarcaGrupuri,
 } from "./data/nucleu.js";
 import { scrieStatusCamera } from "./data/curatenie.js";
@@ -81,6 +81,8 @@ import * as datePersonal from "./data/personal.js";
 import * as dateAcces from "./data/acces.js";
 import { uid } from "./lib/uid.js";
 import { mesajEroare } from "./lib/errors.js";
+import { esteConflict, pregatesteConflict, aplicaAlegerea } from "./lib/conflict.js";
+import { rezervariDePeServer, ultimeleModificari } from "./data/conflict.js";
 import { eDubluTap, FARA_TAP } from "./lib/gest.js";
 import React, { useState, useEffect, useMemo, useCallback, useRef, lazy, Suspense } from "react";
 import { createPortal } from "react-dom";
@@ -98,6 +100,18 @@ const ClientsView = lazy(() => import("./features/clienti.jsx").then((m) => ({ d
 const RoomsView = lazy(() => import("./features/camere.jsx").then((m) => ({ default: m.RoomsView })));
 const FinancialView = lazy(() => import("./features/facturare.jsx").then((m) => ({ default: m.FinancialView })));
 const CautareGlobala = lazy(() => import("./features/cautare.jsx").then((m) => ({ default: m.CautareGlobala })));
+const ConflictDialog = lazy(() => import("./features/conflict.jsx").then((m) => ({ default: m.ConflictDialog })));
+
+/* Dialogul conflictului de concurenta (faza 3, C5), cat timp o salvare
+   asteapta alegerea omului. */
+function ConflictHost({ conflict, core, groups }) {
+  if (!conflict) return null;
+  return (
+    <Suspense fallback={null}>
+      <ConflictDialog randuri={conflict.randuri} core={core} groups={groups} onAlege={conflict.alege} />
+    </Suspense>
+  );
+}
 const ReportsView = lazy(() => import("./features/setari.jsx").then((m) => ({ default: m.ReportsView })));
 const UsersView = lazy(() => import("./features/setari.jsx").then((m) => ({ default: m.UsersView })));
 const LogView = lazy(() => import("./features/setari.jsx").then((m) => ({ default: m.LogView })));
@@ -390,6 +404,7 @@ function PMSApp() {
   const [blocks, setBlocks] = useState([]);
   const [initError, setInitError] = useState(null);
   const [reloadKey, setReloadKey] = useState(0);
+  const [conflict, setConflict] = useState(null); // { randuri, alege } — dialogul C5, cat asteapta alegerea
   /* Realtime (faza 2, B3): incarcarea porneste abia dupa prima abonare, iar
      evenimentele sosite in timpul unei incarcari asteapta in coada — vezi
      efectul de abonare, mai jos, si lib/schimbari-live.js. */
@@ -751,6 +766,30 @@ function PMSApp() {
     } catch (e) { raporteazaEroare(e); return false; }
   }, [raporteazaEroare]);
 
+  /* Conflict de concurenta (faza 3, C5, lib/conflict.js): baza a refuzat
+     scrierea fiindca altcineva a salvat aceeasi rezervare intre timp. In
+     loc de „reincarca si reia": aducem versiunea lor, aratam campurile
+     diferite si lasam alegerea. Intoarce lista de scris (dupa „pastreaza a
+     mea") sau null (nimic de scris — ecranul a luat versiunea lor). Arunca
+     mai departe eroarea initiala cand refuzul nu se poate explica prin ce
+     a venit de pe server; apelantul cade atunci pe drumul vechi. */
+  const rezolvaConflictul = useCallback(async (eroare, before, combinat) => {
+    const trimise = randuriSchimbate(before, combinat);
+    const ids = trimise.map((r) => r.id);
+    const [dePeServer, cine] = await Promise.all([rezervariDePeServer(ids), ultimeleModificari(ids)]);
+    const randuri = pregatesteConflict(before, trimise, dePeServer, cine);
+    if (!randuri) throw eroare;
+    const alegere = await new Promise((alege) => setConflict({ randuri, alege }));
+    setConflict(null);
+    const { scrie, final } = aplicaAlegerea(alegere, before, combinat, randuri);
+    if (scrie) return final;
+    resRef.current = final; setReservations(final);
+    toaster.show(alegere === "lor"
+      ? "Am luat versiunea lor. Ce ai modificat tu nu s-a salvat."
+      : "Nimic salvat — pe ecran e versiunea lor.", { tone: "danger" });
+    return null;
+  }, []);
+
   const updateReservations = useCallback(async (next) => {
     const before = resRef.current;
     /* `next` vine dintr-un ecran care a pornit de la lista lui — poate mai
@@ -765,32 +804,43 @@ function PMSApp() {
        salvari rapide una dupa alta ar citi altfel starea veche si ar
        trimite o stampila deja depasita, respinsa inutil ca si conflict. */
     resRef.current = combinat;
-    try {
-      const scrise = await syncTable("reservations", before, combinat, snakeRes);
-      /* Stampila noua vine de la server; fara pasul asta, urmatoarea
-         salvare a aceluiasi utilizator ar trimite-o pe cea veche si ar fi
-         respinsa ca modificare concurenta, desi e tot el.
+    /* Stampila noua vine de la server; fara pasul asta, urmatoarea
+       salvare a aceluiasi utilizator ar trimite-o pe cea veche si ar fi
+       respinsa ca modificare concurenta, desi e tot el.
 
-         Odata cu ea vine si `guest_code`, din acelasi motiv: si el se
-         completeaza pe server, de trigger, si nu se afla in obiectul
-         construit aici. Fara pasul asta, o rezervare creata si trimisa pe
-         WhatsApp in aceeasi sesiune ar fi plecat cu randul „Pagina sejurului
-         tau:" gol — linkul apare in mesaj din 7 septembrie 2026, iar codul
-         lui ar fi ajuns in browser abia la urmatoarea reincarcare. */
-      if (scrise.length) {
-        const dinBaza = new Map(scrise.map((r) => [r.id, r]));
-        const actualizate = resRef.current.map((r) => {
-          const server = dinBaza.get(r.id);
-          return server
-            ? { ...r, updatedAt: server.updated_at, guestCode: server.guest_code || r.guestCode || "" }
-            : r;
-        });
-        resRef.current = actualizate;
-        setReservations(actualizate);
-      }
+       Odata cu ea vine si `guest_code`, din acelasi motiv: si el se
+       completeaza pe server, de trigger, si nu se afla in obiectul
+       construit aici. Fara pasul asta, o rezervare creata si trimisa pe
+       WhatsApp in aceeasi sesiune ar fi plecat cu randul „Pagina sejurului
+       tau:" gol — linkul apare in mesaj din 7 septembrie 2026, iar codul
+       lui ar fi ajuns in browser abia la urmatoarea reincarcare. */
+    const aplicaStampile = (scrise) => {
+      if (!scrise.length) return;
+      const dinBaza = new Map(scrise.map((r) => [r.id, r]));
+      const actualizate = resRef.current.map((r) => {
+        const server = dinBaza.get(r.id);
+        return server
+          ? { ...r, updatedAt: server.updated_at, guestCode: server.guest_code || r.guestCode || "" }
+          : r;
+      });
+      resRef.current = actualizate;
+      setReservations(actualizate);
+    };
+    try {
+      aplicaStampile(await syncTable("reservations", before, combinat, snakeRes));
       return true;
-    } catch (e) { raporteazaEroare(e); return false; }
-  }, [raporteazaEroare]);
+    } catch (e) {
+      if (!esteConflict(e)) { raporteazaEroare(e); return false; }
+      /* Modificata de altcineva intre timp: dialogul C5, nu reincarcarea. */
+      try {
+        const final = await rezolvaConflictul(e, before, combinat);
+        if (!final) return false;
+        resRef.current = final; setReservations(final);
+        aplicaStampile(await syncTable("reservations", before, final, snakeRes));
+        return true;
+      } catch (e2) { raporteazaEroare(e2); return false; }
+    }
+  }, [raporteazaEroare, rezolvaConflictul]);
 
   const updateGroups = useCallback(async (next) => {
     const before = grRef.current;
@@ -1065,6 +1115,7 @@ function PMSApp() {
     return (
       <div className="pms">
         <ToastHost />
+        <ConflictHost conflict={conflict} core={core} groups={groups} />
         {/* Poarta de night audit e incarcata la cerere ca restul ecranelor,
             deci are nevoie de granita ei de asteptare — altfel React arunca
             "suspended while responding to synchronous input". */}
@@ -1098,6 +1149,7 @@ function PMSApp() {
   return (
     <div className="pms">
       <ToastHost />
+      <ConflictHost conflict={conflict} core={core} groups={groups} />
       <Shell
         user={currentUser}
         view={view}

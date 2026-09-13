@@ -11,7 +11,7 @@ se pune peste.
 |---|---|---|
 | 1 | C1 — căutare globală (`Ctrl+K`, `/`) | **făcut**, 14 septembrie 2026 (§1) |
 | 2 | C2 — scurtături de tastatură | **făcut**, 14 septembrie 2026 (§2) |
-| 3 | C5 — conflictul de concurență cu diff și alegere | de făcut |
+| 3 | C5 — conflictul de concurență cu diff și alegere | **făcut**, 14 septembrie 2026 (§3) |
 | 4 | C8 — indicator offline + coadă de salvări | de făcut |
 | 5 | C3 — calendarul pe tabletă (7 zile, coloană lipicioasă) | de făcut |
 | 6 | C4 — fișa de rezervare cu secțiuni pliabile | de făcut |
@@ -136,3 +136,65 @@ repetarea; planul fiecărei intenții (azi = miezul nopții de la Vaslui,
 - Nicio scurtătură pentru check-in / check-out / salvare — auditul nu le
   cerea, iar o literă care schimbă statusul unei rezervări fără confirmare
   e o greșeală care așteaptă să se întâmple.
+
+---
+
+## 3. Conflictul de concurență: ce s-a schimbat și ce rămâne (C5)
+
+### 3.1 Ce era greșit
+
+Baza refuză o scriere cu `updated_at` mai vechi decât al ei (triggerul
+`reservations_stamp_updated_at`) — corect. Dar aplicația spunea doar
+„altcineva a modificat aceleași date între timp", reîncărca tot și cerea
+reluarea modificării: omul nu vedea *ce* se schimbase, iar ce scrisese el se
+pierdea din ecran.
+
+### 3.2 Cum funcționează
+
+- **Trei versiuni** (`src/lib/conflict.js`): *baza* (ce era în browser când a
+  pornit modificarea), *a mea* (ce vrea să scrie), *a lor* (ce e acum în
+  bază). La refuz (`40001` sau textul triggerului), `updateReservations`
+  aduce rândurile refuzate de pe server (`src/data/conflict.js`), reține
+  doar cele cu stampila mai nouă decât cea trimisă și, tot din jurnal (pe
+  `reservation_id`, faza 2 A4), cine a umblat ultima dată la ele. Dacă
+  refuzul nu se poate explica așa, se cade pe drumul vechi (mesaj +
+  reîncărcare).
+- **Dialogul** (`src/features/conflict.jsx`): pentru fiecare rezervare,
+  câmpurile în care *a mea* sau *a lor* diferă de bază, cu numele lor
+  (cameră, client, grup, client de facturare — nu id-uri), coloanele „A ta"
+  / „A lor", cine a modificat și când, și marcajul **amândoi** pe câmpul pe
+  care fiecare a pus altceva — singurul caz în care „păstrează a mea" chiar
+  pierde ceva de-al lor. Momentele se compară ca momente („+00:00" de pe
+  server și „.000Z" din browser sunt același lucru), lipsa ca lipsă (null,
+  gol, nedefinit), listele pe conținut; `updated_at`, `guest_code`,
+  `seeded` nu apar.
+- **„Păstrează a mea"**: se pornește de la rândul lor și se pun peste DOAR
+  câmpurile schimbate de mine — ce au schimbat ei în câmpuri pe care nu
+  le-am atins rămâne; stampila e a lor, deci baza acceptă. Se scrie din nou
+  toată lista (și celelalte modificări ale mele din aceeași salvare).
+- **„Ia pe a lor"** sau închiderea dialogului (Esc, X): nimic nu se scrie —
+  scrierea respinsă era una singură, atomică, deci niciun rând din ea n-a
+  ajuns în bază — iar ecranul revine la ce era înaintea modificării, cu
+  versiunea lor pe rândurile în conflict; un mesaj spune că ce ai modificat
+  tu nu s-a salvat. Apelantul primește `false`, ca la orice salvare
+  nereușită: fereastra rămâne deschisă cu ce ai scris, poți salva din nou
+  (acum pe baza versiunii lor) sau închide.
+
+### 3.3 Verificare
+
+`src/conflict.test.js`: recunoașterea erorii; egalitatea canonică
+(momente, lipsă, numere din formular, liste); diferențele (ale mele, ale
+lor, „amândoi", nu și câmpurile de sistem); îmbinarea (ale mele rămân,
+restul iau valorile lor, stampila e a lor, numele ocupantului se
+recalculează); rândurile în conflict după stampilă; „lor" readuce ecranul
+la ce era, inclusiv pentru celelalte rânduri nescrise din aceeași salvare.
+`src/conflict-ecran.test.js`: dialogul arată nume, nu id-uri; marcajele;
+butoanele; închiderea = null.
+
+### 3.4 Ce NU s-a schimbat
+
+- Triggerul și protocolul stampilei sunt neschimbate; nimic nou în bază.
+- Grupurile (`res_groups`) și blocajele n-au stampilă, deci nici conflict:
+  la ele rămâne „ultimul care scrie câștigă", ca înainte.
+- Fereastra din care s-a salvat nu se reîmprospătează singură cu versiunea
+  lor; o vezi în calendar după ce o închizi.

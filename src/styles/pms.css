@@ -2017,3 +2017,28 @@ label.field input, label.field select, label.field textarea{ cursor:auto; }
   font-family:inherit; font-size:inherit; border:1px solid var(--border); border-radius:4px;
   padding:0 5px; margin-right:3px; background:var(--surface-2);
 }
+
+/* ---------------------------------------------------------------
+   CONFLICT DE CONCURENTA (faza 3, C5) — „modificata intre timp", cu
+   campurile diferite si alegerea „pastreaza a mea / ia pe a lor".
+----------------------------------------------------------------*/
+.modal-conflict{ max-width:640px; }
+.conflict-rand{ margin-top:14px; }
+.conflict-rand + .conflict-rand{ border-top:1px solid var(--border-soft); padding-top:12px; }
+.conflict-titlu{ margin:0 0 2px; font-size:var(--fs-md); font-weight:650; }
+.conflict-tabel{ width:100%; border-collapse:collapse; margin-top:10px; font-size:var(--fs-sm); }
+.conflict-tabel th, .conflict-tabel td{
+  padding:6px 8px; border-bottom:1px solid var(--border-soft); text-align:left; vertical-align:top;
+}
+.conflict-tabel thead th{
+  font-size:var(--fs-2xs); text-transform:uppercase; letter-spacing:.04em; color:var(--text-muted); font-weight:600;
+}
+.conflict-tabel tbody th{ font-weight:600; white-space:nowrap; }
+.conflict-tabel td{ font-variant-numeric:tabular-nums; }
+.conflict-schimbat{ background:var(--accent-soft); font-weight:600; }
+.conflict-amandoi td{ background:var(--danger-soft); }
+.conflict-marcaj{
+  display:inline-block; margin-left:6px; font-size:var(--fs-2xs); color:var(--danger);
+  font-weight:700; text-transform:uppercase; letter-spacing:.04em;
+}
+.conflict-nota{ margin-top:10px; }
