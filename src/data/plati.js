@@ -5,7 +5,6 @@
  * React.
  */
 import { supabase } from "../supabase.js";
-import { uid } from "../lib/uid.js";
 
 /* Seria de chitante. Randul e unul singur, cu id fix "series-ch" — pensiunea
    are o singura serie de chitante, spre deosebire de facturi. */
@@ -24,38 +23,28 @@ export async function schimbaSerieChitante(serieNoua) {
   if (error) throw error;
 }
 
-/* Numarul urmator de chitanta. Ca la facturi, incrementarea se face in
-   Postgres, nu aici: doua incasari simultane trebuie sa primeasca numere
-   diferite, iar asta se poate garanta doar in baza. */
-export async function alocaNumarChitanta(serie) {
-  const { data, error } = await supabase.rpc("next_receipt_number", { p_series: serie });
-  if (error) throw error;
-  const rand = Array.isArray(data) ? data[0] : data;
-  return { serie: rand.series, numar: rand.number };
-}
-
-/* Inregistreaza o plata si intoarce factura REINCARCATA.
+/* Inregistreaza o plata — si, la numerar, ii aloca numarul de chitanta — intr-o
+ * singura tranzactie (inregistreaza_plata, faza 2 B7). Pana pe 14 septembrie
+ * 2026 numarul se lua dintr-un apel (next_receipt_number) si plata se insera
+ * din altul: un esec la al doilea consuma numarul degeaba.
  *
- * Reincarcarea nu e un moft: soldul si statusul facturii (partially_paid /
- * paid) sunt calculate de un trigger in Postgres dupa inserare, deci obiectul
- * din memoria interfetei e invechit din clipa in care plata a intrat. */
+ * Intoarce plata scrisa si factura REINCARCATA. Reincarcarea nu e un moft:
+ * soldul si statusul facturii (partially_paid / paid) sunt calculate de un
+ * trigger in Postgres dupa inserare, deci obiectul din memoria interfetei e
+ * invechit din clipa in care plata a intrat. Cine a incasat se ia din
+ * sesiune, pe server. */
 export async function inregistreazaPlata({
-  idFactura, suma, metoda, referinta, creatDe,
-  serieChitanta, numarChitanta, numarBonCard, dataBonCard,
+  idFactura, suma, metoda, referinta,
+  cuChitanta, serieChitanta, numarBonCard, dataBonCard,
 }) {
-  const { error } = await supabase.from("payments").insert({
-    id: uid(), invoice_id: idFactura, amount: Number(suma), method: metoda,
-    reference: referinta || null, created_by: creatDe || null,
-    receipt_series: serieChitanta || null, receipt_number: numarChitanta || null,
-    card_receipt_number: numarBonCard || null,
-    card_receipt_date: dataBonCard || null,
+  const { data, error } = await supabase.rpc("inregistreaza_plata", {
+    p_invoice_id: idFactura, p_amount: Number(suma), p_method: metoda,
+    p_reference: referinta || null,
+    p_cu_chitanta: !!cuChitanta, p_serie_chitanta: serieChitanta || null,
+    p_bon_card: numarBonCard || null, p_data_bon: dataBonCard || null,
   });
   if (error) throw error;
-
-  const { data: factura, error: eFactura } = await supabase
-    .from("invoices").select("*").eq("id", idFactura).maybeSingle();
-  if (eFactura) throw eFactura;
-  return factura;
+  return { factura: data?.factura, plata: data?.plata };
 }
 
 /* Toate incasarile, cu factura fiecareia atasata — pentru ecranul de

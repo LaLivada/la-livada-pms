@@ -73,26 +73,18 @@ export async function emiteFactura(invoice) {
     return null;
   }
 
-  let serieNoua, numar;
-  try {
-    ({ serie: serieNoua, numar } = await dateFacturare.alocaNumarFactura(serie));
-  } catch (e) {
-    toaster.show(mesajEroare(e, "Nu am putut aloca numărul de factură"), { tone: "danger" });
-    return null;
-  }
-
+  /* Numarul si trecerea in „emisa" vin dintr-o singura tranzactie
+     (emite_factura, data/facturare.js) — un esec nu mai lasa gol in serie. */
   let updated;
   try {
-    updated = await dateFacturare.marcheazaEmisa(invoice.id, {
-      serie: serieNoua, numar, emisDe: audit.user?.id || null,
-    });
+    updated = await dateFacturare.emiteFactura(invoice.id, serie);
   } catch (e) {
     toaster.show(mesajEroare(e, "Emiterea a eșuat"), { tone: "danger" });
     return null;
   }
 
-  await audit.push("Factură emisă", `${serieNoua} ${numar} · ${fmtMoney(invoice.total_amount)}`);
-  toaster.show(`Factura ${serieNoua} ${numar} a fost emisă`, { tone: "ok" });
+  await audit.push("Factură emisă", `${updated.series} ${updated.number} · ${fmtMoney(invoice.total_amount)}`);
+  toaster.show(`Factura ${updated.series} ${updated.number} a fost emisă`, { tone: "ok" });
   return updated;
 }
 
@@ -608,33 +600,25 @@ export function RecordPaymentInline({ invoice, core, onChanged }) {
   const submit = async () => {
     if (!(Number(amount) > 0)) return;
     setSaving(true);
-    let receiptSeriesVal = null, receiptNumberVal = null;
-    if (isCash) {
-      try {
-        const r = await datePlati.alocaNumarChitanta(receiptSeries?.series || "CH");
-        receiptSeriesVal = r.serie; receiptNumberVal = r.numar;
-      } catch (e) {
-        toaster.show(mesajEroare(e, "Nu am putut aloca numărul de chitanță"), { tone: "danger" });
-        setSaving(false); return;
-      }
-    }
-    let updated;
+    let updated, plata;
     try {
-      /* Intoarce factura reincarcata: soldul si statusul sunt recalculate
-         de un trigger server-side dupa inserarea platii. */
-      updated = await datePlati.inregistreazaPlata({
+      /* Plata si (la numerar) numarul de chitanta, intr-o singura tranzactie
+         (inregistreaza_plata, data/plati.js): un esec nu mai consuma numarul.
+         Vine si factura reincarcata — soldul si statusul sunt recalculate de
+         un trigger server-side dupa inserarea platii. */
+      ({ factura: updated, plata } = await datePlati.inregistreazaPlata({
         idFactura: invoice.id, suma: amount, metoda: method,
-        referinta: reference.trim(), creatDe: audit.user?.id || null,
-        serieChitanta: receiptSeriesVal, numarChitanta: receiptNumberVal,
+        referinta: reference.trim(),
+        cuChitanta: isCash, serieChitanta: receiptSeries?.series || "CH",
         numarBonCard: isCard ? (cardReceiptNumber.trim() || null) : null,
         dataBonCard: isCard ? (cardReceiptDate || null) : null,
-      });
+      }));
     } catch (e) {
       toaster.show(mesajEroare(e, "Plata a eșuat"), { tone: "danger" });
       setSaving(false); return;
     }
     const methodLabel = methods.find((m) => m.id === method)?.label || method;
-    const receiptNote = receiptSeriesVal ? ` · chitanță ${receiptSeriesVal} ${receiptNumberVal}` : "";
+    const receiptNote = plata?.receipt_series ? ` · chitanță ${plata.receipt_series} ${plata.receipt_number}` : "";
     await audit.push("Plată înregistrată", `${fmtMoney(amount)} · ${methodLabel}${receiptNote}`);
     if (updated) onChanged(updated);
     setSaving(false);
@@ -730,9 +714,7 @@ export function InvoiceCancelCreditActions({ invoice, onChanged }) {
         toaster.show("Nu există nicio serie de facturare activă. Configureaz-o în Financiar → Serii.", { tone: "danger" });
         return;
       }
-      const { original, serie, numar } = await dateFacturare.storneazaFactura(invoice, {
-        serie: serieStorno, creatDe: audit.user?.id || null,
-      });
+      const { original, serie, numar } = await dateFacturare.storneazaFactura(invoice, { serie: serieStorno });
       await audit.push("Factură stornată",
         `${serie} ${numar} stornează ${invoice.series || ""} ${invoice.number || ""}`.trim());
       toaster.show(`Stornare emisă: ${serie} ${numar}`, { tone: "ok" });

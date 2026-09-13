@@ -12,7 +12,7 @@ Realtime), apoi restul.
 | 6 | D7 — erorile din producție în jurnal | **făcut**, 14 septembrie 2026 (§2) |
 | 1 | A6 — `room_status` ca tabel + Realtime | **făcut**, 14 septembrie 2026 (§3) |
 | 2 | B3 — Realtime pe `reservations` în fereastră | **făcut**, 14 septembrie 2026 (§3) |
-| 5 | B7 — facturare atomică | de făcut |
+| 5 | B7 — facturare atomică | **făcut**, 14 septembrie 2026 (§4) |
 | 3 | A4 — `activity_log` cu `room_id`/`reservation_id` + arhivare | de făcut |
 | 7 | B5 — integrare + e2e în CI pe baza din migrații | cere al doilea proiect Supabase (la proprietar) |
 
@@ -239,3 +239,73 @@ pe lună; aplicația are trei conturi și un canal per filă.
 - Camerista nu primește evenimente pe `reservations` (n-are politică de
   citire pe tabel; calendarul ei e vederea de ocupare) — pentru ea
   rezervările se reîncarcă ca înainte, statusul camerelor vine live.
+
+---
+
+## 4. Facturare atomică (B7)
+
+### 4.1 Ce era greșit
+
+Numărul de factură se lua dintr-un apel (`next_invoice_number`), iar factura
+se marca „emisă" din alt apel, tot din browser. Dacă al doilea pica (rețea,
+RLS, trigger), numărul rămânea consumat: gol în seria fiscală, de justificat
+la control. S-a și întâmplat, la prima stornare eșuată din august (numărul 7,
+repus fiindcă erau date de test). Stornarea avea patru scrieri (număr, nota
+de credit, liniile ei, marcarea originalului), încasarea în numerar două
+(număr de chitanță, apoi plata) — aceeași expunere, la fiecare.
+
+### 4.2 Cum funcționează
+
+Trei funcții Postgres (migrarea `facturare_atomica`, oglindită în
+`schema.sql`), fiecare o singură tranzacție — ori se întâmplă tot, ori nimic:
+
+| Funcție | Ce face | Ce refuză |
+|---|---|---|
+| `emite_factura(id, serie)` | draft → emisă, cu numărul din serie | o factură care nu mai e draft (a doua emitere), o serie inexistentă sau inactivă |
+| `storneaza_factura(id, serie)` | nota de credit (sume și cantități negate, aceeași perioadă de servicii, `credit_note_of`) + originalul marcat „stornată" | orice nu e emisă |
+| `inregistreaza_plata(…)` | plata și, la numerar, numărul de chitanță; întoarce plata și factura recalculată de trigger | facturi fără sold de încasat: draft, anulată, stornată, deja plătită; sumă nepozitivă |
+
+Toate trei sunt `security definer` (seria e modificabilă doar de admin prin
+RLS), verifică singure permisiunea pe care o cerea drumul vechi
+(`issue_invoice`, `create_credit_note`, `record_payment`), blochează rândul
+facturii (`for update` — două emiteri simultane ale aceluiași draft nu iau
+două numere) și iau „cine" din sesiune, nu din browser. Trigger-ele existente
+(garda de status a facturii, recalcularea soldului la plată) rulează
+neschimbate.
+
+În browser, [src/data/facturare.js](../src/data/facturare.js)
+(`emiteFactura`, `storneazaFactura`) și [src/data/plati.js](../src/data/plati.js)
+(`inregistreazaPlata`) fac câte un singur RPC; ecranele nu s-au schimbat
+vizibil. `next_invoice_number` și `next_receipt_number` rămân în bază pentru
+filele cu bundle-ul vechi — de revocat de la `authenticated` după ce s-au
+reîncărcat toate.
+
+### 4.3 Verificare
+
+Pe baza live, într-o tranzacție anulată la final (un `do` care se încheie cu
+`raise exception`, cu raportul în mesaj), ca recepționerul, prin
+`request.jwt.claims`:
+
+- draft cu o linie (2 × 59,5) → emitere `LL 1`, emisă, `issued_by` = recepționerul;
+- a doua emitere refuzată („nu mai e draft"), contorul seriei neatins;
+- încasare numerar 119 lei → `CH 1`, factura „plătită", `created_by` = recepționerul;
+- a doua încasare refuzată („se încasează doar facturi emise, cu sold"),
+  contorul de chitanțe neatins;
+- stornare → `LL 2`, linia negată (−2 × 59,5 = −119), `credit_note_of`
+  corect, perioada de servicii copiată, originalul „stornată";
+- camerista refuzată: „Nu ai permisiunea de a emite facturi".
+
+După anulare, contoarele au rămas `LL 1` / `CH 1` și nu există nicio urmă.
+Suita JS nu are ce testa aici — sunt apeluri de rețea; logica stă în SQL.
+
+### 4.4 Ce NU s-a schimbat
+
+- Crearea draftului rămâne cinci scrieri din browser: ordinea (marcarea
+  pozițiilor de folio e ultima) și garda de pe `invoice_item_links` fac un
+  eșec vizibil, nu păgubos — și niciun număr nu e consumat.
+- Ecranul facturii arată „Înregistrează plata" doar pe facturi `issued`: o
+  factură plătită parțial nu mai poate primi restul din interfață. Funcția
+  din bază acceptă și `partially_paid`; de decis dacă limitarea e
+  intenționată.
+- Plata peste sold rămâne permisă, ca înainte (trigger-ul o marchează
+  „plătită").
