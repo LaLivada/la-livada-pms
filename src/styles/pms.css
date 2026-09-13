@@ -679,6 +679,11 @@
   font-size:var(--fs-sm); color:var(--text-muted); margin-top:2px; text-align:left;
   overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
 }
+/* Erorile prinse automat (lib/erori-productie.js) se vad in jurnal ca atare:
+   titlul in rosu, detaliul lasat sa se rupa pe randuri — un mesaj de eroare
+   taiat cu „…" dupa 60 de caractere n-ar mai spune unde a picat. */
+.list-row-eroare .primary{ color:var(--danger); }
+.list-row-eroare .secondary{ white-space:normal; overflow-wrap:anywhere; }
 .row-actions{ display:flex; gap:6px; flex:0 0 auto; }
 
 /* ---------- Automatizare: releele Shelly ----------

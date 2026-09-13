@@ -21,6 +21,7 @@ import { FUS_HOTEL, partiLocale, adaugaZile } from "../lib/timp.js";
 import * as dateRapoarte from "../data/rapoarte.js";
 import { Dialog, toaster, useModalLock, Stat, PdfPreview } from "../ui/primitive.jsx";
 import { cameraDinDetaliu, filtreazaJurnal, ziiDistincte, grupeazaPeZi, etichetaZi } from "../lib/jurnal.js";
+import { ACTIUNE_EROARE } from "../lib/erori-productie.js";
 import { generatePdfBlob, pregatesteFila, arataInFila, inchideFila } from "../lib/pdf.js";
 
 export function UsersView() {
@@ -620,7 +621,7 @@ export function LogView({ entries, core }) {
             {g.intrari.map((e) => {
               const cameraRand = cameraDinDetaliu(e.detail, numeCamere);
               return (
-                <div className="list-row" key={e.id}>
+                <div className={"list-row" + (e.action === ACTIUNE_EROARE ? " list-row-eroare" : "")} key={e.id}>
                   <div style={{ minWidth: 0 }}>
                     <div className="primary">{e.action}</div>
                     <div className="secondary">{e.detail}</div>

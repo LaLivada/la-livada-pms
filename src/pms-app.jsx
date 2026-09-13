@@ -55,6 +55,7 @@ import {
 } from "./ui/primitive.jsx";
 import { K, loadShared, saveShared } from "./data/stare-partajata.js";
 import { audit, incarcaJurnal } from "./lib/audit.js";
+import { raporteazaEroare, seteazaEcranCurent, componentaDin } from "./lib/erori-productie.js";
 import { occupantName, guestFullName } from "./lib/nume.js";
 import { canBilling, billingPerms } from "./lib/permisiuni.js";
 import { GUEST_HISTORY_PAGE_SIZE } from "./lib/constante.js";
@@ -255,6 +256,9 @@ class ErrorBoundary extends React.Component {
   }
   componentDidCatch(error, info) {
     console.error("PMS render error", error, info);
+    /* In jurnal, cu componenta in care a picat — window.onerror nu vede
+       erorile de randare, React le inghite aici. */
+    raporteazaEroare("randare", error, componentaDin(info?.componentStack));
     if (esteEroareDeIncarcareModul(error)) reincarcaDupaEsecModul();
   }
   render() {
@@ -386,6 +390,8 @@ function PMSApp() {
   const [currentUser, setCurrentUser] = useState(null);
   const [authChecked, setAuthChecked] = useState(false);
   const [view, setView] = useState("calendar");
+  /* Ecranul curent intra in randul de eroare din jurnal (lib/erori-productie). */
+  useEffect(() => { seteazaEcranCurent(view); }, [view]);
 
   /* Golirea completa a datelor tinute in memorie. Deconectarea stergea
      doar sesiunea Supabase: rezervarile, oaspetii si jurnalul ramaneau in

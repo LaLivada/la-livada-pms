@@ -9,7 +9,7 @@ Realtime), apoi restul.
 | # | Punct din audit | Stare |
 |---|---|---|
 | 4 | B6 — fusul orar unificat | **făcut**, 14 septembrie 2026 (§1) |
-| 6 | D7 — erorile din producție în jurnal | de făcut |
+| 6 | D7 — erorile din producție în jurnal | **făcut**, 14 septembrie 2026 (§2) |
 | 1 | A6 — `room_status` ca tabel + Realtime | de făcut |
 | 2 | B3 — Realtime pe `reservations` în fereastră | de făcut |
 | 5 | B7 — facturare atomică | de făcut |
@@ -105,3 +105,50 @@ mașină.
 - `access-provider` (funcția edge) importă `src/lib/acces.js`, care acum
   importă `timp.js`. Versiunea deployată (48) are propria copie, mai veche —
   la următorul deploy trebuie inclus și `src/lib/timp.js`.
+
+---
+
+## 2. Erorile din producție în jurnal (D7)
+
+### 2.1 Ce era greșit
+
+O eroare pe tableta recepției se vedea doar în consola browserului, adică
+nicăieri: nimeni nu deschide consola pe o tabletă, iar până se uită cineva,
+pagina a fost reîncărcată. Auditul propunea `window.onerror` +
+`unhandledrejection` care scriu în `activity_log`, sau Sentry. Am ales
+tabelul existent: fără serviciu nou, fără cheie nouă, și rândul apare exact
+în ecranul Jurnal pe care recepția îl are deja.
+
+### 2.2 Cum funcționează
+
+[src/lib/erori-productie.js](../src/lib/erori-productie.js), instalat în
+`src/main.jsx` înainte de prima randare:
+
+- **ce se scrie**: acțiunea fixă „Eroare în aplicație" și un detaliu de
+  forma `[script] TypeError: x is undefined · index-Ab12.js:3:9 · ecran
+  calendar · Chrome 128 · Android` — tipul (script / promisiune / randare),
+  mesajul cu codul Supabase/Postgres, fișierul cu linia, componenta React
+  (din `ErrorBoundary`), secțiunea PMS-ului în care era omul, browserul pe
+  scurt. Tăiat la 1000 de caractere, limita coloanei.
+- **dedupe și plafon**: aceeași eroare o dată la 10 minute; cel mult 30 pe
+  sesiune, ca o buclă de erori să nu umple jurnalul.
+- **zgomot ignorat**: `ResizeObserver loop`, „Script error." (script
+  străin fără detalii), modulul lipsă după un deploy — pe ăsta
+  `ErrorBoundary` îl rezolvă singur cu o reîncărcare.
+- **fără toast și fără a doua eroare**: scrierea e `scrieInJurnalTacut`
+  din `lib/audit.js` — dacă tocmai baza a picat, eșuează în tăcere. Rândul
+  apare oricum imediat în lista locală a ecranului Jurnal.
+- **cine scrie**: oricine e în `staff`, camerista inclusiv — aceeași
+  politică RLS ca la orice rând din jurnal; semnătura (cine, când) o pune
+  trigger-ul, nu browserul. Neautentificat, nimic nu se scrie.
+- **în ecran**: rândurile de eroare au titlul roșu și detaliul lăsat să se
+  rupă pe rânduri (`.list-row-eroare`).
+
+### 2.3 Verificare
+
+- `src/erori-productie.test.js` — descrierea erorilor, locul din stack sau
+  din `ErrorEvent`, agentul scurt, dedupe/plafon, instalarea pe o
+  fereastră falsă, raportarea din `ErrorBoundary`.
+- Site-ul de rezervări și aplicația de oaspete nu au captură: rulează ca
+  `anon`, care nu poate scrie în `activity_log`. Rămâne pentru când vor
+  avea un canal propriu.

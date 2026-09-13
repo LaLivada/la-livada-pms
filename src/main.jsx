@@ -10,6 +10,14 @@ import { createRoot } from 'react-dom/client'
 import './index.css'
 import './styles/pms.css'
 import App from './App.jsx'
+import { instaleazaCapturaErori, creeazaColector } from './lib/erori-productie.js'
+import { scrieInJurnalTacut } from './lib/audit.js'
+
+/* Erorile neprinse (script, promisiune fara catch) ajung in jurnalul din
+   activity_log — faza 2, D7. Instalat INAINTE de prima randare, ca sa prinda
+   si un esec de pornire; scrierea reuseste doar dupa autentificare (RLS), dar
+   dedupe-ul si plafonul sunt in colector, nu in baza. */
+instaleazaCapturaErori(window, creeazaColector({ scrie: scrieInJurnalTacut }))
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>

@@ -40,6 +40,26 @@ const catreEcran = (r) => ({
   userRole: r.user_role, action: r.action, detail: r.detail || "",
 });
 
+/* Intrarea locala e doar pentru ecran, ca lista sa se miste imediat. Cea
+   care conteaza e randul din baza, semnat acolo. `id`-ul ei nu se va
+   potrivi cu al randului real, dar traieste doar pana la reincarcare si
+   nu-l foloseste nimeni la nimic altceva decat la `key`. */
+function adaugaPeEcran(a, d) {
+  const entry = {
+    id: uid(), ts: new Date().toISOString(),
+    userName: audit.user?.name || "?", userRole: audit.user?.role || "?",
+    action: a, detail: d || "",
+  };
+  const next = [entry, ...audit.entries].slice(0, LIMITA_ECRAN);
+  audit.entries = next;
+  if (audit.setEntries) audit.setEntries(next);
+}
+
+async function insereaza(a, d) {
+  const { error } = await supabase.from("activity_log").insert({ action: a, detail: d });
+  if (error) throw error;
+}
+
 export const audit = {
   user: null,
   entries: [],
@@ -47,32 +67,35 @@ export const audit = {
   async push(action, detail) {
     const a = String(action ?? "").slice(0, MAX_ACTION);
     const d = detail == null ? null : String(detail).slice(0, MAX_DETAIL);
-    /* Intrarea locala e doar pentru ecran, ca lista sa se miste imediat.
-       Cea care conteaza e randul din baza, semnat acolo. `id`-ul ei nu se
-       va potrivi cu al randului real, dar traieste doar pana la reincarcare
-       si nu-l foloseste nimeni la nimic altceva decat la `key`. */
-    const entry = {
-      id: uid(), ts: new Date().toISOString(),
-      userName: audit.user?.name || "?", userRole: audit.user?.role || "?",
-      action: a, detail: d || "",
-    };
-    const next = [entry, ...audit.entries].slice(0, LIMITA_ECRAN);
-    audit.entries = next;
-    if (audit.setEntries) audit.setEntries(next);
+    adaugaPeEcran(a, d);
     /* Jurnalul e secundar fata de actiunea in sine: daca scrierea lui
        esueaza, actiunea utilizatorului (rezervarea, plata) e deja
        salvata si nu are rost sa fie anulata. Anuntam discret si mergem
        mai departe. */
     try {
-      const { error } = await supabase.from("activity_log")
-        .insert({ action: a, detail: d });
-      if (error) throw error;
+      await insereaza(a, d);
     } catch (e) {
       console.error("Jurnalul nu a putut fi salvat", e);
       toaster.show("Acțiunea a fost salvată, dar nu a putut fi trecută în jurnal.", { tone: "danger" });
     }
   },
 };
+
+/* Aceeasi scriere, FARA toast — pentru erorile prinse automat
+   (lib/erori-productie.js). Un mesaj „n-a putut fi trecuta in jurnal" peste
+   o eroare deja intamplata ar fi zgomot, iar daca tocmai baza a picat, ar
+   fi si o a doua eroare din aceeasi cauza. Randul apare totusi pe ecran, ca
+   la push, deci cine are Jurnalul deschis il vede imediat. */
+export async function scrieInJurnalTacut(action, detail) {
+  const a = String(action ?? "").slice(0, MAX_ACTION);
+  const d = detail == null ? null : String(detail).slice(0, MAX_DETAIL);
+  adaugaPeEcran(a, d);
+  try {
+    await insereaza(a, d);
+  } catch (e) {
+    console.error("Eroarea nu a putut fi trecută în jurnal", e);
+  }
+}
 
 /* Intoarce [] in loc sa arunce, ca `loadShared` de dinainte: jurnalul se
    citeste la pornirea aplicatiei, iar aplicatia n-are voie sa refuze sa
