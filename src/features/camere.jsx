@@ -241,7 +241,7 @@ export function HousekeepingView({ core, reservations, housekeeping, updateHouse
    PRODUSE/SERVICII + COTE TVA (nomenclator pentru folio/facturare)
 ----------------------------------------------------------------*/
 
-export function RoomsView({ core, updateCore, reservations, updateReservations, blocks, updateBlocks }) {
+export function RoomsView({ core, updateCore, reservations, updateReservations, stergeRezervari, stergeBlocaje, blocks, updateBlocks }) {
   const [tab, setTab] = useState("rooms");
   const [modal, setModal] = useState(null);
   const [confirmRoomId, setConfirmRoomId] = useState(null);
@@ -266,9 +266,14 @@ export function RoomsView({ core, updateCore, reservations, updateReservations, 
     const affectedRes = reservations.filter((r) => r.roomId === id).length;
     const affectedBlocks = (blocks || []).filter((b) => b.roomId === id).length;
 
-    await updateCore({ ...core, rooms: core.rooms.filter((r) => r.id !== id) });
-    await updateReservations(reservations.filter((r) => r.roomId !== id));
-    await updateBlocks((blocks || []).filter((b) => b.roomId !== id));
+    /* Rezervările și blocajele camerei se șterg explicit (vezi syncTable),
+       și ÎNAINTE de cameră: room_id e ON DELETE RESTRICT, deci camera nu
+       pleacă cât mai are vreun rând. Se văd doar cele din fereastra
+       încărcată — o cameră cu istoric mai vechi de 30 de zile rămâne, iar
+       baza spune de ce. */
+    if (!await stergeRezervari(reservations.filter((r) => r.roomId === id).map((r) => r.id))) return;
+    if (!await stergeBlocaje((blocks || []).filter((b) => b.roomId === id).map((b) => b.id))) return;
+    if (!await updateCore({ ...core, rooms: core.rooms.filter((r) => r.id !== id) })) return;
 
     const extra = [
       affectedRes ? `${affectedRes} rezervări eliminate` : null,

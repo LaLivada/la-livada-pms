@@ -45,7 +45,10 @@ import {
   camelPaymentMethod, snakePaymentMethod, camelProduct, snakeProduct,
   camelBillingCustomer, snakeBillingCustomer,
 } from "./data/mapari.js";
-import { syncTable, saveRatesAndSeasons, loadAll } from "./data/nucleu.js";
+import {
+  syncTable, syncTableIntreg, stergeRanduri, saveRatesAndSeasons, loadAll,
+  incarcaPerioada, fereastraImplicita, bucatiLipsa, uneste, doarNoi,
+} from "./data/nucleu.js";
 import {
   Dialog, toaster, ToastHost, Paginare, usePaginare,
   useModalLock, useAduInVizor, useVisualViewportHeight, PdfPreview,
@@ -374,6 +377,11 @@ function PMSApp() {
   const [blocks, setBlocks] = useState([]);
   const [initError, setInitError] = useState(null);
   const [reloadKey, setReloadKey] = useState(0);
+  /* Intervalul de rezervari incarcat in browser ({de, pana} ISO) — vezi
+     docs/faza1.md. Ref, nu stare: nu se deseneaza nicaieri, iar cine il
+     citeste (asiguraPerioada) are nevoie de valoarea de acum, nu de cea de la
+     ultima randare. */
+  const fereastraRef = useRef(null);
   const [currentUser, setCurrentUser] = useState(null);
   const [authChecked, setAuthChecked] = useState(false);
   const [view, setView] = useState("calendar");
@@ -484,7 +492,7 @@ function PMSApp() {
     (async () => {
       try {
         if (!currentUser) { if (alive) setLoading(false); return; }
-        const db = await loadAll(currentUser.role);
+        const db = await loadAll(currentUser.role, fereastraImplicita());
         // Setarile care nu au tabel propriu (useri, ore check-in etc.)
         // raman in app_state; restul vine acum din tabele reale.
         const settings = (await loadShared(K.core, null)) || {};
@@ -540,6 +548,7 @@ function PMSApp() {
         const lg = await incarcaJurnal();
         if (!alive) return;
         audit.entries = lg; audit.setEntries = setLogEntries;
+        fereastraRef.current = db.fereastra;
         setCore(c); setReservations(r); setHousekeeping(h);
         setGroups(gr); setBlocks(bl); setLogEntries(lg);
       } catch (err) {
@@ -584,25 +593,34 @@ function PMSApp() {
 
   const updateCore = useCallback(async (next) => {
     const before = coreRef.current;
-    setCore(next);
+    /* `guests` e un CACHE partial (cei din fereastra + cei gasiti prin
+       cautare sau creati in sesiune), nu lista completa — vezi
+       docs/faza1.md, 2.4. Un ecran care a pornit de la o versiune mai veche
+       a cache-ului nu are voie sa-i scoata pe cei sositi intre timp: lista
+       lui se UNESTE cu cea curenta, iar stergerea unui oaspete e un apel
+       separat (stergeOaspete). Tabelele mici raman intregi in browser, deci
+       pentru ele diferenta before/after e completa (syncTableIntreg). */
+    const cuOaspeti = { ...next, guests: uneste(before.guests || [], next.guests || []) };
+    setCore(cuOaspeti);
+    coreRef.current = cuOaspeti;
     try {
-      await syncTable("rooms", before.rooms, next.rooms, snakeRoom);
-      await syncTable("guests", before.guests, next.guests, snakeGuest);
+      await syncTableIntreg("rooms", before.rooms, cuOaspeti.rooms, snakeRoom);
+      await syncTable("guests", before.guests, cuOaspeti.guests, snakeGuest);
       if (next.rates !== before.rates) await saveRatesAndSeasons(before.rates || {}, next.rates || {});
       if (next.onlinePricing !== before.onlinePricing) {
-        await syncTable("online_pricing_tiers", before.onlinePricing || [], next.onlinePricing || [], snakeTier);
+        await syncTableIntreg("online_pricing_tiers", before.onlinePricing || [], next.onlinePricing || [], snakeTier);
       }
       if (next.billingCustomers !== before.billingCustomers) {
-        await syncTable("billing_customers", before.billingCustomers || [], next.billingCustomers || [], snakeBillingCustomer);
+        await syncTableIntreg("billing_customers", before.billingCustomers || [], next.billingCustomers || [], snakeBillingCustomer);
       }
       if (next.vatRates !== before.vatRates) {
-        await syncTable("vat_rates", before.vatRates || [], next.vatRates || [], snakeVatRate);
+        await syncTableIntreg("vat_rates", before.vatRates || [], next.vatRates || [], snakeVatRate);
       }
       if (next.products !== before.products) {
-        await syncTable("products", before.products || [], next.products || [], snakeProduct);
+        await syncTableIntreg("products", before.products || [], next.products || [], snakeProduct);
       }
       if (next.paymentMethods !== before.paymentMethods) {
-        await syncTable("payment_methods", before.paymentMethods || [], next.paymentMethods || [], snakePaymentMethod);
+        await syncTableIntreg("payment_methods", before.paymentMethods || [], next.paymentMethods || [], snakePaymentMethod);
       }
       const { rooms, guests, rates, onlinePricing, billingCustomers, vatRates, products, paymentMethods, ...settings } = next;
       await saveShared(K.core, settings);
@@ -612,13 +630,20 @@ function PMSApp() {
 
   const updateReservations = useCallback(async (next) => {
     const before = resRef.current;
-    setReservations(next);
+    /* `next` vine dintr-un ecran care a pornit de la lista lui — poate mai
+       veche decat `before`, daca intre timp calendarul a adus o bucata noua
+       de fereastra (asiguraPerioada). Unirea pastreaza ce e in `before` si
+       lipseste din `next`; fara ea, randurile abia sosite ar disparea din
+       browser (nu din baza — syncTable nu mai sterge) pana la reincarcare.
+       Stergerile nu mai trec pe aici: vezi stergeRezervari. */
+    const combinat = uneste(before, next);
+    setReservations(combinat);
     /* Ref-ul se actualizeaza si sincron, nu doar prin useEffect: doua
        salvari rapide una dupa alta ar citi altfel starea veche si ar
        trimite o stampila deja depasita, respinsa inutil ca si conflict. */
-    resRef.current = next;
+    resRef.current = combinat;
     try {
-      const scrise = await syncTable("reservations", before, next, snakeRes);
+      const scrise = await syncTable("reservations", before, combinat, snakeRes);
       /* Stampila noua vine de la server; fara pasul asta, urmatoarea
          salvare a aceluiasi utilizator ar trimite-o pe cea veche si ar fi
          respinsa ca modificare concurenta, desi e tot el.
@@ -664,6 +689,83 @@ function PMSApp() {
       return true;
     } catch (e) { raporteazaEroare(e); return false; }
   }, [raporteazaEroare]);
+
+  /* Stergeri EXPLICITE (docs/faza1.md, 2.3): syncTable nu mai deduce nimic
+     din diferenta before/after, fiindca starea locala e partiala. Fiecare
+     functie scrie in baza si scoate randurile din starea locala; la esec,
+     raporteazaEroare reincarca totul din baza, ca la orice alta scriere. */
+  const stergeRezervari = useCallback(async (ids) => {
+    const before = resRef.current;
+    const next = before.filter((r) => !ids.includes(r.id));
+    setReservations(next); resRef.current = next;
+    try { await stergeRanduri("reservations", ids); return true; }
+    catch (e) { raporteazaEroare(e); return false; }
+  }, [raporteazaEroare]);
+
+  /* Baza sterge in cascada rezervarile grupului (reservations.group_id ->
+     res_groups, on delete cascade), deci si starea locala le lasa sa plece
+     odata cu el — de obicei sunt deja sterse explicit inainte, ca triggerul
+     fiselor sa poata refuza pe camera cu fisa, nu pe grupul intreg. */
+  const stergeGrupuri = useCallback(async (ids) => {
+    const beforeGr = grRef.current, beforeRes = resRef.current;
+    const nextGr = beforeGr.filter((g) => !ids.includes(g.id));
+    const nextRes = beforeRes.filter((r) => !ids.includes(r.groupId));
+    setGroups(nextGr); grRef.current = nextGr;
+    setReservations(nextRes); resRef.current = nextRes;
+    try { await stergeRanduri("res_groups", ids); return true; }
+    catch (e) { raporteazaEroare(e); return false; }
+  }, [raporteazaEroare]);
+
+  const stergeBlocaje = useCallback(async (ids) => {
+    const before = blRef.current || [];
+    const next = before.filter((b) => !ids.includes(b.id));
+    setBlocks(next); blRef.current = next;
+    try { await stergeRanduri("reservations", ids); return true; }
+    catch (e) { raporteazaEroare(e); return false; }
+  }, [raporteazaEroare]);
+
+  const stergeOaspete = useCallback(async (id) => {
+    const before = coreRef.current;
+    const next = { ...before, guests: (before.guests || []).filter((g) => g.id !== id) };
+    setCore(next); coreRef.current = next;
+    try { await stergeRanduri("guests", [id]); return true; }
+    catch (e) { raporteazaEroare(e); return false; }
+  }, [raporteazaEroare]);
+
+  /* Oaspetii gasiti prin cautare pe server intra in cache-ul local fara
+     nicio scriere — numele lor trebuie sa se poata afisa dupa selectie, iar
+     `core.guests` e singurul loc din care ecranele iau nume dupa id. */
+  const adaugaOaspetiInCache = useCallback((lista) => {
+    setCore((c) => ({ ...c, guests: doarNoi(c.guests, lista) }));
+  }, []);
+
+  /* Calendarul cere ce nu are (docs/faza1.md, 2.2). Fereastra se largeste
+     INAINTE de raspuns: o a doua derulare, venita cat timp prima cerere e pe
+     drum, n-ar mai cere aceleasi zile inca o data. Ce e deja in browser
+     ramane (poate avea stampile mai noi decat baza, de la o salvare in
+     curs); doar randurile necunoscute se adauga. */
+  const asiguraPerioada = useCallback(async (deDate, panaDate) => {
+    const fer = fereastraRef.current;
+    if (!fer || !currentUser) return;
+    const { bucati, fereastra: noua } = bucatiLipsa(fer, deDate.toISOString(), panaDate.toISOString());
+    if (!bucati.length) return;
+    fereastraRef.current = noua;
+    try {
+      const primite = await Promise.all(bucati.map((b) => incarcaPerioada(currentUser.role, b.de, b.pana)));
+      const r = primite.flatMap((b) => b.reservations);
+      const bl = primite.flatMap((b) => b.blocks);
+      const gr = primite.flatMap((b) => b.groups);
+      const oa = primite.flatMap((b) => b.guests);
+      setReservations((cur) => doarNoi(cur, r));
+      setBlocks((cur) => doarNoi(cur, bl));
+      setGroups((cur) => doarNoi(cur, gr));
+      setCore((c) => ({ ...c, guests: doarNoi(c.guests, oa) }));
+    } catch (e) {
+      fereastraRef.current = fer;
+      console.error("Largirea ferestrei a esuat", e);
+      toaster.show(mesajEroare(e, "Nu am putut încărca perioada"), { tone: "danger" });
+    }
+  }, [currentUser]);
 
   const updateHousekeeping = useCallback(async (next) => {
     const before = housekeepingRef.current;
@@ -817,6 +919,9 @@ function PMSApp() {
           updateBlocks={updateBlocks}
           reservations={reservations}
           updateReservations={updateReservations}
+          stergeRezervari={stergeRezervari}
+          stergeGrupuri={stergeGrupuri}
+          adaugaOaspetiInCache={adaugaOaspetiInCache}
           housekeeping={housekeeping}
           updateHousekeeping={updateHousekeeping}
           onLogout={async () => {
@@ -851,6 +956,12 @@ function PMSApp() {
         updateGroups={updateGroups}
         blocks={blocks}
         updateBlocks={updateBlocks}
+        stergeRezervari={stergeRezervari}
+        stergeGrupuri={stergeGrupuri}
+        stergeBlocaje={stergeBlocaje}
+        stergeOaspete={stergeOaspete}
+        adaugaOaspetiInCache={adaugaOaspetiInCache}
+        asiguraPerioada={asiguraPerioada}
         logEntries={logEntries}
       />
     </div>
@@ -982,7 +1093,7 @@ function defaultViewFor(role) {
   return role === "housekeeping" ? "housekeeping" : "today";
 }
 
-function Shell({ user, view, setView, onLogout, core, updateCore, reservations, updateReservations, housekeeping, updateHousekeeping, groups, updateGroups, blocks, updateBlocks, logEntries }) {
+function Shell({ user, view, setView, onLogout, core, updateCore, reservations, updateReservations, housekeeping, updateHousekeeping, groups, updateGroups, blocks, updateBlocks, stergeRezervari, stergeGrupuri, stergeBlocaje, stergeOaspete, adaugaOaspetiInCache, asiguraPerioada, logEntries }) {
   const [calendarIntent, setCalendarIntent] = useState(null);
 
   const settingsItems = SETTINGS_ITEMS.filter((i) => i.roles.includes(user.role));
@@ -1106,7 +1217,9 @@ function Shell({ user, view, setView, onLogout, core, updateCore, reservations, 
             <TodayView core={core} updateCore={updateCore} reservations={reservations}
               updateReservations={updateReservations} housekeeping={housekeeping}
               updateHousekeeping={updateHousekeeping} setView={setView} groups={groups}
-              updateGroups={updateGroups} blocks={blocks} updateBlocks={updateBlocks} />
+              updateGroups={updateGroups} blocks={blocks} updateBlocks={updateBlocks}
+              stergeRezervari={stergeRezervari} stergeGrupuri={stergeGrupuri}
+              adaugaOaspetiInCache={adaugaOaspetiInCache} />
           )}
           {safeView === "reports" && <ReportsView core={core} reservations={reservations} />}
           {safeView === "log" && <LogView entries={logEntries} core={core} />}
@@ -1115,12 +1228,15 @@ function Shell({ user, view, setView, onLogout, core, updateCore, reservations, 
               updateReservations={updateReservations} groups={groups} updateGroups={updateGroups}
               housekeeping={housekeeping} updateHousekeeping={updateHousekeeping}
               blocks={blocks} updateBlocks={updateBlocks}
+              stergeRezervari={stergeRezervari} stergeGrupuri={stergeGrupuri} stergeBlocaje={stergeBlocaje}
+              adaugaOaspetiInCache={adaugaOaspetiInCache} asiguraPerioada={asiguraPerioada}
               doarCitire={user.role === "housekeeping"}
               intent={calendarIntent} clearIntent={() => setCalendarIntent(null)} />
           )}
           {safeView === "clients" && (
             <ClientsView core={core} updateCore={updateCore} groups={groups} updateGroups={updateGroups}
               reservations={reservations} updateReservations={updateReservations} blocks={blocks}
+              stergeRezervari={stergeRezervari} stergeGrupuri={stergeGrupuri} stergeOaspete={stergeOaspete}
               onNewGroup={() => { setCalendarIntent("group"); setView("calendar"); }} />
           )}
           {safeView === "housekeeping" && (
@@ -1130,6 +1246,7 @@ function Shell({ user, view, setView, onLogout, core, updateCore, reservations, 
           {safeView === "rooms" && (
             <RoomsView core={core} updateCore={updateCore}
               reservations={reservations} updateReservations={updateReservations}
+              stergeRezervari={stergeRezervari} stergeBlocaje={stergeBlocaje}
               blocks={blocks} updateBlocks={updateBlocks} />
           )}
           {safeView === "financial" && <FinancialView core={core} updateCore={updateCore} />}

@@ -2408,6 +2408,68 @@ where staff_role() is not null;
 revoke all on rezervari_ocupare from public, anon;
 grant select on rezervari_ocupare to authenticated;
 
+-- ---------------------------------------------------------------------
+-- FEREASTRA DE REZERVĂRI — ce încarcă aplicația (faza 1, docs/faza1.md)
+--
+-- Din 13 septembrie 2026 aplicația nu mai citește toată tabela
+-- `reservations`, ci o fereastră de timp, printr-o singură cerere care
+-- aduce și grupurile și oaspeții rezervărilor din ea. Un singur rând JSON
+-- la ieșire: plafonul PostgREST de 1.000 de rânduri (max-rows) numără
+-- rânduri, nu elemente dintr-un jsonb, deci fereastra nu poate fi tăiată
+-- în tăcere oricât ar crește.
+--
+-- SECURITY INVOKER, deliberat: politicile RLS se aplică înăuntru exact ca
+-- la o citire directă — recepția și adminul citesc `reservations` și
+-- `guests`, camerista primește doar vederea `rezervari_ocupare` de mai sus
+-- (fără nume, fără prețuri, fără guest_code) și liste goale de
+-- grupuri/oaspeți. Verificat cu tranzacții anulate pe ambele roluri.
+--
+-- p_cu_restante = true (pornirea aplicației) aduce și rezervările deschise
+-- cu plecarea ÎNAINTE de fereastră — cele pe care night audit-ul trebuie
+-- să le vadă oricât de vechi ar fi. Calendarul cere cu false: doar
+-- intervalul, când derulează dincolo de ce e încărcat.
+-- ---------------------------------------------------------------------
+create or replace function pms_fereastra(p_de timestamptz, p_pana timestamptz, p_cu_restante boolean default true)
+returns jsonb
+language plpgsql stable security invoker
+set search_path = public
+as $$
+declare
+  v_rezultat jsonb;
+begin
+  if staff_role() = 'housekeeping' then
+    select jsonb_build_object(
+      'reservations', coalesce((select jsonb_agg(to_jsonb(r)) from rezervari_ocupare r
+        where (r.checkout >= p_de and r.checkin <= p_pana)
+           or (p_cu_restante and r.status in ('pending','confirmed','protocol','checkedin') and r.checkout < p_de)), '[]'::jsonb),
+      'groups', '[]'::jsonb,
+      'guests', '[]'::jsonb)
+    into v_rezultat;
+    return v_rezultat;
+  end if;
+
+  with f as (
+    select * from reservations r
+    where (r.checkout >= p_de and r.checkin <= p_pana)
+       or (p_cu_restante and r.status in ('pending','confirmed','protocol','checkedin') and r.checkout < p_de)
+  ), g as (
+    select * from res_groups where id in (select group_id from f where group_id is not null)
+  ), o as (
+    select * from guests where id in (
+      select guest_id from f where guest_id is not null
+      union select main_guest_id from g where main_guest_id is not null)
+  )
+  select jsonb_build_object(
+    'reservations', coalesce((select jsonb_agg(to_jsonb(f)) from f), '[]'::jsonb),
+    'groups',       coalesce((select jsonb_agg(to_jsonb(g)) from g), '[]'::jsonb),
+    'guests',       coalesce((select jsonb_agg(to_jsonb(o)) from o), '[]'::jsonb))
+  into v_rezultat;
+  return v_rezultat;
+end $$;
+
+revoke execute on function pms_fereastra(timestamptz, timestamptz, boolean) from public, anon;
+grant execute on function pms_fereastra(timestamptz, timestamptz, boolean) to authenticated, service_role;
+
 
 -- ---------------------------------------------------------------------
 -- SCRIERE — separată pe rol.

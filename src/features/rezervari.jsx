@@ -38,7 +38,7 @@ import { GuestFields, GuestModal, ContactQuickActions, emptyGuest } from "./clie
 import { ArrivalForm } from "./documente.jsx";
 import { GroupEditor, GroupPrint } from "./grupuri.jsx";
 
-export function NightAuditGate({ restante, sosiri, core, updateCore, groups, updateGroups, blocks, updateBlocks, reservations, updateReservations, housekeeping, updateHousekeeping, onLogout }) {
+export function NightAuditGate({ restante, sosiri, core, updateCore, groups, updateGroups, blocks, updateBlocks, reservations, updateReservations, stergeRezervari, stergeGrupuri, adaugaOaspetiInCache, housekeeping, updateHousekeeping, onLogout }) {
   const [busyId, setBusyId] = useState(null);
   const [modal, setModal] = useState(null); // { reservation } — deschis din Editează, mai jos
 
@@ -190,6 +190,9 @@ export function NightAuditGate({ restante, sosiri, core, updateCore, groups, upd
           updateGroups={updateGroups}
           blocks={blocks}
           updateBlocks={updateBlocks}
+          stergeRezervari={stergeRezervari}
+          stergeGrupuri={stergeGrupuri}
+          adaugaOaspetiInCache={adaugaOaspetiInCache}
           onClose={() => setModal(null)}
         />
       )}
@@ -211,7 +214,7 @@ export function NightAuditGate({ restante, sosiri, core, updateCore, groups, upd
  *
  * Ascunderea butoanelor n-ar fi de ajuns singură — de aceea și dispecerul
  * de clic din celule iese devreme, nu doar controalele lipsesc. */
-export function CalendarView({ core, updateCore, reservations, updateReservations, groups, updateGroups, housekeeping, updateHousekeeping, blocks, updateBlocks, intent, clearIntent, doarCitire = false }) {
+export function CalendarView({ core, updateCore, reservations, updateReservations, groups, updateGroups, housekeeping, updateHousekeeping, blocks, updateBlocks, stergeRezervari, stergeGrupuri, stergeBlocaje, adaugaOaspetiInCache, asiguraPerioada, intent, clearIntent, doarCitire = false }) {
   const [offset, setOffset] = useState(0);
   const [pickerOpen, setPickerOpen] = useState(false);
   /* Implicit active — cerut pe 9 septembrie 2026: calendarul se deschide
@@ -462,6 +465,15 @@ export function CalendarView({ core, updateCore, reservations, updateReservation
   }, [dayMs, resByRoom, core.rooms.length]);
 
   const rangeStartMs = rangeStart.getTime(), rangeEndMs = rangeEnd.getTime();
+
+  /* Fereastra incarcata la pornire acopera -30/+400 de zile (docs/faza1.md);
+     cand derularea sau saltul la o data ies din ea, PMS-ul aduce restul si
+     il adauga la starea locala. Grila se deseneaza imediat cu ce exista, iar
+     rezervarile noi apar cand sosesc. Dependintele sunt momentele, nu
+     obiectele Date — `days` se reconstruieste si fara sa se schimbe. */
+  useEffect(() => {
+    asiguraPerioada?.(new Date(rangeStartMs), new Date(rangeEndMs));
+  }, [asiguraPerioada, rangeStartMs, rangeEndMs]);
 
   const spanIndices = (startMs, endMs) => {
     let startIdx = -1, endIdx = -1;
@@ -763,7 +775,7 @@ export function CalendarView({ core, updateCore, reservations, updateReservation
             <div className="action-list">
               <button className="action-item danger" onClick={async () => {
                 const before = blocks || [];
-                await updateBlocks(before.filter((b) => b.id !== blockInfo.id));
+                if (!await stergeBlocaje([blockInfo.id])) return;
                 await audit.push("Blocaj eliminat",
                   `${core.rooms.find((r) => r.id === blockInfo.roomId)?.name} · ${blockInfo.reason}`);
                 toaster.show("Blocajul a fost eliminat", {
@@ -813,6 +825,8 @@ export function CalendarView({ core, updateCore, reservations, updateReservation
           reservation={viewModal}
           core={core}
           updateCore={updateCore}
+          stergeRezervari={stergeRezervari}
+          stergeGrupuri={stergeGrupuri}
           groups={groups}
           updateGroups={updateGroups}
           reservations={reservations}
@@ -834,6 +848,9 @@ export function CalendarView({ core, updateCore, reservations, updateReservation
           updateGroups={updateGroups}
           blocks={blocks}
           updateBlocks={updateBlocks}
+          stergeRezervari={stergeRezervari}
+          stergeGrupuri={stergeGrupuri}
+          adaugaOaspetiInCache={adaugaOaspetiInCache}
           onClose={() => setModal(null)}
         />
       )}
@@ -845,7 +862,7 @@ export function CalendarView({ core, updateCore, reservations, updateReservation
    fac zoom pe iOS la focus si permit tastarea unei valori peste capacitate)
    si aplica limita direct in logica de crestere/scadere. */
 
-export function ReservationViewModal({ reservation, core, updateCore, groups, updateGroups, reservations, updateReservations, blocks, onClose, onEdit }) {
+export function ReservationViewModal({ reservation, core, updateCore, groups, updateGroups, reservations, updateReservations, stergeRezervari, stergeGrupuri, blocks, onClose, onEdit }) {
   useModalLock();
   const guest = core.guests.find((g) => g.id === reservation.guestId) || null;
   const room = core.rooms.find((r) => r.id === reservation.roomId);
@@ -983,6 +1000,8 @@ export function ReservationViewModal({ reservation, core, updateCore, groups, up
             updateGroups={updateGroups}
             reservations={reservations}
             updateReservations={updateReservations}
+            stergeRezervari={stergeRezervari}
+            stergeGrupuri={stergeGrupuri}
             blocks={blocks}
             onClose={() => setGroupModal(null)}
             onPrint={() => setGroupModal("print")}
@@ -1058,7 +1077,7 @@ function OreCazareModal({ checkin, checkout, onClose, onSave }) {
   );
 }
 
-export function ReservationModal({ data, core, updateCore, reservations, updateReservations, groups, updateGroups, blocks, updateBlocks, onClose }) {
+export function ReservationModal({ data, core, updateCore, reservations, updateReservations, groups, updateGroups, blocks, updateBlocks, stergeRezervari, stergeGrupuri, adaugaOaspetiInCache, onClose }) {
   useModalLock();
   const editing = data.reservation;
   const [mode, setMode] = useState(data.mode || "single");
@@ -1446,8 +1465,10 @@ export function ReservationModal({ data, core, updateCore, reservations, updateR
     const nextRes = reservations.filter((r) => r.id !== editing.id);
     /* Dacă baza a refuzat ștergerea, tot ce urmează ar minți: toastul ar
        spune „a fost ștearsă", jurnalul la fel, iar rezervarea ar reapărea la
-       prima reîncărcare. Mesajul de eroare l-a dat deja `raporteazaEroare`. */
-    if (!await updateReservations(nextRes)) {
+       prima reîncărcare. Mesajul de eroare l-a dat deja `raporteazaEroare`.
+       Ștergerea e un apel explicit, nu o listă fără rândul ăsta — vezi
+       stergeRezervari în pms-app.jsx. */
+    if (!await stergeRezervari([editing.id])) {
       /* Compensare: codul a fost revocat pentru o ștergere care n-a avut loc.
          Îl punem la loc — altfel oaspetele rămâne blocat afară. Codul NOU
          diferă de cel trimis, deci recepția trebuie să-l retrimită; toastul
@@ -1468,7 +1489,7 @@ export function ReservationModal({ data, core, updateCore, reservations, updateR
     // A group with no reservations left would linger as an orphan.
     if (editing.groupId && !nextRes.some((r) => r.groupId === editing.groupId)) {
       const g = (groups || []).find((x) => x.id === editing.groupId);
-      await updateGroups((groups || []).filter((x) => x.id !== editing.groupId));
+      await stergeGrupuri([editing.groupId]);
       if (g) await audit.push("Grup închis", `${g.name} · nu mai are rezervări`);
     }
 
@@ -1743,6 +1764,7 @@ export function ReservationModal({ data, core, updateCore, reservations, updateR
           <GroupEditor
             group={editingGroup} core={core} groups={groups} updateGroups={updateGroups}
             reservations={reservations} updateReservations={updateReservations} blocks={blocks}
+            stergeRezervari={stergeRezervari} stergeGrupuri={stergeGrupuri}
             onClose={() => setGrupModal(false)}
           />
         )}
@@ -2097,7 +2119,7 @@ export function CardOnline({ rezervari, numeOaspete, numeCamera, core, onDeschid
   );
 }
 
-export function TodayView({ core, updateCore, reservations, updateReservations, housekeeping, updateHousekeeping, setView, groups, updateGroups, blocks, updateBlocks }) {
+export function TodayView({ core, updateCore, reservations, updateReservations, housekeeping, updateHousekeeping, setView, groups, updateGroups, blocks, updateBlocks, stergeRezervari, stergeGrupuri, adaugaOaspetiInCache }) {
   const [arrivalRes, setArrivalRes] = useState(null);
   const [viewRes, setViewRes] = useState(null);
   const [editRes, setEditRes] = useState(null);
@@ -2352,6 +2374,8 @@ export function TodayView({ core, updateCore, reservations, updateReservations, 
           reservation={viewRes}
           core={core}
           updateCore={updateCore}
+          stergeRezervari={stergeRezervari}
+          stergeGrupuri={stergeGrupuri}
           groups={groups}
           updateGroups={updateGroups}
           reservations={reservations}
@@ -2373,6 +2397,9 @@ export function TodayView({ core, updateCore, reservations, updateReservations, 
           updateGroups={updateGroups}
           blocks={blocks}
           updateBlocks={updateBlocks}
+          stergeRezervari={stergeRezervari}
+          stergeGrupuri={stergeGrupuri}
+          adaugaOaspetiInCache={adaugaOaspetiInCache}
           onClose={() => setEditRes(null)}
         />
       )}

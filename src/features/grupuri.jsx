@@ -212,7 +212,7 @@ export function GroupPrint({ group, core, reservations, onClose }) {
    room — all reservations of the group stay in step.
 ----------------------------------------------------------------*/
 
-export function GroupEditor({ group, core, groups, updateGroups, reservations, updateReservations, blocks, onClose, onPrint }) {
+export function GroupEditor({ group, core, groups, updateGroups, reservations, updateReservations, stergeRezervari, stergeGrupuri, blocks, onClose, onPrint }) {
   const [error, setError] = useState("");
   const [addOpen, setAddOpen] = useState(false);
 
@@ -469,7 +469,7 @@ export function GroupEditor({ group, core, groups, updateGroups, reservations, u
        `patchRow`; aici era a treia copie neatinsa. */
     const before = reservations;
     const next = reservations.filter((r) => r.id !== id);
-    if (!await updateReservations(next)) {
+    if (!await stergeRezervari([id])) {
       toaster.show(
         row && !isLive(row)
           ? `Camera ${rn} nu poate fi scoasă din grup — are fișă de cazare. O rezervare cu fișă nu se șterge niciodată.`
@@ -483,7 +483,7 @@ export function GroupEditor({ group, core, groups, updateGroups, reservations, u
       onUndo: async () => { await updateReservations(before); },
     });
     if (!next.some((r) => r.groupId === group.id)) {
-      await updateGroups(groups.filter((g) => g.id !== group.id));
+      await stergeGrupuri([group.id]);
       onClose();
     }
   };
@@ -731,7 +731,7 @@ export function GroupEditor({ group, core, groups, updateGroups, reservations, u
   );
 }
 
-export function GroupsView({ core, groups, updateGroups, reservations, updateReservations, blocks }) {
+export function GroupsView({ core, groups, updateGroups, reservations, updateReservations, stergeRezervari, stergeGrupuri, blocks }) {
   const [confirmId, setConfirmId] = useState(null);
   const [editId, setEditId] = useState(null);
   const [printId, setPrintId] = useState(null);
@@ -748,7 +748,7 @@ export function GroupsView({ core, groups, updateGroups, reservations, updateRes
        stergea GRUPUL insusi din `groups`, desi in `reservations` n-a
        disparut niciun rand — exact acelasi tipar gasit azi de trei ori in
        fisierul asta (`patchRow`, `dropRoom`, si acum aici). */
-    if (!await updateReservations(reservations.filter((r) => r.groupId !== groupId))) {
+    if (!await stergeRezervari(reservations.filter((r) => r.groupId === groupId).map((r) => r.id))) {
       /* Nu exista un „scoate camera din grup, apoi sterge restul" — dropRoom
          e tot o stergere fizica, ar fi refuzata la fel pe camera cu fisa.
          O rezervare cu fisa nu se sterge NICIODATA (vezi
@@ -761,7 +761,7 @@ export function GroupsView({ core, groups, updateGroups, reservations, updateRes
         { tone: "danger" });
       return;
     }
-    await updateGroups(groups.filter((x) => x.id !== groupId));
+    await stergeGrupuri([groupId]);
     await audit.push("Grup șters", `${g?.name || groupId} · ${n} rezervări`);
     const beforeRes = reservations, beforeGroups = groups;
     toaster.show(`Grupul ${g?.name || ""} a fost șters`, {
@@ -917,6 +917,8 @@ export function GroupsView({ core, groups, updateGroups, reservations, updateRes
           updateGroups={updateGroups}
           reservations={reservations}
           updateReservations={updateReservations}
+          stergeRezervari={stergeRezervari}
+          stergeGrupuri={stergeGrupuri}
           onClose={() => setEditId(null)}
           blocks={blocks}
           onPrint={() => { setPrintId(editId); setEditId(null); }}

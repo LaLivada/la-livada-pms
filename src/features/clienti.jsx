@@ -24,7 +24,7 @@ import { GroupsView } from "./grupuri.jsx";
 import { FiseView } from "./fise.jsx";
 import { billingCustomerLabel, BillingCustomerModal } from "./facturare.jsx";
 
-export function ClientsView({ core, updateCore, groups, updateGroups, reservations, updateReservations, blocks, onNewGroup }) {
+export function ClientsView({ core, updateCore, groups, updateGroups, reservations, updateReservations, stergeRezervari, stergeGrupuri, stergeOaspete, blocks, onNewGroup }) {
   const [historyGuest, setHistoryGuest] = useState(null);
   const [tab, setTab] = useState("guests");
   const [q, setQ] = useState("");
@@ -59,7 +59,11 @@ export function ClientsView({ core, updateCore, groups, updateGroups, reservatio
       return;
     }
     const before = core.guests;
-    await updateCore({ ...core, guests: core.guests.filter((x) => x.id !== id) });
+    /* Ștergere explicită — `updateCore` cu lista fără el nu l-ar mai scoate
+       din bază (vezi syncTable). Baza refuză oricum dacă are rezervări
+       nevăzute aici (guest_id e ON DELETE RESTRICT), iar verificarea de mai
+       sus vede doar rezervările din fereastra încărcată. */
+    if (!await stergeOaspete(id)) return;
     await audit.push("Client șters", guestFullName(g));
     toaster.show(`${guestFullName(g)} a fost șters`, {
       tone: "danger",
@@ -104,7 +108,8 @@ export function ClientsView({ core, updateCore, groups, updateGroups, reservatio
       <div>
         {header}
         <GroupsView core={core} groups={groups} updateGroups={updateGroups}
-          reservations={reservations} updateReservations={updateReservations} blocks={blocks} />
+          reservations={reservations} updateReservations={updateReservations}
+          stergeRezervari={stergeRezervari} stergeGrupuri={stergeGrupuri} blocks={blocks} />
       </div>
     );
   }

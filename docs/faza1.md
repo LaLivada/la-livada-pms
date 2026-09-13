@@ -171,9 +171,9 @@ existent.
 |---|---|
 | Măsurători (§1) | făcut, 13 sept 2026 |
 | `statisticiLuna` extrasă în `lib/rapoarte.js` + teste (10) | făcut |
-| Ștergeri explicite, `syncTable` fără deducție | — |
-| Fereastra la pornire + paginare | — |
-| `asiguraPerioada` în calendar | — |
+| Ștergeri explicite, `syncTable` fără deducție | făcut, 13 sept 2026 |
+| Fereastra la pornire (`pms_fereastra`, o singură cerere) | făcut, 13 sept 2026 — 202 ms / 2,5 MB pe 100.000 de rânduri (bench) |
+| `asiguraPerioada` în calendar | făcut, 13 sept 2026 |
 | Oaspeți la cerere (cache, căutare, listă, istoric) | — |
 | `raport_luna` în SQL + paritate | — |
 | Migrațiile în repo (B2) | — |
