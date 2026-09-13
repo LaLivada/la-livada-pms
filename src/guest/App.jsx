@@ -549,12 +549,9 @@ function CumAjungi({ deschideAcces }) {
   useInaltimeaHartii(refCard, refHarta);
 
   return (
-    <div className="g-card g-drum" ref={refCard}>
+    <div className="g-card" ref={refCard}>
       <h2>Cum ajungi la noi</h2>
       <p className="g-legaturi">
-        {/* Perechea si bara dintre ele sunt un singur element de asezare:
-            altfel „/" se rupe pe rand propriu si ramane atarnata la capat,
-            aratand ca o greseala de tipar. */}
         {/* Cele doua harti stau impreuna, ca un singur element de asezare:
             sunt acelasi lucru facut in doua aplicatii, deci daca randul se
             rupe, se rup amandoua odata, nu una sus si una jos. */}
@@ -572,22 +569,25 @@ function CumAjungi({ deschideAcces }) {
             Waze
           </a>
         </span>
-        <span className="g-sep" aria-hidden="true">•</span>
-        {/* Ramane `button`, desi arata ca un link: nu duce nicaieri, deschide
-            ceva pe loc. Un <a href="#"> ar minti cititorul de ecran si ar
-            strica clicul cu rotita. Aspectul il face CSS-ul, nu eticheta. */}
-        {/* Scris „Acces camere", nu „Acces către camere", si e o masuratoare,
-            nu o preferinta: cu numele intreg randul nu incape pe un telefon
-            de 375 sau 360px nici la 12px, marime la care textul deja nu se
-            mai citeste comod in fata usii, seara. Numele intreg ramane in
-            titlul ferestrei si in `aria-label`, deci un cititor de ecran il
-            aude intreg. */}
-        <button className="g-leg" type="button" onClick={deschideAcces}
-                aria-label="Acces către camere">
-          <Usa />Acces camere
-        </button>
       </p>
-      {/* Harta sub legaturi: intai butoanele cu care pornesti la drum, apoi
+      {/* Buton propriu, deasupra hartii — nu mai la coada randului de
+          legaturi, dupa Maps si Waze. Proprietarul a semnalat ca traseul
+          numerotat prin curte conteaza la fel de mult ca usa insasi pentru
+          cine ajunge prima data, dar statea intr-un link de 12px, ultimul
+          dupa doua trimiteri externe. Ramane `button`, desi arata ca o
+          actiune: nu duce nicaieri, deschide ceva pe loc.
+          Contur, nu fond plin: cu olive plin ar fi concurat cu bannerul
+          fisei pentru atentie, iar cu sampanie plin ar fi parut o a doua
+          usa. Conturul olive (sampanie in tema de noapte, vezi mai jos)
+          il leaga vizual de familia „lucruri importante" fara sa intre in
+          aceeasi categorie.
+          Fara scurtare a numelui: aici sta singur pe rand, deci „Acces
+          către camere" intreg incape oricum, spre deosebire de cand statea
+          langa Maps si Waze (vezi masuratoarea de la .g-leg, mai jos). */}
+      <button type="button" className="g-acces-buton" onClick={deschideAcces}>
+        <Usa />Acces către camere
+      </button>
+      {/* Harta sub buton: intai actiunile cu care pornesti la drum, apoi
           imaginea locului, pentru cine vrea sa vada unde vine. */}
       <div className="g-harta-cadru" ref={refHarta}>
         <iframe

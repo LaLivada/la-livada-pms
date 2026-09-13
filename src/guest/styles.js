@@ -582,44 +582,15 @@ body{
 }
 
 /* ---------- cum ajungi ---------- */
-/* Text cu link, nu butoane. Pe langa ca asa s-a cerut, rezolva si o
-   problema masurata: cele trei etichete ca butoane cereau 399px, iar pe un
-   telefon de 390px raman 316px in card. Ca text, se rup firesc pe randuri —
-   nimeni nu se asteapta ca un rand de text sa stea intreg pe o linie. */
-/* Cardul devine unitate de masura pentru ce e in el. Cu asta, marimile de
-   mai jos se pot exprima in cqi — procente din latimea cardului — deci
-   randul de legaturi creste si scade odata cu el, fara praguri scrise de
-   mana pentru fiecare latime de telefon. */
-.g-drum{ container-type:inline-size; }
-
+/* Text cu link, nu butoane. Randul avea nevoie de container queries si de
+   marimi micsorate cat timp „Acces catre camere" statea si el aici, al
+   treilea dupa Maps si Waze — mutat acum intr-un buton propriu deasupra
+   hartii (mai jos). Ramase doar cele doua harti, incap pe un rand la
+   marimea normala, pe orice telefon din masuratorile facute pana acum. */
 .g-legaturi{
-  /* Ruperea randului e permisa, desi randul e gandit sa stea intreg: sub 344px marimea da
-     de pragul de jos al clamp-ului si textul nu mai poate fi micsorat.
-     Fara plasa asta se revarsa in afara cardului — masurat, 28px
-     afara la 320px. Asa, in loc sa iasa din card, se rupe. */
   margin:0; display:flex; flex-wrap:wrap; align-items:center;
-  /* space-between intinde randul pe toata latimea cardului: spatiul
-     ramas se imparte intre elemente, nu se aduna la capat. */
-  justify-content:space-between; gap:6px; line-height:1.5;
-  /* Prima valoare e rezerva, pentru browserele fara container queries —
-     acolo randul ramane la marimea fixa de dinainte. A doua o inlocuieste
-     acolo unde cqi e inteles: 4.3% din latimea cardului, oprita intre
-     10.5 si 15px ca sa nu ajunga nici ilizibila pe ecrane inguste, nici
-     disproportionata pe tableta. */
-  font-size:12.5px;
-  font-size:clamp(10.5px, 4.3cqi, 15px);
+  gap:6px; line-height:1.5; font-size:14px;
 }
-/* Marimile de aici sunt rezultatul unei masuratori facute in browser, nu al
-   gustului. Cele trei legaturi cereau 357px la 14px, iar in card sunt 316
-   pe un telefon de 390px. Ca sa intre pe un rand s-au taiat 41: bara „/"
-   dintre Maps si Waze (26px cu spatiile ei), pictogramele de la 17 la 15
-   (6px) si textul de la 14 la 12px.
-   Cautarea marimii s-a facut micsorand pas cu pas si numarand randurile in
-   pagina, nu socotind pe hartie. Cu numele intreg „Acces catre camere",
-   randul intra doar de la 390px in sus, si numai la 12px; la 375 si 360 —
-   adica iPhone SE si jumatate din telefoanele Android — tot se rupea. De
-   aceea eticheta e scurtata in App.jsx, iar marimea a putut urca inapoi la
-   13px, unde textul chiar se citeste. */
 .g-leg{
   display:inline-flex; align-items:center; gap:.38em;
   font:inherit; font-size:inherit; font-weight:600;
@@ -643,11 +614,27 @@ body{
    daca marimea se schimba. */
 .g-leg img{ width:1.2em; height:1.2em; flex-shrink:0; display:block; border-radius:20%; }
 .g-pereche{ display:inline-flex; align-items:center; gap:.7em; }
-/* Punctul dintre harti si accesul in curte. Marginile lui sunt negative pe
-   jumatate din spatiul randului: separatorul are nevoie de aer, dar nu de
-   doua ori cat spatiul dintre celelalte elemente — iar aici fiecare pixel
-   in plus scoate tot randul de pe o singura linie. */
-.g-sep{ color:var(--g-faint); font-size:inherit; }
+
+/* ---------- accesul catre camere, deasupra hartii ---------- */
+/* Mutat dintr-un link de 12px, la coada randului cu Maps si Waze —
+   proprietarul a semnalat ca traseul numerotat prin curte conteaza la fel
+   de mult ca usa insasi pentru cine ajunge prima data. Contur, nu fond
+   plin: cu olive plin ar fi concurat cu bannerul fisei de cazare pentru
+   atentie, iar cu sampanie plin ar fi parut o a doua usa. Icon si contur pe
+   „currentColor", nu pe olive direct, ca schimbarea in sampanie pentru
+   tema de noapte (mai jos) sa se faca intr-un singur loc. */
+.g-acces-buton{
+  display:flex; align-items:center; gap:10px; width:100%;
+  margin-bottom:12px; background:none; color:var(--olive);
+  border:1.5px solid currentColor; border-radius:14px; padding:13px 14px;
+  cursor:pointer; font:inherit; font-size:14px; font-weight:600;
+  text-align:left; touch-action:manipulation;
+}
+.g-acces-buton svg{
+  width:21px; height:21px; flex-shrink:0;
+  stroke:currentColor; fill:none;
+  stroke-width:1.6; stroke-linecap:round; stroke-linejoin:round;
+}
 
 /* ---------- harta din cardul „cum ajungi la noi" ---------- */
 /* Inaltimea e legata de ecran, nu fixa. Cerinta e ca TOT cardul sa incapa pe
@@ -861,7 +848,8 @@ body{
   .g-vreme svg,
   .g-leg svg{ stroke:var(--champagne); }
   .g-leg,
-  .g-harta{ color:var(--champagne); }
+  .g-harta,
+  .g-acces-buton{ color:var(--champagne); }
   .g-buton{ background:var(--champagne); color:#15170f; }
   .g-fundal{ background:rgba(0,0,0,.68); }
 }
