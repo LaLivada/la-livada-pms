@@ -21,6 +21,9 @@ import {
   isSameDay, isToday, canCheckIn, canCheckOut, canCancel, canNoShow,
   checkouturiRestante, zileIntarziere, sosiriRestante, ORE_CHECKIN_DEVREME,
 } from "./lib/tranzitii.js";
+/* Pragul de la care revenirea pe tab reincarca datele — vezi
+   src/reincarcare.test.js. */
+import { trebuieReincarcat } from "./lib/reincarcare.js";
 import { validateCUIFormat, validatePhone, validateEmail } from "./lib/validation.js";
 import {
   FMT_MONEY, FMT_DATE, FMT_DATETIME, FMT_DATE_FULL, FMT_TIME, FMT_WEEKDAY, FMT_MONTH_YEAR,
@@ -455,6 +458,24 @@ function PMSApp() {
       window.removeEventListener("focus", laFocus);
       clearInterval(cronometru);
     };
+  }, [currentUser]);
+
+  /* Reincarcare la revenirea pe tab dupa o absenta mai lunga. Fara
+     realtime, un tab tinut in fundal (tableta lasata pe masa, telefonul in
+     buzunar) arata la intoarcere starea de cand a plecat. Pragul si motivul
+     lui stau in lib/reincarcare.js; reincarcarea trece prin acelasi
+     reloadKey ca cea de dupa o salvare esuata, deci fara skeleton — datele
+     vechi raman pe ecran pana vin cele noi. */
+  useEffect(() => {
+    if (!currentUser) return;
+    let ascunsDeLa = null;
+    const laVizibilitate = () => {
+      if (document.visibilityState === "hidden") { ascunsDeLa = Date.now(); return; }
+      if (trebuieReincarcat(ascunsDeLa, Date.now())) setReloadKey((k) => k + 1);
+      ascunsDeLa = null;
+    };
+    document.addEventListener("visibilitychange", laVizibilitate);
+    return () => document.removeEventListener("visibilitychange", laVizibilitate);
   }, [currentUser]);
 
   useEffect(() => {
