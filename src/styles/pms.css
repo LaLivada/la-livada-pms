@@ -2057,3 +2057,29 @@ label.field input, label.field select, label.field textarea{ cursor:auto; }
 }
 .retea-offline{ background:var(--danger-soft); color:var(--danger); border:1px solid var(--danger); }
 .retea-trimite{ background:var(--warning-soft); color:var(--warning); border:1px solid var(--warning); }
+
+/* ---------------------------------------------------------------
+   FISA DE REZERVARE IN SECTIUNI PLIABILE (faza 3, C4) — ui/sectiune.jsx
+----------------------------------------------------------------*/
+.pliabil{ border:1px solid var(--border-soft); border-radius:var(--r-md); margin-bottom:10px; background:var(--surface); }
+.pliabil-cap{
+  display:flex; align-items:center; gap:10px; width:100%; padding:10px 12px;
+  background:none; border:none; text-align:left; cursor:pointer; color:var(--text);
+  text-transform:none; letter-spacing:0; font-size:var(--fs-md);
+}
+.pliabil-cap:hover{ background:var(--surface-2); }
+.pliabil-titlu{ font-weight:650; flex-shrink:0; }
+.pliabil-rezumat{
+  flex:1; min-width:0; color:var(--text-muted); font-size:var(--fs-sm); font-weight:500;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+.pliabil-sageata{ margin-left:auto; flex-shrink:0; color:var(--text-muted); transition:transform .15s; }
+.pliabil.deschis .pliabil-sageata{ transform:rotate(180deg); }
+.pliabil-corp{ padding:10px 12px 2px; border-top:1px solid var(--border-soft); }
+@media (prefers-reduced-motion: reduce){
+  .pliabil-sageata{ transition:none; }
+}
+.fisa-rezumat{
+  margin:-4px 0 12px; padding:8px 10px; background:var(--surface-2); border-radius:var(--r-sm);
+  font-size:var(--fs-sm); color:var(--text-muted); font-weight:500;
+}

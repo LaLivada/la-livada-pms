@@ -22,6 +22,10 @@ import { guestFullName, occupantName } from "../lib/nume.js";
 import { nightsBetween, rangesOverlap, validateStay, isLive, isStatsEligible } from "../lib/availability.js";
 import { ziLocala, adaugaZile, zileIntre, momentLocal, adaugaZileLaData, laOraLocala, partiLocale, esteWeekend } from "../lib/timp.js";
 import { planIntentie } from "../lib/scurtaturi.js";
+import { SectiunePliabila } from "../ui/sectiune.jsx";
+import {
+  sectiuniImplicite, TOATE_DESCHISE, rezumatOaspete, rezumatSejur, rezumatPret, rezumatNote, rezumatAcces, rezumatFisa,
+} from "../lib/fisa-sectiuni.js";
 import {
   CHEIE_LATIME, ETICHETA_LATIME, latimeImplicita, latimeSalvata, urmatoareaLatime, latimeDupaPinch,
   latimeZiPx, decidePinch, distantaAtingeri,
@@ -1188,6 +1192,14 @@ export function ReservationModal({ data, core, updateCore, reservations, updateR
   const [occupantFirstName, setOccupantFirstName] = useState(editing?.occupantFirstName || "");
   const [occupantPhone, setOccupantPhone] = useState(editing?.occupantPhone || "");
   const [error, setError] = useState("");
+  /* Sectiunile pliabile (faza 3, C4, lib/fisa-sectiuni.js): la o rezervare
+     noua sunt deschise cele de completat (oaspete, sejur, pret); la editare
+     toate stau pliate, cu rezumatul in cap — desfaci ce ai de schimbat. O
+     eroare de validare le desface pe toate, ca sa se vada campul cu pricina. */
+  const [sectiuni, setSectiuni] = useState(() => sectiuniImplicite({ editing: !!editing }));
+  const comuta = (cheie) => setSectiuni((s) => ({ ...s, [cheie]: !s[cheie] }));
+  useEffect(() => { if (error) setSectiuni(TOATE_DESCHISE); }, [error]);
+  const numeCamera = (id) => core.rooms.find((r) => r.id === id)?.name || "";
   /* Blocheaza butoanele cat timp scrierea e in curs: un dublu-click putea
      altfel trimite doua scrieri suprapuse (a doua cu o stampila deja
      depasita) sau sterge de doua ori. Acelasi tipar exista deja la plati
@@ -1611,6 +1623,15 @@ export function ReservationModal({ data, core, updateCore, reservations, updateR
       title={editing ? "Editează rezervarea" : isGroup ? "Rezervare de grup" : isBlock ? "Blocaj cameră" : "Rezervare nouă"}
     >
 
+        {editing && (
+          <div className="fisa-rezumat">
+            {rezumatFisa({
+              nume: guestFullName(selectedGuest) || editing.occupantName, camera: numeCamera(roomId),
+              checkin, checkout, total: previewTotal, status,
+            })}
+          </div>
+        )}
+
         {!editing && (
           <div className="mode-switch">
             <button className={mode === "single" ? "on" : ""} onClick={() => { setMode("single"); setError(""); }}>
@@ -1636,6 +1657,11 @@ export function ReservationModal({ data, core, updateCore, reservations, updateR
           </button>
         )}
 
+        <SectiunePliabila id="fisa-sejur" titlu="Sejur" deschis={sectiuni.sejur} onComuta={() => comuta("sejur")}
+          rezumat={rezumatSejur({
+            camere: (isGroup || isBlock ? roomIds : [roomId]).map(numeCamera),
+            checkin, checkout, status: isBlock ? "" : status,
+          })}>
         {isGroup || isBlock ? (
           <>
             {isGroup && <label className="field">
@@ -1710,7 +1736,76 @@ export function ReservationModal({ data, core, updateCore, reservations, updateR
           </label>
         )}
 
-        {!isBlock && <div className="field">
+        <div className="field-row field-row-dates">
+          <label className="field">
+            <span className="fl">{isBlock ? "De la" : "Check-in"}</span>
+            <input type="date" value={checkin.slice(0, 10)} onChange={(e) => setCheckin(withNewDate(checkin, e.target.value))} />
+          </label>
+          <label className="field">
+            <span className="fl">Zile</span>
+            <select
+              value={Math.min(30, Math.max(1, nightsBetween(checkin, checkout)))}
+              onChange={(e) => {
+                const n = Number(e.target.value);
+                setCheckout(withNewDate(checkout, adaugaZileLaData(checkin.slice(0, 10), n)));
+              }}
+            >
+              {Array.from({ length: 30 }, (_, i) => i + 1).map((n) => <option key={n} value={n}>{n}</option>)}
+            </select>
+          </label>
+          <label className="field">
+            <span className="fl">{isBlock ? "Până la" : "Check-out"}</span>
+            <input type="date" value={checkout.slice(0, 10)} onChange={(e) => setCheckout(withNewDate(checkout, e.target.value))} />
+          </label>
+        </div>
+
+        {/* Orele stau langa date, in sectiunea Sejur (pana in faza 3, C4,
+            stateau deasupra sectiunii de acces, langa butoanele pe care le
+            influenteaza; acum sectiunea Acces e la un clic distanta, iar
+            data si ora tin impreuna). Nu apar la blocaje: un blocaj de
+            mentenanta n-are cod de acces, deci ora lui nu deschide nicio usa. */}
+        {!isBlock && (
+          <div className="field" style={{ marginBottom: 4 }}>
+            <button type="button" className="btn btn-ghost" style={{ width: "auto" }}
+              onClick={() => setOreModal(true)}>
+              <Clock size={14} /> Orele cazării · {checkin.slice(11, 16)} → {checkout.slice(11, 16)}
+            </button>
+            {editing && (oraDin(checkin) !== ORA_SOSIRE_IMPLICITA || oraDin(checkout) !== ORA_PLECARE_IMPLICITA) && (
+              <div className="ldv-mic" style={{ marginTop: 6 }}>
+                Ore diferite de cele obișnuite ({ORA_SOSIRE_IMPLICITA}:00 → {ORA_PLECARE_IMPLICITA}:00).
+                Codul de acces urmează orele de aici.
+              </div>
+            )}
+          </div>
+        )}
+
+        {!isBlock && (
+          <label className="field">
+            <span className="fl">Status</span>
+            <select value={status} onChange={(e) => setStatus(e.target.value)}>
+              {statusOptions.map((k) => <option key={k} value={k}>{STATUS_LABEL[k]}</option>)}
+            </select>
+          </label>
+        )}
+
+        {!isBlock && (
+          <label className="field">
+            <span className="fl">Sursa rezervării</span>
+            <select value={source} onChange={(e) => setSource(e.target.value)}>
+              {SOURCES.map((sc) => <option key={sc.key} value={sc.key}>{sc.label}</option>)}
+            </select>
+          </label>
+        )}
+
+        </SectiunePliabila>
+
+        {!isBlock && <SectiunePliabila id="fisa-oaspete" titlu="Oaspete" deschis={sectiuni.oaspete} onComuta={() => comuta("oaspete")}
+          rezumat={rezumatOaspete({
+            nume: guestFullName(selectedGuest),
+            ocupant: [occupantLastName, occupantFirstName].filter(Boolean).join(" "),
+            adults, children, grup: isGroup,
+          })}>
+        <div className="field">
           <label>{isGroup ? "Client principal *" : "Client *"}</label>
           {selectedGuest ? (
             <div className="guest-chip">
@@ -1767,7 +1862,7 @@ export function ReservationModal({ data, core, updateCore, reservations, updateR
               )}
             </div>
           )}
-        </div>}
+        </div>
 
         {/* Ocupantul, sub client: cine doarme efectiv in camera, cand nu e
             acelasi cu cel care a rezervat. Telefonul lui decide unde pleaca
@@ -1826,38 +1921,7 @@ export function ReservationModal({ data, core, updateCore, reservations, updateR
             cameră a grupului. Ocupanții și prețul pot fi ajustați individual după creare, din Grupuri → editează grupul.
           </div>
         )}
-
-        {!isBlock && (
-          <label className="field">
-            <span className="fl">Sursa rezervării</span>
-            <select value={source} onChange={(e) => setSource(e.target.value)}>
-              {SOURCES.map((sc) => <option key={sc.key} value={sc.key}>{sc.label}</option>)}
-            </select>
-          </label>
-        )}
-
-        <div className="field-row field-row-dates">
-          <label className="field">
-            <span className="fl">{isBlock ? "De la" : "Check-in"}</span>
-            <input type="date" value={checkin.slice(0, 10)} onChange={(e) => setCheckin(withNewDate(checkin, e.target.value))} />
-          </label>
-          <label className="field">
-            <span className="fl">Zile</span>
-            <select
-              value={Math.min(30, Math.max(1, nightsBetween(checkin, checkout)))}
-              onChange={(e) => {
-                const n = Number(e.target.value);
-                setCheckout(withNewDate(checkout, adaugaZileLaData(checkin.slice(0, 10), n)));
-              }}
-            >
-              {Array.from({ length: 30 }, (_, i) => i + 1).map((n) => <option key={n} value={n}>{n}</option>)}
-            </select>
-          </label>
-          <label className="field">
-            <span className="fl">{isBlock ? "Până la" : "Check-out"}</span>
-            <input type="date" value={checkout.slice(0, 10)} onChange={(e) => setCheckout(withNewDate(checkout, e.target.value))} />
-          </label>
-        </div>
+        </SectiunePliabila>}
 
         {grupModal && editingGroup && (
           <GroupEditor
@@ -1868,7 +1932,9 @@ export function ReservationModal({ data, core, updateCore, reservations, updateR
           />
         )}
 
-        {!isBlock && <div className="price-box">
+        {!isBlock && <SectiunePliabila id="fisa-pret" titlu="Preț" deschis={sectiuni.pret} onComuta={() => comuta("pret")}
+          rezumat={rezumatPret({ total: previewTotal, manual: priceOverride !== "" && priceOverride !== null })}>
+        <div className="price-box">
           <div className="pb-info">
             <div className="price-label">
               {nightsBetween(checkin, checkout)} nopți{isGroup && roomIds.length ? ` × ${roomIds.length} camere` : ""}
@@ -1883,7 +1949,7 @@ export function ReservationModal({ data, core, updateCore, reservations, updateR
                 if (v === "" || (Number(v) >= 0 && Number.isFinite(Number(v)))) { setPriceOverride(v); setError(""); }
               }} />
           </div>
-        </div>}
+        </div>
 
         {!isBlock && editing && (
           <FolioPanel reservation={editing} core={core} updateCore={updateCore}
@@ -1891,6 +1957,10 @@ export function ReservationModal({ data, core, updateCore, reservations, updateR
             onNewBillingCustomer={() => setBillingModalOpen(true)} />
         )}
 
+        </SectiunePliabila>}
+
+        <SectiunePliabila id="fisa-note" titlu="Note" deschis={sectiuni.note} onComuta={() => comuta("note")}
+          rezumat={rezumatNote({ tags, notes, mesaje: editing?.messages?.length || 0 })}>
         {!isBlock && (
           <div className="field">
             <label>Etichete</label>
@@ -1926,15 +1996,6 @@ export function ReservationModal({ data, core, updateCore, reservations, updateR
           </div>
         )}
 
-        {!isBlock && (
-          <label className="field">
-            <span className="fl">Status</span>
-            <select value={status} onChange={(e) => setStatus(e.target.value)}>
-              {statusOptions.map((k) => <option key={k} value={k}>{STATUS_LABEL[k]}</option>)}
-            </select>
-          </label>
-        )}
-
         <label className="field">
           <span className="fl">Note</span>
           <textarea rows={2} maxLength={2000} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Observații interne" />
@@ -1954,26 +2015,7 @@ export function ReservationModal({ data, core, updateCore, reservations, updateR
           </div>
         )}
 
-        {/* Orele stau imediat deasupra sectiunii de acces, nu langa date:
-            aici sunt langa butoanele pe care le influenteaza direct —
-            regenerarea codului, emailul, WhatsApp-ul. Cine schimba o ora
-            vede in acelasi loc ce se intampla cu codul.
-            Nu apar la blocaje: un blocaj de mentenanta n-are cod de acces,
-            deci ora lui nu deschide nicio usa. */}
-        {!isBlock && (
-          <div className="field" style={{ marginBottom: 4 }}>
-            <button type="button" className="btn btn-ghost" style={{ width: "auto" }}
-              onClick={() => setOreModal(true)}>
-              <Clock size={14} /> Orele cazării · {checkin.slice(11, 16)} → {checkout.slice(11, 16)}
-            </button>
-            {editing && (oraDin(checkin) !== ORA_SOSIRE_IMPLICITA || oraDin(checkout) !== ORA_PLECARE_IMPLICITA) && (
-              <div className="ldv-mic" style={{ marginTop: 6 }}>
-                Ore diferite de cele obișnuite ({ORA_SOSIRE_IMPLICITA}:00 → {ORA_PLECARE_IMPLICITA}:00).
-                Codul de acces urmează orele de aici.
-              </div>
-            )}
-          </div>
-        )}
+        </SectiunePliabila>
 
         {oreModal && (
           <OreCazareModal
@@ -1983,8 +2025,13 @@ export function ReservationModal({ data, core, updateCore, reservations, updateR
           />
         )}
 
-        {editing && !isBlock && <SectiuneAcces res={editing} core={core} />}
-        {editing && !isBlock && <SectiuneFisa res={editing} core={core} />}
+        {editing && !isBlock && (
+          <SectiunePliabila id="fisa-acces" titlu="Acces și fișă de cazare" deschis={sectiuni.acces} onComuta={() => comuta("acces")}
+            rezumat={rezumatAcces({ checkin, checkout })}>
+            <SectiuneAcces res={editing} core={core} />
+            <SectiuneFisa res={editing} core={core} />
+          </SectiunePliabila>
+        )}
 
         {error && <div className="error-text" role="alert" style={{ marginBottom: 10 }}>{error}</div>}
 

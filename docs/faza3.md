@@ -14,7 +14,7 @@ se pune peste.
 | 3 | C5 — conflictul de concurență cu diff și alegere | **făcut**, 14 septembrie 2026 (§3) |
 | 4 | C8 — indicator offline + coadă de salvări | **făcut**, 14 septembrie 2026 (§4) |
 | 5 | C3 — calendarul pe tabletă (7 zile, coloană lipicioasă) | **făcut**, 14 septembrie 2026 (§5) |
-| 6 | C4 — fișa de rezervare cu secțiuni pliabile | de făcut |
+| 6 | C4 — fișa de rezervare cu secțiuni pliabile | **făcut**, 14 septembrie 2026 (§6) |
 | 7 | C6 — rapoarte cu delta față de anul trecut + CSV | de făcut |
 | 8 | C7 — „nou de la ultima deschidere" | de făcut |
 | 9 | C9 — optimistic UI pe `room_status` | făcut deja în faza 2 (A6, `docs/faza2.md` §3) |
@@ -318,3 +318,60 @@ redimensionează.
   tactile; „7 zile" e o lățime de coloană, nu o fereastră mai scurtă.
 - Nu s-a măsurat cu utilizatori (auditul o cerea); dacă recepția vrea altă
   treaptă implicită pe tabletă, e o constantă în `latimeImplicita`.
+
+---
+
+## 6. Fișa de rezervare în secțiuni pliabile (C4)
+
+### 6.1 Ce era
+
+Un singur formular lung: cameră, client, ocupant, persoane, sursă, date,
+preț, folio, etichete, status, note, mesaje, ore, acces, fișă de cazare —
+derulat de sus până jos la fiecare deschidere, chiar și pentru o schimbare
+de o secundă.
+
+### 6.2 Cum funcționează
+
+- **Cinci secțiuni** (`src/ui/sectiune.jsx`, `src/lib/fisa-sectiuni.js`), în
+  ordinea din audit după prima: **Sejur** (cameră / camerele grupului sau
+  blocajului, datele, orele cazării, statusul, sursa), **Oaspete** (client,
+  ocupant, adulți / copii), **Preț** (nopți × camere, prețul manual, folio-ul
+  la editare), **Note** (etichete, note, mesaje), **Acces și fișă de cazare**
+  (la editare). Capul fiecărei secțiuni e un buton (`aria-expanded`,
+  `aria-controls`); corpul rămâne în DOM (`hidden`), deci ce e scris în
+  câmpuri nu se pierde la pliere.
+- **Rezumatul** din capul secțiunii, când e pliată: „Popescu Ana · ocupant
+  Olaru Florin · 2 adulți", „1005 · 17.10 → 19.10 (2 nopți) · Confirmată",
+  „600 lei · preț manual", „vip · „vine târziu” · 2 mesaje", „Orele 14:00 →
+  12:00". Ziua se ia din șirul formularului, nu prin `Date` — la vest de
+  Greenwich ar fi alunecat o zi. La editare, sub titlul dialogului stă și un
+  rând de rezumat al întregii rezervări (cine · cameră · perioadă · nopți ·
+  preț · status).
+- **Implicit**: la o rezervare nouă sunt deschise Sejur, Oaspete și Preț
+  (ce e de completat), Note pliată; la editare **toate** stau pliate — desfaci
+  ce ai de schimbat. O eroare de validare le desface pe toate, ca să se vadă
+  câmpul cu pricina. Alegerea nu se ține minte între deschideri: o secțiune
+  pliată de la o editare ar fi ascuns „Alege clientul" la următoarea
+  rezervare nouă.
+- Orele cazării s-au mutat lângă date (în Sejur); până acum stăteau deasupra
+  secțiunii de acces, lângă butoanele pe care le influențează — acum Acces e
+  la un clic distanță, iar nota „Codul de acces urmează orele de aici" a
+  rămas sub buton. Butoanele rapide (fișa de sosire, check-in / check-out),
+  eroarea și Salvează / Șterge rămân în afara secțiunilor, jos.
+
+### 6.3 Verificare
+
+`src/fisa-sectiuni.test.js`: implicitul nou / editare; fiecare rezumat
+(ocupantul doar dacă e altul, camerele ca listă sau ca număr, ziua din șir,
+nota scurtată, „Fără note"); rândul din capul dialogului.
+`src/sectiune-ecran.test.js`: cap cu `aria-expanded` și `aria-controls`,
+rezumatul doar pliat, corpul ascuns dar prezent, câmpul își păstrează
+valoarea la pliere, capul e `type="button"`. În previzualizare: „N"
+deschide fișa nouă cu Sejur / Oaspete / Preț desfăcute; editarea unei
+rezervări deschide totul pliat, cu rezumatele.
+
+### 6.4 Ce NU s-a schimbat
+
+- Câmpurile, validările și salvarea sunt aceleași; nimic în bază.
+- Fișa de vizualizare (`ReservationViewModal`) și editorul de grup nu au
+  secțiuni — nu erau în audit; se pot pune pe același tipar.
