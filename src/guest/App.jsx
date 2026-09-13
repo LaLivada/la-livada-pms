@@ -137,6 +137,15 @@ const Usa = () => (
     <path d="M3.5 21h17M13.6 12.2h.01" />
   </svg>
 );
+/* Sageata comutatorului „Cum ajungi la noi". Invelisul care o poarta se
+   roteste prin CSS, dupa `aria-expanded` de pe buton — nu iconita insasi,
+   ca sa nu rupem convenția „fara props" tinuta de restul iconitelor de
+   aici. */
+const Sageata = () => (
+  <svg viewBox="0 0 24 24" aria-hidden="true">
+    <path d="m7 9.5 5 5 5-5" />
+  </svg>
+);
 /* Foaie cu coltul indoit si o bifa, pentru bannerul fisei de cazare —
    acelasi stil de desen ca restul iconitelor de aici. */
 const Foaie = () => (
@@ -543,61 +552,78 @@ function useInaltimeaHartii(refCard, refHarta) {
   }, [refCard, refHarta]);
 }
 
+/* Pliabil, inchis implicit, mutat inaintea cardului cu usa: proprietarul a
+ * cerut ordinea fireasca a unui oaspete care tocmai a ajuns — intai afla
+ * cum ajunge la complex, abia apoi deschide usa camerei. Inchis implicit
+ * ca sa nu impinga „Deschide usa" mai jos pentru cineva care a gasit deja
+ * locul si nu mai are nevoie de indicatii.
+ *
+ * Stare proprie (`useState`), nu ceva coordonat cu `deschis` din App: spre
+ * deosebire de cele patru scurtaturi, care se exclud reciproc, cardul asta
+ * nu concureaza cu nimeni pentru loc — poate sta deschis sau inchis
+ * independent de orice panou ales mai jos. */
 function CumAjungi({ deschideAcces }) {
+  const [deschis, setDeschis] = useState(false);
   const refCard = useRef(null);
   const refHarta = useRef(null);
   useInaltimeaHartii(refCard, refHarta);
 
   return (
     <div className="g-card" ref={refCard}>
-      <h2>Cum ajungi la noi</h2>
-      {/* Primul lucru din card, inainte chiar de Maps si Waze — nu doar
-          deasupra hartii. Proprietarul a semnalat ca traseul numerotat prin
-          curte conteaza la fel de mult ca usa insasi pentru cine ajunge
-          prima data, dar statea intr-un link de 12px, ultimul dupa doua
-          trimiteri externe; a doua incercare il pusese deasupra hartii, dar
-          tot dupa randul cu Maps si Waze — jumatate de masura, nu „primul
-          lucru" cerut. Ramane `button`, desi arata ca o actiune: nu duce
-          nicaieri, deschide ceva pe loc.
-          Contur, nu fond plin: cu olive plin ar fi concurat cu bannerul
-          fisei pentru atentie, iar cu sampanie plin ar fi parut o a doua
-          usa. Conturul olive (sampanie in tema de noapte, vezi mai jos)
-          il leaga vizual de familia „lucruri importante" fara sa intre in
-          aceeasi categorie. */}
-      <button type="button" className="g-acces-buton" onClick={deschideAcces}>
-        <Usa />Acces către camere
+      <button type="button" className="g-drum-comutator" aria-expanded={deschis}
+        onClick={() => setDeschis((d) => !d)}>
+        <Reper />
+        <span>Cum ajungi la noi</span>
+        <span className="g-drum-sageata"><Sageata /></span>
       </button>
-      <p className="g-legaturi">
-        {/* Cele doua harti stau impreuna, ca un singur element de asezare:
-            sunt acelasi lucru facut in doua aplicatii, deci daca randul se
-            rupe, se rup amandoua odata, nu una sus si una jos. */}
-        <span className="g-pereche">
-          {/* Marcile oficiale, luate din proiectul site-ului
-              (public/assets/logo-*.webp), nu desenate de noi. Un pin si o
-              sageata facute de mana ar fi fost si mai putin recunoscute, si
-              in raspar cu regulile de marca ale celor doua companii. */}
-          <a className="g-leg" href={LINK_MAPS} target="_blank" rel="noopener noreferrer">
-            <img src="/brand/logo-google-maps.webp" alt="" width="15" height="15" />
-            Google Maps
-          </a>
-          <a className="g-leg" href={LINK_WAZE} target="_blank" rel="noopener noreferrer">
-            <img src="/brand/logo-waze.webp" alt="" width="15" height="15" />
-            Waze
-          </a>
-        </span>
-      </p>
-      {/* Harta ultima: intai actiunea principala, apoi trimiterile externe,
-          apoi imaginea locului, pentru cine vrea sa vada unde vine. */}
-      <div className="g-harta-cadru" ref={refHarta}>
-        <iframe
-          className="g-harta-rama"
-          src={HARTA_INCORPORATA}
-          title="Harta către Complex La Livada"
-          loading="lazy"
-          referrerPolicy="no-referrer-when-downgrade"
-          allowFullScreen
-        />
-      </div>
+      {deschis && (
+        <>
+          <p className="g-legaturi">
+            {/* Acces catre camere, link ca toate celelalte, nu buton cu
+                contur — proprietarul a cerut sa nu mai iasa din familia de
+                linkuri. Ramane primul: traseul numerotat prin curte
+                conteaza la fel de mult ca usa insasi pentru cine ajunge
+                prima data. Ramane `button`, desi arata ca un link: nu duce
+                nicaieri, deschide ceva pe loc — un `<a href="#">` ar minti
+                cititorul de ecran. */}
+            <button type="button" className="g-leg" onClick={deschideAcces}>
+              <Usa />Acces către camere
+            </button>
+            {/* Cele doua harti stau impreuna, ca un singur element de asezare:
+                sunt acelasi lucru facut in doua aplicatii, deci daca randul se
+                rupe, se rup amandoua odata, nu una sus si una jos. */}
+            <span className="g-pereche">
+              {/* Marcile oficiale, luate din proiectul site-ului
+                  (public/assets/logo-*.webp), nu desenate de noi. Un pin si o
+                  sageata facute de mana ar fi fost si mai putin recunoscute, si
+                  in raspar cu regulile de marca ale celor doua companii. */}
+              <a className="g-leg" href={LINK_MAPS} target="_blank" rel="noopener noreferrer">
+                <img src="/brand/logo-google-maps.webp" alt="" width="15" height="15" />
+                Google Maps
+              </a>
+              <a className="g-leg" href={LINK_WAZE} target="_blank" rel="noopener noreferrer">
+                <img src="/brand/logo-waze.webp" alt="" width="15" height="15" />
+                Waze
+              </a>
+            </span>
+          </p>
+          {/* Harta ultima: intai actiunea principala, apoi trimiterile
+              externe, apoi imaginea locului, pentru cine vrea sa vada unde
+              vine. Nemontata cat cardul e inchis: iframe-ul Google nu se mai
+              incarca deloc pentru cine nu deschide niciodata cardul — un
+              cadou de viteza, nu scopul schimbarii. */}
+          <div className="g-harta-cadru" ref={refHarta}>
+            <iframe
+              className="g-harta-rama"
+              src={HARTA_INCORPORATA}
+              title="Harta către Complex La Livada"
+              loading="lazy"
+              referrerPolicy="no-referrer-when-downgrade"
+              allowFullScreen
+            />
+          </div>
+        </>
+      )}
     </div>
   );
 }
@@ -946,6 +972,14 @@ export default function App() {
         </div>
       </div>
 
+      {/* Inaintea cardului cu usa, nu dupa cele patru scurtaturi: proprietarul
+          a cerut ordinea fireasca a unui oaspete care tocmai a ajuns — intai
+          drumul pana la complex, abia apoi usa camerei. Ascuns cand un panou
+          e deschis, la fel ca inainte: pe langa ca asa s-a cerut prima data,
+          asta repara si o scapare de asezare — intre butoane si panou,
+          continutul ar fi aparut despartit de butonul care l-a deschis. */}
+      {!deschis && <CumAjungi deschideAcces={() => setAratAcces(true)} />}
+
       <div className="g-hero">
         {/* Eticheta in stanga, camera in dreapta, pe acelasi rand. Randul de
             sus al cardului raspunde astfel la amandoua intrebarile omului
@@ -1040,12 +1074,6 @@ export default function App() {
         <Sectiune cheie="atractii" deschis={deschis} alege={setDeschis}
           iconita={<Reper />} eticheta="Atracții" />
       </div>
-
-      {/* Numai pe prima pagina: cand se deschide un panou, cardul dispare.
-          Pe langa ca asa s-a cerut, asta repara si o scapare de asezare —
-          cu el intre butoane si panou, continutul aparea despartit de
-          butonul care l-a deschis. Acum panoul urca imediat sub buton. */}
-      {!deschis && <CumAjungi deschideAcces={() => setAratAcces(true)} />}
 
       {deschis === "venit" && (
         <div className="g-card">

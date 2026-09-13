@@ -313,14 +313,24 @@ body{
 }
 
 /* ---------- cele patru butoane ---------- */
-/* Doua pe rand, nu patru: pe un telefon de 320px patru coloane lasa sub
-   65px de eticheta, iar „Bun venit" s-ar rupe in doua randuri. */
-.g-scurtaturi{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+/* Un singur rand, cerut explicit — desi o incercare anterioara (icon langa
+   text, pe orizontala) fusese respinsa pe motiv de masuratoare: la 320px,
+   patru coloane orizontale lasau sub 65px de eticheta, iar „Bun venit" se
+   rupea in doua randuri, urat, in mijlocul unui cuvant.
+   Solutia nu e sa strangem randul orizontal si mai mult, ci sa schimbam
+   asezarea: icon SUS, eticheta dedesubt, centrate — un buton patrat, nu
+   unul lat. Asa fiecare coloana are nevoie doar de latimea celui mai lat
+   cuvant, nu de icon-plus-text alaturate, si incape la orice latime de
+   telefon masurata pana acum. Daca eticheta tot n-ar incapea pe un rand la
+   un telefon foarte ingust, se rupe in doua randuri centrate — inca arata
+   a buton, nu a text stricat, spre deosebire de asezarea orizontala de
+   dinainte. */
+.g-scurtaturi{ display:grid; grid-template-columns:repeat(4, 1fr); gap:8px; }
 .g-scurtatura{
   background:var(--g-card); border:1px solid var(--g-line);
-  border-radius:14px; padding:13px 14px; cursor:pointer;
-  font:inherit; color:var(--g-text); text-align:left;
-  display:flex; align-items:center; gap:10px;
+  border-radius:14px; padding:12px 6px; cursor:pointer;
+  font:inherit; color:var(--g-text); text-align:center;
+  display:flex; flex-direction:column; align-items:center; gap:7px;
   touch-action:manipulation;
 }
 .g-scurtatura[aria-expanded="true"]{
@@ -331,7 +341,7 @@ body{
   stroke:var(--olive); fill:none;
   stroke-width:1.6; stroke-linecap:round; stroke-linejoin:round;
 }
-.g-scurtatura span{ font-size:14px; font-weight:500; }
+.g-scurtatura span{ font-size:12.5px; font-weight:500; line-height:1.25; }
 
 /* ---------- carduri ---------- */
 .g-card{
@@ -581,15 +591,41 @@ body{
   fill:currentColor; stroke:none;
 }
 
+/* ---------- comutatorul „cum ajungi la noi" ---------- */
+/* Cardul intreg e pliabil, inchis implicit, mutat inaintea cardului cu usa
+   (vezi randul unde se randeaza, in App.jsx) — proprietarul a cerut ordinea
+   fireasca a unui oaspete care tocmai a ajuns: intai drumul, apoi usa.
+   Randul asta e singurul mereu vizibil; restul (butonul de acces, Maps si
+   Waze, harta) apare doar cat timp cardul e deschis. */
+.g-drum-comutator{
+  display:flex; align-items:center; gap:10px; width:100%;
+  background:none; border:0; padding:0; margin:0;
+  cursor:pointer; font:inherit; color:var(--g-text); text-align:left;
+  touch-action:manipulation;
+}
+.g-drum-comutator[aria-expanded="true"]{ margin-bottom:12px; }
+.g-drum-comutator svg{
+  width:21px; height:21px; flex-shrink:0;
+  stroke:var(--olive); fill:none;
+  stroke-width:1.6; stroke-linecap:round; stroke-linejoin:round;
+}
+.g-drum-comutator > span{ flex:1; font-size:15px; font-weight:600; }
+/* Sageata se roteste pe invelisul ei, nu pe svg direct — vezi comentariul
+   de la componenta Sageata din App.jsx. */
+.g-drum-sageata{ display:flex; transition:transform .2s ease; }
+.g-drum-sageata svg{ width:18px; height:18px; }
+.g-drum-comutator[aria-expanded="true"] .g-drum-sageata{ transform:rotate(180deg); }
+
 /* ---------- cum ajungi ---------- */
-/* Text cu link, nu butoane. Randul avea nevoie de container queries si de
-   marimi micsorate cat timp „Acces catre camere" statea si el aici, al
-   treilea dupa Maps si Waze — mutat acum intr-un buton propriu deasupra
-   hartii (mai jos). Ramase doar cele doua harti, incap pe un rand la
-   marimea normala, pe orice telefon din masuratorile facute pana acum. */
+/* Text cu link, nu butoane — inclusiv „Acces catre camere", care a purtat
+   pentru scurt timp un contur propriu, respins ca sa ramana in aceeasi
+   familie cu Maps si Waze. Ruperea randului e permisa si asteptata: cu
+   numele intreg si trei linkuri, un telefon ingust nu le tine pe toate pe
+   un singur rand, iar text care se rupe pe mai multe randuri nu arata a
+   greseala, cum ar fi aratat un buton taiat pe jumatate. */
 .g-legaturi{
   margin:0; display:flex; flex-wrap:wrap; align-items:center;
-  gap:6px; line-height:1.5; font-size:14px;
+  gap:6px 10px; line-height:1.5; font-size:14px;
 }
 .g-leg{
   display:inline-flex; align-items:center; gap:.38em;
@@ -614,27 +650,6 @@ body{
    daca marimea se schimba. */
 .g-leg img{ width:1.2em; height:1.2em; flex-shrink:0; display:block; border-radius:20%; }
 .g-pereche{ display:inline-flex; align-items:center; gap:.7em; }
-
-/* ---------- accesul catre camere, deasupra hartii ---------- */
-/* Mutat dintr-un link de 12px, la coada randului cu Maps si Waze —
-   proprietarul a semnalat ca traseul numerotat prin curte conteaza la fel
-   de mult ca usa insasi pentru cine ajunge prima data. Contur, nu fond
-   plin: cu olive plin ar fi concurat cu bannerul fisei de cazare pentru
-   atentie, iar cu sampanie plin ar fi parut o a doua usa. Icon si contur pe
-   „currentColor", nu pe olive direct, ca schimbarea in sampanie pentru
-   tema de noapte (mai jos) sa se faca intr-un singur loc. */
-.g-acces-buton{
-  display:flex; align-items:center; gap:10px; width:100%;
-  margin-bottom:12px; background:none; color:var(--olive);
-  border:1.5px solid currentColor; border-radius:14px; padding:13px 14px;
-  cursor:pointer; font:inherit; font-size:14px; font-weight:600;
-  text-align:left; touch-action:manipulation;
-}
-.g-acces-buton svg{
-  width:21px; height:21px; flex-shrink:0;
-  stroke:currentColor; fill:none;
-  stroke-width:1.6; stroke-linecap:round; stroke-linejoin:round;
-}
 
 /* ---------- harta din cardul „cum ajungi la noi" ---------- */
 /* Inaltimea e legata de ecran, nu fixa. Cerinta e ca TOT cardul sa incapa pe
@@ -846,10 +861,10 @@ body{
   .g-hero{ background:#0e100a; border:1px solid rgba(200,177,138,.22); }
   .g-scurtatura svg,
   .g-vreme svg,
+  .g-drum-comutator svg,
   .g-leg svg{ stroke:var(--champagne); }
   .g-leg,
-  .g-harta,
-  .g-acces-buton{ color:var(--champagne); }
+  .g-harta{ color:var(--champagne); }
   .g-buton{ background:var(--champagne); color:#15170f; }
   .g-fundal{ background:rgba(0,0,0,.68); }
 }
