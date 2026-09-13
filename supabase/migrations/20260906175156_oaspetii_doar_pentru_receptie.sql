@@ -1,0 +1,34 @@
+-- Aprobata explicit de Ovidiu dupa auditul de securitate.
+--
+-- Datele oaspetilor erau citibile de ORICE cont autentificat: politica avea
+-- `using (true)`, fara nicio conditie de rol. Azi nu s-a scurs nimic — exista
+-- doar admin si receptioner — dar rolul `housekeeping` e cablat prin toata
+-- aplicatia, iar in ziua in care se face un cont de curatenie, acela ar fi
+-- citit numele, telefonul, emailul si adresa fiecarui om care a trecut
+-- vreodata pe la pensiune.
+--
+-- CE INCHIDE ASTA, SI CE NU. Verificat adversarial, nu presupus:
+--   Inchide ARHIVA — tabelul `guests` e singurul loc cu telefon, email si
+--   adresa pentru toti oaspetii dintotdeauna. Aia se opreste aici.
+--   NU inchide numele sejururilor: `reservations` si `res_groups` raman
+--   `using (true)` si duc `occupant_name` si numele grupului in acelasi
+--   loadAll(); `guest_stay_by_cod` e security definer si deschisa lui anon
+--   (o cere guest app-ul), iar `guest_code` sta chiar in randul rezervarii.
+--   O camerista vede oricum cine e cazat — intra in camere. Diferenta e
+--   intre "cine sta acum in 1003" si "arhiva de contacte a pensiunii".
+--
+-- ALTER, nu DROP + CREATE. Cu doua comenzi separate, intre ele tabelul ramane
+-- fara nicio politica de SELECT, deci gol pentru TOATA lumea, inclusiv admin —
+-- si fara nicio eroare, doar liste goale. Un ALTER e o singura operatie.
+--
+-- Functiile invelite in `(select ...)`. Fara asta Postgres le trateaza ca
+-- volatile fata de rand si le reevalueaza O DATA PE RAND la citirea intregului
+-- tabel; asa devin InitPlan, calculat o data. Nu conteaza pentru housekeeping,
+-- care primeste zero randuri — conteaza pentru admin si receptioner, care le
+-- citesc pe toate.
+--
+-- Interfata degradeaza curat, nu crapa: `guestFullName(undefined)` intoarce
+-- sir gol si peste tot exista `|| "Fara nume"`. RLS filtreaza randuri fara sa
+-- produca eroare, deci garda `if (r.error) throw` din loadAll nu se declanseaza.
+alter policy "staff citeste" on guests
+  using ((select is_admin()) or (select staff_role()) = 'receptionist');

@@ -206,6 +206,16 @@ recepționer:
   dinainte. O cameră inexistentă (cazul „zzz" din testul JS) nu poate exista
   în bază (FK), deci nu are echivalent SQL.
 
+### 2.7 Migrațiile în repo (B2 din audit)
+
+Istoricul real al bazei stătea doar în `supabase_migrations.schema_migrations`
+(110 migrații aplicate); repo-ul avea doar `schema.sql`, oglinda întreținută
+de mână. Din 13 sept 2026 stau și în `supabase/migrations/<version>_<name>.sql`
+— convenția CLI-ului, deci `supabase db push` le poate reda pe un proiect nou
+(cel pentru testul cap-coadă cu 100.000 de rânduri). Primul export s-a făcut
+byte cu byte, verificat cu `md5` fișier ↔ bază; următoarele se fac cu
+`scripts/export-migratii.mjs` (cere `DATABASE_URL`, doar SELECT).
+
 ### 2.6 Ce NU se schimbă în faza 1
 
 - `syncTable` rămâne pentru rezervări (diff pe ≤ 3.000 de rânduri ≈ 5 ms) și
@@ -227,5 +237,5 @@ recepționer:
 | `asiguraPerioada` în calendar | făcut, 13 sept 2026 |
 | Oaspeți la cerere (cache, căutare, listă, istoric) | făcut, 13 sept 2026 — `cauta_oaspeti`, `oaspeti_statistici`, `src/data/oaspeti.js`, test de randare |
 | `raport_luna` în SQL + paritate | făcut, 13 sept 2026 — identic cu JS pe aug–oct 2026 și pe luna de fixture |
-| Migrațiile în repo (B2) | — |
+| Migrațiile în repo (B2) | făcut, 13 sept 2026 — 110 fișiere în `supabase/migrations/`, md5 verificat cu baza |
 | Test cap-coadă pe un proiect cu 100.000 de rânduri | — (cere un al doilea proiect Supabase, creat de proprietar) |
