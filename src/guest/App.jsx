@@ -17,6 +17,7 @@ import {
 } from "./api.js";
 import { citesteVremea } from "./vreme.js";
 import Fisa from "./Fisa.jsx";
+import Fereastra from "./Fereastra.jsx";
 import {
   TELEFON, TELEFON_SCRIS, ASISTENTA, ACASA, BUN_VENIT, IMPORTANT,
   ATRACTII, ATRACTII_PE_PAGINA, linkHarta,
@@ -134,6 +135,15 @@ const Usa = () => (
   <svg viewBox="0 0 24 24" aria-hidden="true">
     <path d="M6 21V4.4a1 1 0 0 1 .8-1l9-1.8a1 1 0 0 1 1.2 1V21" />
     <path d="M3.5 21h17M13.6 12.2h.01" />
+  </svg>
+);
+/* Foaie cu coltul indoit si o bifa, pentru bannerul fisei de cazare —
+   acelasi stil de desen ca restul iconitelor de aici. */
+const Foaie = () => (
+  <svg viewBox="0 0 24 24" aria-hidden="true">
+    <path d="M6 3.6A1.6 1.6 0 0 1 7.6 2h6L18 6.4v14A1.6 1.6 0 0 1 16.4 22H7.6A1.6 1.6 0 0 1 6 20.4z" />
+    <path d="M13.6 2v3.4A1 1 0 0 0 14.6 6.4H18" />
+    <path d="m9 13.6 2 2 4-4.4" />
   </svg>
 );
 /* Receptorul e desenat aici, nu luat ca sigla: un telefon nu e marca nimanui.
@@ -393,55 +403,6 @@ const VREME = {
     </svg>
   ),
 };
-
-/* Fereastra suprapusa, folosita deocamdata doar de „Acces către camere".
- *
- * Scrisa de mana, nu adusa dintr-o biblioteca: are de facut patru lucruri
- * — Escape, clic pe fundal, blocarea derularii in spate si intoarcerea
- * focusului la butonul care a deschis-o — iar pentru atat n-are rost inca
- * un pachet intr-un bundle deschis pe date mobile.
- *
- * Intoarcerea focusului nu e podoaba de accesibilitate: cine navigheaza cu
- * tastatura sau cu VoiceOver ar fi aruncat la inceputul paginii la fiecare
- * inchidere, si ar trebui sa refaca tot drumul pana la butoane. */
-function Fereastra({ titlu, antet, onInchide, children }) {
-  const butonInchide = useRef(null);
-
-  useEffect(() => {
-    const deUnde = document.activeElement;
-    const laTasta = (e) => { if (e.key === "Escape") onInchide(); };
-    const derulareVeche = document.body.style.overflow;
-
-    document.addEventListener("keydown", laTasta);
-    document.body.style.overflow = "hidden";
-    butonInchide.current?.focus();
-
-    return () => {
-      document.removeEventListener("keydown", laTasta);
-      document.body.style.overflow = derulareVeche;
-      if (deUnde instanceof HTMLElement) deUnde.focus();
-    };
-  }, [onInchide]);
-
-  return (
-    <div className="g-fundal" onClick={onInchide}>
-      {/* Clicul dinauntru nu se propaga la fundal, altfel orice apasare pe
-          o poza ar inchide fereastra. */}
-      <div className="g-fereastra" role="dialog" aria-modal="true" aria-label={titlu}
-           onClick={(e) => e.stopPropagation()}>
-        {/* `antet` inlocuieste titlul scris, pentru ferestrele care au nevoie
-            de un cap propriu — regulamentul isi pune sigla acolo. `titlu`
-            ramane oricum numele citit de cititoarele de ecran. */}
-        <div className="g-fereastra-cap">
-          {antet ?? <h2>{titlu}</h2>}
-          <button ref={butonInchide} type="button" onClick={onInchide}
-                  className="g-inchide" aria-label="Închide">×</button>
-        </div>
-        <div className="g-fereastra-corp">{children}</div>
-      </div>
-    </div>
-  );
-}
 
 function ContinutAcces() {
   const { poze, pasi } = ACCES_CAMERE;
@@ -830,19 +791,27 @@ export default function App() {
      felul de confuzie care se plateste peste sase luni. */
   const [aratAcces, setAratAcces] = useState(false);
   const [aratRegulament, setAratRegulament] = useState(false);
+  /* Fereastra fisei, separata de `fisaGata`: una spune DACA e completata,
+     cealalta daca fereastra chiar sta deschisa acum pe ecran. */
+  const [aratFisa, setAratFisa] = useState(false);
 
   /* Fisa se cere o singura data per sejur. `null` = inca nu stim, true =
-     completata. Cat timp nu stim, fereastra nu apare — un panou care
-     clipeste la fiecare incarcare ar fi mai rau decat unul care intarzie o
-     clipa. */
+     completata. Cat timp nu stim, bannerul nu apare — unul care clipeste la
+     fiecare incarcare ar fi mai rau decat unul care intarzie o clipa. */
   const [fisaGata, setFisaGata] = useState(null);
 
   /* useCallback, si NU o functie scrisa in JSX. `fisaCompletata` intra in
      lista de dependente a efectului din Fisa.jsx; scrisa inline, ar fi alta
      functie la fiecare randare a lui App — iar App se re-randeaza de fiecare
      data cand oaspetele deschide un panou. Rezultatul ar fi fost o cerere
-     noua catre baza la fiecare apasare pe „Wi-Fi". */
-  const fisaCompletata = useCallback(() => setFisaGata(true), []);
+     noua catre baza la fiecare apasare pe „Wi-Fi".
+     Inchide si fereastra: dupa un „Semnez si trimit" reusit, sau dupa ce
+     verificarea din fundal descopera ca fisa era deja completata (de pe alt
+     telefon, sau de receptie), n-are ce sa mai stea deschisa. */
+  const fisaCompletata = useCallback(() => {
+    setFisaGata(true);
+    setAratFisa(false);
+  }, []);
 
   /* Codul stand in fragment, trecerea de la un link la altul in aceeasi
      fila NU e o navigare: browserul schimba doar adresa, nimic nu se
@@ -857,6 +826,18 @@ export default function App() {
 
   useEffect(() => {
     setStare("incarca");
+    /* Fisa e per-rezervare, la fel ca sejur/acces/minibar de mai jos — dar
+       spre deosebire de ele, nu se rescrie singura la fiecare raspuns:
+       `fisaGata` e o stare proprie, pusa o singura data de `onGata`, nu
+       recalculata din `sejur`. O familie cu doua camere care deschide al
+       doilea link, in aceeasi fila, dupa ce a completat fisa pentru prima
+       camera, ar fi ramas cu bannerul ascuns si pentru a doua — o fisa
+       NECOMPLETATA, pe care n-ar mai fi cerut-o nimeni.
+       Prins cu acelasi fel de verificare ca la `cod` insusi (vezi
+       comentariul de la `codDinAdresa`): doua coduri diferite, in aceeasi
+       fila, fara reincarcare de pagina intre ele. */
+    setFisaGata(null);
+    setAratFisa(false);
     if (!cod) { setMotiv("lipsa"); setStare("refuzat"); return; }
 
     let viu = true;
@@ -1015,13 +996,37 @@ export default function App() {
         )}
       </div>
 
-      {/* Fisa sta AICI, sub cardul cu codul si usa: deasupra ei ramane tot ce-i
-          trebuie unui om in fata usii, iar sub ea sectiunile se ascund pana la
-          semnare. Nu e un panou peste pagina — vezi comentariul din Fisa.jsx
-          si docs/fisa-cazare.md 0. */}
-      {fisaGata !== true && <Fisa cod={cod} onGata={fisaCompletata} />}
+      {/* Fisa de cazare: banner pe rand intreg + fereastra, nu un card care
+          ascunde restul paginii pana la completare. Asa statea pana pe
+          13 septembrie 2026 — proprietarul a semnalat ca ascunderea nu e o
+          solutie buna: oaspetele nu vede ce urmeaza sa gaseasca pe pagina,
+          doar un formular, si pare ca restul lipseste. Vezi
+          docs/fisa-cazare.md 8.
 
-      {fisaGata === true && (<>
+          `Fisa` ramane MONTATA NECONDITIONAT cat timp `fisaGata !== true`,
+          exact ca inainte — doar ce randeaza vizibil s-a schimbat, prin
+          prop-ul `deschis`. Efectul dinauntrul ei verifica in fundal, la
+          montare, daca fisa e deja completata (de oaspete pe alt telefon,
+          sau de receptie) si cheama `onGata` fara niciun clic — asta e felul
+          in care bannerul dispare singur, fara sa oblige omul sa deschida
+          fereastra doar ca sa afle ca era deja gata. Montata doar cand se
+          apasa bannerul (`{aratFisa && <Fisa/>}`), verificarea asta n-ar mai
+          rula la incarcarea paginii, si bannerul ar aparea din nou la
+          fiecare vizita — o regresie fata de ce face azi. */}
+      {fisaGata !== true && (
+        <>
+          <button type="button" className="g-fisa-banner" onClick={() => setAratFisa(true)}>
+            <Foaie />
+            <span className="g-fisa-banner-text">
+              <span className="g-fisa-banner-titlu">Completează fișa de cazare</span>
+              <span className="g-fisa-banner-sub">Obligatorie la cazare, o singură dată.</span>
+            </span>
+          </button>
+          <Fisa cod={cod} onGata={fisaCompletata} deschis={aratFisa}
+            onInchide={() => setAratFisa(false)} />
+        </>
+      )}
+
       <div className="g-scurtaturi">
         <Sectiune cheie="venit" deschis={deschis} alege={setDeschis}
           iconita={<Casa />} eticheta="Bun venit" />
@@ -1163,8 +1168,6 @@ export default function App() {
       )}
 
       {deschis === "atractii" && <Atractii />}
-
-      </>)}
 
       <p className="g-subsol">
         Complex La Livada · <a href={`tel:${TELEFON}`}>{TELEFON_SCRIS}</a>

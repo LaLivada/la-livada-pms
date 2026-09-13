@@ -262,6 +262,32 @@ body{
 .g-usa-stare[data-fel="bine"]{ color:var(--champagne); font-weight:600; }
 .g-usa-stare[data-fel="rau"]{ color:#eeb0a4; }
 
+/* ---------- bannerul fisei de cazare ---------- */
+/* Rand intreg, deasupra celor patru butoane — nu unul dintre ele. Fondul
+   olive, imprumutat de la .g-fisa-trimit (butonul de „Semnez si trimit" din
+   fereastra), il deosebeste deliberat de cele patru carduri neutre de mai
+   jos: astea sunt scurtaturi spre informatie, bannerul e o sarcina ramasa de
+   facut, si trebuie sa arate altfel, nu doar sa fie primul in ordine. */
+.g-fisa-banner{
+  display:flex; align-items:center; gap:12px; width:100%;
+  margin-bottom:10px; background:var(--olive); color:var(--g-pe-inchis);
+  border:0; border-radius:14px; padding:14px 16px; cursor:pointer;
+  font:inherit; text-align:left; touch-action:manipulation;
+}
+.g-fisa-banner svg{
+  flex-shrink:0; width:22px; height:22px;
+  stroke:currentColor; fill:none;
+  stroke-width:1.6; stroke-linecap:round; stroke-linejoin:round;
+}
+.g-fisa-banner-text{ display:block; min-width:0; }
+.g-fisa-banner-titlu{ display:block; font-size:15px; font-weight:600; }
+/* Opacitate, nu un jeton nou: --g-pe-inchis e fix in ambele teme (vezi
+   comentariul lui din sectiunea de jetoane), iar textul de aici trebuie doar
+   sa fie mai stins decat titlul de deasupra lui, nu alta culoare. */
+.g-fisa-banner-sub{
+  display:block; margin-top:2px; font-size:12.5px; opacity:.82;
+}
+
 /* ---------- cele patru butoane ---------- */
 /* Doua pe rand, nu patru: pe un telefon de 320px patru coloane lasa sub
    65px de eticheta, iar „Bun venit" s-ar rupe in doua randuri. */
@@ -418,14 +444,11 @@ body{
 }
 
 /* ---------- fisa de cazare ---------- */
-/* Card in CURGEREA paginii, nu panou peste ea. Prima varianta era
-   position:fixed; inset:0 — arata a fereastra modala si parea sa respecte
-   cerinta, fiindca butonul usii se vedea prin fundalul translucid. Verificat
-   cu elementFromPoint in centrul butonului: raspundea o eticheta din
-   formular. Se VEDEA, dar nu se putea apasa.
-   Asa, cardul sta sub cel cu codul si usa; sectiunile de sub el se ascund
-   pana la semnare. Vezi docs/fisa-cazare.md 0. */
-.g-fisa h2{ margin:0 0 4px; }
+/* Fereastra proprie (Fereastra.jsx), deschisa din bannerul de deasupra celor
+   patru butoane — nu mai e un card in curgerea paginii care ascunde restul
+   pana la semnare. Vezi antetul din Fisa.jsx si docs/fisa-cazare.md 8.
+   Fara „.g-fisa h2”: titlul „Fișă de cazare" il da acum Fereastra insasi,
+   in stilul ei editorial, nu unul propriu de mica eticheta cu majuscule. */
 .g-fisa-intro{ margin:0 0 10px; font-size:13.5px; color:var(--g-muted); }
 .g-fisa-ajutor{
   margin:0 0 16px; padding:10px 12px; border-radius:10px;

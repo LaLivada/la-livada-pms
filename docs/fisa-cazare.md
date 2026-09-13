@@ -449,3 +449,51 @@ la A4 fiindcă e vectorială, iar fișa se tipărește; și stă în rândul din
 deci intră în același backup ca restul. O poză în Storage ar fi al doilea loc
 de salvat — iar backup-ul e încă pe planul gratuit, cu zero copii
 ([MEMORY](../MEMORY.md)).
+
+---
+
+## 8. Fereastră, nu blocaj (13 septembrie 2026)
+
+**Decizia de la 0 — „restul paginii se blochează până la semnare" — s-a
+inversat.** Proprietarul a semnalat problema: fișa apărea ca un card în
+curgerea paginii, care ascundea butoanele de dedesubt (Bun venit, Important,
+Minibar, Atracții) și cardul „Cum ajungi la noi" până la completare.
+Oaspetele care deschidea linkul vedea doar un formular, fără niciun semn că
+mai există altceva pe pagină — pare o pagină trunchiată, nu una care așteaptă
+un pas.
+
+**Soluția cerută, în două părți:** un buton pe un rând întreg, deasupra celor
+patru butoane existente, și fișa mutată într-o fereastră (pop-up), nu într-un
+card care ocupă locul restului.
+
+**Ce s-a schimbat în cod:**
+
+- `Fereastra.jsx` — modala scrisă de mână pentru „Acces către cameră" și
+  regulament e acum fișier propriu, nu funcție locală în `App.jsx`, fiindcă
+  `Fisa.jsx` are nevoie de ea la fel ca `App.jsx`.
+- `Fisa.jsx` se randează acum în `Fereastra`, cu un prop nou, `deschis`, care
+  controlează DOAR dacă fereastra se arată. Componenta rămâne montată cât
+  timp fișa nu e cunoscută drept completată — verificarea din fundal
+  (`citesteFisa`, care poate descoperi că fișa era deja semnată în altă parte)
+  tot rulează, indiferent dacă fereastra e deschisă pe ecran. Fără asta,
+  bannerul n-ar mai dispărea singur la o fișă deja completată — ar cere un
+  clic doar ca să afle ce se putea ști dinainte.
+- `App.jsx` randează acum necondiționat toate secțiunile paginii (butoanele,
+  panourile, cardul de acces). Deasupra celor patru butoane apare, cât timp
+  fișa nu e completată, un buton pe rând întreg (`.g-fisa-banner`) care
+  deschide fereastra.
+
+**Bug găsit și reparat pe drum, nu cerut de proprietar:** `fisaGata` nu se
+reseta la schimbarea codului din adresă. Un oaspete cu două camere, care
+deschide al doilea link în aceeași filă după ce a completat fișa pentru prima
+cameră, ar fi rămas cu bannerul ascuns și pentru a doua rezervare — o fișă
+necompletată, pe care n-ar mai fi cerut-o nimeni. Reparat prin resetarea lui
+`fisaGata` și `aratFisa` în același efect care resetează `stare` la schimbarea
+lui `cod`, în `App.jsx`.
+
+**Verificat:** bannerul apare/dispare corect la schimbarea codului din
+fragment în aceeași filă (simulat cu `guest_fisa_precompletare` întors
+`gata:true`, apoi `gata:false`, fără reîncărcare de pagină); contrastul
+textului bannerului (`--g-pe-inchis` pe `--olive`) e 8.25:1 pentru titlu și
+6.18:1 pentru subtitlu — peste pragul AA de 4.5:1 — și identic în light și
+dark, fiindcă ambele jetoane sunt fixe, nu se inversează.

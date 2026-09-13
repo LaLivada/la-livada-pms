@@ -1,18 +1,28 @@
-/* Fisa de cazare, completata de oaspete.
+/* Fisa de cazare, completata de oaspete — intr-o fereastra, deschisa dintr-un
+ * banner pe rand intreg de deasupra celor patru butoane.
  *
- * NU E UN PANOU CARE ACOPERA PAGINA, si asta a fost o corectie, nu o alegere
- * din prima. Prima varianta era `position:fixed; inset:0` peste tot — arata
- * exact ca o fereastra modala si parea sa respecte cerinta, fiindca butonul
- * usii ramanea vizibil prin fundalul translucid. Verificat cu
- * `elementFromPoint` in centrul butonului: raspundea o eticheta din
- * formular. Butonul se VEDEA, dar nu se putea apasa — adica exact ce s-a
- * hotarat sa nu se intample (docs/fisa-cazare.md 0).
+ * ASA STA DIN 13 SEPTEMBRIE 2026. Pana atunci era un card IN CURGEREA
+ * paginii, care ascundea sectiunile de dedesubt pana la semnare — decizie
+ * documentata in docs/fisa-cazare.md 0. Proprietarul a semnalat ca
+ * ascunderea nu e o solutie buna: oaspetele nu vede ce urmeaza sa gaseasca pe
+ * pagina, doar un formular, si pare ca restul lipseste. Vezi
+ * docs/fisa-cazare.md 8 pentru schimbare.
  *
- * Asa, cardul sta IN CURGEREA paginii, sub cel cu codul si usa. Deasupra lui
- * ramane tot ce trebuie unui om in fata usii; sub el, sectiunile se ascund
- * pana la semnare. Wi-fi-ul si numarul asistentei intra chiar in card: fara
- * internet nu se completeaza niciun formular, iar cine nu se descurca
- * trebuie sa poata suna fara sa caute.
+ * Fereastra e Fereastra.jsx, aceeasi folosita si de „Acces catre camere" si
+ * de regulament — nu o reconstructie. Prima varianta a acestui fisier
+ * incercase un panou fix peste pagina, tinut totusi „netransparent la clic"
+ * ca butonul usii sa ramana apasabil prin el; verificat cu
+ * `elementFromPoint`, raspundea o eticheta din formular — butonul se VEDEA,
+ * dar nu se putea apasa. Fereastra.jsx e o fereastra MODALA adevarata, cu
+ * fundal opac care inchide la clic, exact ca acces/regulament, si evita
+ * capcana aia din start.
+ *
+ * `deschis` controleaza doar daca fereastra se ARATA. Componenta ramane
+ * MONTATA de catre App.jsx cat timp fisa nu e cunoscuta drept completata,
+ * indiferent de `deschis`: efectul de mai jos verifica in fundal, la
+ * montare, daca fisa e deja gata (de pe alt telefon, sau de receptie) si
+ * cheama `onGata` fara niciun clic — asa dispare bannerul singur, fara sa
+ * oblige omul sa deschida fereastra doar ca sa afle ca era deja completata.
  *
  * Campurile marcate `sensibil` in lib/fisa.js pornesc GOALE chiar daca
  * oaspetele a mai stat la noi. Nu e o scapare a precompletarii: sunt exact
@@ -25,6 +35,7 @@ import { traseuSvg, esteGoala } from "../lib/semnatura.js";
 import { citesteFisa, trimiteFisa } from "./api.js";
 import { ASISTENTA, WIFI } from "./continut.js";
 import Semnatura from "./Semnatura.jsx";
+import Fereastra from "./Fereastra.jsx";
 
 /* DATA NASTERII, IN TREI CASETE — nu `<input type="date">`.
  *
@@ -97,7 +108,7 @@ function DataNasterii({ valoare, eroare, onSchimbare }) {
   );
 }
 
-export default function Fisa({ cod, onGata }) {
+export default function Fisa({ cod, onGata, deschis, onInchide }) {
   const [date, setDate] = useState({});
   const [linii, setLinii] = useState([]);
   const [erori, setErori] = useState({});
@@ -144,59 +155,68 @@ export default function Fisa({ cod, onGata }) {
       : "Nu am putut trimite fișa. Mai încearcă o dată.");
   }
 
-  if (stare === "incarca") return null;
+  /* Componenta ramane montata (efectul de mai sus tot ruleaza) chiar cand nu
+     e nimic de aratat: fereastra inchisa, sau datele inca in drum de la
+     server. In ambele cazuri nu randeaza nimic — `deschis` decide doar daca
+     merita deschisa fereastra din jur. */
+  if (!deschis) return null;
 
   return (
-    <section className="g-card g-fisa" aria-labelledby="fisa-titlu">
-      <h2 id="fisa-titlu">Fișa de cazare</h2>
-      <p className="g-fisa-intro">
-        E obligatorie la cazare. O completezi o dată, aici — restul paginii
-        se deschide după.
-      </p>
-
-      {/* Wi-fi-ul si asistenta stau AICI, nu in panoul „Bun venit": acela e
-          ascuns pana la semnare, iar fara internet nu se completeaza niciun
-          formular. */}
-      <p className="g-fisa-ajutor">
-        Rețeaua <strong>{WIFI.retea}</strong>, fără parolă. Dacă te
-        împotmolești, sună-l pe {ASISTENTA.nume} la{" "}
-        <a href={`tel:${ASISTENTA.telefon}`}>{ASISTENTA.scris}</a>.
-      </p>
-
-      {CAMPURI.map((c) => (c.tip === "date" ? (
-        <DataNasterii key={c.cheie} valoare={date[c.cheie]} eroare={erori[c.cheie]}
-          onSchimbare={(v) => pune(c.cheie, v)} />
+    <Fereastra titlu="Fișă de cazare" onInchide={onInchide}>
+      {stare === "incarca" ? (
+        <p className="g-gol">Se încarcă…</p>
       ) : (
-        <label key={c.cheie} className="g-camp">
-          <span className="g-camp-eticheta">
-            {c.eticheta}{!c.obligatoriu && <em> (dacă are)</em>}
-          </span>
-          {c.tip === "alegere" ? (
-            <select value={date[c.cheie] || ""}
-              onChange={(e) => pune(c.cheie, e.target.value)}>
-              <option value="">Alege…</option>
-              {ACT_TIPURI.map((t) => (
-                <option key={t.cheie} value={t.cheie}>{t.eticheta}</option>
-              ))}
-            </select>
+        <>
+          <p className="g-fisa-intro">
+            E obligatorie la cazare, o singură dată pe sejur.
+          </p>
+
+          {/* Wi-fi-ul si asistenta stau AICI si dupa mutarea in fereastra:
+              cine apasa bannerul inainte sa deschida „Bun venit" tot are
+              nevoie de retea ca sa trimita formularul, si de un numar la
+              indemana daca se impotmoleste. */}
+          <p className="g-fisa-ajutor">
+            Rețeaua <strong>{WIFI.retea}</strong>, fără parolă. Dacă te
+            împotmolești, sună-l pe {ASISTENTA.nume} la{" "}
+            <a href={`tel:${ASISTENTA.telefon}`}>{ASISTENTA.scris}</a>.
+          </p>
+
+          {CAMPURI.map((c) => (c.tip === "date" ? (
+            <DataNasterii key={c.cheie} valoare={date[c.cheie]} eroare={erori[c.cheie]}
+              onSchimbare={(v) => pune(c.cheie, v)} />
           ) : (
-            <input type={c.tip === "date" ? "date" : "text"}
-              value={date[c.cheie] || ""}
-              onChange={(e) => pune(c.cheie, e.target.value)} />
-          )}
-          {erori[c.cheie] && <span className="g-camp-eroare">{erori[c.cheie]}</span>}
-        </label>
-      )))}
+            <label key={c.cheie} className="g-camp">
+              <span className="g-camp-eticheta">
+                {c.eticheta}{!c.obligatoriu && <em> (dacă are)</em>}
+              </span>
+              {c.tip === "alegere" ? (
+                <select value={date[c.cheie] || ""}
+                  onChange={(e) => pune(c.cheie, e.target.value)}>
+                  <option value="">Alege…</option>
+                  {ACT_TIPURI.map((t) => (
+                    <option key={t.cheie} value={t.cheie}>{t.eticheta}</option>
+                  ))}
+                </select>
+              ) : (
+                <input type={c.tip === "date" ? "date" : "text"}
+                  value={date[c.cheie] || ""}
+                  onChange={(e) => pune(c.cheie, e.target.value)} />
+              )}
+              {erori[c.cheie] && <span className="g-camp-eroare">{erori[c.cheie]}</span>}
+            </label>
+          )))}
 
-      <Semnatura valoare={linii} onSchimbare={setLinii} />
-      {erori.semnatura && <span className="g-camp-eroare">{erori.semnatura}</span>}
+          <Semnatura valoare={linii} onSchimbare={setLinii} />
+          {erori.semnatura && <span className="g-camp-eroare">{erori.semnatura}</span>}
 
-      {mesaj && <p className="g-fisa-mesaj" role="alert">{mesaj}</p>}
+          {mesaj && <p className="g-fisa-mesaj" role="alert">{mesaj}</p>}
 
-      <button type="button" className="g-fisa-trimit" disabled={stare === "trimit"}
-        onClick={trimite}>
-        {stare === "trimit" ? "Trimit…" : "Semnez și trimit"}
-      </button>
-    </section>
+          <button type="button" className="g-fisa-trimit" disabled={stare === "trimit"}
+            onClick={trimite}>
+            {stare === "trimit" ? "Trimit…" : "Semnez și trimit"}
+          </button>
+        </>
+      )}
+    </Fereastra>
   );
 }
