@@ -1,0 +1,95 @@
+# Copie zilnică a datelor, în afara Supabase.
+#
+# Planul Free n-are niciun backup automat (docs/disaster-recovery.md). Job-ul
+# ăsta rulează scriptul care există deja pentru copia manuală
+# (scripts/backup.mjs), criptează rezultatul și îl păstrează ca artefact al
+# rulării — 90 de zile, maximul pe care GitHub îl permite.
+#
+# Copia conține nume, telefoane și adrese de clienți. De aceea e criptată
+# cu o CHEIE PUBLICĂ (age): GitHub primește doar cheia publică și poate
+# doar să încuie; cheia privată stă la proprietar și nu ajunge niciodată
+# aici. Nici cineva cu acces la repo, nici GitHub, nu poate deschide o
+# copie. (O parolă simetrică ținută ca secret n-ar fi dat garanția asta —
+# oricine poate edita un workflow poate citi un secret.)
+#
+# Are nevoie de trei lucruri puse o singură dată de proprietar:
+#   1. secretul DATABASE_URL — Settings → Secrets and variables → Actions;
+#      adresa cu pooler, portul 5432, din Supabase → Project Settings →
+#      Database (runner-ele GitHub n-au IPv6, iar adresa directă a bazei e
+#      doar IPv6 pe planul Free — poolerul e obligatoriu);
+#   2. scripts/prod-ca-2021.crt în repo — certificatul autorității Supabase
+#      (Project Settings → Database → SSL Configuration → Download). E
+#      public, nu e secret; scriptul refuză conexiuni neverificate;
+#   3. scripts/cheie-publica-backup.txt în repo — cheia publică age, o
+#      linie care începe cu „age1". Se obține o singură dată:
+#        winget install FiloSottile.age
+#        age-keygen -o cheia-de-backup.txt
+#      Fișierul cheia-de-backup.txt e CHEIA PRIVATĂ: se păstrează în afara
+#      repo-ului (manager de parole), fără ea nicio copie nu se mai
+#      deschide; linia „# public key: age1…" din el e ce intră în repo.
+#
+# Restaurare: descarcă artefactul rulării, apoi
+#   age -d -i cheia-de-backup.txt backup-date-AAAA-LL-ZZ.sql.age > backup-date.sql
+# și urmează pașii din docs/disaster-recovery.md.
+name: Backup
+
+on:
+  schedule:
+    # 02:15 UTC = 05:15 vara / 04:15 iarna la Vaslui — recepția e închisă,
+    # iar automatizările de relee (pg_cron) nu ating datele astea.
+    - cron: "15 2 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+
+      # `pg` e în devDependencies — `npm ci` le instalează și pe ele.
+      - run: npm ci
+
+      - name: Verifică ce lipsește
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          lipsa=0
+          [ -n "$DATABASE_URL" ] || { echo "::error::Lipsește secretul DATABASE_URL."; lipsa=1; }
+          [ -f scripts/prod-ca-2021.crt ] || { echo "::error::Lipsește scripts/prod-ca-2021.crt (certificatul CA Supabase)."; lipsa=1; }
+          if ! grep -q '^age1' scripts/cheie-publica-backup.txt 2>/dev/null; then
+            echo "::error::Lipsește scripts/cheie-publica-backup.txt cu cheia publică age (o linie care începe cu age1)."; lipsa=1
+          fi
+          exit $lipsa
+
+      - name: Instalează age
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq age
+
+      - name: Copia datelor
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          SUPABASE_CA_CERT: scripts/prod-ca-2021.crt
+        run: node scripts/backup.mjs
+
+      - name: Criptare cu cheia publică
+        run: |
+          set -e
+          f=$(ls backup-date-*.sql)
+          age -R scripts/cheie-publica-backup.txt -o "$f.age" "$f"
+          rm -f "$f"
+          ls -l "$f.age"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: backup-${{ github.run_id }}
+          path: backup-date-*.sql.age
+          retention-days: 90
+          if-no-files-found: error

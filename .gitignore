@@ -45,6 +45,12 @@ dist-guest/
 
 # Backup-uri: contin date personale ale clientilor
 backup-*.sql
+# Cheia PRIVATA age a copiilor din GitHub Actions (.github/workflows/backup.yml).
+# Se genereaza local cu `age-keygen -o cheia-de-backup.txt` si se pastreaza in
+# managerul de parole; in repo intra doar cheia publica
+# (scripts/cheie-publica-backup.txt). Regula e plasa de siguranta pentru cazul
+# in care fisierul e generat din folderul proiectului.
+cheia-de-backup.txt
 .refactor/
 .refactor/
 

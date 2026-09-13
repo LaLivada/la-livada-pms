@@ -39,7 +39,9 @@ fără pierdere de date, dar aplicația e indisponibilă până atunci.
 
 1. **Fă o copie chiar acum** (procedura de mai jos, durează sub un minut
    la 13 MB).
-2. **Programează copii regulate** — vezi „Backup periodic".
+2. **Pornește copia zilnică din GitHub Actions** — există din 13 septembrie
+   2026 (`.github/workflows/backup.yml`), dar rulează doar după ce sunt
+   puse secretul, certificatul și cheia publică — vezi „Backup periodic".
 3. **Ia în calcul planul Pro** dacă PMS-ul devine sursa unică de adevăr
    pentru rezervări. Backup zilnic automat + posibilitatea PITR schimbă
    complet calculul de mai sus. E o decizie de business, nu tehnică:
@@ -48,6 +50,10 @@ fără pierdere de date, dar aplicația e indisponibilă până atunci.
 ---
 
 ## Starea verificată a sistemului
+
+Citită pe 19 august 2026. La 13 septembrie 2026 (vezi
+`docs/audit-2026-09.md`): 17 MB, 140 de rezervări, 3 conturi de personal,
+105 migrații, 8 funcții edge — tot pe planul Free, tot fără backup automat.
 
 | Element | Valoare |
 |---|---|
@@ -69,16 +75,23 @@ restaurarea lui durează secunde, nu ore.
 
 ## Backup manual (de făcut acum)
 
-Necesită Supabase CLI (`supabase --version` — testat cu 2.115.0) și
-parola bazei de date, din Dashboard → Project Settings → Database.
+`supabase db dump` rulează `pg_dump` într-un container, deci cere Docker
+Desktop — care nu e instalat și nu merită instalat doar pentru asta. În
+locul lui, `scripts/backup.mjs` se conectează direct (prin `pg`) și scrie
+un fișier SQL doar cu datele; structura e în `schema.sql`, ținut
+sincronizat cu baza la fiecare migrare.
+
+Are nevoie de parola bazei (Dashboard → Project Settings → Database,
+„Connection string", varianta cu pooler, portul 5432) și de certificatul
+autorității Supabase (aceeași pagină → SSL Configuration → Download,
+`prod-ca-2021.crt`), fără de care verificarea TLS eșuează — iar scriptul
+refuză deliberat să o dezactiveze:
 
 ```bash
-# Structura (tabele, funcții, politici RLS, trigger-e)
-supabase db dump --db-url "postgresql://postgres.suoowrginsliyrbxqeap:[PAROLA]@aws-0-eu-central-1.pooler.supabase.com:5432/postgres" -f backup-structura.sql
-
-# Datele
-supabase db dump --db-url "postgresql://postgres.suoowrginsliyrbxqeap:[PAROLA]@aws-0-eu-central-1.pooler.supabase.com:5432/postgres" --data-only -f backup-date.sql
+node scripts/backup.mjs "postgresql://postgres.suoowrginsliyrbxqeap:[PAROLA]@aws-0-eu-central-1.pooler.supabase.com:5432/postgres" --ca C:\cale\prod-ca-2021.crt
 ```
+
+Rezultatul, `backup-date-AAAA-LL-ZZ.sql`, e ignorat de git.
 
 **Unde se păstrează:** oriunde **în afara** Supabase și **în afara**
 acestui repo — un disc extern, un cloud personal, orice. Un backup ținut
@@ -108,13 +121,44 @@ săptămână plus înainte de orice modificare mare e rezonabil.
 aceleași comenzi și scrie într-un folder sincronizat cu un cloud
 personal. Nu necesită nimic în plus și ține datele la tine.
 
-**c) Automat, în GitHub Actions.** Posibil, dar cu o rezervă importantă:
-dump-ul ar conține date personale ale clienților, iar artefactele de CI
-sunt accesibile oricui are acces la repo și rămân stocate la GitHub.
-Pentru o pensiune care intră sub GDPR, varianta (b) e de preferat —
-datele nu părăsesc infrastructura ta. Dacă totuși se alege (c), repo-ul
-trebuie să fie privat, retenția artefactelor scurtă, iar prelucrarea
-documentată.
+**c) Automat, în GitHub Actions — implementat pe 13 septembrie 2026**
+(`.github/workflows/backup.yml`: zilnic la 02:15 UTC, plus pornire manuală
+din tab-ul Actions). Rezerva formulată aici inițial era reală: dump-ul
+conține date personale, iar artefactele de CI sunt accesibile oricui are
+acces la repo și stau la GitHub. De aceea copia e **criptată cu o cheie
+publică (age)** înainte să devină artefact: GitHub și oricine cu acces la
+repo pot doar să încuie, nu să deschidă; cheia privată stă la proprietar,
+în afara repo-ului. Retenția e de 90 de zile (maximul GitHub), deci
+fereastra de recuperare e de trei luni în urmă, cu o copie pe zi.
+
+Job-ul există dar **nu rulează** până nu sunt puse, o singură dată:
+
+1. secretul `DATABASE_URL` (Settings → Secrets and variables → Actions) —
+   adresa cu pooler, portul 5432; runner-ele GitHub n-au IPv6, iar adresa
+   directă a bazei e doar IPv6 pe planul Free;
+2. `scripts/prod-ca-2021.crt` în repo — certificatul CA Supabase, public;
+3. `scripts/cheie-publica-backup.txt` în repo — cheia publică age. Se
+   generează o dată, local:
+
+   ```bash
+   winget install FiloSottile.age
+   ```
+   ```bash
+   age-keygen -o cheia-de-backup.txt
+   ```
+
+   `cheia-de-backup.txt` e cheia **privată**: se pune în managerul de
+   parole și se șterge de pe disc; fără ea nicio copie nu se mai deschide.
+   Linia `# public key: age1…` din el e ce intră în repo, singură, în
+   fișierul de mai sus.
+
+Prima rulare se pornește manual (Actions → Backup → Run workflow) și se
+verifică descărcând artefactul și decriptându-l (comanda e la „Restaurare",
+cazul 1) — un backup nedeschis niciodată e o presupunere, nu un backup.
+
+**Varianta (b) rămâne valabilă** pentru cine vrea ca datele să nu părăsească
+deloc infrastructura proprie; (c) are avantajul că nu depinde de un
+calculator pornit la ora potrivită.
 
 ---
 
@@ -127,13 +171,18 @@ documentată.
    toată structura: tabele, indecși, funcții, trigger-e, politici RLS.
    Fișierul e ținut sincronizat cu baza la fiecare migrare, tocmai
    pentru asta.
-3. Încarcă datele din `backup-date.sql`.
+3. Decriptează copia — `age -d -i cheia-de-backup.txt backup-date-AAAA-LL-ZZ.sql.age > backup-date.sql`
+   (copia manuală de la `scripts/backup.mjs` e deja în clar) — și rulează
+   `backup-date.sql` în SQL Editor.
 4. Recreează conturile de personal (Authentication → Add user) și
    rândurile corespunzătoare din `staff`, cu rolurile potrivite.
 5. Actualizează `VITE_SUPABASE_URL` și `VITE_SUPABASE_ANON_KEY` în
    variabilele de mediu Vercel, apoi redeployează.
-6. Redeployează funcțiile Edge: `supabase functions deploy ical-feed` și
-   `supabase functions deploy anaf-lookup`.
+6. Redeployează toate funcțiile Edge din `supabase/functions/` (8 la 13
+   septembrie 2026) — `supabase functions deploy`, fără argument, le urcă
+   pe toate. Secretele lor (Resend, TTLock, Shelly, Turnstile) se pun din
+   nou în Dashboard → Edge Functions → Secrets: nu sunt în repo și nu sunt
+   în backup.
 7. **Token-urile iCal se schimbă** — fiecare cameră primește un token nou
    la recreare, deci feed-urile din Booking.com/Airbnb trebuie
    reconfigurate cu adresele noi.
