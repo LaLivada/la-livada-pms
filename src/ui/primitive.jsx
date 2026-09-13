@@ -183,6 +183,19 @@ export function useAduInVizor(vizibil) {
   return ref;
 }
 
+/* Valoarea `v`, intarziata: se schimba abia dupa ce `v` a stat nemiscata
+   `ms` milisecunde. Pentru cautarile pe server — fiecare tasta sa nu fie o
+   cerere; una la 250 ms, dupa ce omul s-a oprit din scris. */
+
+export function useIntarziat(v, ms = 250) {
+  const [intarziat, setIntarziat] = useState(v);
+  useEffect(() => {
+    const t = setTimeout(() => setIntarziat(v), ms);
+    return () => clearTimeout(t);
+  }, [v, ms]);
+  return intarziat;
+}
+
 /* Paginare simpla peste o lista deja filtrata. Tine pagina curenta si o
    reseteaza cand se schimba filtrul — altfel ramai pe pagina 3 a unei
    liste care intre timp are un singur rezultat. */

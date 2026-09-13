@@ -60,6 +60,10 @@ execuție pe server (fără rețea, fără serializare PostgREST).
 | sumar (sejururi, nopți, încasat) pentru 30 de oaspeți | 0,3 | 25 |
 | căutare oaspeți `ilike` nume/telefon, **fără** index | 131,6 | 30 |
 | căutare oaspeți **cu `pg_trgm`** (GIN pe nume și telefon) | **9,0** | 30 |
+| `cauta_oaspeti` (nume + oraș + telefon, 3 indexuri GIN, `order by lower`): 4.000 de potriviri / puține | 17 / 0,6 | 20 |
+| `cauta_oaspeti` cu `order by last_name` (planul parcurgea indexul de ordine, filtrând): un miss | 106 | 0 |
+| lista de clienți, pagina 1.000 (`offset 30.000` din 40.000) — cu / fără `guests_ordine_nume` | 12,9 / 197,7 | 30 |
+| `count(*)` exact pe 40.000 de oaspeți | 9 | 1 |
 | raport lună: nopți și venit pe zi (sept 2026) | 9,8 | 30 |
 | card „De pe site": ultimele 5 | 0,0 | 5 |
 | paginare `order by id limit 1000 offset 0` pe fereastră | 29,9 | 1.000 |
@@ -81,10 +85,17 @@ scanare completă — tot sub 20 ms la 100.000, dar nu la 1.000.000.
    Cifra e stabilă în timp — depinde de camere și de orizontul de rezervare,
    nu de câți ani de istoric s-au adunat.
 3. Căutarea de oaspeți are nevoie de **`pg_trgm`** (131 → 9 ms); fără el, la
-   40.000 de oaspeți, fiecare tastă costă o scanare completă.
-4. Paginarea prin `offset` e acceptabilă pentru ≤ 5 pagini; se folosește
-   totuși **keyset** (`id > ultimul`) — costă la fel de puțin de scris și nu
-   degradează.
+   40.000 de oaspeți, fiecare tastă costă o scanare completă. Două capcane
+   găsite la implementare: sub **3 caractere** indexul nu ajută („%ab%" n-are
+   nicio trigramă întreagă — 100 ms, toată tabela), iar cu `order by
+   last_name` planificatorul prefera indexul de ordine și filtra rând cu
+   rând (106 ms pe un miss) — de aceea funcția ordonează pe `lower()`, o
+   expresie fără index, ca să fie obligată să ia întâi potrivirile.
+4. Paginarea prin `offset` degradează liniar **fără** un index în ordinea
+   cerută (82 ms la `offset 2.000` pe rezervări, 198 ms la `offset 30.000` pe
+   oaspeți); cu `guests_ordine_nume` saltul la pagina 1.000 costă 13 ms, deci
+   lista de clienți rămâne pe offset — ecranul sare la o pagină anume, ceea
+   ce keyset-ul nu poate.
 
 ---
 
@@ -105,9 +116,10 @@ pornire — vin când calendarul ajunge acolo (2.2). Night audit-ul, sosirile
 de azi, cardul „De pe site", accesul, fișele — toate lucrează pe ce e în
 fereastră, și tot ce le trebuie e acolo prin construcție.
 
-Citirea se face **paginat** (`citesteTot`: `order by id`, `id > ultimul`,
-1.000 de rânduri pe pagină), deci plafonul PostgREST de 1.000 nu mai poate
-tăia nimic în tăcere, indiferent cât crește fereastra.
+Citirea e **o singură cerere** (`pms_fereastra`, SECURITY INVOKER, un rând
+JSON cu rezervările, grupurile și oaspeții lor), deci plafonul PostgREST de
+1.000 de rânduri n-o atinge, indiferent cât crește fereastra — și pe 4G nu
+costă trei dus-întors înlănțuite.
 
 ### 2.2 Calendarul cere ce nu are
 
@@ -133,18 +145,37 @@ fost **ștearsă din bază**. De aceea:
 
 ### 2.4 Oaspeții la cerere
 
-`core.guests` devine **cache-ul oaspeților cunoscuți** (cei din fereastră +
-cei găsiți prin căutare sau creați în sesiune), nu lista completă.
+`core.guests` e **cache-ul oaspeților cunoscuți** (cei din fereastră + cei
+găsiți prin căutare sau creați în sesiune), nu lista completă. Tot ce
+înseamnă „toți" vine de pe server, din `src/data/oaspeti.js`:
 
-- Căutarea din formularul de rezervare și din Clienți: server-side
-  (`ilike` pe nume + telefon, index `pg_trgm`, primele 20), cu debounce.
-  Rezultatele intră în cache la selecție.
-- Lista de clienți: paginată pe server (30/pagină, keyset), cu sumarul
-  (sejururi, nopți, încasat) din vederea `oaspeti_statistici` pentru id-urile
-  paginii — nu din `reservations.filter` în browser.
-- Istoricul unui oaspete: `istoricOaspete(id)`, paginat pe server.
-- Scrierea: `salveazaOaspete(oaspete)` — un rând, upsert; `updateCore` nu mai
-  sincronizează `guests` prin diff.
+- Căutarea din formularul de rezervare: cache-ul răspunde la fiecare tastă;
+  de la **3 caractere**, după 250 ms de pauză, `cauta_oaspeti` (nume, oraș,
+  telefon pe cifre; `pg_trgm`, primele 20) — rezultatele intră în cache, de
+  unde filtrul local le arată ca pe restul. Cât timp serverul n-a răspuns,
+  „niciun client" nu se afirmă (ar oferi „Adaugă client nou" pentru cineva
+  care există). Sub 3 caractere serverul nu e întrebat (§1.3, pct. 3).
+- Lista de clienți: paginată pe server (30/pagină, `range` + index de ordine
+  `guests_ordine_nume`; cu text, primele 100 de potriviri paginate local, cu
+  „100+" când s-a atins plafonul), cu sumarul (sejururi, nopți, încasat) din
+  vederea `oaspeti_statistici` pentru id-urile paginii — nu din
+  `reservations.filter` în browser, care vede doar fereastra. Numărul de pe
+  tab e `count` exact, din aceeași cerere; cel de pe ecranul Azi, o cerere
+  `head` la deschidere.
+- Istoricul unui oaspete: `istoricOaspete(id, pagina)`, 15/pagină, sumarul din
+  aceeași vedere.
+- Ștergerea verifică întâi pe server (`legaturiOaspete`: rezervări în orice
+  status, grupuri cu el client principal), apoi `stergeOaspete`; baza refuză
+  oricum (`guest_id` e ON DELETE RESTRICT).
+- Scrierea: `salveazaOaspete(oaspete)` — un rând, upsert, apoi în cache.
+  `updateCore` **ignoră** `guests` (cu avertisment în consolă): un ecran
+  pornit de la o versiune veche a cache-ului ar fi rescris rânduri depășite.
+- `oaspeti_statistici` are aceeași definiție ca fostul calcul din browser
+  (`isLive`, `isStatsEligible`, `nightsBetween`, `reservationTotal`), cu o
+  excepție asumată: un rând fără snapshot de preț contează 0, nu recalculul
+  din tarifele curente — backfill-ul de la pornire îl completează oricum.
+- Testat prin randare (`src/clienti-ecran.test.js`), cu stratul de date
+  înlocuit: ecranul nu se poate deschide fără autentificare.
 
 ### 2.5 Rapoartele în SQL
 
@@ -174,7 +205,7 @@ existent.
 | Ștergeri explicite, `syncTable` fără deducție | făcut, 13 sept 2026 |
 | Fereastra la pornire (`pms_fereastra`, o singură cerere) | făcut, 13 sept 2026 — 202 ms / 2,5 MB pe 100.000 de rânduri (bench) |
 | `asiguraPerioada` în calendar | făcut, 13 sept 2026 |
-| Oaspeți la cerere (cache, căutare, listă, istoric) | — |
+| Oaspeți la cerere (cache, căutare, listă, istoric) | făcut, 13 sept 2026 — `cauta_oaspeti`, `oaspeti_statistici`, `src/data/oaspeti.js`, test de randare |
 | `raport_luna` în SQL + paritate | — |
 | Migrațiile în repo (B2) | — |
 | Test cap-coadă pe un proiect cu 100.000 de rânduri | — (cere un al doilea proiect Supabase, creat de proprietar) |

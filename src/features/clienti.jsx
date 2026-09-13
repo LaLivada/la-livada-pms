@@ -12,19 +12,20 @@ import { supabase } from "../supabase.js";
 import { uid } from "../lib/uid.js";
 import { mesajEroare } from "../lib/errors.js";
 import * as dateFacturare from "../data/facturare.js";
+import * as dateOaspeti from "../data/oaspeti.js";
 import { audit, isAdmin } from "../lib/audit.js";
 import { guestFullName, occupantName } from "../lib/nume.js";
-import { nightsBetween, isLive, isStatsEligible } from "../lib/availability.js";
+import { nightsBetween, isLive } from "../lib/availability.js";
 import { reservationTotal } from "../lib/pricing.js";
 import { validatePhone, validateEmail } from "../lib/validation.js";
 import { fmtMoney, fmtDate, fmtDateFull, initials } from "../lib/format.js";
 import { JUDETE, TARI, PHONE_DIAL, DIAL_LIST, STATUS_LABEL, ROOM_TYPE, GUEST_HISTORY_PAGE_SIZE, INVOICE_STATUS_LABEL, INVOICE_STATUS_CLASS, sourceLabel } from "../lib/constante.js";
-import { Dialog, toaster, usePaginare, Paginare, useModalLock, Stat } from "../ui/primitive.jsx";
+import { Dialog, toaster, usePaginare, Paginare, useModalLock, useIntarziat, Stat } from "../ui/primitive.jsx";
 import { GroupsView } from "./grupuri.jsx";
 import { FiseView } from "./fise.jsx";
 import { billingCustomerLabel, BillingCustomerModal } from "./facturare.jsx";
 
-export function ClientsView({ core, updateCore, groups, updateGroups, reservations, updateReservations, stergeRezervari, stergeGrupuri, stergeOaspete, blocks, onNewGroup }) {
+export function ClientsView({ core, updateCore, groups, updateGroups, reservations, updateReservations, stergeRezervari, stergeGrupuri, stergeOaspete, salveazaOaspete, blocks, onNewGroup }) {
   const [historyGuest, setHistoryGuest] = useState(null);
   const [tab, setTab] = useState("guests");
   const [q, setQ] = useState("");
@@ -33,54 +34,105 @@ export function ClientsView({ core, updateCore, groups, updateGroups, reservatio
      formularul apartine listei de firme — starea trece de aici acolo. */
   const [firmModal, setFirmModal] = useState(null);
 
-  const filtered = core.guests.filter((g) => {
-    const t = q.toLowerCase();
-    return guestFullName(g).toLowerCase().includes(t) ||
-      (g.phone || "").includes(q) ||
-      (g.city || "").toLowerCase().includes(t);
-  });
+  /* Lista de oaspeti vine de pe server, pagina cu pagina (docs/faza1.md,
+     2.4): core.guests e doar un cache, n-are toti oaspetii. Cu text de
+     cautare (de la 3 caractere — sub atat indexul trigram n-ajuta), serverul
+     intoarce primele 100 de potriviri, paginate aici. Pagina se tine
+     impreuna cu textul pentru care a fost ceruta: un text nou porneste de la
+     pagina 1 fara o cerere in plus. */
+  const text = q.trim();
+  const textIntarziat = useIntarziat(text);
+  const textCautare = textIntarziat.length >= dateOaspeti.MIN_LITERE_CAUTARE ? textIntarziat : "";
+  const preaScurt = text.length > 0 && text.length < dateOaspeti.MIN_LITERE_CAUTARE;
+  const [pagina, setPagina] = useState({ text: "", nr: 1 });
+  const paginaCurenta = pagina.text === textCautare ? pagina.nr : 1;
+  const [lista, setLista] = useState({ oaspeti: [], total: 0, gata: false });
+  const [sumar, setSumar] = useState(() => new Map());
+  const [eroare, setEroare] = useState("");
+  const [totalOaspeti, setTotalOaspeti] = useState(null);
+  /* Creste dupa o salvare sau o stergere: lista se recere de pe server. */
+  const [versiune, setVersiune] = useState(0);
+
+  useEffect(() => {
+    let activ = true;
+    (async () => {
+      setEroare("");
+      try {
+        let oaspeti, total;
+        if (textCautare) {
+          const gasiti = await dateOaspeti.cautaOaspeti(textCautare, dateOaspeti.LIMITA_CAUTARE_LISTA);
+          total = gasiti.length;
+          oaspeti = gasiti.slice((paginaCurenta - 1) * dateOaspeti.OASPETI_PE_PAGINA, paginaCurenta * dateOaspeti.OASPETI_PE_PAGINA);
+        } else {
+          ({ oaspeti, total } = await dateOaspeti.oaspetiPagina(paginaCurenta));
+        }
+        if (!activ) return;
+        setLista({ oaspeti, total, gata: true });
+        if (!textCautare) setTotalOaspeti(total);
+        const s = await dateOaspeti.sumarOaspeti(oaspeti.map((g) => g.id));
+        if (activ) setSumar(s);
+      } catch (e) {
+        if (!activ) return;
+        setEroare(mesajEroare(e, "Nu am putut încărca clienții"));
+        setLista((l) => ({ ...l, gata: true }));
+      }
+    })();
+    return () => { activ = false; };
+  }, [textCautare, paginaCurenta, versiune]);
 
   const save = async (guest) => {
-    const exists = core.guests.some((g) => g.id === guest.id);
-    const next = exists ? core.guests.map((g) => (g.id === guest.id ? guest : g)) : [...core.guests, guest];
-    await updateCore({ ...core, guests: next });
-    await audit.push(exists ? "Client modificat" : "Client adăugat", guestFullName(guest));
+    const exista = Boolean(modal?.guest);
+    const salvat = await salveazaOaspete(guest);
+    if (!salvat) return; // eroarea e deja pe ecran; formularul ramane deschis
+    await audit.push(exista ? "Client modificat" : "Client adăugat", guestFullName(salvat));
     setModal(null);
+    setVersiune((v) => v + 1);
   };
-  const remove = async (id) => {
-    const g = core.guests.find((x) => x.id === id);
-    const hasReservations = reservations.some((r) => r.guestId === id);
-    const isGroupMain = groups.some((gr) => gr.mainGuestId === id);
-    if (hasReservations || isGroupMain) {
-      toaster.show(
-        `${guestFullName(g)} are rezervări asociate și nu poate fi șters. Anulează sau șterge întâi rezervările.`,
-        { tone: "danger" }
-      );
+  const remove = async (g) => {
+    const nume = guestFullName(g);
+    /* Verificarea se face pe server: `reservations` din browser e doar
+       fereastra de timp, iar un client cu sejururi de acum doi ani ar parea
+       liber. Baza refuza oricum (guest_id e ON DELETE RESTRICT), dar un
+       mesaj clar bate o eroare de constrangere urmata de reincarcare. */
+    let legaturi;
+    try { legaturi = await dateOaspeti.legaturiOaspete(g.id); }
+    catch (e) { toaster.show(mesajEroare(e, "Nu am putut verifica rezervările clientului"), { tone: "danger" }); return; }
+    if (legaturi.rezervari) {
+      toaster.show(`${nume} are ${legaturi.rezervari} ${legaturi.rezervari === 1 ? "rezervare" : "rezervări"} în istoric și nu poate fi șters.`, { tone: "danger" });
       return;
     }
-    const before = core.guests;
-    /* Ștergere explicită — `updateCore` cu lista fără el nu l-ar mai scoate
-       din bază (vezi syncTable). Baza refuză oricum dacă are rezervări
-       nevăzute aici (guest_id e ON DELETE RESTRICT), iar verificarea de mai
-       sus vede doar rezervările din fereastra încărcată. */
-    if (!await stergeOaspete(id)) return;
-    await audit.push("Client șters", guestFullName(g));
-    toaster.show(`${guestFullName(g)} a fost șters`, {
+    if (legaturi.grupuri) {
+      toaster.show(`${nume} e clientul principal al unui grup și nu poate fi șters.`, { tone: "danger" });
+      return;
+    }
+    if (!await stergeOaspete(g.id)) return;
+    await audit.push("Client șters", nume);
+    setVersiune((v) => v + 1);
+    toaster.show(`${nume} a fost șters`, {
       tone: "danger",
       onUndo: async () => {
-        await updateCore({ ...core, guests: before });
-        await audit.push("Ștergere anulată", guestFullName(g));
+        if (!await salveazaOaspete(g)) return;
+        await audit.push("Ștergere anulată", nume);
+        setVersiune((v) => v + 1);
       },
     });
   };
 
-  const paginare = usePaginare(filtered);
+  const pePagina = dateOaspeti.OASPETI_PE_PAGINA;
+  const starePaginare = {
+    pagina: paginaCurenta,
+    totalPagini: Math.max(1, Math.ceil(lista.total / pePagina)),
+    setPagina: (nr) => setPagina({ text: textCautare, nr }),
+    pePagina, totalItems: lista.total, arataPaginarea: lista.total > pePagina,
+  };
+  /* Cautarea se opreste la 100 de potriviri: „100+" spune ca mai sunt. */
+  const plafonat = Boolean(textCautare) && lista.total >= dateOaspeti.LIMITA_CAUTARE_LISTA;
   const firmCount = (core.billingCustomers || []).filter((c) => c.kind === "company").length;
 
   const header = (
     <div className="tabs-bar">
       <SubTabs tab={tab} setTab={setTab} groupCount={groups.length}
-        guestCount={core.guests.length} firmCount={firmCount} />
+        guestCount={totalOaspeti ?? "…"} firmCount={firmCount} />
       <div className="tabs-actions">
         {tab === "groups" ? (
           <button className="btn btn-primary" style={{ width: "auto" }} onClick={onNewGroup}>
@@ -139,15 +191,29 @@ export function ClientsView({ core, updateCore, groups, updateGroups, reservatio
       <div className="toolbar">
         <div className="search-box">
           <Search size={15} color="var(--text-muted)" />
-          <input placeholder="Caută după nume sau telefon" value={q} onChange={(e) => setQ(e.target.value)} />
+          <input placeholder="Caută după nume, telefon sau oraș" value={q} onChange={(e) => setQ(e.target.value)} />
         </div>
-        <span className="badge-count">{filtered.length} clienți</span>
+        <span className="badge-count">{!lista.gata ? "…" : plafonat ? `${lista.total}+` : lista.total} clienți</span>
       </div>
 
       <div className="panel">
-        {filtered.length === 0 ? (
-          <div className="empty-state"><Users size={26} /><h4>Niciun client</h4><p>Adaugă primul client.</p></div>
-        ) : paginare.feliate.map((g) => (
+        {preaScurt ? (
+          <div className="section-empty">Scrie cel puțin {dateOaspeti.MIN_LITERE_CAUTARE} caractere ca să caut.</div>
+        ) : eroare ? (
+          <div className="empty-state"><Users size={26} /><h4>Nu am putut încărca clienții</h4><p>{eroare}</p></div>
+        ) : !lista.gata ? (
+          <div className="section-empty">Se încarcă…</div>
+        ) : lista.oaspeti.length === 0 ? (
+          <div className="empty-state"><Users size={26} />
+            <h4>{textCautare ? "Niciun client găsit" : "Niciun client"}</h4>
+            <p>{textCautare ? "Încearcă alt nume, telefon sau oraș." : "Adaugă primul client."}</p>
+          </div>
+        ) : lista.oaspeti.map((g) => {
+          /* Sumarul (sejururi, nopti, incasat) vine din vederea
+             oaspeti_statistici, pentru id-urile paginii — nu din
+             `reservations`, care e doar fereastra de timp. */
+          const s = sumar.get(g.id);
+          return (
           <div className="list-row" key={g.id}>
             <div
               role="button" tabIndex={0} style={{ cursor: "pointer" }}
@@ -159,16 +225,11 @@ export function ClientsView({ core, updateCore, groups, updateGroups, reservatio
                 {[g.phone, g.email, [g.city, g.county].filter(Boolean).join(", "), g.country !== "România" ? g.country : null]
                   .filter(Boolean).join(" · ")}
               </div>
-              {(() => {
-                const stays = reservations.filter((r) => r.guestId === g.id && isLive(r));
-                if (!stays.length) return null;
-                const nights = stays.reduce((n, r) => n + nightsBetween(r.checkin, r.checkout), 0);
-                // Protocol nu se incaseaza — nu intra in suma "incasati".
-                const spent = stays.filter(isStatsEligible).reduce((v, r) => v + reservationTotal(r, core), 0);
-                return <div className="secondary" style={{ marginTop: 3 }}>
-                  <strong>{stays.length}</strong> sejururi · {nights} nopți · {fmtMoney(spent)} încasați
-                </div>;
-              })()}
+              {s && s.sejururi > 0 && (
+                <div className="secondary" style={{ marginTop: 3 }}>
+                  <strong>{s.sejururi}</strong> sejururi · {s.nopti} nopți · {fmtMoney(s.incasat)} încasați
+                </div>
+              )}
             </div>
             <div className="row-actions">
               <button className="icon-btn" title="Istoric sejururi" aria-label={`Istoric sejururi ${guestFullName(g)}`} onClick={() => setHistoryGuest(g)}>
@@ -179,18 +240,19 @@ export function ClientsView({ core, updateCore, groups, updateGroups, reservatio
                   nu curăță fișe. Oglindește politica RLS "sterge oaspeti";
                   butonul ascuns evită un eșec confuz în loc de unul clar. */}
               {isAdmin() && (
-                <button className="icon-btn" onClick={() => remove(g.id)} aria-label={`Șterge ${guestFullName(g)}`}><Trash2 size={14} /></button>
+                <button className="icon-btn" onClick={() => remove(g)} aria-label={`Șterge ${guestFullName(g)}`}><Trash2 size={14} /></button>
               )}
             </div>
           </div>
-        ))}
+          );
+        })}
       </div>
 
-      <Paginare stare={paginare} eticheta="clienți" />
+      {!preaScurt && <Paginare stare={starePaginare} eticheta="clienți" />}
 
       {modal && <GuestModal guest={modal.guest} onSave={save} onClose={() => setModal(null)} />}
       {historyGuest && (
-        <GuestHistory guest={historyGuest} core={core} reservations={reservations} onClose={() => setHistoryGuest(null)} />
+        <GuestHistory guest={historyGuest} core={core} onClose={() => setHistoryGuest(null)} />
       )}
     </div>
   );
@@ -640,20 +702,37 @@ export const GuestFields = React.memo(function GuestFields({ value, onChange, in
   );
 });
 
-export function GuestHistory({ guest, core, reservations, onClose }) {
+export function GuestHistory({ guest, core, onClose }) {
   useModalLock();
-  const [page, setPage] = useState(0);
-  const stays = reservations
-    .filter((r) => r.guestId === guest.id)
-    .sort((a, b) => new Date(b.checkin) - new Date(a.checkin));
-  const live = stays.filter(isLive);
-  const nights = live.reduce((n, r) => n + nightsBetween(r.checkin, r.checkout), 0);
-  // Protocol nu se incaseaza — nu intra in "Valoare".
-  const spent = live.filter(isStatsEligible).reduce((v, r) => v + reservationTotal(r, core), 0);
+  const [pagina, setPagina] = useState(1);
+  const [istoric, setIstoric] = useState(null); // { sejururi, total } — pagina curenta
+  const [sumar, setSumar] = useState(null);     // { sejururi, nopti, incasat, ultimaSosire }
+  const [eroare, setEroare] = useState("");
 
-  const pageCount = Math.max(1, Math.ceil(stays.length / GUEST_HISTORY_PAGE_SIZE));
-  const safePage = Math.min(page, pageCount - 1);
-  const pageStays = stays.slice(safePage * GUEST_HISTORY_PAGE_SIZE, (safePage + 1) * GUEST_HISTORY_PAGE_SIZE);
+  /* Sejururile si sumarul vin de pe server: `reservations` din browser e
+     doar fereastra de timp, iar istoricul unui client fidel trece cu ani
+     dincolo de ea. Sumarul (vederea oaspeti_statistici — aceeasi regula ca
+     fostul calcul de aici: sejururi vii, nopti calendaristice, protocolul
+     nu se incaseaza) se cere o data, la prima pagina. */
+  useEffect(() => {
+    let activ = true;
+    (async () => {
+      try {
+        const [ist, s] = await Promise.all([
+          dateOaspeti.istoricOaspete(guest.id, pagina),
+          pagina === 1 ? dateOaspeti.sumarOaspeti([guest.id]) : null,
+        ]);
+        if (!activ) return;
+        setIstoric(ist);
+        if (s) setSumar(s.get(guest.id) || { sejururi: 0, nopti: 0, incasat: 0, ultimaSosire: null });
+      } catch (e) {
+        if (activ) setEroare(mesajEroare(e, "Nu am putut încărca istoricul"));
+      }
+    })();
+    return () => { activ = false; };
+  }, [guest.id, pagina]);
+
+  const pageCount = Math.max(1, Math.ceil((istoric?.total || 0) / GUEST_HISTORY_PAGE_SIZE));
 
   const contactLine = [guest.city, guest.county].filter(Boolean).join(", ");
 
@@ -672,18 +751,22 @@ export function GuestHistory({ guest, core, reservations, onClose }) {
         </div>
 
         <div className="stat-row" style={{ marginBottom: 14 }}>
-          <Stat label="Sejururi" value={live.length} sub="valide" />
-          <Stat label="Nopți" value={nights} sub="total" />
-          <Stat label="Valoare" value={fmtMoney(spent)} sub="cumulat" />
-          <Stat label="Ultimul" value={live[0] ? fmtDateFull(live[0].checkin) : "—"} sub="sosire" />
+          <Stat label="Sejururi" value={sumar ? sumar.sejururi : "…"} sub="valide" />
+          <Stat label="Nopți" value={sumar ? sumar.nopti : "…"} sub="total" />
+          <Stat label="Valoare" value={sumar ? fmtMoney(sumar.incasat) : "…"} sub="cumulat" />
+          <Stat label="Ultimul" value={sumar?.ultimaSosire ? fmtDateFull(sumar.ultimaSosire) : "—"} sub="sosire" />
         </div>
 
-        {stays.length === 0 ? (
+        {eroare ? (
+          <div className="section-empty" style={{ color: "var(--danger)" }}>{eroare}</div>
+        ) : istoric === null ? (
+          <div className="section-empty">Se încarcă…</div>
+        ) : istoric.total === 0 ? (
           <div className="section-empty">Niciun sejur înregistrat.</div>
         ) : (
           <>
             <div className="panel">
-              {pageStays.map((r) => (
+              {istoric.sejururi.map((r) => (
                 <div className="list-row" key={r.id}>
                   <div>
                     <div className="primary mono">{core.rooms.find((x) => x.id === r.roomId)?.name || "—"}</div>
@@ -700,13 +783,13 @@ export function GuestHistory({ guest, core, reservations, onClose }) {
             </div>
             {pageCount > 1 && (
               <div className="pager">
-                <button className="btn btn-ghost" style={{ width: "auto" }} disabled={safePage === 0}
-                  onClick={() => setPage((p) => Math.max(0, p - 1))}>
+                <button className="btn btn-ghost" style={{ width: "auto" }} disabled={pagina <= 1}
+                  onClick={() => setPagina((p) => Math.max(1, p - 1))}>
                   <ChevronLeft size={15} /> Anterior
                 </button>
-                <span className="pager-info">Pagina {safePage + 1} din {pageCount}</span>
-                <button className="btn btn-ghost" style={{ width: "auto" }} disabled={safePage >= pageCount - 1}
-                  onClick={() => setPage((p) => Math.min(pageCount - 1, p + 1))}>
+                <span className="pager-info">Pagina {pagina} din {pageCount}</span>
+                <button className="btn btn-ghost" style={{ width: "auto" }} disabled={pagina >= pageCount}
+                  onClick={() => setPagina((p) => Math.min(pageCount, p + 1))}>
                   Următor <ChevronRight size={15} />
                 </button>
               </div>

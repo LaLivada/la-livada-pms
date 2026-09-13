@@ -25,9 +25,10 @@ import { splitEvenly } from "../lib/money.js";
 import { isSameDay, isToday, canCheckIn, canCheckOut, canCancel, canNoShow, checkouturiRestante, zileIntarziere, sosiriRestante, zileIntarziereSosire, ZILE_CHECKIN_DEVREME } from "../lib/tranzitii.js";
 import { fmtMoney, fmtDate, fmtDateFull, fmtDateTime, toDateInput, toLocalInputValue, withNewDate, initials, validatePrice, FMT_DATE, FMT_TIME, FMT_WEEKDAY, FMT_MONTH_YEAR } from "../lib/format.js";
 import { ROOM_TYPE, STATUS_LABEL, STATUS_GLYPH, STATUS_CLASS, CREATE_STATUSES, EDIT_STATUSES, SOURCES, sourceLabel, DEFAULT_TAGS, HK_STATUSES } from "../lib/constante.js";
-import { Dialog, toaster, useModalLock, useAduInVizor, usePaginare, Paginare, Stat, Section, OccupantStepper } from "../ui/primitive.jsx";
+import { Dialog, toaster, useModalLock, useAduInVizor, useIntarziat, usePaginare, Paginare, Stat, Section, OccupantStepper } from "../ui/primitive.jsx";
 import { snakeRes } from "../data/mapari.js";
 import { syncTable } from "../data/nucleu.js";
+import { cautaOaspeti, numarOaspeti, MIN_LITERE_CAUTARE } from "../data/oaspeti.js";
 import * as dateFise from "../data/fise.js";
 import { ORA_SOSIRE_IMPLICITA, ORA_PLECARE_IMPLICITA } from "../lib/acces.js";
 import { ultimeleOnline, candAVenit } from "../lib/rezervari-online.js";
@@ -38,7 +39,7 @@ import { GuestFields, GuestModal, ContactQuickActions, emptyGuest } from "./clie
 import { ArrivalForm } from "./documente.jsx";
 import { GroupEditor, GroupPrint } from "./grupuri.jsx";
 
-export function NightAuditGate({ restante, sosiri, core, updateCore, groups, updateGroups, blocks, updateBlocks, reservations, updateReservations, stergeRezervari, stergeGrupuri, adaugaOaspetiInCache, housekeeping, updateHousekeeping, onLogout }) {
+export function NightAuditGate({ restante, sosiri, core, updateCore, groups, updateGroups, blocks, updateBlocks, reservations, updateReservations, stergeRezervari, stergeGrupuri, adaugaOaspetiInCache, salveazaOaspete, housekeeping, updateHousekeeping, onLogout }) {
   const [busyId, setBusyId] = useState(null);
   const [modal, setModal] = useState(null); // { reservation } — deschis din Editează, mai jos
 
@@ -193,6 +194,7 @@ export function NightAuditGate({ restante, sosiri, core, updateCore, groups, upd
           stergeRezervari={stergeRezervari}
           stergeGrupuri={stergeGrupuri}
           adaugaOaspetiInCache={adaugaOaspetiInCache}
+          salveazaOaspete={salveazaOaspete}
           onClose={() => setModal(null)}
         />
       )}
@@ -214,7 +216,7 @@ export function NightAuditGate({ restante, sosiri, core, updateCore, groups, upd
  *
  * Ascunderea butoanelor n-ar fi de ajuns singură — de aceea și dispecerul
  * de clic din celule iese devreme, nu doar controalele lipsesc. */
-export function CalendarView({ core, updateCore, reservations, updateReservations, groups, updateGroups, housekeeping, updateHousekeeping, blocks, updateBlocks, stergeRezervari, stergeGrupuri, stergeBlocaje, adaugaOaspetiInCache, asiguraPerioada, intent, clearIntent, doarCitire = false }) {
+export function CalendarView({ core, updateCore, reservations, updateReservations, groups, updateGroups, housekeeping, updateHousekeeping, blocks, updateBlocks, stergeRezervari, stergeGrupuri, stergeBlocaje, adaugaOaspetiInCache, salveazaOaspete, asiguraPerioada, intent, clearIntent, doarCitire = false }) {
   const [offset, setOffset] = useState(0);
   const [pickerOpen, setPickerOpen] = useState(false);
   /* Implicit active — cerut pe 9 septembrie 2026: calendarul se deschide
@@ -851,6 +853,7 @@ export function CalendarView({ core, updateCore, reservations, updateReservation
           stergeRezervari={stergeRezervari}
           stergeGrupuri={stergeGrupuri}
           adaugaOaspetiInCache={adaugaOaspetiInCache}
+          salveazaOaspete={salveazaOaspete}
           onClose={() => setModal(null)}
         />
       )}
@@ -1077,7 +1080,7 @@ function OreCazareModal({ checkin, checkout, onClose, onSave }) {
   );
 }
 
-export function ReservationModal({ data, core, updateCore, reservations, updateReservations, groups, updateGroups, blocks, updateBlocks, stergeRezervari, stergeGrupuri, adaugaOaspetiInCache, onClose }) {
+export function ReservationModal({ data, core, updateCore, reservations, updateReservations, groups, updateGroups, blocks, updateBlocks, stergeRezervari, stergeGrupuri, adaugaOaspetiInCache, salveazaOaspete, onClose }) {
   useModalLock();
   const editing = data.reservation;
   const [mode, setMode] = useState(data.mode || "single");
@@ -1139,6 +1142,36 @@ export function ReservationModal({ data, core, updateCore, reservations, updateR
   /* Cu tastatura deschisa pe telefon, lista de rezultate cadea sub
      marginea modalului: scriai si nu vedeai ce a gasit. */
   const refRezultateClient = useAduInVizor(Boolean(guestQuery.trim()));
+  /* Cautarea are doua trepte. Cache-ul local (core.guests — oaspetii din
+     fereastra de rezervari, nu toti) raspunde la fiecare tasta. Serverul
+     (cauta_oaspeti, indexuri trigram) e intrebat de la 3 caractere, dupa
+     250 ms de pauza, iar ce gaseste intra in cache — de unde filtrul local
+     de mai jos il arata la fel ca pe restul. Un client de acum trei ani apare
+     deci la o clipa dupa ce te-ai oprit din scris. */
+  const textCautare = guestQuery.trim();
+  const textIntarziat = useIntarziat(textCautare);
+  const [cautareServer, setCautareServer] = useState({ text: "", inCurs: false, eroare: false });
+  useEffect(() => {
+    if (textIntarziat.length < MIN_LITERE_CAUTARE || !adaugaOaspetiInCache) return;
+    let activ = true;
+    setCautareServer({ text: textIntarziat, inCurs: true, eroare: false });
+    cautaOaspeti(textIntarziat).then((gasiti) => {
+      if (!activ) return;
+      adaugaOaspetiInCache(gasiti);
+      setCautareServer({ text: textIntarziat, inCurs: false, eroare: false });
+    }).catch((e) => {
+      if (!activ) return;
+      console.warn("Cautarea de oaspeti pe server a esuat", e);
+      setCautareServer({ text: textIntarziat, inCurs: false, eroare: true });
+    });
+    return () => { activ = false; };
+  }, [textIntarziat, adaugaOaspetiInCache]);
+  /* Serverul n-a raspuns inca pentru ce e scris acum: pauza nu s-a scurs,
+     cererea e pe drum sau nici n-a plecat. Cat timp e asa, „niciun client"
+     nu se afirma — ar oferi „Adauga client nou" pentru cineva care exista. */
+  const cautareServerInCurs = textCautare.length >= MIN_LITERE_CAUTARE && Boolean(adaugaOaspetiInCache)
+    && (textIntarziat !== textCautare || cautareServer.text !== textIntarziat || cautareServer.inCurs);
+  const cautareServerEsuata = textCautare.length >= MIN_LITERE_CAUTARE && cautareServer.text === textIntarziat && cautareServer.eroare;
 
   const isGroup = !editing && mode === "group";
   const isBlock = !editing && mode === "block";
@@ -1177,9 +1210,12 @@ export function ReservationModal({ data, core, updateCore, reservations, updateR
 
   const saveNewGuest = async (guest) => {
     if (core.guests.some((g) => g.id === guest.id)) { setGuestId(guest.id); setGuestQuery(""); setGuestFormSeed(null); return; }
-    await updateCore({ ...core, guests: [...core.guests, guest] });
-    await audit.push("Client adăugat", guestFullName(guest));
-    setGuestId(guest.id);
+    /* Un rand, direct in baza, nu prin updateCore (care ignora `guests` —
+       vezi nota de acolo). Daca scrierea esueaza, formularul ramane deschis. */
+    const salvat = salveazaOaspete ? await salveazaOaspete(guest) : null;
+    if (!salvat) return;
+    await audit.push("Client adăugat", guestFullName(salvat));
+    setGuestId(salvat.id);
     setGuestQuery("");
     setGuestFormSeed(null);
   };
@@ -1656,9 +1692,18 @@ export function ReservationModal({ data, core, updateCore, reservations, updateR
                       </button>
                     ))}
                   </div>
+                ) : cautareServerInCurs ? (
+                  <div className="guest-none" ref={refRezultateClient}>
+                    <div>Caut în baza de date…</div>
+                  </div>
                 ) : (
                   <div className="guest-none" ref={refRezultateClient}>
                     <div>Niciun client cu „{guestQuery.trim()}”.</div>
+                    {cautareServerEsuata && (
+                      <div className="note" style={{ marginTop: 6 }}>
+                        Căutarea în baza de date a eșuat — se văd doar clienții deja încărcați.
+                      </div>
+                    )}
                     <button className="btn btn-primary" style={{ width: "auto", marginTop: 10 }} onClick={startAddGuest}>
                       <Plus size={15} /> Adaugă client nou
                     </button>
@@ -2119,7 +2164,7 @@ export function CardOnline({ rezervari, numeOaspete, numeCamera, core, onDeschid
   );
 }
 
-export function TodayView({ core, updateCore, reservations, updateReservations, housekeeping, updateHousekeeping, setView, groups, updateGroups, blocks, updateBlocks, stergeRezervari, stergeGrupuri, adaugaOaspetiInCache }) {
+export function TodayView({ core, updateCore, reservations, updateReservations, housekeeping, updateHousekeeping, setView, groups, updateGroups, blocks, updateBlocks, stergeRezervari, stergeGrupuri, adaugaOaspetiInCache, salveazaOaspete }) {
   const [arrivalRes, setArrivalRes] = useState(null);
   const [viewRes, setViewRes] = useState(null);
   const [editRes, setEditRes] = useState(null);
@@ -2136,6 +2181,15 @@ export function TodayView({ core, updateCore, reservations, updateReservations, 
   const guestById = useMemo(
     () => Object.fromEntries(core.guests.map((g) => [g.id, g])),
     [core.guests]);
+  /* Cati oaspeti sunt in baza: core.guests e doar un cache, nu spune. O
+     cerere de numarat (head), la deschiderea ecranului. */
+  const [numarClienti, setNumarClienti] = useState(null);
+  useEffect(() => {
+    let activ = true;
+    numarOaspeti().then((n) => { if (activ) setNumarClienti(n); })
+      .catch((e) => console.warn("Numarul de oaspeti nu s-a putut citi", e));
+    return () => { activ = false; };
+  }, []);
 
   const { arrivals, departures, inHouse, occupiedNow, revenueToday } = useMemo(() => {
     const today = startOfDay(new Date());
@@ -2228,7 +2282,7 @@ export function TodayView({ core, updateCore, reservations, updateReservations, 
           <span className="ta-ico"><Users size={17} /></span>
           <span className="ta-body">
             <span className="ta-t">Clienți</span>
-            <span className="ta-d">{core.guests.length} în baza de date</span>
+            <span className="ta-d">{numarClienti == null ? "Oaspeți, firme, grupuri" : `${numarClienti} în baza de date`}</span>
           </span>
           <ArrowRight size={15} className="ta-arrow" />
         </button>
@@ -2400,6 +2454,7 @@ export function TodayView({ core, updateCore, reservations, updateReservations, 
           stergeRezervari={stergeRezervari}
           stergeGrupuri={stergeGrupuri}
           adaugaOaspetiInCache={adaugaOaspetiInCache}
+          salveazaOaspete={salveazaOaspete}
           onClose={() => setEditRes(null)}
         />
       )}

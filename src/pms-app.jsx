@@ -40,7 +40,7 @@ import {
    ca sa se poata audita intr-un loc ce citeste si ce scrie aplicatia.
    Se migreaza domeniu cu domeniu; deocamdata contabilitatea. */
 import {
-  camelRes, snakeRes, camelGuest, snakeGuest, camelRoom, snakeRoom,
+  camelRes, snakeRes, camelRoom, snakeRoom,
   camelGroup, snakeGroup, snakeTier, camelVatRate, snakeVatRate,
   camelPaymentMethod, snakePaymentMethod, camelProduct, snakeProduct,
   camelBillingCustomer, snakeBillingCustomer,
@@ -64,6 +64,7 @@ import { generatePdfBlob } from "./lib/pdf.js";
 
 
 import { HK_STATUSES, PERMISSIONS, ALL_PERMS, DEFAULT_ONLINE_TIERS } from "./lib/constante.js";
+import * as dateOaspeti from "./data/oaspeti.js";
 import * as dateContabilitate from "./data/contabilitate.js";
 import * as dateFacturare from "./data/facturare.js";
 import * as datePlati from "./data/plati.js";
@@ -593,19 +594,22 @@ function PMSApp() {
 
   const updateCore = useCallback(async (next) => {
     const before = coreRef.current;
-    /* `guests` e un CACHE partial (cei din fereastra + cei gasiti prin
-       cautare sau creati in sesiune), nu lista completa — vezi
-       docs/faza1.md, 2.4. Un ecran care a pornit de la o versiune mai veche
-       a cache-ului nu are voie sa-i scoata pe cei sositi intre timp: lista
-       lui se UNESTE cu cea curenta, iar stergerea unui oaspete e un apel
-       separat (stergeOaspete). Tabelele mici raman intregi in browser, deci
+    /* `guests` NU trece pe aici. E un CACHE partial (cei din fereastra + cei
+       gasiti prin cautare sau creati in sesiune), nu lista completa — vezi
+       docs/faza1.md, 2.4 — si se scrie un rand o data, prin salveazaOaspete
+       si stergeOaspete. Un `next.guests` diferit e ignorat, cu avertisment:
+       un ecran pornit de la o versiune veche a cache-ului ar fi rescris in
+       baza randuri depasite, iar cu vechea deducere a stergerilor le-ar fi
+       sters de-a dreptul. Tabelele mici raman intregi in browser, deci
        pentru ele diferenta before/after e completa (syncTableIntreg). */
-    const cuOaspeti = { ...next, guests: uneste(before.guests || [], next.guests || []) };
-    setCore(cuOaspeti);
+    if (next.guests && next.guests !== before.guests) {
+      console.warn("updateCore ignoră `guests`: oaspeții se scriu cu salveazaOaspete / stergeOaspete");
+    }
+    const cuOaspeti = { ...next, guests: before.guests || [] };
+    setCore((c) => ({ ...cuOaspeti, guests: c.guests || [] }));
     coreRef.current = cuOaspeti;
     try {
       await syncTableIntreg("rooms", before.rooms, cuOaspeti.rooms, snakeRoom);
-      await syncTable("guests", before.guests, cuOaspeti.guests, snakeGuest);
       if (next.rates !== before.rates) await saveRatesAndSeasons(before.rates || {}, next.rates || {});
       if (next.onlinePricing !== before.onlinePricing) {
         await syncTableIntreg("online_pricing_tiers", before.onlinePricing || [], next.onlinePricing || [], snakeTier);
@@ -724,20 +728,49 @@ function PMSApp() {
     catch (e) { raporteazaEroare(e); return false; }
   }, [raporteazaEroare]);
 
+  /* Cache-ul de oaspeti se schimba in doua locuri deodata: starea (pentru
+     ecrane) si coreRef (de la care porneste urmatorul updateCore). Pe stare
+     functional, ca o bucata de fereastra sosita intre timp sa nu se piarda;
+     aceeasi referinta inapoi cand nu s-a schimbat nimic, ca sa nu
+     re-randeze toata aplicatia degeaba. */
+  const modificaCacheOaspeti = useCallback((fn) => {
+    const cur = coreRef.current;
+    coreRef.current = { ...cur, guests: fn(cur.guests || []) };
+    setCore((c) => {
+      const guests = fn(c.guests || []);
+      return guests === c.guests ? c : { ...c, guests };
+    });
+  }, []);
+
   const stergeOaspete = useCallback(async (id) => {
-    const before = coreRef.current;
-    const next = { ...before, guests: (before.guests || []).filter((g) => g.id !== id) };
-    setCore(next); coreRef.current = next;
+    modificaCacheOaspeti((g) => g.filter((x) => x.id !== id));
     try { await stergeRanduri("guests", [id]); return true; }
     catch (e) { raporteazaEroare(e); return false; }
-  }, [raporteazaEroare]);
+  }, [raporteazaEroare, modificaCacheOaspeti]);
+
+  /* Un oaspete nou sau modificat: un rand, upsert, apoi in cache (randul
+     intors de server castiga — are ce a completat baza). Eroarea se arata
+     aici, fara reincarcare: formularul ramane deschis si se poate reincerca. */
+  const salveazaOaspete = useCallback(async (oaspete) => {
+    try {
+      const salvat = await dateOaspeti.salveazaOaspete(oaspete);
+      modificaCacheOaspeti((g) => uneste(g, [salvat]));
+      return salvat;
+    } catch (e) {
+      console.error("Salvarea oaspetelui a esuat", e);
+      toaster.show(mesajEroare(e, "Nu am putut salva clientul"), { tone: "danger" });
+      return null;
+    }
+  }, [modificaCacheOaspeti]);
 
   /* Oaspetii gasiti prin cautare pe server intra in cache-ul local fara
      nicio scriere — numele lor trebuie sa se poata afisa dupa selectie, iar
-     `core.guests` e singurul loc din care ecranele iau nume dupa id. */
+     `core.guests` e singurul loc din care ecranele iau nume dupa id. Doar
+     cei necunoscuti se adauga; un rand deja in cache ramane al lui (poate
+     fi o salvare in curs). */
   const adaugaOaspetiInCache = useCallback((lista) => {
-    setCore((c) => ({ ...c, guests: doarNoi(c.guests, lista) }));
-  }, []);
+    modificaCacheOaspeti((g) => doarNoi(g, lista));
+  }, [modificaCacheOaspeti]);
 
   /* Calendarul cere ce nu are (docs/faza1.md, 2.2). Fereastra se largeste
      INAINTE de raspuns: o a doua derulare, venita cat timp prima cerere e pe
@@ -759,13 +792,13 @@ function PMSApp() {
       setReservations((cur) => doarNoi(cur, r));
       setBlocks((cur) => doarNoi(cur, bl));
       setGroups((cur) => doarNoi(cur, gr));
-      setCore((c) => ({ ...c, guests: doarNoi(c.guests, oa) }));
+      modificaCacheOaspeti((g) => doarNoi(g, oa));
     } catch (e) {
       fereastraRef.current = fer;
       console.error("Largirea ferestrei a esuat", e);
       toaster.show(mesajEroare(e, "Nu am putut încărca perioada"), { tone: "danger" });
     }
-  }, [currentUser]);
+  }, [currentUser, modificaCacheOaspeti]);
 
   const updateHousekeeping = useCallback(async (next) => {
     const before = housekeepingRef.current;
@@ -922,6 +955,7 @@ function PMSApp() {
           stergeRezervari={stergeRezervari}
           stergeGrupuri={stergeGrupuri}
           adaugaOaspetiInCache={adaugaOaspetiInCache}
+          salveazaOaspete={salveazaOaspete}
           housekeeping={housekeeping}
           updateHousekeeping={updateHousekeeping}
           onLogout={async () => {
@@ -960,6 +994,7 @@ function PMSApp() {
         stergeGrupuri={stergeGrupuri}
         stergeBlocaje={stergeBlocaje}
         stergeOaspete={stergeOaspete}
+        salveazaOaspete={salveazaOaspete}
         adaugaOaspetiInCache={adaugaOaspetiInCache}
         asiguraPerioada={asiguraPerioada}
         logEntries={logEntries}
@@ -1093,7 +1128,7 @@ function defaultViewFor(role) {
   return role === "housekeeping" ? "housekeeping" : "today";
 }
 
-function Shell({ user, view, setView, onLogout, core, updateCore, reservations, updateReservations, housekeeping, updateHousekeeping, groups, updateGroups, blocks, updateBlocks, stergeRezervari, stergeGrupuri, stergeBlocaje, stergeOaspete, adaugaOaspetiInCache, asiguraPerioada, logEntries }) {
+function Shell({ user, view, setView, onLogout, core, updateCore, reservations, updateReservations, housekeeping, updateHousekeeping, groups, updateGroups, blocks, updateBlocks, stergeRezervari, stergeGrupuri, stergeBlocaje, stergeOaspete, salveazaOaspete, adaugaOaspetiInCache, asiguraPerioada, logEntries }) {
   const [calendarIntent, setCalendarIntent] = useState(null);
 
   const settingsItems = SETTINGS_ITEMS.filter((i) => i.roles.includes(user.role));
@@ -1219,7 +1254,7 @@ function Shell({ user, view, setView, onLogout, core, updateCore, reservations, 
               updateHousekeeping={updateHousekeeping} setView={setView} groups={groups}
               updateGroups={updateGroups} blocks={blocks} updateBlocks={updateBlocks}
               stergeRezervari={stergeRezervari} stergeGrupuri={stergeGrupuri}
-              adaugaOaspetiInCache={adaugaOaspetiInCache} />
+              adaugaOaspetiInCache={adaugaOaspetiInCache} salveazaOaspete={salveazaOaspete} />
           )}
           {safeView === "reports" && <ReportsView core={core} reservations={reservations} />}
           {safeView === "log" && <LogView entries={logEntries} core={core} />}
@@ -1229,7 +1264,8 @@ function Shell({ user, view, setView, onLogout, core, updateCore, reservations, 
               housekeeping={housekeeping} updateHousekeeping={updateHousekeeping}
               blocks={blocks} updateBlocks={updateBlocks}
               stergeRezervari={stergeRezervari} stergeGrupuri={stergeGrupuri} stergeBlocaje={stergeBlocaje}
-              adaugaOaspetiInCache={adaugaOaspetiInCache} asiguraPerioada={asiguraPerioada}
+              adaugaOaspetiInCache={adaugaOaspetiInCache} salveazaOaspete={salveazaOaspete}
+              asiguraPerioada={asiguraPerioada}
               doarCitire={user.role === "housekeeping"}
               intent={calendarIntent} clearIntent={() => setCalendarIntent(null)} />
           )}
@@ -1237,6 +1273,7 @@ function Shell({ user, view, setView, onLogout, core, updateCore, reservations, 
             <ClientsView core={core} updateCore={updateCore} groups={groups} updateGroups={updateGroups}
               reservations={reservations} updateReservations={updateReservations} blocks={blocks}
               stergeRezervari={stergeRezervari} stergeGrupuri={stergeGrupuri} stergeOaspete={stergeOaspete}
+              salveazaOaspete={salveazaOaspete}
               onNewGroup={() => { setCalendarIntent("group"); setView("calendar"); }} />
           )}
           {safeView === "housekeeping" && (

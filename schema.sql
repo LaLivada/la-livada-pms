@@ -2472,6 +2472,98 @@ grant execute on function pms_fereastra(timestamptz, timestamptz, boolean) to au
 
 
 -- ---------------------------------------------------------------------
+-- OASPEȚI LA CERERE — faza 1, docs/faza1.md §2.4 (migrațiile
+-- oaspeti_la_cerere_cautare_trgm_si_statistici și
+-- oaspeti_cautare_ordonata_si_index_lista, 13 septembrie 2026).
+--
+-- Browserul nu mai ține toți oaspeții: `core.guests` e un cache (cei din
+-- fereastra de rezervări, cei găsiți prin căutare, cei creați în sesiune).
+-- Lista din Clienți vine paginată (PostgREST: `order by last_name,
+-- first_name, id` + `range`), căutarea printr-o funcție pe indexuri
+-- trigram, sumarul pe oaspete dintr-o vedere.
+-- ---------------------------------------------------------------------
+create extension if not exists pg_trgm with schema extensions;
+
+-- Căutarea „conține" (like '%pop%') pe 40.000 de oaspeți costă 100 ms
+-- fără index și 18 ms cu GIN trigram (bench). Expresiile indexate sunt
+-- EXACT cele din cauta_oaspeti — altfel indexul nu se folosește.
+create index if not exists guests_nume_trgm on guests
+  using gin ((lower(coalesce(last_name, '') || ' ' || coalesce(first_name, ''))) extensions.gin_trgm_ops);
+create index if not exists guests_telefon_trgm on guests
+  using gin ((regexp_replace(coalesce(phone, ''), '[^0-9]', '', 'g')) extensions.gin_trgm_ops);
+create index if not exists guests_oras_trgm on guests
+  using gin ((lower(coalesce(city, ''))) extensions.gin_trgm_ops);
+
+-- Ordinea listei paginate. Offset, nu keyset: ecranul sare la o pagină
+-- anume („31–60 din 2.688"); saltul la pagina 1.000 costă 13 ms pe 40.000
+-- de rânduri cu indexul ăsta, 200 ms fără (bench).
+create index if not exists guests_ordine_nume on guests (last_name, first_name, id);
+
+-- Aceeași regulă ca fostul filtru din browser: nume complet „Nume Prenume",
+-- oraș, telefon doar pe cifre — și doar dacă textul are măcar 3 cifre,
+-- altfel „%%" ar potrivi pe toată lumea. Sub 3 caractere aplicația nu
+-- întreabă deloc: un index trigram n-are ce căuta într-un „%ab%" (nicio
+-- trigramă întreagă) și ar citi toată tabela.
+--
+-- ORDER BY pe lower(), deliberat: cu `order by last_name` planificatorul
+-- prefera indexul de ordine de mai sus și parcurgea tabela în ordine
+-- filtrând rând cu rând — 100 ms la o căutare fără rezultate. Pe o
+-- expresie fără index e obligat să ia întâi potrivirile (BitmapOr pe cele
+-- trei indexuri trigram) și abia apoi să sorteze.
+--
+-- SECURITY INVOKER: RLS pe guests se aplică (camerista primește 0 rânduri
+-- — verificat cu tranzacții anulate pe ambele roluri).
+create or replace function cauta_oaspeti(p_text text, p_limita int default 20)
+returns setof guests
+language sql stable security invoker
+set search_path = public
+as $$
+  with t as (
+    select lower(trim(replace(replace(p_text, '%', '\%'), '_', '\_'))) as txt,
+           regexp_replace(p_text, '[^0-9]', '', 'g') as cifre
+  )
+  select g.* from guests g, t
+  where t.txt <> '' and (
+       lower(coalesce(g.last_name, '') || ' ' || coalesce(g.first_name, '')) like '%' || t.txt || '%'
+    or lower(coalesce(g.city, '')) like '%' || t.txt || '%'
+    or (length(t.cifre) >= 3 and regexp_replace(coalesce(g.phone, ''), '[^0-9]', '', 'g') like '%' || t.cifre || '%')
+  )
+  order by lower(g.last_name), lower(g.first_name), g.id
+  limit least(greatest(coalesce(p_limita, 20), 1), 100);
+$$;
+revoke execute on function cauta_oaspeti(text, int) from public, anon;
+grant execute on function cauta_oaspeti(text, int) to authenticated, service_role;
+
+-- Sumarul pe oaspete pe care lista de clienți îl arată pe fiecare rând
+-- (sejururi, nopți, încasat) și istoricul în antet. Aceeași definiție ca
+-- fostul calcul din browser (lib/availability.js: isLive, isStatsEligible,
+-- nightsBetween): sejururi = rezervările vii (nu anulate / no-show), nopți
+-- pe zile calendaristice în Europe/Bucharest (minim 1), încasat = prețul
+-- real (suprascrierea manuală, altfel cel înghețat) fără protocol. Un rând
+-- fără snapshot de preț (booked_price null — backfill-ul de la pornirea
+-- aplicației îl completează) contează 0 până atunci.
+--
+-- security_invoker: RLS pe reservations se aplică, camerista nu primește
+-- rânduri. Filtrată pe guest_id (in (...)) folosește indexul
+-- reservations_guest — 0,3 ms pentru 30 de oaspeți la 100.000 de rânduri.
+create or replace view oaspeti_statistici
+with (security_invoker = true) as
+select guest_id,
+       count(*) filter (where status not in ('cancelled', 'noshow')) as sejururi,
+       coalesce(sum(greatest(1, (checkout at time zone 'Europe/Bucharest')::date
+                                - (checkin at time zone 'Europe/Bucharest')::date))
+                filter (where status not in ('cancelled', 'noshow')), 0) as nopti,
+       coalesce(sum(coalesce(price_override, booked_price, 0))
+                filter (where status not in ('cancelled', 'noshow', 'protocol')), 0) as incasat,
+       max(checkin) filter (where status not in ('cancelled', 'noshow')) as ultima_sosire
+from reservations
+where guest_id is not null
+group by guest_id;
+revoke all on oaspeti_statistici from public, anon;
+grant select on oaspeti_statistici to authenticated;
+
+
+-- ---------------------------------------------------------------------
 -- SCRIERE — separată pe rol.
 --
 -- Înainte, o singură politică `for all using(true)` per tabel însemna că
