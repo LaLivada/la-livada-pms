@@ -104,6 +104,45 @@ export function statisticiLuna(reservations, core, monthStart) {
   };
 }
 
+/* Aceleași structuri ca statisticiLuna + statisticiProtocol, dar din
+   răspunsul funcției SQL `raport_luna` (schema.sql), pe care ecranul o
+   folosește din 13 septembrie 2026: browserul are doar fereastra de timp a
+   rezervărilor, iar luna trecută începe dincolo de ea. SQL-ul întoarce doar
+   agregatele brute (nopți, venit, pe zi, pe tip, pe sursă, protocol);
+   procentele, ADR/RevPAR, maxOcc și etichetele surselor se pun aici, ca să
+   existe o singură definiție a lor. Un răspuns lipsă dă luna goală. */
+export function statisticiDinSql(raport) {
+  const nr = (v) => (Number.isFinite(Number(v)) ? Number(v) : 0);
+  const perDay = (raport?.perDay || []).map((p) => ({ day: nr(p.day), occ: nr(p.occ), rev: nr(p.rev) }));
+  const roomNights = nr(raport?.roomNights);
+  const revenue = nr(raport?.revenue);
+  const capacity = nr(raport?.capacity);
+  const byType = (raport?.byType || []).map((t) => {
+    const nights = nr(t.nights), cap = nr(t.cap);
+    return { type: t.type, nights, cap, pct: cap ? Math.round((nights / cap) * 100) : 0 };
+  });
+  /* Totalul de la numitor e al TUTUROR rezervărilor care ating luna, chiar
+     dacă o sursă necunoscută listei SOURCES nu apare pe ecran — ca în JS. */
+  const surse = new Map((raport?.bySource || []).map((s) => [s.key, s]));
+  const totalInMonth = [...surse.values()].reduce((n, s) => n + nr(s.count), 0);
+  const bySource = SOURCES.map((sc) => {
+    const s = surse.get(sc.key);
+    const count = s ? nr(s.count) : 0;
+    return { ...sc, count, rev: s ? nr(s.rev) : 0, pct: totalInMonth ? Math.round((count / totalInMonth) * 100) : 0 };
+  }).filter((x) => x.count > 0).sort((a, b) => b.count - a.count);
+  const p = raport?.protocol || {};
+  return {
+    luna: {
+      roomNights, revenue, perDay, capacity, byType, bySource,
+      occupancy: capacity ? Math.round((roomNights / capacity) * 100) : 0,
+      adr: roomNights ? revenue / roomNights : 0,
+      revpar: capacity ? revenue / capacity : 0,
+      maxOcc: Math.max(1, ...perDay.map((x) => x.occ)),
+    },
+    protocol: { count: nr(p.count), nights: nr(p.nights), value: nr(p.value) },
+  };
+}
+
 /* Statistica separată, doar pentru rezervările „protocol": număr de sejururi,
    nopți și valoarea lor (pe nopțile din lună, ca la venit), fără să se
    amestece cu cifrele de business. */

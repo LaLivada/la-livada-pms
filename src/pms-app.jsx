@@ -1256,7 +1256,7 @@ function Shell({ user, view, setView, onLogout, core, updateCore, reservations, 
               stergeRezervari={stergeRezervari} stergeGrupuri={stergeGrupuri}
               adaugaOaspetiInCache={adaugaOaspetiInCache} salveazaOaspete={salveazaOaspete} />
           )}
-          {safeView === "reports" && <ReportsView core={core} reservations={reservations} />}
+          {safeView === "reports" && <ReportsView core={core} />}
           {safeView === "log" && <LogView entries={logEntries} core={core} />}
           {safeView === "calendar" && (
             <CalendarView core={core} updateCore={updateCore} reservations={reservations}

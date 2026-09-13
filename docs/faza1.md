@@ -179,12 +179,32 @@ găsiți prin căutare sau creați în sesiune), nu lista completă. Tot ce
 
 ### 2.5 Rapoartele în SQL
 
-`raport_luna(p_an, p_luna)` întoarce exact structura pe care o produce
-`statisticiLuna` + `statisticiProtocol` (`src/lib/rapoarte.js`, extrase din
-ecran fără schimbare de comportament și testate). Funcția JS rămâne
-**referința**: paritatea SQL ↔ JS se verifică pe datele reale înainte ca
-ecranul să treacă pe RPC. Zilele se taie în `Europe/Bucharest`, ca în SQL-ul
-existent.
+`raport_luna(p_an, p_luna)` (SECURITY INVOKER) întoarce agregatele brute —
+nopți, venit, pe zi, pe tip, pe sursă, protocol — pe care `statisticiDinSql`
+(`src/lib/rapoarte.js`) le traduce în exact structura pe care o producea
+`statisticiLuna` + `statisticiProtocol` (extrase din ecran fără schimbare de
+comportament și testate); procentele, ADR/RevPAR, maxOcc și etichetele
+surselor rămân în JS, o singură definiție. Funcția JS rămâne **referința**.
+Zilele se taie în `Europe/Bucharest`, ca în SQL-ul existent.
+
+Nu mai era doar performanță: cu fereastra din 2.1 browserul are 30 de zile
+în urmă, iar „luna trecută" începe cu până la 61 — raportul ei ar fi ieșit
+trunchiat. Ecranul cere luna prin RPC și ține cifrele lunii de dinainte,
+estompate, cât timp răspunsul e pe drum.
+
+Paritatea, verificată pe 13 sept 2026 cu `scripts/paritate-raport.mjs`
+(JS, `TZ=Europe/Bucharest`) față de `select raport_luna(...)` rulat ca
+recepționer:
+
+- datele reale (140 de rezervări, aug–oct 2026): identice, cifră cu cifră —
+  nopți, venit, pe zi, pe tip, pe sursă;
+- o lună de fixture (nov 2026, într-o tranzacție anulată) cu sejur peste
+  granița lunii, anulat, no-show, protocol și preț suprascris cu 0: identice
+  după ce fixture-ului JS i s-au dat prețurile pe care baza le-a pus la
+  inserare — trigger-ul de snapshot rescrie `booked_price` din tarife
+  (300/noapte), iar funcția citește ce e în bază, exact ca ecranul de
+  dinainte. O cameră inexistentă (cazul „zzz" din testul JS) nu poate exista
+  în bază (FK), deci nu are echivalent SQL.
 
 ### 2.6 Ce NU se schimbă în faza 1
 
@@ -206,6 +226,6 @@ existent.
 | Fereastra la pornire (`pms_fereastra`, o singură cerere) | făcut, 13 sept 2026 — 202 ms / 2,5 MB pe 100.000 de rânduri (bench) |
 | `asiguraPerioada` în calendar | făcut, 13 sept 2026 |
 | Oaspeți la cerere (cache, căutare, listă, istoric) | făcut, 13 sept 2026 — `cauta_oaspeti`, `oaspeti_statistici`, `src/data/oaspeti.js`, test de randare |
-| `raport_luna` în SQL + paritate | — |
+| `raport_luna` în SQL + paritate | făcut, 13 sept 2026 — identic cu JS pe aug–oct 2026 și pe luna de fixture |
 | Migrațiile în repo (B2) | — |
 | Test cap-coadă pe un proiect cu 100.000 de rânduri | — (cere un al doilea proiect Supabase, creat de proprietar) |

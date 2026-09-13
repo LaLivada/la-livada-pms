@@ -14,9 +14,10 @@ import { audit } from "../lib/audit.js";
 import { fmtMoney, fmtDate, fmtDateTime, FMT_TIME, initials, FMT_MONTH_YEAR } from "../lib/format.js";
 import { ROLE_LABEL, ROOM_TYPE, sourceLabel, STATUS_CLASS, PERMISSIONS, ALL_PERMS } from "../lib/constante.js";
 import { nightsBetween } from "../lib/availability.js";
-/* Cifrele lunare stau in lib/rapoarte.js (testate in src/rapoarte.test.js);
-   ecranul doar le memoizeaza si le deseneaza. */
-import { inceputDeLuna, statisticiLuna, statisticiProtocol } from "../lib/rapoarte.js";
+/* Cifrele lunare vin din baza (raport_luna) si se traduc in lib/rapoarte.js
+   (testat in src/rapoarte.test.js); ecranul doar le cere si le deseneaza. */
+import { inceputDeLuna, statisticiDinSql } from "../lib/rapoarte.js";
+import * as dateRapoarte from "../data/rapoarte.js";
 import { Dialog, toaster, useModalLock, Stat, PdfPreview } from "../ui/primitive.jsx";
 import { cameraDinDetaliu, filtreazaJurnal, ziiDistincte, grupeazaPeZi, etichetaZi } from "../lib/jurnal.js";
 import { generatePdfBlob, pregatesteFila, arataInFila, inchideFila } from "../lib/pdf.js";
@@ -414,27 +415,38 @@ function OcupareZilnicaModal({ perDay, monthStart, totalCamere, onClose }) {
   );
 }
 
-export function ReportsView({ core, reservations }) {
+export function ReportsView({ core }) {
   const [monthOffset, setMonthOffset] = useState(0);
   const [detaliuZilnic, setDetaliuZilnic] = useState(false);
 
   const monthStart = inceputDeLuna(monthOffset);
   const monthStartMs = monthStart.getTime();
 
-  /* Calculul sta in lib/rapoarte.js (testat, si referinta pentru varianta
-     SQL) — aici doar memoizarea: o singura trecere pe schimbarea datelor
-     sau a lunii, nu la fiecare randare. */
-  const stats = useMemo(() => statisticiLuna(reservations, core, monthStart),
+  /* Cifrele vin din baza (`raport_luna`, docs/faza1.md 2.5), nu din
+     rezervarile din browser: acelea sunt doar fereastra de timp, iar luna
+     trecuta incepe cu pana la 61 de zile in urma, dincolo de cele 30
+     incarcate. Definitia ramane cea din lib/rapoarte.js (statisticiLuna),
+     verificata cifra cu cifra cu SQL-ul (scripts/paritate-raport.mjs). Cat
+     timp raspunsul e pe drum raman cifrele lunii de dinainte, estompate. */
+  const [raport, setRaport] = useState(() => ({ ...statisticiDinSql(null), pentru: null, eroare: "" }));
+  useEffect(() => {
+    let activ = true;
+    dateRapoarte.raportLuna(monthStart.getFullYear(), monthStart.getMonth() + 1)
+      .then((r) => { if (activ) setRaport({ ...statisticiDinSql(r), pentru: monthStartMs, eroare: "" }); })
+      .catch((e) => {
+        if (!activ) return;
+        console.error("Raportul lunar nu s-a putut citi", e);
+        setRaport((s) => ({ ...s, pentru: monthStartMs, eroare: mesajEroare(e, "Nu am putut încărca raportul") }));
+      });
+    return () => { activ = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [reservations, core, monthStartMs]);
+  }, [monthStartMs]);
+  const seIncarca = raport.pentru !== monthStartMs;
 
-  const { roomNights, revenue, perDay, capacity, byType, bySource, occupancy, adr, revpar, maxOcc } = stats;
-
+  const { roomNights, revenue, perDay, capacity, byType, bySource, occupancy, adr, revpar, maxOcc } = raport.luna;
   /* Statistica separata, doar pentru rezervarile "protocol" — nu se
      amesteca cu cifrele de business. */
-  const protocolStats = useMemo(() => statisticiProtocol(reservations, core, monthStart),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [reservations, core, monthStartMs]);
+  const protocolStats = raport.protocol;
 
   return (
     <div>
@@ -448,6 +460,9 @@ export function ReportsView({ core, reservations }) {
         </div>
       </div>
 
+      {raport.eroare && <div className="drag-error" role="alert">{raport.eroare}</div>}
+
+      <div style={{ opacity: seIncarca ? 0.55 : 1, transition: "opacity .15s" }} aria-busy={seIncarca}>
       <div className="stat-row">
         <Stat label="Ocupare" value={`${occupancy}%`} sub={`${roomNights} din ${capacity} camere-nopți`} />
         <Stat label="Venit" value={fmtMoney(revenue)} sub="prețuri reale, pe nopți din lună" />
@@ -529,6 +544,7 @@ export function ReportsView({ core, reservations }) {
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 }

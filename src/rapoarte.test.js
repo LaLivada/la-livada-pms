@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { statisticiLuna, statisticiProtocol, inceputDeLuna, zileInLuna } from "./lib/rapoarte.js";
+import { statisticiLuna, statisticiProtocol, statisticiDinSql, inceputDeLuna, zileInLuna } from "./lib/rapoarte.js";
 
 /* Septembrie 2026, 30 de zile, in ora locala — exact cum le construieste
    si ecranul (setDate(1), setHours(0)). */
@@ -88,6 +88,52 @@ describe("statisticiProtocol", () => {
   it("un protocol care intra in luna doar cu o noapte aduce doar cota ei", () => {
     const r = [{ id: "p", roomId: "t1", checkin: new Date(2026, 7, 30, 14).toISOString(), checkout: zi(2, 12), status: "protocol", bookedPrice: 900 }];
     expect(statisticiProtocol(r, core, LUNA)).toEqual({ count: 1, nights: 1, value: 300 });
+  });
+});
+
+/* Ce intoarce `raport_luna` pentru aceleasi rezervari de mai sus (agregatele
+   brute, fara procente si fara etichete) trebuie sa dea, prin
+   statisticiDinSql, exact ce da statisticiLuna. Camera inexistenta „zzz" nu
+   poate exista in baza (FK), deci fixture-ul SQL n-o are: aici e verificata
+   doar traducerea, paritatea cu baza reala e in scripts/paritate-raport.mjs. */
+describe("statisticiDinSql", () => {
+  const perDay = Array.from({ length: 30 }, (_, i) => {
+    const day = i + 1;
+    const occ = day === 1 || (day >= 10 && day <= 12) || day === 15 ? 1 : 0;
+    const rev = day === 1 ? 150 : (day >= 10 && day <= 12) ? 100 : 0;
+    return { day, occ, rev };
+  });
+  const raport = {
+    zile: 30, roomNights: 5, revenue: "450.00", capacity: 90, perDay,
+    byType: [{ type: "tiny", nights: 3, cap: 60 }, { type: "loft", nights: 1, cap: 30 }],
+    bySource: [{ key: "direct", count: 1, rev: 300 }, { key: "phone", count: 1, rev: 100 }, { key: "site", count: 1, rev: "450" }],
+    protocol: { count: 1, nights: 2, value: 700 },
+  };
+  const ref = statisticiLuna(rezervari, core, LUNA);
+
+  it("da aceleasi cifre derivate ca statisticiLuna: ocupare, ADR, RevPAR, pe tip, pe sursa", () => {
+    const { luna, protocol } = statisticiDinSql(raport);
+    expect(luna.occupancy).toBe(ref.occupancy);
+    expect(luna.adr).toBe(ref.adr);
+    expect(luna.revpar).toBe(ref.revpar);
+    expect(luna.maxOcc).toBe(ref.maxOcc);
+    expect(luna.byType).toEqual(ref.byType);
+    expect(luna.bySource).toEqual(ref.bySource);
+    expect(luna.perDay).toEqual(ref.perDay);
+    expect(protocol).toEqual(statisticiProtocol(rezervari, core, LUNA));
+  });
+
+  it("o sursa necunoscuta listei intra la numitor, dar nu pe ecran", () => {
+    const { luna } = statisticiDinSql({ ...raport, bySource: [{ key: "direct", count: 1, rev: 300 }, { key: "zzz", count: 3, rev: 0 }] });
+    expect(luna.bySource).toEqual([{ key: "direct", label: "Direct", count: 1, rev: 300, pct: 25 }]);
+  });
+
+  it("un raspuns lipsa sau gol da luna goala, fara impartiri la zero", () => {
+    for (const r of [null, undefined, {}, { perDay: null, bySource: null }]) {
+      const { luna, protocol } = statisticiDinSql(r);
+      expect(luna).toMatchObject({ roomNights: 0, revenue: 0, capacity: 0, occupancy: 0, adr: 0, revpar: 0, maxOcc: 1, perDay: [], bySource: [] });
+      expect(protocol).toEqual({ count: 0, nights: 0, value: 0 });
+    }
   });
 });
 

@@ -2564,6 +2564,114 @@ grant select on oaspeti_statistici to authenticated;
 
 
 -- ---------------------------------------------------------------------
+-- RAPORTUL LUNAR — faza 1, docs/faza1.md §2.5 (migrația raport_luna_in_sql,
+-- 13 septembrie 2026).
+--
+-- Până acum ecranul Rapoarte trecea prin toate rezervările din browser
+-- (statisticiLuna / statisticiProtocol din src/lib/rapoarte.js). Cu
+-- fereastra de timp (§2.1) browserul are doar ultimele 30 de zile, iar
+-- luna trecută începe cu până la 61 de zile în urmă — raportul ei ar fi
+-- ieșit trunchiat. Funcția întoarce EXACT agregatele pe care le producea
+-- JS-ul, cifră cu cifră (paritate verificată pe datele reale și pe o lună
+-- de fixture — scripts/paritate-raport.mjs); JS-ul rămâne referința.
+--
+-- Regulile, aceleași ca în JS:
+--   - zilele se taie la miezul nopții în Europe/Bucharest (browserul
+--     recepției e în același fus);
+--   - „ziua plecării nu e noapte vândută": o noapte = zi_sosire <= zi < zi_plecare;
+--   - anulate / no-show nu contează nicăieri; protocolul are statistica lui;
+--   - prețul real: suprascrierea manuală, altfel cel înghețat; fără snapshot
+--     (backfill-ul de la pornire îl completează) contează 0, iar negativ 0;
+--   - cota pe noapte = prețul real / numărul TOTAL de nopți al sejurului
+--     (minim 1), adunată doar pe nopțile din lună; venitul cere cameră
+--     existentă, ocuparea nu (în bază FK-ul o garantează oricum);
+--   - „pe sursă": rezervările care ating luna după timpul brut (nu pe zile),
+--     cu totalul întreg al fiecăreia;
+--   - capacitatea: toate camerele × zilele lunii; pe tip doar tiny/loft.
+-- Procentele, ADR/RevPAR, maxOcc și etichetele surselor se pun în JS
+-- (statisticiDinSql), ca să existe o singură definiție a lor.
+--
+-- SECURITY INVOKER: RLS pe reservations se aplică; camerista n-are ecranul,
+-- și dacă l-ar chema ar primi o lună goală.
+-- ---------------------------------------------------------------------
+create or replace function raport_luna(p_an int, p_luna int)
+returns jsonb
+language plpgsql stable security invoker
+set search_path = public
+as $$
+declare
+  v_de       date := make_date(p_an, p_luna, 1);
+  v_pana     date := (make_date(p_an, p_luna, 1) + interval '1 month')::date;
+  v_zile     int;
+  v_de_ts    timestamptz;
+  v_pana_ts  timestamptz;
+  v_rezultat jsonb;
+begin
+  v_zile    := v_pana - v_de;
+  v_de_ts   := v_de::timestamp   at time zone 'Europe/Bucharest';
+  v_pana_ts := v_pana::timestamp at time zone 'Europe/Bucharest';
+
+  with r as (
+    select res.id, res.status,
+           coalesce(nullif(res.source, ''), 'direct') as sursa,
+           (res.checkin  at time zone 'Europe/Bucharest')::date as zi_sosire,
+           (res.checkout at time zone 'Europe/Bucharest')::date as zi_plecare,
+           case when res.price_override is not null then greatest(res.price_override, 0)
+                when res.booked_price   is not null then greatest(res.booked_price, 0)
+                else 0 end as total,
+           rm.id is not null as are_camera,
+           rm.type as tip_camera
+    from reservations res
+    left join rooms rm on rm.id = res.room_id
+    where res.status not in ('cancelled', 'noshow')
+      and res.source is distinct from 'blocaj'
+      and res.checkin < v_pana_ts and res.checkout > v_de_ts
+  ), rn as (
+    select r.*, greatest(1, r.zi_plecare - r.zi_sosire) as nopti from r
+  ), zile as (
+    select d::date as zi, (d::date - v_de + 1) as nr
+    from generate_series(v_de, v_pana - 1, interval '1 day') d
+  ), pe_zi as (
+    select z.nr,
+           count(rn.id) filter (where rn.status <> 'protocol') as occ,
+           coalesce(sum(rn.total / rn.nopti) filter (where rn.status <> 'protocol' and rn.are_camera), 0) as rev,
+           count(rn.id) filter (where rn.status <> 'protocol' and rn.are_camera and rn.tip_camera = 'tiny') as tiny,
+           count(rn.id) filter (where rn.status <> 'protocol' and rn.are_camera and rn.tip_camera = 'loft') as loft,
+           count(rn.id) filter (where rn.status = 'protocol') as prot_nopti,
+           coalesce(sum(rn.total / rn.nopti) filter (where rn.status = 'protocol'), 0) as prot_valoare
+    from zile z
+    left join rn on rn.zi_sosire <= z.zi and rn.zi_plecare > z.zi
+    group by z.nr
+  )
+  select jsonb_build_object(
+    'zile',       v_zile,
+    'roomNights', (select coalesce(sum(occ), 0) from pe_zi),
+    'revenue',    (select coalesce(sum(rev), 0) from pe_zi),
+    'capacity',   (select count(*) from rooms) * v_zile,
+    'perDay',     (select jsonb_agg(jsonb_build_object('day', nr, 'occ', occ, 'rev', rev) order by nr) from pe_zi),
+    'byType',     jsonb_build_array(
+                    jsonb_build_object('type', 'tiny',
+                      'nights', (select coalesce(sum(tiny), 0) from pe_zi),
+                      'cap',    (select count(*) from rooms where type = 'tiny') * v_zile),
+                    jsonb_build_object('type', 'loft',
+                      'nights', (select coalesce(sum(loft), 0) from pe_zi),
+                      'cap',    (select count(*) from rooms where type = 'loft') * v_zile)),
+    'bySource',   coalesce((select jsonb_agg(jsonb_build_object('key', sursa, 'count', n, 'rev', rev) order by n desc, sursa)
+                    from (select sursa, count(*) as n, sum(total) as rev
+                          from rn where status <> 'protocol' group by sursa) s), '[]'::jsonb),
+    'protocol',   jsonb_build_object(
+                    'count',  (select count(*) from rn where status = 'protocol'),
+                    'nights', (select coalesce(sum(prot_nopti), 0) from pe_zi),
+                    'value',  (select coalesce(sum(prot_valoare), 0) from pe_zi))
+  ) into v_rezultat;
+  return v_rezultat;
+end $$;
+
+revoke execute on function raport_luna(int, int) from public, anon;
+grant execute on function raport_luna(int, int) to authenticated, service_role;
+
+
+-- ---------------------------------------------------------------------
 -- SCRIERE — separată pe rol.
 --
 -- Înainte, o singură politică `for all using(true)` per tabel însemna că
