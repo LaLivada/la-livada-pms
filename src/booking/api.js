@@ -11,6 +11,13 @@
  */
 
 import { telefonInternational } from "./nomenclatoare.js";
+/* Limita de timp si reincercarea stau in lib, comune cu aplicatia de
+   oaspete. Ce se reincearca si ce nu e decis AICI, apel cu apel. */
+import { fetchCuTimeout, cuOReincercare, TIMEOUT_IMPLICIT_MS } from "../lib/retea.js";
+
+/* Crearea trece prin Turnstile, prin baza si prin trimiterea unui email —
+   pornita la rece, functia edge are nevoie de mai mult decat un RPC. */
+const TIMEOUT_CREARE_MS = 20_000;
 
 const URL_BAZA = import.meta.env.VITE_SUPABASE_URL;
 const CHEIE = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -28,7 +35,7 @@ export const COD_INDISPONIBIL = "P0002";
 async function rpc(nume, parametri) {
   let raspuns;
   try {
-    raspuns = await fetch(`${URL_BAZA}/rest/v1/rpc/${nume}`, {
+    raspuns = await fetchCuTimeout(`${URL_BAZA}/rest/v1/rpc/${nume}`, {
       method: "POST",
       headers: {
         apikey: CHEIE,
@@ -37,11 +44,13 @@ async function rpc(nume, parametri) {
       },
       body: JSON.stringify(parametri),
     });
-  } catch {
-    // Rețea căzută: mesaj despre conexiune, nu despre server.
-    const e = new Error("Nu am putut contacta serverul. Verifică conexiunea.");
-    e.retea = true;
-    throw e;
+  } catch (e) {
+    // Timeout-ul vine gata explicat din lib; restul e rețea căzută —
+    // mesaj despre conexiune, nu despre server.
+    if (e.timeout) throw e;
+    const eroare = new Error("Nu am putut contacta serverul. Verifică conexiunea.");
+    eroare.retea = true;
+    throw eroare;
   }
 
   const text = await raspuns.text();
@@ -58,10 +67,10 @@ async function rpc(nume, parametri) {
 
 /* Apel către o funcție edge. Aceleași reguli de eroare ca `rpc`: mesajul
    vine de la server și e scris pentru oaspete, nu pentru programator. */
-async function functie(nume, corp) {
+async function functie(nume, corp, ms = TIMEOUT_IMPLICIT_MS) {
   let raspuns;
   try {
-    raspuns = await fetch(`${URL_BAZA}/functions/v1/${nume}`, {
+    raspuns = await fetchCuTimeout(`${URL_BAZA}/functions/v1/${nume}`, {
       method: "POST",
       headers: {
         apikey: CHEIE,
@@ -69,11 +78,12 @@ async function functie(nume, corp) {
         "Content-Type": "application/json",
       },
       body: JSON.stringify(corp),
-    });
-  } catch {
-    const e = new Error("Nu am putut contacta serverul. Verifică conexiunea.");
-    e.retea = true;
-    throw e;
+    }, ms);
+  } catch (e) {
+    if (e.timeout) throw e;
+    const eroare = new Error("Nu am putut contacta serverul. Verifică conexiunea.");
+    eroare.retea = true;
+    throw eroare;
   }
 
   const text = await raspuns.text();
@@ -96,7 +106,7 @@ async function functie(nume, corp) {
    Nu spune nimic despre disponibilitate — aceea depinde de perioadă și
    vine din cautaDisponibilitate(). */
 export function citesteCapacitatea() {
-  return rpc("public_capacity", {});
+  return cuOReincercare(() => rpc("public_capacity", {}));
 }
 
 /* Disponibilitatea pentru un grup întreg.
@@ -107,12 +117,12 @@ export function citesteCapacitatea() {
  * ce ocupare fiecare, și totalul. Lista `rooms` dintr-o opțiune se trimite
  * mai departe, ca atare, la creare — clientul nu inventează nimic. */
 export function cautaDisponibilitate({ checkin, checkout, adulti, copii }) {
-  return rpc("public_availability", {
+  return cuOReincercare(() => rpc("public_availability", {
     p_checkin: checkin,
     p_checkout: checkout,
     p_adults: adulti,
     p_children: copii,
-  });
+  }));
 }
 
 /* Creează rezervarea.
@@ -132,7 +142,11 @@ export function cautaDisponibilitate({ checkin, checkout, adulti, copii }) {
  * până aici e informativ; totalul care contează vine în răspuns.
  *
  * Răspunsul poate veni cu `status: "pending"` — camera e doar ținută
- * până la `holdExpiresAt`, iar confirmarea se face din emailul primit. */
+ * până la `holdExpiresAt`, iar confirmarea se face din emailul primit.
+ *
+ * Fără reîncercare automată: la timeout omul vede mesajul și apasă din
+ * nou — iar cheia de idempotență de mai sus garantează că apăsarea a doua
+ * nu face a doua rezervare. */
 export function creeazaRezervare({
   cheieIdempotenta, checkin, checkout, camere, oaspete, cerinte, jetonTurnstile,
 }) {
@@ -154,7 +168,7 @@ export function creeazaRezervare({
       judet: oaspete.judet,
       tara: oaspete.tara,
     },
-  });
+  }, TIMEOUT_CREARE_MS);
 }
 
 /* Confirmarea din linkul primit pe email: rezervarea ținută devine fermă.
@@ -162,20 +176,20 @@ export function creeazaRezervare({
    `status: "expired"`, ceea ce nu e o defecțiune, ci un rezultat: holdul
    a trecut și camera s-a eliberat. */
 export function confirmaRezervare(token) {
-  return rpc("confirm_public_booking", { p_token: token });
+  return cuOReincercare(() => rpc("confirm_public_booking", { p_token: token }));
 }
 
 /* Pagina de confirmare. Tokenul e singura cheie — id-urile interne nu
    apar niciodată în adresă. */
 export function citesteRezervare(token) {
-  return rpc("public_booking_by_token", { p_token: token });
+  return cuOReincercare(() => rpc("public_booking_by_token", { p_token: token }));
 }
 
 /* Anularea de către client. Nu șterge nimic: rezervările trec pe
    „anulată", camerele redevin libere, iar istoricul rămâne în PMS.
    Idempotentă — un link deschis de două ori nu e o eroare. */
 export function anuleazaRezervare(token) {
-  return rpc("cancel_public_booking", { p_token: token });
+  return cuOReincercare(() => rpc("cancel_public_booking", { p_token: token }));
 }
 
 /* Emailul de confirmare. Se cere DUPĂ ce rezervarea există, iar un eșec
@@ -186,7 +200,7 @@ export function anuleazaRezervare(token) {
    pensiunii. */
 export async function trimiteEmailConfirmare(token) {
   try {
-    const r = await fetch(`${URL_BAZA}/functions/v1/booking-email`, {
+    const r = await fetchCuTimeout(`${URL_BAZA}/functions/v1/booking-email`, {
       method: "POST",
       headers: {
         apikey: CHEIE,
