@@ -163,6 +163,9 @@ export function Dialog({ title, onClose, children, className = "", overlayClassN
 /* Locks the page behind an open dialog: without this the calendar
    underneath still pans sideways while you type. */
 let modalLockCount = 0;
+/* Pentru scurtaturile de tastatura (lib/scurtaturi.js): cu un dialog
+   deschis, literele si sagetile tac. */
+export const existaDialogDeschis = () => modalLockCount > 0;
 /* Aduce in vizor un element care tocmai a aparut — tipic: lista de
    rezultate a unei cautari dintr-un modal cu derulare.
    Pe telefon, cu tastatura deschisa, inaltimea utila a modalului scade

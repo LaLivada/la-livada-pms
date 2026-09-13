@@ -24,6 +24,7 @@ import {
 /* Pragul de la care revenirea pe tab reincarca datele — vezi
    src/reincarcare.test.js. */
 import { trebuieReincarcat } from "./lib/reincarcare.js";
+import { decideScurtatura, tintaEditabila, intentie } from "./lib/scurtaturi.js";
 import { validateCUIFormat, validatePhone, validateEmail } from "./lib/validation.js";
 import {
   FMT_MONEY, FMT_DATE, FMT_DATETIME, FMT_DATE_FULL, FMT_TIME, FMT_WEEKDAY, FMT_MONTH_YEAR,
@@ -57,7 +58,7 @@ import {
 } from "./lib/schimbari-live.js";
 import {
   Dialog, toaster, ToastHost, Paginare, usePaginare,
-  useModalLock, useAduInVizor, useVisualViewportHeight, PdfPreview,
+  useModalLock, useAduInVizor, useVisualViewportHeight, PdfPreview, existaDialogDeschis,
 } from "./ui/primitive.jsx";
 import { K, loadShared, saveShared } from "./data/stare-partajata.js";
 import { audit, incarcaJurnal } from "./lib/audit.js";
@@ -96,6 +97,7 @@ const TodayView = lazy(() => import("./features/rezervari.jsx").then((m) => ({ d
 const ClientsView = lazy(() => import("./features/clienti.jsx").then((m) => ({ default: m.ClientsView })));
 const RoomsView = lazy(() => import("./features/camere.jsx").then((m) => ({ default: m.RoomsView })));
 const FinancialView = lazy(() => import("./features/facturare.jsx").then((m) => ({ default: m.FinancialView })));
+const CautareGlobala = lazy(() => import("./features/cautare.jsx").then((m) => ({ default: m.CautareGlobala })));
 const ReportsView = lazy(() => import("./features/setari.jsx").then((m) => ({ default: m.ReportsView })));
 const UsersView = lazy(() => import("./features/setari.jsx").then((m) => ({ default: m.UsersView })));
 const LogView = lazy(() => import("./features/setari.jsx").then((m) => ({ default: m.LogView })));
@@ -1256,6 +1258,11 @@ function defaultViewFor(role) {
 
 function Shell({ user, view, setView, onLogout, core, updateCore, reservations, updateReservations, housekeeping, updateHousekeeping, groups, updateGroups, blocks, updateBlocks, stergeRezervari, stergeGrupuri, stergeBlocaje, stergeOaspete, salveazaOaspete, adaugaOaspetiInCache, asiguraPerioada, logEntries }) {
   const [calendarIntent, setCalendarIntent] = useState(null);
+  /* Cautarea globala si scurtaturile (faza 3, C1/C2). Camerista nu vede
+     nume de oaspeti — pentru ea nici caseta, nici „N": RLS i-ar da oricum
+     zero randuri, dar o caseta care nu gaseste niciodata nimic deruteaza. */
+  const [cautare, setCautare] = useState(false);
+  const poateCauta = user.role !== "housekeeping";
 
   const settingsItems = SETTINGS_ITEMS.filter((i) => i.roles.includes(user.role));
   const homeView = defaultViewFor(user.role);
@@ -1318,6 +1325,34 @@ function Shell({ user, view, setView, onLogout, core, updateCore, reservations, 
     ultimulTap.current = acum;
   };
 
+  /* Scurtaturile: o singura ascultare pe fereastra, regulile in
+     lib/scurtaturi.js. Sagetile muta saptamana doar in calendar — din alt
+     ecran n-ar avea ce muta. */
+  useEffect(() => {
+    const laTasta = (e) => {
+      const ce = decideScurtatura(e, { dialogDeschis: existaDialogDeschis(), editabil: tintaEditabila(e.target) });
+      if (!ce) return;
+      if ((ce === "cautare" || ce === "nou") && !poateCauta) return;
+      if ((ce === "inapoi" || ce === "inainte") && safeView !== "calendar") return;
+      e.preventDefault();
+      if (ce === "cautare") { setCautare(true); return; }
+      if (ce === "inapoi" || ce === "inainte") {
+        setCalendarIntent(intentie("saptamana", { zile: ce === "inainte" ? 7 : -7 }));
+        return;
+      }
+      setCalendarIntent(intentie(ce));
+      setView("calendar");
+    };
+    window.addEventListener("keydown", laTasta);
+    return () => window.removeEventListener("keydown", laTasta);
+  }, [poateCauta, safeView, setView]);
+
+  const deschideRezultat = (rez) => {
+    setCautare(false);
+    setCalendarIntent(intentie("deschide", { id: rez.rezervare.id, checkin: rez.rezervare.checkin }));
+    setView("calendar");
+  };
+
   return (
     <div className="shell">
       <div className="main">
@@ -1335,6 +1370,14 @@ function Shell({ user, view, setView, onLogout, core, updateCore, reservations, 
           </button>
 
           <div className="topbar-actions">
+            {poateCauta && (
+              <button
+                className="icon-btn" onClick={() => setCautare(true)}
+                title="Caută o rezervare (Ctrl+K sau /)" aria-label="Caută o rezervare" aria-keyshortcuts="Control+K"
+              >
+                <Search size={17} />
+              </button>
+            )}
             {canCalendar && (
               <button
                 className={"top-btn" + (safeView === "calendar" ? " active" : "")}
@@ -1400,7 +1443,7 @@ function Shell({ user, view, setView, onLogout, core, updateCore, reservations, 
               reservations={reservations} updateReservations={updateReservations} blocks={blocks}
               stergeRezervari={stergeRezervari} stergeGrupuri={stergeGrupuri} stergeOaspete={stergeOaspete}
               salveazaOaspete={salveazaOaspete}
-              onNewGroup={() => { setCalendarIntent("group"); setView("calendar"); }} />
+              onNewGroup={() => { setCalendarIntent(intentie("grup")); setView("calendar"); }} />
           )}
           {safeView === "housekeeping" && (
             <HousekeepingView core={core} reservations={reservations} housekeeping={housekeeping} updateHousekeeping={updateHousekeeping} />
@@ -1417,6 +1460,11 @@ function Shell({ user, view, setView, onLogout, core, updateCore, reservations, 
           </Suspense>
         </div>
       </div>
+      {cautare && (
+        <Suspense fallback={null}>
+          <CautareGlobala onClose={() => setCautare(false)} onAlege={deschideRezultat} />
+        </Suspense>
+      )}
     </div>
   );
 }

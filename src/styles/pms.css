@@ -1973,3 +1973,47 @@ label.field input, label.field select, label.field textarea{ cursor:auto; }
   display:block; width:100%; height:auto; max-height:34px;
   color:#111; overflow:visible;
 }
+
+/* ---------------------------------------------------------------
+   CAUTAREA GLOBALA (faza 3, C1) — Ctrl+K sau /, lupa din antet.
+   Sta sus, nu in centru: lista de rezultate creste in jos pe masura ce
+   scrii, iar un card centrat ar sari in sus si in jos la fiecare tasta.
+   Pe telefon la fel — tastatura ocupa jumatatea de jos, rezultatele
+   raman intre caseta si ea.
+----------------------------------------------------------------*/
+.overlay-cautare{ align-items:flex-start; }
+@media (min-width:600px){
+  .overlay-cautare{ padding-top:12vh; }
+}
+.modal-cautare{
+  max-width:600px; border-radius:var(--r-xl);
+  padding:10px 12px calc(12px + env(safe-area-inset-bottom));
+}
+.ascuns-vizual{
+  position:absolute; width:1px; height:1px; margin:-1px; padding:0; overflow:hidden;
+  clip:rect(0 0 0 0); white-space:nowrap; border:0;
+}
+.cautare-camp{
+  display:flex; align-items:center; gap:10px; padding:8px 8px 10px;
+  border-bottom:1px solid var(--border-soft);
+}
+.cautare-camp input{
+  flex:1; min-width:0; border:none; outline:none; background:none;
+  font-size:var(--fs-lg); color:var(--text);
+}
+.cautare-rezultate{ margin-top:8px; border:none; border-radius:0; max-height:60vh; overflow-y:auto; }
+.cautare-rezultat{ border-radius:var(--r-sm); }
+.cautare-rezultat.activ{ background:var(--accent-soft); }
+.cautare-corp{ flex:1; min-width:0; }
+.cautare-etichete{ display:flex; flex-direction:column; align-items:flex-end; gap:4px; flex-shrink:0; }
+.cautare-status{ border-width:1px; border-style:solid; }
+.cautare-motiv{ font-size:var(--fs-2xs); color:var(--text-muted); white-space:nowrap; }
+.cautare-gol{ padding:16px 8px 6px; color:var(--text-muted); font-size:var(--fs-sm); }
+.cautare-ajutor{
+  display:flex; gap:14px; flex-wrap:wrap; margin-top:10px; padding:8px 8px 0;
+  border-top:1px solid var(--border-soft); font-size:var(--fs-2xs); color:var(--text-muted);
+}
+.cautare-ajutor kbd{
+  font-family:inherit; font-size:inherit; border:1px solid var(--border); border-radius:4px;
+  padding:0 5px; margin-right:3px; background:var(--surface-2);
+}

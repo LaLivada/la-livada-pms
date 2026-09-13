@@ -21,6 +21,7 @@ import { audit } from "../lib/audit.js";
 import { guestFullName, occupantName } from "../lib/nume.js";
 import { nightsBetween, rangesOverlap, validateStay, isLive, isStatsEligible } from "../lib/availability.js";
 import { ziLocala, adaugaZile, zileIntre, momentLocal, adaugaZileLaData, laOraLocala, partiLocale, esteWeekend } from "../lib/timp.js";
+import { planIntentie } from "../lib/scurtaturi.js";
 import { reservationTotal, nightlyRate, liveReservationTotalOnline, diferentaDePret } from "../lib/pricing.js";
 import { splitEvenly } from "../lib/money.js";
 import { isSameDay, isToday, canCheckIn, canCheckOut, canCancel, canNoShow, checkouturiRestante, zileIntarziere, sosiriRestante, zileIntarziereSosire, ZILE_CHECKIN_DEVREME } from "../lib/tranzitii.js";
@@ -385,12 +386,32 @@ export function CalendarView({ core, updateCore, reservations, updateReservation
       `${who}: ${fromRoom} ${fmtDate(oldCi)} → ${toRoom} ${fmtDate(newCi)}`, { roomId: targetRoomId, reservationId: res.id });
   };
 
+  /* Intentiile din antet (lib/scurtaturi.js): grup nou din Clienti,
+     rezervare noua si „azi" de la tastatura, saptamana inainte/inapoi,
+     deschiderea unui rezultat din cautarea globala (faza 3, C1/C2). */
+  const [deDeschis, setDeDeschis] = useState(null);
   useEffect(() => {
-    if (intent === "group") {
-      setModal({ reservation: null, mode: "group" });
-      clearIntent();
-    }
+    if (!intent) return;
+    const plan = planIntentie(intent);
+    clearIntent();
+    if (!plan) return;
+    if (plan.modal) setModal(plan.modal);
+    if (plan.zile) setOffset((o) => o + plan.zile);
+    if (plan.salt) { setOffset(zileIntre(new Date(), plan.salt)); setPickerOpen(false); }
+    if (plan.deDeschis) setDeDeschis(plan.deDeschis);
   }, [intent, clearIntent]);
+
+  /* Rezultatul cautarii se deschide abia cand rezervarea e in stare: saltul
+     de mai sus largeste fereastra (asiguraPerioada), iar randul ei vine
+     odata cu restul perioadei. Daca nu apare (stearsa intre timp), dupa
+     10 secunde se renunta in tacere. */
+  useEffect(() => {
+    if (!deDeschis) return;
+    const r = reservations.find((x) => x.id === deDeschis);
+    if (r) { setViewModal(r); setDeDeschis(null); return; }
+    const t = setTimeout(() => setDeDeschis(null), 10000);
+    return () => clearTimeout(t);
+  }, [deDeschis, reservations]);
 
   const jumpTo = (target) => {
     setOffset(zileIntre(new Date(), target));
