@@ -27,7 +27,9 @@ import * as ttlock from "./providers/ttlock.ts";
 import * as simulare from "./providers/simulare.ts";
 /* Logica pura (fus orar, sablon) sta in src/lib/acces.js, ca sa aiba o
    singura copie si sa fie testata cu vitest — vezi src/acces.test.js.
-   Aici nu se rescrie, se importa. */
+   Aici nu se rescrie, se importa. La deploy intra si dependintele lui:
+   src/lib/timp.js (fusul si conversiile de ora, din 14 septembrie 2026),
+   src/lib/tranzitii.js si src/lib/availability.js. */
 import {
   laOraLocala, expirareCod, inceputCod, randeazaSablon, genereazaCodPin, lungimeCod, FUS_HOTEL,
   SABLON_IMPLICIT, linkOaspete, dataMesaj, numeInMesaj, NUME_HOTEL_IMPLICIT,

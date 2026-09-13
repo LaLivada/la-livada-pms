@@ -1128,11 +1128,17 @@ $$;
 -- Oglindește occupancyForStay() din src/lib/availability.js: media pe
 -- nopți, nu pe zile-cameră. Numitorul e numărul TOTAL de camere, ca în
 -- JS (unde lista de camere nu e filtrată după `active`).
+-- Zilele sunt cele de la Vaslui, nu ale sesiunii (UTC pe Supabase) — faza 2,
+-- B6, migrarea fus_hotel_in_pret (14 septembrie 2026): o sosire la 01:00
+-- ora României cădea în ziua UTC de dinainte. JS-ul (src/lib/timp.js)
+-- numără pe aceeași zi.
 create function occupancy_for_stay(
   p_checkin timestamptz, p_checkout timestamptz, p_exclude_id text default null
 ) returns numeric language sql stable set search_path = public as $$
   with nopti as (
-    select generate_series(p_checkin::date, p_checkout::date - 1, interval '1 day')::date as zi
+    select generate_series((p_checkin  at time zone 'Europe/Bucharest')::date,
+                           (p_checkout at time zone 'Europe/Bucharest')::date - 1,
+                           interval '1 day')::date as zi
   ), total as (
     select nullif(count(*), 0)::numeric as n from rooms
   )
@@ -1140,8 +1146,8 @@ create function occupancy_for_stay(
     (select count(*) from reservations r
       where r.status not in ('cancelled','noshow')
         and (p_exclude_id is null or r.id <> p_exclude_id)
-        and r.checkin::date <= nopti.zi
-        and r.checkout::date > nopti.zi
+        and (r.checkin  at time zone 'Europe/Bucharest')::date <= nopti.zi
+        and (r.checkout at time zone 'Europe/Bucharest')::date >  nopti.zi
     )::numeric / (select n from total) * 100
   ), 0)
   from nopti;
@@ -1185,9 +1191,12 @@ end; $$;
 -- funcția de mai sus, ca să existe o singură definiție a lui.
 create function online_night_adjustment_pct(p_zi date, p_exclude_id text default null)
 returns numeric language sql stable set search_path = public as $$
-  -- Intervalul [p_zi, p_zi+1) are exact o noapte.
+  -- Intervalul [p_zi, p_zi+1) are exact o noapte, între două miezuri de
+  -- noapte de la Vaslui.
   select online_adjustment_for_occupancy(
-           occupancy_for_stay(p_zi::timestamptz, (p_zi + 1)::timestamptz, p_exclude_id));
+           occupancy_for_stay(p_zi::timestamp at time zone 'Europe/Bucharest',
+                              (p_zi + 1)::timestamp at time zone 'Europe/Bucharest',
+                              p_exclude_id));
 $$;
 
 
@@ -1203,13 +1212,19 @@ create function stay_total(
   p_exclude_id text default null
 ) returns numeric language plpgsql stable set search_path = public as $$
 declare v_tip text; v_baza numeric; v_online numeric;
+        v_prima date; v_ultima date;
 begin
   select type into v_tip from rooms where id = p_room_id;
   if v_tip is null then return 0; end if;
 
+  -- Zilele de la Vaslui, nu ale sesiunii (UTC): ziua plecării nu e noapte
+  -- vândută, de aici '- 1'. Vezi occupancy_for_stay pentru motiv.
+  v_prima  := (p_checkin  at time zone 'Europe/Bucharest')::date;
+  v_ultima := (p_checkout at time zone 'Europe/Bucharest')::date - 1;
+
   select coalesce(sum(nightly_rate(v_tip, d::date, p_adults, p_children)), 0)
     into v_baza
-    from generate_series(p_checkin::date, p_checkout::date - 1, interval '1 day') d;
+    from generate_series(v_prima, v_ultima, interval '1 day') d;
   v_baza := round(v_baza, 2);
 
   if not coalesce(p_online, false) then return v_baza; end if;
@@ -1227,7 +1242,7 @@ begin
              * (100 + online_night_adjustment_pct(d::date, p_exclude_id)) / 100
          ), 0)
     into v_online
-    from generate_series(p_checkin::date, p_checkout::date - 1, interval '1 day') d;
+    from generate_series(v_prima, v_ultima, interval '1 day') d;
 
   return round(v_online);
 end; $$;

@@ -8,29 +8,13 @@
  * Regula de noapte e aceeași cu subsolul calendarului: ziua plecării nu e
  * noapte vândută, deci o zi de rulaj (plecare + sosire) se numără o dată. */
 import { isStatsEligible } from "./availability.js";
+import { ziLocala, zileIntre, adaugaZile, inceputDeLuna, sfarsitDeLuna, zileInLuna } from "./timp.js";
 import { reservationTotal } from "./pricing.js";
 import { SOURCES } from "./constante.js";
 
-const ZI_MS = 86400000;
-
-/* Prima zi a lunii cerute, la miezul nopții locale. `monthOffset` e relativ
-   la luna curentă (0 = luna asta, -1 = luna trecută). */
-export function inceputDeLuna(monthOffset = 0, acum = new Date()) {
-  const base = new Date(acum);
-  base.setDate(1); base.setHours(0, 0, 0, 0);
-  base.setMonth(base.getMonth() + monthOffset);
-  return base;
-}
-
-export function sfarsitDeLuna(monthStart) {
-  const e = new Date(monthStart);
-  e.setMonth(e.getMonth() + 1);
-  return e;
-}
-
-export function zileInLuna(monthStart) {
-  return Math.round((sfarsitDeLuna(monthStart) - monthStart) / ZI_MS);
-}
+/* Lunile incep la miezul noptii de la Vaslui — definitia sta in lib/timp.js
+   si e re-exportata de aici pentru ecranul de rapoarte si testele lui. */
+export { inceputDeLuna, sfarsitDeLuna, zileInLuna };
 
 /* Ocupare, venit, ADR, RevPAR, pe zile, pe tip de cameră și pe sursă — dintr-o
    singură trecere: datele se parsează o dată pe rezervare, camerele se caută
@@ -48,12 +32,11 @@ export function statisticiLuna(reservations, core, monthStart) {
     const ciMs = new Date(r.checkin).getTime();
     const coMs = new Date(r.checkout).getTime();
     if (!Number.isFinite(ciMs) || !Number.isFinite(coMs)) continue;
-    const ciDay = new Date(ciMs); ciDay.setHours(0, 0, 0, 0);
-    const coDay = new Date(coMs); coDay.setHours(0, 0, 0, 0);
+    const ciDay = ziLocala(ciMs), coDay = ziLocala(coMs);
     /* Cota pe noapte din prețul REAL (înghețat/manual), nu un recalcul cu
        tarifele curente — la fel ca în TodayView.revenueToday, altfel
        veniturile de aici nu s-ar potrivi cu cele din bySource. */
-    const totalNights = Math.max(1, Math.round((coDay - ciDay) / ZI_MS));
+    const totalNights = Math.max(1, zileIntre(ciDay, coDay));
     const perNight = reservationTotal(r, core) / totalNights;
     active.push({ res: r, ciMs, coMs, ciDayMs: ciDay.getTime(), coDayMs: coDay.getTime(), room: roomById.get(r.roomId), perNight });
   }
@@ -63,8 +46,7 @@ export function statisticiLuna(reservations, core, monthStart) {
   const nightsByType = { tiny: 0, loft: 0 };
 
   for (let i = 0; i < daysInMonth; i++) {
-    const d = new Date(monthStart); d.setDate(monthStart.getDate() + i);
-    const dStart = d.getTime();
+    const dStart = adaugaZile(monthStart, i).getTime();
     let occ = 0, rev = 0;
     for (const e of active) {
       if (e.ciDayMs <= dStart && e.coDayMs > dStart) {
@@ -158,12 +140,12 @@ export function statisticiProtocol(reservations, core, monthStart) {
     if (!Number.isFinite(ciMs) || !Number.isFinite(coMs)) continue;
     if (ciMs >= monthEndMs || coMs <= monthStartMs) continue;
     if (!seen.has(r.id)) { seen.add(r.id); count++; }
-    const ciDay = new Date(ciMs); ciDay.setHours(0, 0, 0, 0);
-    const coDay = new Date(coMs); coDay.setHours(0, 0, 0, 0);
-    const totalNights = Math.max(1, Math.round((coDay - ciDay) / ZI_MS));
+    const ciDay = ziLocala(ciMs), coDay = ziLocala(coMs);
+    const totalNights = Math.max(1, zileIntre(ciDay, coDay));
     const perNight = reservationTotal(r, core) / totalNights;
-    for (let d = new Date(ciDay); d < coDay; d.setDate(d.getDate() + 1)) {
-      if (d.getTime() >= monthStartMs && d.getTime() < monthEndMs) { nights++; value += perNight; }
+    for (let i = 0, d = ciDay; d < coDay; d = adaugaZile(ciDay, ++i)) {
+      const t = d.getTime();
+      if (t >= monthStartMs && t < monthEndMs) { nights++; value += perNight; }
     }
   }
   return { count, nights, value };

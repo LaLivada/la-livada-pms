@@ -12,7 +12,8 @@ import { uid } from "../lib/uid.js";
 import { mesajEroare } from "../lib/errors.js";
 import { audit, isAdmin } from "../lib/audit.js";
 import { guestFullName, occupantName } from "../lib/nume.js";
-import { nightsBetween, isLive, startOfDay, rangesOverlap, validateStay } from "../lib/availability.js";
+import { nightsBetween, isLive, rangesOverlap, validateStay } from "../lib/availability.js";
+import { momentLocal } from "../lib/timp.js";
 import { reservationTotal, liveReservationTotalOnline, diferentaDePret, liniaDePret } from "../lib/pricing.js";
 import { isSameDay } from "../lib/tranzitii.js";
 import { fmtMoney, fmtDate, fmtDateFull, toDateInput, initials, withNewDate, FMT_DATE, FMT_DATE_FULL } from "../lib/format.js";
@@ -356,8 +357,9 @@ export function GroupEditor({ group, core, groups, updateGroups, reservations, u
 
   /* Applies one period to every room, keeping each room's own time of day. */
   const shiftAll = async (newIn, newOut) => {
-    const ci = newIn ? new Date(newIn) : new Date(span.checkin);
-    const co = newOut ? new Date(newOut) : new Date(span.checkout);
+    /* Ce vine din campul de data e ora hotelului — vezi momentLocal. */
+    const ci = newIn ? momentLocal(newIn) : new Date(span.checkin);
+    const co = newOut ? momentLocal(newOut) : new Date(span.checkout);
     const err = validateStay(ci, co);
     if (err) { setError(err); return; }
 
@@ -405,8 +407,8 @@ export function GroupEditor({ group, core, groups, updateGroups, reservations, u
   /* Each room may run on its own dates — validate that room alone. */
   const changeDates = async (id, newIn, newOut) => {
     const row = rows.find((r) => r.id === id);
-    const ci = newIn ? new Date(newIn) : new Date(row.checkin);
-    const co = newOut ? new Date(newOut) : new Date(row.checkout);
+    const ci = newIn ? momentLocal(newIn) : new Date(row.checkin);
+    const co = newOut ? momentLocal(newOut) : new Date(row.checkout);
     const err = validateStay(ci, co);
     if (err) { setError(err); return; }
     if (busyIn(ci.toISOString(), co.toISOString(), id).has(row.roomId)) {

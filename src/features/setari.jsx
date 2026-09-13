@@ -17,6 +17,7 @@ import { nightsBetween } from "../lib/availability.js";
 /* Cifrele lunare vin din baza (raport_luna) si se traduc in lib/rapoarte.js
    (testat in src/rapoarte.test.js); ecranul doar le cere si le deseneaza. */
 import { inceputDeLuna, statisticiDinSql } from "../lib/rapoarte.js";
+import { FUS_HOTEL, partiLocale, adaugaZile } from "../lib/timp.js";
 import * as dateRapoarte from "../data/rapoarte.js";
 import { Dialog, toaster, useModalLock, Stat, PdfPreview } from "../ui/primitive.jsx";
 import { cameraDinDetaliu, filtreazaJurnal, ziiDistincte, grupeazaPeZi, etichetaZi } from "../lib/jurnal.js";
@@ -340,8 +341,7 @@ function OcupareZilnicaModal({ perDay, monthStart, totalCamere, onClose }) {
   /* Numele intreg, nu prescurtarea: „mar." si „mie." se confunda la
      citirea rapida a unei coloane de 31 de randuri, iar loc este. */
   const numeZi = (zi) =>
-    new Date(monthStart.getFullYear(), monthStart.getMonth(), zi)
-      .toLocaleDateString("ro-RO", { weekday: "long" });
+    adaugaZile(monthStart, zi - 1).toLocaleDateString("ro-RO", { weekday: "long", timeZone: FUS_HOTEL });
 
   return (
     <Dialog onClose={onClose} className="arrival-modal" overlayClassName="arrival-overlay" title={undefined}>
@@ -431,7 +431,7 @@ export function ReportsView({ core }) {
   const [raport, setRaport] = useState(() => ({ ...statisticiDinSql(null), pentru: null, eroare: "" }));
   useEffect(() => {
     let activ = true;
-    dateRapoarte.raportLuna(monthStart.getFullYear(), monthStart.getMonth() + 1)
+    dateRapoarte.raportLuna(partiLocale(monthStart).an, partiLocale(monthStart).luna)
       .then((r) => { if (activ) setRaport({ ...statisticiDinSql(r), pentru: monthStartMs, eroare: "" }); })
       .catch((e) => {
         if (!activ) return;

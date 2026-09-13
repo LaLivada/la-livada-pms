@@ -9,12 +9,10 @@
  * pms-app.jsx o importa.
  */
 
-import { startOfDay } from "./availability.js";
+import { ziLocala, zileIntre, esteAceeasiZi } from "./timp.js";
 
-export function isSameDay(a, b) {
-  const x = new Date(a), y = new Date(b);
-  return x.getFullYear() === y.getFullYear() && x.getMonth() === y.getMonth() && x.getDate() === y.getDate();
-}
+/* Aceeasi zi LA VASLUI, nu in fusul browserului — vezi lib/timp.js. */
+export function isSameDay(a, b) { return esteAceeasiZi(a, b); }
 
 export function isToday(d) { return isSameDay(d, new Date()); }
 
@@ -37,7 +35,7 @@ export const ORE_CHECKIN_DEVREME = ZILE_CHECKIN_DEVREME * 24;
  * codul de acces inactiv pana in ziua rezervarii. */
 export const canCheckIn = (r, now = new Date()) =>
   r.status === "confirmed"
-  && startOfDay(r.checkin) >= startOfDay(now)
+  && ziLocala(r.checkin) >= ziLocala(now)
   && new Date(r.checkin).getTime() - new Date(now).getTime() <= ORE_CHECKIN_DEVREME * 3600_000;
 
 export const canCheckOut = (r) => r.status === "checkedin";
@@ -76,7 +74,7 @@ export const STATUSURI_NEREZOLVATE = ["pending", "confirmed"];
 export const canCancel = (r) => STATUSURI_NEREZOLVATE.includes(r.status);
 
 export const canNoShow = (r, now = new Date()) =>
-  STATUSURI_NEREZOLVATE.includes(r.status) && startOfDay(r.checkin) < startOfDay(now);
+  STATUSURI_NEREZOLVATE.includes(r.status) && ziLocala(r.checkin) < ziLocala(now);
 
 /* Night audit: rezervari inca "checked-in" a caror zi de plecare a trecut.
  *
@@ -88,14 +86,14 @@ export const canNoShow = (r, now = new Date()) =>
  * intoarsa de aici poate fi inchisa pe loc — lista nu poate contine ceva
  * ce nu se poate rezolva. */
 export function checkouturiRestante(reservations, now = new Date()) {
-  const azi = startOfDay(now);
+  const azi = ziLocala(now);
   return (reservations || []).filter(
-    (r) => r.status === "checkedin" && startOfDay(r.checkout) < azi);
+    (r) => r.status === "checkedin" && ziLocala(r.checkout) < azi);
 }
 
 /* Cate zile a trecut peste plecarea programata — pentru afisaj. */
 export function zileIntarziere(r, now = new Date()) {
-  return Math.max(1, Math.round((startOfDay(now) - startOfDay(r.checkout)) / 86400000));
+  return Math.max(1, zileIntre(r.checkout, now));
 }
 
 /* Night audit: rezervari "pending" sau "confirmed" a caror zi de sosire a
@@ -117,5 +115,5 @@ export function sosiriRestante(reservations, now = new Date()) {
 
 /* Cate zile a trecut peste sosirea programata — pentru afisaj. */
 export function zileIntarziereSosire(r, now = new Date()) {
-  return Math.max(1, Math.round((startOfDay(now) - startOfDay(r.checkin)) / 86400000));
+  return Math.max(1, zileIntre(r.checkin, now));
 }

@@ -32,6 +32,7 @@ import { nightsBetween } from "../lib/availability.js";
 import { reservationTotal } from "../lib/pricing.js";
 import { validateCUIFormat, validatePhone, validateEmail } from "../lib/validation.js";
 import { fmtMoney, fmtDate, fmtDateFull, fmtDateTime, toDateInput, initials } from "../lib/format.js";
+import { dataLocala, inceputDeLuna } from "../lib/timp.js";
 import { INVOICE_STATUS_LABEL, INVOICE_STATUS_CLASS, PAYMENT_METHOD_LABEL, BILLING_PERMISSION_LABEL, BILLING_PERMISSION_KEYS, JUDETE, TARI, ROLE_LABEL } from "../lib/constante.js";
 import { Dialog, toaster, usePaginare, Paginare, useModalLock, useAduInVizor } from "../ui/primitive.jsx";
 import { audit } from "../lib/audit.js";
@@ -590,7 +591,7 @@ export function RecordPaymentInline({ invoice, core, onChanged }) {
   const [method, setMethod] = useState(methods[0]?.id || "cash");
   const [reference, setReference] = useState("");
   const [cardReceiptNumber, setCardReceiptNumber] = useState("");
-  const [cardReceiptDate, setCardReceiptDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [cardReceiptDate, setCardReceiptDate] = useState(() => dataLocala(new Date()));
   const [saving, setSaving] = useState(false);
   const [receiptSeries, setReceiptSeries] = useState(null);
 
@@ -2165,7 +2166,7 @@ export function downloadTextFile(text, filename, mime) {
 
 export function AccountingExportView({ core }) {
   const today = new Date();
-  const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+  const monthStart = inceputDeLuna(0, today);
   const [periodStart, setPeriodStart] = useState(toDateInput(monthStart));
   const [periodEnd, setPeriodEnd] = useState(toDateInput(today));
   const [seriesFilter, setSeriesFilter] = useState("LIV");

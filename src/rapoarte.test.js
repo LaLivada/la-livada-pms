@@ -1,8 +1,9 @@
 import { describe, it, expect } from "vitest";
 import { statisticiLuna, statisticiProtocol, statisticiDinSql, inceputDeLuna, zileInLuna } from "./lib/rapoarte.js";
 
-/* Septembrie 2026, 30 de zile, in ora locala — exact cum le construieste
-   si ecranul (setDate(1), setHours(0)). */
+/* Septembrie 2026, 30 de zile. Datele sunt construite in fusul masinii, dar
+   lib/timp.js le normalizeaza la zilele de la Vaslui — de-aia testul trece si
+   cu TZ=America/New_York (CI ruleaza suita si asa). */
 const LUNA = new Date(2026, 8, 1);
 const zi = (d, h = 14) => new Date(2026, 8, d, h).toISOString();
 

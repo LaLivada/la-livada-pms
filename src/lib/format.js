@@ -6,7 +6,10 @@
  *
  * Locale fixat pe ro-RO deliberat, nu preluat din browser — o pensiune din
  * Romania vrea aceleasi formate indiferent pe ce telefon se uita receptia.
+ * Fusul e fixat la fel (FUS_HOTEL): o sosire la 14:00 se afiseaza 14:00 si
+ * de pe un telefon aflat in alt fus — vezi lib/timp.js.
  */
+import { FUS_HOTEL, dataLocala, textLocal } from "./timp.js";
 
 
 export function validatePrice(v) {
@@ -20,17 +23,17 @@ export function validatePrice(v) {
 
 export const FMT_MONEY = new Intl.NumberFormat("ro-RO", { maximumFractionDigits: 0 });
 
-export const FMT_DATE = new Intl.DateTimeFormat("ro-RO", { day: "2-digit", month: "2-digit" });
+export const FMT_DATE = new Intl.DateTimeFormat("ro-RO", { timeZone: FUS_HOTEL, day: "2-digit", month: "2-digit" });
 
-export const FMT_DATETIME = new Intl.DateTimeFormat("ro-RO", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+export const FMT_DATETIME = new Intl.DateTimeFormat("ro-RO", { timeZone: FUS_HOTEL, day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
 
-export const FMT_DATE_FULL = new Intl.DateTimeFormat("ro-RO", { day: "2-digit", month: "2-digit", year: "numeric" });
+export const FMT_DATE_FULL = new Intl.DateTimeFormat("ro-RO", { timeZone: FUS_HOTEL, day: "2-digit", month: "2-digit", year: "numeric" });
 
-export const FMT_TIME = new Intl.DateTimeFormat("ro-RO", { hour: "2-digit", minute: "2-digit" });
+export const FMT_TIME = new Intl.DateTimeFormat("ro-RO", { timeZone: FUS_HOTEL, hour: "2-digit", minute: "2-digit" });
 
-export const FMT_WEEKDAY = new Intl.DateTimeFormat("ro-RO", { weekday: "short" });
+export const FMT_WEEKDAY = new Intl.DateTimeFormat("ro-RO", { timeZone: FUS_HOTEL, weekday: "short" });
 
-export const FMT_MONTH_YEAR = new Intl.DateTimeFormat("ro-RO", { month: "long", year: "numeric" });
+export const FMT_MONTH_YEAR = new Intl.DateTimeFormat("ro-RO", { timeZone: FUS_HOTEL, month: "long", year: "numeric" });
 
 export function fmtMoney(v) {
   return FMT_MONEY.format(Math.round(v || 0)) + " lei";
@@ -48,16 +51,16 @@ export function fmtDateTime(d) {
   return FMT_DATETIME.format(new Date(d));
 }
 
+/* Valorile pentru <input type="date"> si <input type="datetime-local">, in
+   ORA HOTELULUI — si tot in ora hotelului se citesc inapoi, prin
+   `momentLocal` din lib/timp.js. Pana pe 14 septembrie 2026 erau in fusul
+   browserului, deci un formular deschis din alt fus scria alta ora. */
 export function toDateInput(d) {
-  const x = new Date(d);
-  return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, "0")}-${String(x.getDate()).padStart(2, "0")}`;
+  return dataLocala(d);
 }
 
 export function toLocalInputValue(iso) {
-  const d = new Date(iso);
-  const off = d.getTimezoneOffset();
-  const local = new Date(d.getTime() - off * 60000);
-  return local.toISOString().slice(0, 16);
+  return textLocal(iso);
 }
 /* Inlocuieste doar partea de data dintr-o valoare existenta, pastrand ora
    neatinsa — folosit de selectoarele de data (fara ora in UI, dar ora

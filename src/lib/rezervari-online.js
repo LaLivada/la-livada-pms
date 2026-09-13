@@ -44,6 +44,8 @@ export function ultimeleOnline(rezervari, limita = REZERVARI_PE_CARD) {
    simpla: de la 20 in sus se pune „de". */
 const cuDe = (n, cuvant) => (n >= 20 ? `${n} de ${cuvant}` : `${n} ${cuvant}`);
 
+import { zileIntre } from "./timp.js";
+
 const MINUT = 60000, ORA = 3600000;
 
 /* Cat de proaspata e stirea, in cuvintele in care ar spune-o receptia.
@@ -61,13 +63,12 @@ export function candAVenit(iso, acum = new Date(), fmtDataOra) {
   if (delta < MINUT) return "chiar acum";
   if (delta < ORA) return `acum ${cuDe(Math.floor(delta / MINUT), "minute")}`;
 
-  const zi = (d) => { const x = new Date(d); x.setHours(0, 0, 0, 0); return x.getTime(); };
-  const zileIntre = Math.round((zi(acum) - zi(t)) / 86400000);
-  if (zileIntre === 0) {
+  const zile = zileIntre(t, acum);
+  if (zile === 0) {
     const ore = Math.floor(delta / ORA);
     return ore === 1 ? "acum o oră" : `acum ${cuDe(ore, "ore")}`;
   }
-  if (zileIntre === 1) return "ieri";
-  if (zileIntre === 2) return "alaltăieri";
+  if (zile === 1) return "ieri";
+  if (zile === 2) return "alaltăieri";
   return fmtDataOra ? fmtDataOra(new Date(t)) : "";
 }

@@ -19,7 +19,8 @@ import { uid } from "../lib/uid.js";
 import { mesajEroare } from "../lib/errors.js";
 import { audit } from "../lib/audit.js";
 import { guestFullName, occupantName } from "../lib/nume.js";
-import { nightsBetween, rangesOverlap, validateStay, isLive, isStatsEligible, startOfDay } from "../lib/availability.js";
+import { nightsBetween, rangesOverlap, validateStay, isLive, isStatsEligible } from "../lib/availability.js";
+import { ziLocala, adaugaZile, zileIntre, momentLocal, adaugaZileLaData, laOraLocala, partiLocale, esteWeekend } from "../lib/timp.js";
 import { reservationTotal, nightlyRate, liveReservationTotalOnline, diferentaDePret } from "../lib/pricing.js";
 import { splitEvenly } from "../lib/money.js";
 import { isSameDay, isToday, canCheckIn, canCheckOut, canCancel, canNoShow, checkouturiRestante, zileIntarziere, sosiriRestante, zileIntarziereSosire, ZILE_CHECKIN_DEVREME } from "../lib/tranzitii.js";
@@ -329,19 +330,17 @@ export function CalendarView({ core, updateCore, reservations, updateReservation
   const [viewModal, setViewModal] = useState(null); // rezervarea afișată doar-vizualizare, sau null
 
   const days = useMemo(() => {
-    const start = new Date(); start.setHours(0, 0, 0, 0);
-    /* `- inainte`: zilele castigate prin derulare la stanga se adauga
+    /* Miezul noptii de la Vaslui, nu al browserului (lib/timp.js).
+       `- inainte`: zilele castigate prin derulare la stanga se adauga
        inaintea ferestrei, deci mut inceputul cu atat in urma. */
-    start.setDate(start.getDate() + offset - inainte);
-    return Array.from({ length: DAYS }, (_, i) => {
-      const d = new Date(start); d.setDate(start.getDate() + i); return d;
-    });
+    const start = adaugaZile(ziLocala(new Date()), offset - inainte);
+    return Array.from({ length: DAYS }, (_, i) => adaugaZile(start, i));
     /* `DAYS` in dependinte, nu doar `offset`: cat timp a fost constanta nu
        conta, dar acum creste la derulare, iar fara ea lista de zile ar fi
        ramas la lungimea de la prima randare — grila n-ar creste niciodata. */
   }, [offset, DAYS, inainte]);
 
-  const rangeStart = days[0], rangeEnd = new Date(days[DAYS - 1].getTime() + 86400000);
+  const rangeStart = days[0], rangeEnd = adaugaZile(days[DAYS - 1], 1);
   /* Ziua la care e ancorata fereastra — cea de care asculta butoanele si
      saltul la data. Nu e neaparat days[0]: derularea la stanga adauga zile
      inaintea ei. Eticheta si selectorul de data arata ancora, altfel ar fi
@@ -354,16 +353,12 @@ export function CalendarView({ core, updateCore, reservations, updateReservation
     if (!res) return;
     const nights = nightsBetween(res.checkin, res.checkout);
     const oldCi = new Date(res.checkin), oldCo = new Date(res.checkout);
-    const newCi = new Date(targetDay);
-    newCi.setHours(oldCi.getHours(), oldCi.getMinutes(), 0, 0);
-    const newCo = new Date(newCi);
-    newCo.setDate(newCi.getDate() + nights);
-    newCo.setHours(oldCo.getHours(), oldCo.getMinutes(), 0, 0);
-
-    // Across a DST boundary the wall-clock arithmetic above can land a day off.
-    // Correct it so the stay always keeps exactly the same number of nights.
-    const drift = nights - nightsBetween(newCi, newCo);
-    if (drift !== 0) newCo.setDate(newCo.getDate() + drift);
+    /* Aceleasi ore de perete (la Vaslui) in ziua tinta, plus acelasi numar
+       de nopti; lib/timp.js trece corect peste schimbarea orei, deci nu mai
+       e nevoie de corectia de „drift" de dinainte. */
+    const oc = partiLocale(oldCi), oo = partiLocale(oldCo);
+    const newCi = laOraLocala(targetDay, oc.ore, oc.minute);
+    const newCo = laOraLocala(adaugaZile(newCi, nights), oo.ore, oo.minute);
 
     if (targetRoomId === res.roomId && newCi.getTime() === oldCi.getTime()) return;
 
@@ -398,9 +393,7 @@ export function CalendarView({ core, updateCore, reservations, updateReservation
   }, [intent, clearIntent]);
 
   const jumpTo = (target) => {
-    const today = new Date(); today.setHours(0, 0, 0, 0);
-    target.setHours(0, 0, 0, 0);
-    setOffset(Math.round((target - today) / 86400000));
+    setOffset(zileIntre(new Date(), target));
     setPickerOpen(false);
   };
 
@@ -424,8 +417,7 @@ export function CalendarView({ core, updateCore, reservations, updateReservation
       if (!Number.isFinite(ciMs) || !Number.isFinite(coMs)) continue;
       // Day-level boundaries too: occupancy is counted in room-nights, and
       // the night of day D belongs to a stay only when ciDay <= D < coDay.
-      const ciDay = new Date(ciMs); ciDay.setHours(0, 0, 0, 0);
-      const coDay = new Date(coMs); coDay.setHours(0, 0, 0, 0);
+      const ciDay = ziLocala(ciMs), coDay = ziLocala(coMs);
       let bucket = map.get(r.roomId);
       if (!bucket) { bucket = []; map.set(r.roomId, bucket); }
       bucket.push({ res: r, ciMs, coMs, ciDayMs: ciDay.getTime(), coDayMs: coDay.getTime() });
@@ -480,7 +472,7 @@ export function CalendarView({ core, updateCore, reservations, updateReservation
   const spanIndices = (startMs, endMs) => {
     let startIdx = -1, endIdx = -1;
     for (let i = 0; i < dayMs.length; i++) {
-      const dStart = dayMs[i], dEnd = dStart + 86400000;
+      const dStart = dayMs[i], dEnd = i + 1 < dayMs.length ? dayMs[i + 1] : rangeEndMs;
       if (startMs < dEnd && endMs > dStart) {
         if (startIdx === -1) startIdx = i;
         endIdx = i;
@@ -495,11 +487,10 @@ export function CalendarView({ core, updateCore, reservations, updateReservation
       .map(({ res: r, ciMs, coMs }) => {
         const { startIdx, endIdx } = spanIndices(ciMs, coMs);
         if (startIdx === -1) return null;
-        const ciDay = new Date(ciMs); ciDay.setHours(0, 0, 0, 0);
-        const coDay = new Date(coMs); coDay.setHours(0, 0, 0, 0);
+        const ciDay = ziLocala(ciMs), coDay = ziLocala(coMs);
         return {
           res: r, startIdx, endIdx, len: endIdx - startIdx + 1,
-          nights: Math.max(1, Math.round((coDay - ciDay) / 86400000)),
+          nights: Math.max(1, zileIntre(ciDay, coDay)),
           clipStart: ciMs < rangeStartMs,
           clipEnd: coMs > rangeEndMs,
         };
@@ -549,7 +540,7 @@ export function CalendarView({ core, updateCore, reservations, updateReservation
                   value={toDateInput(ziAncora)}
                   onChange={(e) => {
                     if (!e.target.value) return;
-                    jumpTo(new Date(e.target.value + "T00:00:00"));
+                    jumpTo(momentLocal(e.target.value));
                   }}
                 />
                 <button className="btn btn-ghost" style={{ width: "100%" }} onClick={() => { setOffset(0); setPickerOpen(false); }}>
@@ -607,7 +598,7 @@ export function CalendarView({ core, updateCore, reservations, updateReservation
           <div className="cal-row cal-head">
             <div className="cal-roomcell"><div className="cal-roomcell-inner" style={{ fontWeight: 700, fontSize: 12 }}>Cameră</div></div>
             {days.map((d, i) => {
-              const wk = d.getDay() === 0 || d.getDay() === 6;
+              const wk = esteWeekend(d);
               return (
                 <div key={i} className={"cal-daycell" + (isToday(d) ? " today" : wk ? " weekend" : "")}>
                   {FMT_WEEKDAY.format(d)}<br />{fmtDate(d)}
@@ -658,7 +649,7 @@ export function CalendarView({ core, updateCore, reservations, updateReservation
                     <div
                       key={i}
                       className={"cal-cell"
-                        + (d.getDay() === 0 || d.getDay() === 6 ? " weekend" : "")
+                        + (esteWeekend(d) ? " weekend" : "")
                         + (moveId ? " movable" : "")
                         + (doarCitire ? " cal-cell-static" : "")}
                       onClick={doarCitire ? undefined : () => {
@@ -695,8 +686,8 @@ export function CalendarView({ core, updateCore, reservations, updateReservation
                         // pushed the bar a whole extra cell too far, overlapping the next stay.
                         // Clipped ends (stay continues outside the visible date range) stay
                         // flush with the cell edge instead of stopping at a midpoint.
-                        const ciIdx = Math.floor((new Date(span.res.checkin) - rangeStart) / 86400000);
-                        const coIdx = Math.floor((new Date(span.res.checkout) - rangeStart) / 86400000);
+                        const ciIdx = zileIntre(rangeStart, span.res.checkin);
+                        const coIdx = zileIntre(rangeStart, span.res.checkout);
                         const leftAbs = span.clipStart ? span.startIdx : ciIdx + 0.5;
                         const rightAbs = span.clipEnd ? days.length : coIdx + 0.5;
                         const barLeft = span.clipStart ? "3px" : "calc(50% + 3px)";
@@ -1097,11 +1088,11 @@ export function ReservationModal({ data, core, updateCore, reservations, updateR
     /* 14:00, nu 15:00 ca pana pe 4 septembrie 2026: ora de sosire e acum si
        ora de la care merge codul de acces (vezi inceputCod in lib/acces.js),
        iar regula casei e „din ziua cazarii, de la 14:00". */
-    (() => { const d = data.defaultDate ? new Date(data.defaultDate) : new Date(); d.setHours(ORA_SOSIRE_IMPLICITA, 0, 0, 0); return toLocalInputValue(d.toISOString()); })()
+    toLocalInputValue(laOraLocala(data.defaultDate ? new Date(data.defaultDate) : new Date(), ORA_SOSIRE_IMPLICITA, 0))
   );
   const [checkout, setCheckout] = useState(
     editing ? toLocalInputValue(editing.checkout) :
-    (() => { const d = data.defaultDate ? new Date(data.defaultDate) : new Date(); d.setDate(d.getDate() + 1); d.setHours(ORA_PLECARE_IMPLICITA, 0, 0, 0); return toLocalInputValue(d.toISOString()); })()
+    toLocalInputValue(laOraLocala(adaugaZile(data.defaultDate ? new Date(data.defaultDate) : new Date(), 1), ORA_PLECARE_IMPLICITA, 0))
   );
   const [oreModal, setOreModal] = useState(false);
   const [grupModal, setGrupModal] = useState(false);
@@ -1186,8 +1177,8 @@ export function ReservationModal({ data, core, updateCore, reservations, updateR
      pretul deja inghetat, nu un recalcul cu tarifele curente. */
   const priceAffectingChanged = !editing
     || editing.roomId !== roomId
-    || new Date(editing.checkin).getTime() !== new Date(checkin).getTime()
-    || new Date(editing.checkout).getTime() !== new Date(checkout).getTime()
+    || new Date(editing.checkin).getTime() !== momentLocal(checkin).getTime()
+    || new Date(editing.checkout).getTime() !== momentLocal(checkout).getTime()
     || (editing.adults ?? 2) !== (Number(adults) || 1)
     || (editing.children ?? 0) !== (Number(children) || 0);
   const editingGroup = editing?.groupId ? groups.find((g) => g.id === editing.groupId) : null;
@@ -1256,7 +1247,7 @@ export function ReservationModal({ data, core, updateCore, reservations, updateR
   /* One pass over reservations and blocks per date change, rather than a
      scan per room on every render of the form. */
   const busyRooms = useMemo(() => {
-    const ci = new Date(checkin), co = new Date(checkout);
+    const ci = momentLocal(checkin), co = momentLocal(checkout);
     const set = new Set();
     if (isNaN(ci.getTime()) || isNaN(co.getTime())) return set;
     for (const r of reservations) {
@@ -1288,7 +1279,7 @@ export function ReservationModal({ data, core, updateCore, reservations, updateR
       }
       const newBlocks = roomIds.map((rid) => ({
         id: uid(), roomId: rid,
-        start: new Date(checkin).toISOString(), end: new Date(checkout).toISOString(),
+        start: momentLocal(checkin).toISOString(), end: momentLocal(checkout).toISOString(),
         reason: blockReason.trim() || "Mentenanță", createdAt: new Date().toISOString(),
       }));
       await updateBlocks([...(blocks || []), ...newBlocks]);
@@ -1352,7 +1343,7 @@ export function ReservationModal({ data, core, updateCore, reservations, updateR
       const newRes = roomIds.map((rid, idx) => {
         const base = {
           id: uid(), roomId: rid, guestId, groupId,
-          checkin: new Date(checkin).toISOString(), checkout: new Date(checkout).toISOString(),
+          checkin: momentLocal(checkin).toISOString(), checkout: momentLocal(checkout).toISOString(),
           status: statusFinal, notes,
           adults: Number(adults) || 1, children: Number(children) || 0, source,
           tags: [...tags], messages: [], billingCustomerId: billingCustomerId || null,
@@ -1381,7 +1372,7 @@ export function ReservationModal({ data, core, updateCore, reservations, updateR
     const recordBase = {
       ...(editing || {}),
       id: editing?.id || uid(), roomId, guestId, groupId: editing?.groupId || null,
-      checkin: new Date(checkin).toISOString(), checkout: new Date(checkout).toISOString(),
+      checkin: momentLocal(checkin).toISOString(), checkout: momentLocal(checkout).toISOString(),
       status: statusFinal, notes,
       adults: Number(adults) || 1, children: Number(children) || 0, source, tags: [...tags],
       messages: editing?.messages || [], billingCustomerId: billingCustomerId || null,
@@ -1792,8 +1783,7 @@ export function ReservationModal({ data, core, updateCore, reservations, updateR
               value={Math.min(30, Math.max(1, nightsBetween(checkin, checkout)))}
               onChange={(e) => {
                 const n = Number(e.target.value);
-                const [y, m, d] = checkin.slice(0, 10).split("-").map(Number);
-                setCheckout(withNewDate(checkout, toDateInput(new Date(y, m - 1, d + n))));
+                setCheckout(withNewDate(checkout, adaugaZileLaData(checkin.slice(0, 10), n)));
               }}
             >
               {Array.from({ length: 30 }, (_, i) => i + 1).map((n) => <option key={n} value={n}>{n}</option>)}
@@ -2192,8 +2182,8 @@ export function TodayView({ core, updateCore, reservations, updateReservations, 
   }, []);
 
   const { arrivals, departures, inHouse, occupiedNow, revenueToday } = useMemo(() => {
-    const today = startOfDay(new Date());
-    const tomorrow = new Date(today.getTime() + 86400000);
+    const today = ziLocala(new Date());
+    const tomorrow = adaugaZile(today, 1);
     const arr = [], dep = [], ih = [];
     // Set de camere, nu numar de rezervari — intr-o zi de turnover (o
     // camera eliberata si realocata azi) doua rezervari diferite se
@@ -2219,7 +2209,7 @@ export function TodayView({ core, updateCore, reservations, updateReservations, 
          zile inainte (fereastra de 14 zile, vezi lib/tranzitii.js) pentru o
          sosire care inca n-a ajuns — statusul e deja "checkedin", dar
          camera nu e ocupata azi. */
-      const ocupaAzi = startOfDay(ci) <= today && startOfDay(co) > today;
+      const ocupaAzi = ziLocala(ci) <= today && ziLocala(co) > today;
       if (r.status === "checkedin" && ocupaAzi) ih.push(r);
       if (ocupaAzi) {
         occRooms.add(r.roomId);

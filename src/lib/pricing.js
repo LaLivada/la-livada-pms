@@ -6,11 +6,16 @@
  */
 
 import { nightsBetween, occupancyForStay } from "./availability.js";
+import { partiLocale, ziLocala, adaugaZile } from "./timp.js";
 import { round2 } from "./money.js";
 import { fmtMoney } from "./format.js";
 
+/* Luna-ziua se citesc in fusul hotelului: un sezon care incepe pe 1 iulie
+   incepe la miezul noptii de la Vaslui, nu al browserului. */
 export function inSeason(date, season) {
-  const md = `${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+  const p = partiLocale(date);
+  if (!p) return false;
+  const md = `${String(p.luna).padStart(2, "0")}-${String(p.zi).padStart(2, "0")}`;
   if (season.start <= season.end) return md >= season.start && md <= season.end;
   return md >= season.start || md <= season.end; // wraps across new year
 }
@@ -49,10 +54,9 @@ export function liveReservationTotal(res, core) {
   const n = nightsBetween(res.checkin, res.checkout);
   const occupancy = { adults: res.adults ?? 2, children: res.children ?? 0 };
   let total = 0;
-  const d = new Date(res.checkin); d.setHours(0, 0, 0, 0);
+  const prima = ziLocala(res.checkin);
   for (let i = 0; i < n; i++) {
-    total += nightlyRate(d, room.type, core.rates, occupancy);
-    d.setDate(d.getDate() + 1);
+    total += nightlyRate(adaugaZile(prima, i), room.type, core.rates, occupancy);
   }
   /* Suma de nopti poate acumula zecimale din tarife/suplimente cu
      fractii; rotunjim aici, nu la afisare, ca valoarea inghetata in
@@ -122,9 +126,9 @@ export function liveReservationTotalOnline(res, core, reservations) {
   const n = nightsBetween(res.checkin, res.checkout);
   const occupancy = { adults: res.adults ?? 2, children: res.children ?? 0 };
   let total = 0;
-  const d = new Date(res.checkin); d.setHours(0, 0, 0, 0);
+  const prima = ziLocala(res.checkin);
   for (let i = 0; i < n; i++) {
-    const urmatoarea = new Date(d); urmatoarea.setDate(urmatoarea.getDate() + 1);
+    const d = adaugaZile(prima, i), urmatoarea = adaugaZile(prima, i + 1);
     const occPct = occupancyForStay(d, urmatoarea, reservations, core.rooms.length, res.id);
     const pct = onlineNightAdjustmentPct(occPct, tiers);
     /* Inmultim cu (100+pct)/100, nu cu (1 + pct/100). In virgula mobila
@@ -134,7 +138,6 @@ export function liveReservationTotalOnline(res, core, reservations) {
        inmultirea pe intregi si imparte la final, asa ca valorile de tip
        „exact .5" raman exacte si cele doua implementari cad la fel. */
     total += nightlyRate(d, room.type, core.rates, occupancy) * (100 + pct) / 100;
-    d.setDate(d.getDate() + 1);
   }
   return Math.round(total);
 }

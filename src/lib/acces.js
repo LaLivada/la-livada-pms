@@ -9,40 +9,13 @@
  * are nevoie de asta, nu are ce cauta in fisierul asta.
  */
 
-export const FUS_HOTEL = "Europe/Bucharest";
-
-/* Decalajul fusului fata de UTC, in milisecunde, la un moment dat.
- *
- * Calculat, nu presupus: Romania e +2 iarna si +3 vara, iar un sejur poate
- * traversa schimbarea. O constanta ar fi gresita jumatate de an. */
-export function decalajFus(d, fus = FUS_HOTEL) {
-  const f = new Intl.DateTimeFormat("en-US", {
-    timeZone: fus, hour12: false,
-    year: "numeric", month: "2-digit", day: "2-digit",
-    hour: "2-digit", minute: "2-digit", second: "2-digit",
-  });
-  const p = Object.fromEntries(f.formatToParts(d).map((x) => [x.type, x.value]));
-  return Date.UTC(+p.year, +p.month - 1, +p.day, +p.hour, +p.minute, +p.second) - d.getTime();
-}
-
-/* Momentul exact al unei ore locale din ziua unui reper dat.
- *
- * `reper` spune CARE zi (in fusul hotelului), iar ore/minute spun ora din
- * acea zi. Trecem prin decalajul real al zilei respective, nu prin cel de
- * azi — altfel o plecare de la finalul lui octombrie ar iesi cu o ora
- * gresita, fix cand se schimba ora. */
-export function laOraLocala(reper, ore, minute, fus = FUS_HOTEL) {
-  const zi = new Intl.DateTimeFormat("en-CA", {
-    timeZone: fus, year: "numeric", month: "2-digit", day: "2-digit",
-  }).format(new Date(reper));
-  const [an, luna, ziua] = zi.split("-").map(Number);
-  /* Prin Date.UTC, nu prin sir: "11:90" ca text da o data invalida, in timp
-     ce Date.UTC reporteaza singur minutele peste 59 in ore si orele peste 23
-     in zile. Conteaza fiindca minutele de gratie se aduna la ora de plecare
-     si pot trece usor de 60. Gasit de teste, nu prin citire. */
-  const estimare = new Date(Date.UTC(an, luna - 1, ziua, ore, minute, 0));
-  return new Date(estimare.getTime() - decalajFus(estimare, fus));
-}
+/* Fusul si conversiile de ora s-au mutat in src/lib/timp.js (faza 2, B6:
+   o singura definitie a „zilei" pentru tot PMS-ul). Raman exportate de aici
+   pentru access-provider si pentru testele vechi. La deploy-ul functiei
+   edge, src/lib/timp.js trebuie inclus alaturi de acces.js, tranzitii.js si
+   availability.js — importurile relative merg si prin el. */
+import { FUS_HOTEL, decalajFus, laOraLocala } from "./timp.js";
+export { FUS_HOTEL, decalajFus, laOraLocala };
 
 /* Sfarsitul valabilitatii codului: ora de plecare a hotelului plus minutele
  * de gratie, in ziua plecarii.

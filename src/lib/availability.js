@@ -6,20 +6,18 @@
  * testa fara sa incarci intreaga aplicatie.
  */
 
+import { ziLocala, zileIntre, adaugaZile, momentLocal } from "./timp.js";
+
 /* Statusuri care nu mai tin camera ocupata. */
 export const DEAD_STATUSES = ["cancelled", "noshow"];
 export const isLive = (r) => !DEAD_STATUSES.includes(r.status);
 
-export function startOfDay(d) {
-  const x = new Date(d);
-  x.setHours(0, 0, 0, 0);
-  return x;
-}
+/* `startOfDay` (miezul noptii al BROWSERULUI) a disparut pe 14 septembrie
+   2026: ziua e cea a hotelului — `ziLocala` din lib/timp.js. */
 
+/* Nopti intre doua momente = zile calendaristice la Vaslui, minimum 1. */
 export function nightsBetween(ci, co) {
-  const a = new Date(ci); a.setHours(0, 0, 0, 0);
-  const b = new Date(co); b.setHours(0, 0, 0, 0);
-  return Math.max(1, Math.round((b - a) / 86400000));
+  return Math.max(1, zileIntre(ci, co));
 }
 
 /* Interval pe jumatate deschis [start, end) — o rezervare care se termina
@@ -32,7 +30,8 @@ export function rangesOverlap(aStart, aEnd, bStart, bEnd) {
 }
 
 export function validateStay(checkin, checkout) {
-  const ci = new Date(checkin), co = new Date(checkout);
+  /* Un sir fara fus (din formular) e ora hotelului — vezi momentLocal. */
+  const ci = momentLocal(checkin), co = momentLocal(checkout);
   if (isNaN(ci.getTime())) return "Data de check-in nu este validă.";
   if (isNaN(co.getTime())) return "Data de check-out nu este validă.";
   if (co <= ci) return "Data de check-out trebuie să fie după check-in.";
@@ -47,19 +46,18 @@ export function validateStay(checkin, checkout) {
    pe sine ca ocupanta a propriilor nopti la o recalculare/editare). */
 export function occupancyForStay(checkin, checkout, reservations, roomCount, excludeId) {
   if (!roomCount) return 0;
-  const ciDay = startOfDay(checkin);
-  const coDay = startOfDay(checkout);
-  const nights = Math.max(1, Math.round((coDay - ciDay) / 86400000));
-  const live = (reservations || []).filter((r) => r.id !== excludeId && isLive(r));
+  const ciDay = ziLocala(checkin);
+  const coDay = ziLocala(checkout);
+  const nights = Math.max(1, zileIntre(ciDay, coDay));
+  /* Zilele fiecarei rezervari se calculeaza o data, nu de `nights` ori. */
+  const zile = (reservations || [])
+    .filter((r) => r.id !== excludeId && isLive(r))
+    .map((r) => [ziLocala(r.checkin).getTime(), ziLocala(r.checkout).getTime()]);
   let sumPct = 0;
   for (let i = 0; i < nights; i++) {
-    const dStart = ciDay.getTime() + i * 86400000;
+    const dStart = adaugaZile(ciDay, i).getTime();
     let occ = 0;
-    for (const r of live) {
-      const rCiDay = startOfDay(r.checkin).getTime();
-      const rCoDay = startOfDay(r.checkout).getTime();
-      if (rCiDay <= dStart && rCoDay > dStart) occ++;
-    }
+    for (const [rCiDay, rCoDay] of zile) if (rCiDay <= dStart && rCoDay > dStart) occ++;
     sumPct += (occ / roomCount) * 100;
   }
   return sumPct / nights;

@@ -3,7 +3,7 @@ import { supabase } from "./supabase.js";
    React, fara acces la baza de date, testabila direct. Vezi
    src/pricing.test.js. */
 import {
-  DEAD_STATUSES, isLive, startOfDay, nightsBetween, rangesOverlap,
+  DEAD_STATUSES, isLive, nightsBetween, rangesOverlap,
   validateStay, occupancyForStay,
 } from "./lib/availability.js";
 import {

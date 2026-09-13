@@ -9,6 +9,7 @@ import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { Plus, X, Check, Trash2, Pencil, DoorOpen, Sparkles, Wrench, KeyRound, Banknote, RefreshCw, AlertTriangle, ArrowRight, Info, TrendingUp, Tag as TagIcon, Copy, Unlock } from "lucide-react";
 import { uid } from "../lib/uid.js";
 import { isLive } from "../lib/availability.js";
+import { ziLocala, adaugaZile } from "../lib/timp.js";
 import { cazatAcum } from "../lib/tranzitii.js";
 import { mesajEroare } from "../lib/errors.js";
 import { audit, isAdmin } from "../lib/audit.js";
@@ -157,8 +158,8 @@ function GlisorDeschidere({ room, blocat, motivBlocare }) {
 }
 
 export function HousekeepingView({ core, reservations, housekeeping, updateHousekeeping }) {
-  const today = new Date(); today.setHours(0, 0, 0, 0);
-  const tomorrow = new Date(today.getTime() + 86400000);
+  const today = ziLocala(new Date());
+  const tomorrow = adaugaZile(today, 1);
 
   /* „Sosire azi" înseamnă o sosire care ÎNCĂ n-a ajuns — e un cap de listă
      pentru cameristă: camera asta trebuie pregătită până diseară. Odată ce

@@ -25,6 +25,14 @@ jobs:
       - name: Test
         run: npm test
 
+      # Aceeași suită și dintr-un alt fus: „ziua" trebuie să fie cea de la
+      # Vaslui indiferent de mașină (faza 2, B6 din docs/audit-2026-09.md).
+      # Pe ubuntu TZ e UTC — prea aproape de România ca să prindă greșelile.
+      - name: Test (TZ=America/New_York)
+        run: npm test
+        env:
+          TZ: America/New_York
+
       - name: Build
         run: npm run build
 
