@@ -8,6 +8,7 @@ import {
   cazatAcum, sejurActiv, sejurCurandSauMaine,
   ocupatRecentLegionela, legionelaDorit, boilerDorit,
   calculeazaRasaritApus, esteNoapte, urmatoareaTranzitie, luminiDorite,
+  tineComandaManuala, acordBoiler,
 } from "../supabase/functions/device-provider/reguli-automate.ts";
 
 describe("timp local — Intl, nu offset fix", () => {
@@ -229,5 +230,70 @@ describe("regula 2 — lumini exterioare (rasarit/apus)", () => {
   it("luminiDorite: fals ziua, chiar daca o camera e cazata", () => {
     const cazata = { status: "checkedin", checkin: "2026-09-09T14:00:00Z", checkout: "2026-09-12T11:00:00Z" };
     expect(luminiDorite([cazata], new Date(Date.UTC(2026, 8, 10, 10, 0)))).toBe(false);
+  });
+});
+
+/* Suprascrierea manuala — „tine" ca un termostat pus pe hold: comanda omului
+   ramane pana cand regula ar decide ORICUM aceeasi stare (atunci automatizarea
+   preia din nou controlul fara sa schimbe nimic), sau pana la `until`, daca
+   exista. Motivul: pe 13 septembrie 2026 boilerul din CT3 pornit de mana era
+   stins de automatizare la fiecare 10 minute — override-ul exista doar la
+   lumini. */
+describe("tineComandaManuala — suprascrierea manuala tine pana cand regula e de acord", () => {
+  const acum = new Date(Date.UTC(2026, 8, 13, 16, 20));
+
+  it("fara suprascriere, automatizarea decide liber", () => {
+    expect(tineComandaManuala(null, false, acum)).toBe(false);
+    expect(tineComandaManuala(undefined, true, acum)).toBe(false);
+  });
+
+  it("boiler pornit de mana, regula l-ar stinge: tine (asta era bug-ul)", () => {
+    expect(tineComandaManuala({ pornit: true, until: null }, false, acum)).toBe(true);
+  });
+
+  it("boiler oprit de mana in timpul unui sejur: tine si oprirea, simetric", () => {
+    expect(tineComandaManuala({ pornit: false, until: null }, true, acum)).toBe(true);
+  });
+
+  it("cand regula ar decide aceeasi stare, suprascrierea si-a facut treaba si se lasa", () => {
+    expect(tineComandaManuala({ pornit: true, until: null }, true, acum)).toBe(false);
+    expect(tineComandaManuala({ pornit: false, until: null }, false, acum)).toBe(false);
+  });
+
+  it("lumini: `until` (urmatoarea tranzitie) pune un capat in timp, chiar daca regula nu e de acord", () => {
+    const expirat = new Date(acum.getTime() - 60_000).toISOString();
+    const viitor = new Date(acum.getTime() + 60_000).toISOString();
+    expect(tineComandaManuala({ pornit: true, until: expirat }, false, acum)).toBe(false);
+    expect(tineComandaManuala({ pornit: true, until: viitor }, false, acum)).toBe(true);
+  });
+
+  it("boiler pornit de mana: legionela singura nu-l elibereaza, ca sa nu-l stinga la 14:00", () => {
+    /* 11:30 ora Romaniei, nicio cazare de 10 zile: legionela cere pornit. Omul
+       l-a pornit oricum; daca „de acord" ar elibera, la 14:00 regula l-ar
+       stinge — exact ce s-a reclamat. Sejurul e singurul acord care conteaza
+       pentru o pornire manuala. */
+    const laPranz = new Date(Date.UTC(2026, 8, 13, 8, 30));
+    const decizie = boilerDorit({
+      rezervari: [], acum: laPranz, curentPornit: true, ultimaRulareLegionela: null,
+    });
+    expect(decizie).toEqual({ pornit: true, motivLegionela: true, motivSejur: false });
+    expect(tineComandaManuala({ pornit: true, until: null }, acordBoiler(true, decizie), laPranz)).toBe(true);
+  });
+
+  it("boiler oprit de mana in fereastra de legionela: tine oprit, nu-l reporneste la 10 minute", () => {
+    const laPranz = new Date(Date.UTC(2026, 8, 13, 8, 30));
+    const decizie = boilerDorit({
+      rezervari: [], acum: laPranz, curentPornit: false, ultimaRulareLegionela: null,
+    });
+    expect(tineComandaManuala({ pornit: false, until: null }, acordBoiler(false, decizie), laPranz)).toBe(true);
+  });
+
+  it("boiler pornit de mana: un sejur care il cere pornit il elibereaza; la checkout regula il stinge", () => {
+    const sejur = { status: "checkedin", checkin: "2026-09-13T14:00:00Z", checkout: "2026-09-15T09:00:00Z" };
+    const decizie = boilerDorit({
+      rezervari: [sejur], acum, curentPornit: true, ultimaRulareLegionela: null,
+    });
+    expect(decizie.motivSejur).toBe(true);
+    expect(tineComandaManuala({ pornit: true, until: null }, acordBoiler(true, decizie), acum)).toBe(false);
   });
 });

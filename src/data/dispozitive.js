@@ -60,10 +60,21 @@ export const KIND_CONTOR = "contor";
    calculat, ca sa nu recalculeze fiecare ecran aceeasi conditie. */
 export async function toateDispozitivele() {
   const { data, error } = await supabase.from("devices")
-    .select("*, device_rooms(room_id, rooms(name))")
+    .select("*, device_rooms(room_id, rooms(name)), device_automation_override(pornit, until)")
     .order("provider_device_id").order("channel");
   if (error) throw error;
   return (data || []).map(catreEcran);
+}
+
+/* Comanda manuala inregistrata pentru releu (device_automation_override) mai
+   tine? PostgREST intoarce relatia unu-la-unu ca obiect, dar e tolerata si o
+   lista — costul e un rand, iar un „manual" afisat gresit ar deruta exact pe
+   cine se intreaba de ce automatizarea nu face nimic. Acordul cu regula (care
+   sterge randul) se judeca pe server, in functia edge; aici doar expirarea. */
+export function suprascriereActiva(rand, acum = new Date()) {
+  const r = Array.isArray(rand) ? rand[0] : rand;
+  if (!r) return false;
+  return !r.until || new Date(r.until).getTime() > acum.getTime();
 }
 
 function catreEcran(d) {
@@ -84,6 +95,10 @@ function catreEcran(d) {
     partajat: camere.length > 1,
     pornit: d.last_status?.on === true,
     online: d.last_status?.online === true,
+    /* Sub o comanda de mana: automatizarile il lasa asa (vezi
+       suprascriereActiva). Cameristei, fara drept de citire pe tabel, ii
+       vine gol — deci fals — si n-o priveste oricum. */
+    manual: suprascriereActiva(d.device_automation_override),
     /* Doar contorul are asta; la relee ramane null. */
     consum: d.last_status?.consum || null,
     vazutLa: d.last_seen_at,
@@ -180,7 +195,7 @@ export const REGULI_AUTOMATE = [
   {
     key: "preincalzire_boiler",
     titlu: "Preîncălzire boiler",
-    descriere: "Pornește cu 4 ore înainte de ora de cazare și rămâne pornit pe toată durata sejurului. Nu se oprește dacă a doua zi mai vine cineva pe oricare din cele două camere ale releului.",
+    descriere: "Pornește cu 4 ore înainte de ora de cazare și rămâne pornit pe toată durata sejurului. Nu se oprește dacă a doua zi mai vine cineva pe oricare din cele două camere ale releului. O comandă manuală ține până când regula ar decide oricum aceeași stare.",
   },
   {
     key: "lumini_exterioare",
@@ -190,7 +205,7 @@ export const REGULI_AUTOMATE = [
   {
     key: "anti_legionella",
     titlu: "Anti-legionella",
-    descriere: "O dată la 10 zile, între 11:00 și 14:00, pornește boilerul dacă nicio cameră a lui n-a fost cazată în ultimele 10 zile.",
+    descriere: "O dată la 10 zile, între 11:00 și 14:00, pornește boilerul dacă nicio cameră a lui n-a fost cazată în ultimele 10 zile. Nu atinge un boiler comandat de mână.",
   },
 ];
 

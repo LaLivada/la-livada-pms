@@ -256,7 +256,7 @@ Deno.serve(async (req) => {
           updated_at: new Date().toISOString(),
         }).eq("id", d.id);
         await jurnal({ ...context, action: actiune, result: "ok" });
-        if (d.kind === "iluminat_exterior" && !esteSistem) await inregistreazaOverride(admin, d.id);
+        if (!esteSistem) await inregistreazaOverride(admin, d, pornit);
         reusite.push(camere.join(", "));
       } catch (e) {
         const mesaj = shelly.faraCheie((e as Error).message);
@@ -334,7 +334,7 @@ Deno.serve(async (req) => {
       }).eq("id", device.id);
 
       await jurnal({ ...contextJurnal, action: actiune, result: "ok" });
-      if (device.kind === "iluminat_exterior" && !esteSistem) await inregistreazaOverride(admin, device.id);
+      if (!esteSistem) await inregistreazaOverride(admin, device, pornit);
       return raspuns({ ok: true, device: catreClient(device, stare, camere) });
     }
 
@@ -401,16 +401,22 @@ function catreClient(
   };
 }
 
-/* Un OM tocmai a comandat manual un releu de iluminat exterior — regula 2
-   (lumini după soare) sare peste el pana la urmatoarea tranzitie naturala,
-   ca sa nu-l stinga/aprinda la 10 minute dupa ce cineva l-a atins special.
-   Nu se scrie pentru boiler: nu a fost cerut, iar acolo automatizarea isi
-   reimpune starea la urmatorul tick, fara mecanism de suprascriere. */
-async function inregistreazaOverride(admin: any, deviceId: string) {
+/* Un OM tocmai a comandat manual un releu de boiler sau de iluminat exterior:
+   comanda lui tine in fata automatizarii ca un termostat pus pe hold — vezi
+   `tineComandaManuala` in reguli-automate.ts. Se retine starea ceruta; la
+   lumini si un capat in timp (urmatorul rasarit/apus), la boiler niciunul:
+   acolo tine pana cand regula ar decide oricum aceeasi stare. Pana pe 13
+   septembrie 2026 boilerul n-avea mecanismul asta si era stins de
+   automatizare la 10 minute dupa ce cineva il pornea de mana. */
+const KIND_CU_OVERRIDE = new Set(["boiler", "iluminat_exterior"]);
+
+async function inregistreazaOverride(admin: any, d: { id: string; kind: string }, pornit: boolean) {
+  if (!KIND_CU_OVERRIDE.has(d.kind)) return;
   try {
     await admin.from("device_automation_override").upsert({
-      device_id: deviceId,
-      until: reguli.urmatoareaTranzitie(new Date()).toISOString(),
+      device_id: d.id,
+      pornit,
+      until: d.kind === "iluminat_exterior" ? reguli.urmatoareaTranzitie(new Date()).toISOString() : null,
       updated_at: new Date().toISOString(),
     });
   } catch { /* nu blocheaza comanda manuala daca scrierea esueaza */ }
@@ -514,10 +520,22 @@ async function ruleazaReconciliere(
   const ultimeRulari: Record<string, string> = {};
   for (const r of rulariData || []) ultimeRulari[r.device_id] = r.last_run_on;
 
+  /* Comenzile manuale care tin in fata regulilor (boilere si lumini) — vezi
+     `tineComandaManuala`. Expirarea si acordul se judeca in cod, per releu;
+     randul se sterge in clipa in care nu mai tine, ca ecranul sa nu-l mai
+     arate „manual" dupa ce automatizarea a preluat controlul. */
   const { data: overrideData } = await admin.from("device_automation_override")
-    .select("device_id").in("device_id", luminiExt.map((d: any) => d.id))
-    .gt("until", acum.toISOString());
-  const overrideActiv = new Set((overrideData || []).map((o: any) => o.device_id));
+    .select("device_id, pornit, until")
+    .in("device_id", [...boilere, ...luminiExt].map((d: any) => d.id));
+  const suprascrieri = new Map<string, reguli.Suprascriere>(
+    (overrideData || []).map((o: any): [string, reguli.Suprascriere] =>
+      [o.device_id, { pornit: o.pornit, until: o.until }]));
+  const elibereaza = async (deviceId: string) => {
+    suprascrieri.delete(deviceId);
+    try {
+      await admin.from("device_automation_override").delete().eq("device_id", deviceId);
+    } catch { /* ramane randul vechi; se judeca din nou la tick-ul urmator */ }
+  };
 
   let schimbate = 0;
   const erori: string[] = [];
@@ -556,24 +574,36 @@ async function ruleazaReconciliere(
     for (const d of boilere) {
       const rezervariCamera = rezervariBoilere.filter((r: any) =>
         (d.device_rooms || []).some((l: any) => l.room_id === r.room_id));
-      const { pornit, motivLegionela } = reguli.boilerDorit({
+      const decizie = reguli.boilerDorit({
         rezervari: rezervariCamera, acum,
         curentPornit: Boolean(d.last_status?.on),
         ultimaRulareLegionela: ultimeRulari[d.id] || null,
         preincalzireActiva, legionelaActiva,
       });
-      if (motivLegionela) {
+      /* Comanda manuala tine? Atunci nu se atinge nimic — nici rularea de
+         legionela nu se inregistreaza, fiindca n-a rulat nimic: releul e unde
+         l-a lasat omul. Cu ce se compara comanda vezi `acordBoiler`. */
+      const manual = suprascrieri.get(d.id);
+      if (manual) {
+        if (reguli.tineComandaManuala(manual, reguli.acordBoiler(manual.pornit, decizie), acum)) continue;
+        await elibereaza(d.id);
+      }
+      if (decizie.motivLegionela) {
         await admin.from("device_legionella_runs").upsert({
           device_id: d.id, last_run_on: reguli.dataLocala(acum), updated_at: new Date().toISOString(),
         });
       }
-      if (Boolean(d.last_status?.on) !== pornit) await comanda(d, pornit);
+      if (Boolean(d.last_status?.on) !== decizie.pornit) await comanda(d, decizie.pornit);
     }
   }
 
   if (luminiActive) {
     for (const d of luminiExt) {
-      if (overrideActiv.has(d.id)) continue;
+      const manual = suprascrieri.get(d.id);
+      if (manual) {
+        if (reguli.tineComandaManuala(manual, luminiVor, acum)) continue;
+        await elibereaza(d.id);
+      }
       if (Boolean(d.last_status?.on) !== luminiVor) await comanda(d, luminiVor);
     }
   }

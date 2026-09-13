@@ -489,7 +489,14 @@ function Automatizari({ dispozitive, reguli, rulare, ocupat, onComanda, onComuta
             amandoua randurile, nu o insusire a fiecaruia. Repetat pe fiecare
             rand, lungea titlurile fara sa adauge nimic. */}
         <div className="dv-head">
-          <div className="dv-info"><div className="dv-title">Control manual</div></div>
+          <div className="dv-info">
+            <div className="dv-title">Control manual</div>
+            <div className="dv-sub">
+              O comandă de aici sau de pe un releu ține în fața regulilor: la boilere
+              până când regula ar decide oricum la fel, la lumini până la următorul
+              răsărit sau apus.
+            </div>
+          </div>
         </div>
         {GRUPURI.map((g) => (
           <ComandaGrup
@@ -716,7 +723,18 @@ function Iesire({ config, dispozitiv, camere, ocupat, onComuta }) {
             nume inseamna ca releul le serveste pe amandoua, unul singur ca e
             doar al camerei alea. Eticheta „comun" de dinainte spunea acelasi
             lucru a doua oara. */}
-        <div className="dv-sub"><span>{camere.join(" și ")}</span></div>
+        <div className="dv-sub">
+          <span>{camere.join(" și ")}</span>
+          {/* „manual": releul e sub o comanda de mana si automatizarile il lasa
+              asa. Fara marcaj, cine se intreaba de ce boilerul nu porneste
+              n-ar avea de unde sti ca l-a tinut cineva oprit. */}
+          {dispozitiv?.manual && (
+            <span className="dv-manual"
+                  title="Comandat de mână — automatizările îl lasă așa până când ar decide oricum la fel; la lumini cel târziu la următorul răsărit sau apus">
+              manual
+            </span>
+          )}
+        </div>
       </div>
       {!dispozitiv ? (
         <div className="dv-ctrl"><span className="dv-sub">neînregistrat</span></div>

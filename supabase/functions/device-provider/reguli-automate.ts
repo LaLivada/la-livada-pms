@@ -18,6 +18,11 @@
 //    durata sejurului; nu se opreste daca a doua zi mai vine cineva pe
 //    oricare din cele doua camere ale releului.
 //
+// Peste toate: o comanda manuala (pornit sau oprit) TINE in fata regulilor,
+// ca un termostat pus pe hold — vezi `tineComandaManuala`. La boiler tine
+// pana cand regula ar decide oricum aceeasi stare; la lumini cel tarziu
+// pana la urmatoarea tranzitie naturala.
+//
 // deno-lint-ignore-file no-explicit-any
 
 export interface Rezervare {
@@ -177,7 +182,7 @@ export function boilerDorit(opts: {
   fus?: string;
   preincalzireActiva?: boolean;
   legionelaActiva?: boolean;
-}): { pornit: boolean; motivLegionela: boolean } {
+}): { pornit: boolean; motivLegionela: boolean; motivSejur: boolean } {
   const {
     rezervari, acum, curentPornit, ultimaRulareLegionela, fus = FUS_ORAR,
     preincalzireActiva = true, legionelaActiva = true,
@@ -189,7 +194,7 @@ export function boilerDorit(opts: {
   const legionela = legionelaActiva
     && legionelaDorit({ rezervari, acum, ultimaRulare: ultimaRulareLegionela, fus });
 
-  return { pornit: sejur || legionela, motivLegionela: legionela };
+  return { pornit: sejur || legionela, motivLegionela: legionela, motivSejur: sejur };
 }
 
 /* --- regula 2: lumini exterioare --- */
@@ -268,4 +273,47 @@ export function luminiDorite(
   rezervariPensiune: Rezervare[], acum: Date, lat: number = ACASA.lat, lon: number = ACASA.lon,
 ): boolean {
   return esteNoapte(acum, lat, lon) && (rezervariPensiune || []).some((r) => cazatAcum(r, acum));
+}
+
+/* --- suprascrierea manuala (device_automation_override) ---
+ *
+ * Un OM a comandat releul; pana cand se lasa automatizarea peste el? Regula
+ * unui termostat pus pe hold: comanda tine pana cand programul ar decide
+ * ORICUM aceeasi stare — in clipa aia suprascrierea si-a facut treaba si
+ * automatizarea preia din nou controlul fara sa schimbe nimic. Un boiler
+ * pornit de mana fara rezervare ramane pornit pana vine un sejur care l-ar
+ * porni si el; la checkout regula il stinge, ca de obicei. Un boiler oprit
+ * de mana in timpul unui sejur ramane oprit pana la checkout.
+ *
+ * `until` e un capat in timp, optional: la lumini e urmatorul rasarit/apus
+ * (vezi `urmatoareaTranzitie`), la boiler e null — nu exista o „urmatoare
+ * tranzitie" naturala a unui boiler.
+ *
+ * Istoric: pana pe 13 septembrie 2026 mecanismul exista doar la lumini, iar
+ * boilerul din CT3 pornit de mana era stins de automatizare la fiecare 10
+ * minute. */
+export interface Suprascriere {
+  pornit: boolean;
+  until: string | null;
+}
+
+export function tineComandaManuala(
+  s: Suprascriere | null | undefined, dorit: boolean, acum: Date,
+): boolean {
+  if (!s) return false;
+  if (s.until && new Date(s.until).getTime() <= acum.getTime()) return false;
+  return s.pornit !== dorit;
+}
+
+/* Cu ce se compara comanda manuala a unui BOILER. Nu cu `pornit` brut, din
+   cauza legionelei: un boiler pornit de mana are apa calda oricum, iar daca
+   „regula e de acord" doar pentru fereastra 11-14 l-ar elibera, la 14:00
+   regula l-ar stinge — exact ce s-a reclamat. Deci pentru o pornire manuala
+   conteaza doar sejurul. Pentru o oprire manuala conteaza tot ce l-ar porni
+   (sejur sau legionela): tine oprit, nu-l reporneste la 10 minute; legionela
+   revine a doua zi, fiindca rularea nu se inregistreaza cat timp e tinut. */
+export function acordBoiler(
+  pornitManual: boolean, decizie: { pornit: boolean; motivSejur: boolean },
+): boolean {
+  return pornitManual ? decizie.motivSejur : decizie.pornit;
 }

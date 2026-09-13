@@ -75,7 +75,10 @@ const DISPOZITIVE = [
   { id: `dv-${ID}-1`, idShelly: ID, canal: 1, iesire: 2, kind: "boiler",
     eticheta: "Boiler", nume: "Boiler", activ: true, model: "Shelly Pro 4PM",
     camereIds: ["r1013", "r1011"], camere: ["1011", "1013"], partajat: true,
-    pornit: true, online: true, vazutLa: "2026-09-09T15:00:00Z" },
+    pornit: true, online: true, vazutLa: "2026-09-09T15:00:00Z",
+    /* Sub o comanda de mana — singurul din fixtura, ca marcajul „manual" sa
+       poata fi numarat. */
+    manual: true },
   { id: `dv-${ID}-2`, idShelly: ID, canal: 2, iesire: 3, kind: "prize",
     eticheta: "Prize", nume: "Prize", activ: true, model: "Shelly Pro 4PM",
     camereIds: ["r1013"], camere: ["1013"], partajat: false,
@@ -666,5 +669,28 @@ describe("AutomatizareView — camerele tehnice fara Shelly", () => {
     const g = await randeaza();
     await act(async () => { [...g.querySelectorAll('.dv-tabs [role="tab"]')][1].click(); });
     expect(g.textContent).not.toContain("Adaugă Shelly");
+  });
+});
+
+describe("AutomatizareView — comanda manuala tine in fata regulilor", () => {
+  /* Din 13 septembrie 2026 si boilerele au suprascriere manuala (pana atunci
+     doar luminile): fixtura are boilerul din CT1 sub o comanda de mana. */
+  it("marcheaza „manual” doar releul comandat de mana", async () => {
+    const g = await randeaza();
+    const marcaje = [...g.querySelectorAll(".dv-manual")];
+    expect(marcaje).toHaveLength(1);
+    expect(marcaje[0].closest(".dv-row").textContent).toContain("Boiler");
+    expect(marcaje[0].textContent.trim()).toBe("manual");
+  });
+
+  it("marcajul spune pana cand tine, nu doar ca exista", async () => {
+    const g = await randeaza();
+    expect(g.querySelector(".dv-manual").title).toMatch(/răsărit sau apus/);
+  });
+
+  it("explica sub Control manual ca o comanda tine in fata regulilor", async () => {
+    const g = await randeaza();
+    await treciLaAutomatizari(g);
+    expect(g.textContent).toContain("ține în fața regulilor");
   });
 });

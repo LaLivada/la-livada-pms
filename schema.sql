@@ -4531,15 +4531,23 @@ create table device_legionella_runs (
   updated_at  timestamptz not null default now()
 );
 
--- Suprascrierea manuala a automatizarii de lumini exterioare: cat timp
--- `until` e in viitor, ciclul de reconciliere sare peste dispozitivul asta.
--- Doar iluminat_exterior foloseste tabelul asta — boilerul n-a primit acest
--- mecanism (nu a fost cerut).
+-- Suprascrierea manuala a automatizarii, la boilere si la lumini exterioare:
+-- un om a comandat releul, iar comanda lui tine in fata regulilor ca un
+-- termostat pus pe hold (vezi `tineComandaManuala` in reguli-automate.ts).
+-- `pornit` = starea ceruta de om. `until` = capat in timp, doar la lumini
+-- (urmatorul rasarit/apus); la boiler e null — tine pana cand regula ar
+-- decide oricum aceeasi stare, moment in care functia edge sterge randul.
+-- Pana pe 13 septembrie 2026 doar iluminat_exterior folosea tabelul asta
+-- (migrarea override_manual_si_la_boilere); boilerul din CT3 pornit de mana
+-- era stins de automatizare la fiecare 10 minute.
 create table device_automation_override (
   device_id  text primary key references devices(id) on delete cascade,
-  until      timestamptz not null,
+  pornit     boolean not null default true,
+  until      timestamptz,
   updated_at timestamptz not null default now()
 );
+comment on table device_automation_override is
+  'Comanda manuala care tine automatizarea la distanta de un releu (boiler sau iluminat exterior). pornit = starea ceruta de om; until = capat in timp (doar la lumini: urmatorul rasarit/apus), null la boiler. Randul se sterge cand regula ar decide oricum aceeasi stare. Scris doar de functia edge device-provider.';
 
 alter table device_legionella_runs     enable row level security;
 alter table device_automation_override enable row level security;
