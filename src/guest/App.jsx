@@ -551,6 +551,22 @@ function CumAjungi({ deschideAcces }) {
   return (
     <div className="g-card" ref={refCard}>
       <h2>Cum ajungi la noi</h2>
+      {/* Primul lucru din card, inainte chiar de Maps si Waze — nu doar
+          deasupra hartii. Proprietarul a semnalat ca traseul numerotat prin
+          curte conteaza la fel de mult ca usa insasi pentru cine ajunge
+          prima data, dar statea intr-un link de 12px, ultimul dupa doua
+          trimiteri externe; a doua incercare il pusese deasupra hartii, dar
+          tot dupa randul cu Maps si Waze — jumatate de masura, nu „primul
+          lucru" cerut. Ramane `button`, desi arata ca o actiune: nu duce
+          nicaieri, deschide ceva pe loc.
+          Contur, nu fond plin: cu olive plin ar fi concurat cu bannerul
+          fisei pentru atentie, iar cu sampanie plin ar fi parut o a doua
+          usa. Conturul olive (sampanie in tema de noapte, vezi mai jos)
+          il leaga vizual de familia „lucruri importante" fara sa intre in
+          aceeasi categorie. */}
+      <button type="button" className="g-acces-buton" onClick={deschideAcces}>
+        <Usa />Acces către camere
+      </button>
       <p className="g-legaturi">
         {/* Cele doua harti stau impreuna, ca un singur element de asezare:
             sunt acelasi lucru facut in doua aplicatii, deci daca randul se
@@ -570,25 +586,8 @@ function CumAjungi({ deschideAcces }) {
           </a>
         </span>
       </p>
-      {/* Buton propriu, deasupra hartii — nu mai la coada randului de
-          legaturi, dupa Maps si Waze. Proprietarul a semnalat ca traseul
-          numerotat prin curte conteaza la fel de mult ca usa insasi pentru
-          cine ajunge prima data, dar statea intr-un link de 12px, ultimul
-          dupa doua trimiteri externe. Ramane `button`, desi arata ca o
-          actiune: nu duce nicaieri, deschide ceva pe loc.
-          Contur, nu fond plin: cu olive plin ar fi concurat cu bannerul
-          fisei pentru atentie, iar cu sampanie plin ar fi parut o a doua
-          usa. Conturul olive (sampanie in tema de noapte, vezi mai jos)
-          il leaga vizual de familia „lucruri importante" fara sa intre in
-          aceeasi categorie.
-          Fara scurtare a numelui: aici sta singur pe rand, deci „Acces
-          către camere" intreg incape oricum, spre deosebire de cand statea
-          langa Maps si Waze (vezi masuratoarea de la .g-leg, mai jos). */}
-      <button type="button" className="g-acces-buton" onClick={deschideAcces}>
-        <Usa />Acces către camere
-      </button>
-      {/* Harta sub buton: intai actiunile cu care pornesti la drum, apoi
-          imaginea locului, pentru cine vrea sa vada unde vine. */}
+      {/* Harta ultima: intai actiunea principala, apoi trimiterile externe,
+          apoi imaginea locului, pentru cine vrea sa vada unde vine. */}
       <div className="g-harta-cadru" ref={refHarta}>
         <iframe
           className="g-harta-rama"
