@@ -15,6 +15,8 @@
  * camera („preț 1002 lei"). De-aia se sare peste potrivirile urmate de
  * „lei" — singura unitate care apare dupa un numar in jurnal.
  */
+import { dataLocala } from "./timp.js";
+
 const URMAT_DE_LEI = /^\s*lei\b/;
 
 export function cameraDinDetaliu(detaliu, numeCamere) {
@@ -44,17 +46,13 @@ export function cameraDinDetaliu(detaliu, numeCamere) {
   return gasita;
 }
 
-/* Ziua locala a unei intrari, ca „2026-09-11". Local, nu UTC: recepția
-   lucreaza pana dupa miezul noptii, iar o actiune de la 01:30 trebuie sa
-   cada in ziua in care omul crede ca a facut-o. */
-export function ziLocala(ts) {
-  /* `new Date(null)` NU e o data invalida — e 1 ianuarie 1970. Lipsa se
-     opreste aici, altfel o intrare fara `ts` ar fi aratat ca o zi reala. */
-  if (ts == null || ts === "") return "";
-  const d = new Date(ts);
-  if (Number.isNaN(d.getTime())) return "";
-  const p = (n) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+/* Ziua unei intrari, ca „2026-09-11" — ziua de la Vaslui (lib/timp.js), nu
+   UTC si nu a browserului: receptia lucreaza pana dupa miezul noptii, iar o
+   actiune de la 01:30 trebuie sa cada in ziua in care omul crede ca a
+   facut-o, si tot acolo si cand proprietarul se uita din alt fus.
+   Lipsa (`null`, `""`) si datele stricate dau sir gol, nu 1 ianuarie 1970. */
+export function ziuaIntrarii(ts) {
+  return dataLocala(ts);
 }
 
 const timp = (e) => {
@@ -69,7 +67,7 @@ const timp = (e) => {
 export function filtreazaJurnal(intrari, { camera = "", zi = "" } = {}, numeCamere = []) {
   let lista = intrari || [];
   if (camera) lista = lista.filter((e) => cameraDinDetaliu(e?.detail, numeCamere) === camera);
-  if (zi) lista = lista.filter((e) => ziLocala(e?.ts) === zi);
+  if (zi) lista = lista.filter((e) => ziuaIntrarii(e?.ts) === zi);
   return lista;
 }
 
@@ -80,7 +78,7 @@ export function filtreazaJurnal(intrari, { camera = "", zi = "" } = {}, numeCame
 export function ziiDistincte(intrari) {
   const zile = new Set();
   for (const e of intrari || []) {
-    const z = ziLocala(e?.ts);
+    const z = ziuaIntrarii(e?.ts);
     if (z) zile.add(z);
   }
   return [...zile].sort((a, b) => (a < b ? 1 : a > b ? -1 : 0));
@@ -95,7 +93,7 @@ export function ziiDistincte(intrari) {
 export function grupeazaPeZi(intrari) {
   const pe_zi = new Map();
   for (const e of intrari || []) {
-    const z = ziLocala(e?.ts);
+    const z = ziuaIntrarii(e?.ts);
     if (!pe_zi.has(z)) pe_zi.set(z, []);
     pe_zi.get(z).push(e);
   }

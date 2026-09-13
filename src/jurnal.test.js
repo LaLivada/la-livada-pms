@@ -8,7 +8,7 @@
  * Sirurile de mai jos sunt copiate din jurnalul real, nu inventate.
  */
 import { describe, it, expect } from "vitest";
-import { cameraDinDetaliu, ziLocala, filtreazaJurnal, ziiDistincte, grupeazaPeZi, etichetaZi }
+import { cameraDinDetaliu, ziuaIntrarii, filtreazaJurnal, ziiDistincte, grupeazaPeZi, etichetaZi }
   from "./lib/jurnal.js";
 
 const CAMERE = [
@@ -71,19 +71,21 @@ describe("cameraDinDetaliu", () => {
   });
 });
 
-/* Ziua e LOCALA, nu UTC: receptia lucreaza si dupa miezul noptii, iar o
-   actiune de la 01:30 trebuie sa cada in ziua in care omul crede ca a
-   facut-o. Datele sunt scrise fara `Z` tocmai ca testul sa nu depinda de
-   fusul masinii care il ruleaza. */
-describe("ziLocala", () => {
-  it("da ziua calendaristica locala", () => {
-    expect(ziLocala("2026-09-11T01:30:00")).toBe("2026-09-11");
-    expect(ziLocala("2026-09-11T23:59:00")).toBe("2026-09-11");
+/* Ziua e cea de la Vaslui, nu UTC si nu a masinii: receptia lucreaza si dupa
+   miezul noptii, iar o actiune de la 01:30 trebuie sa cada in ziua in care
+   omul crede ca a facut-o. Un sir fara `Z` se citeste ca ora hotelului
+   (lib/timp.js), deci testul spune acelasi lucru in orice fus. */
+describe("ziuaIntrarii", () => {
+  it("da ziua calendaristica de la Vaslui", () => {
+    expect(ziuaIntrarii("2026-09-11T01:30:00")).toBe("2026-09-11");
+    expect(ziuaIntrarii("2026-09-11T23:59:00")).toBe("2026-09-11");
+    // 10 septembrie 22:30 UTC = 11 septembrie 01:30 la Vaslui
+    expect(ziuaIntrarii("2026-09-10T22:30:00Z")).toBe("2026-09-11");
   });
 
   it("tace pe o data stricata sau lipsa", () => {
-    expect(ziLocala("nu-e-o-data")).toBe("");
-    expect(ziLocala(null)).toBe("");
+    expect(ziuaIntrarii("nu-e-o-data")).toBe("");
+    expect(ziuaIntrarii(null)).toBe("");
   });
 });
 

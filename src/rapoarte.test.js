@@ -1,11 +1,12 @@
 import { describe, it, expect } from "vitest";
 import { statisticiLuna, statisticiProtocol, statisticiDinSql, inceputDeLuna, zileInLuna } from "./lib/rapoarte.js";
+import { dinPartiLocale } from "./lib/timp.js";
 
-/* Septembrie 2026, 30 de zile. Datele sunt construite in fusul masinii, dar
-   lib/timp.js le normalizeaza la zilele de la Vaslui — de-aia testul trece si
-   cu TZ=America/New_York (CI ruleaza suita si asa). */
-const LUNA = new Date(2026, 8, 1);
-const zi = (d, h = 14) => new Date(2026, 8, d, h).toISOString();
+/* Septembrie 2026, 30 de zile, in ORA HOTELULUI (dinPartiLocale), nu a
+   masinii: asa testul spune acelasi lucru pe tableta din Vaslui, pe ubuntu-ul
+   din CI (UTC) si cu TZ=America/New_York (CI ruleaza suita si asa). */
+const LUNA = dinPartiLocale(2026, 9, 1);
+const zi = (d, h = 14) => dinPartiLocale(2026, 9, d, h).toISOString();
 
 const core = {
   rooms: [
@@ -21,7 +22,7 @@ const rezervari = [
   { id: "a", roomId: "t1", checkin: zi(10), checkout: zi(13, 12), status: "checkedout", source: "direct", bookedPrice: 300 },
   // 3 nopti (30 aug, 31 aug, 1 sept) din care doar ultima e in septembrie —
   // ziua plecarii (2 sept) nu e noapte vanduta; pret manual 450 -> 150/noapte
-  { id: "b", roomId: "l1", checkin: new Date(2026, 7, 30, 14).toISOString(), checkout: zi(2, 12), status: "checkedout", source: "site", priceOverride: 450 },
+  { id: "b", roomId: "l1", checkin: dinPartiLocale(2026, 8, 30, 14).toISOString(), checkout: zi(2, 12), status: "checkedout", source: "site", priceOverride: 450 },
   // anulata: nu conteaza nicaieri
   { id: "c", roomId: "t2", checkin: zi(5), checkout: zi(8, 12), status: "cancelled", source: "direct", bookedPrice: 900 },
   // protocol: statistica separata, 2 nopti in luna, valoare 700 -> 350/noapte
@@ -87,7 +88,7 @@ describe("statisticiProtocol", () => {
   });
 
   it("un protocol care intra in luna doar cu o noapte aduce doar cota ei", () => {
-    const r = [{ id: "p", roomId: "t1", checkin: new Date(2026, 7, 30, 14).toISOString(), checkout: zi(2, 12), status: "protocol", bookedPrice: 900 }];
+    const r = [{ id: "p", roomId: "t1", checkin: dinPartiLocale(2026, 8, 30, 14).toISOString(), checkout: zi(2, 12), status: "protocol", bookedPrice: 900 }];
     expect(statisticiProtocol(r, core, LUNA)).toEqual({ count: 1, nights: 1, value: 300 });
   });
 });
@@ -140,14 +141,14 @@ describe("statisticiDinSql", () => {
 
 describe("inceputDeLuna / zileInLuna", () => {
   it("luna curenta, la miezul noptii, ziua 1; decalajul merge inapoi si peste an", () => {
-    const acum = new Date(2026, 0, 15, 13, 45);
-    expect(inceputDeLuna(0, acum)).toEqual(new Date(2026, 0, 1));
-    expect(inceputDeLuna(-1, acum)).toEqual(new Date(2025, 11, 1));
-    expect(inceputDeLuna(2, acum)).toEqual(new Date(2026, 2, 1));
+    const acum = dinPartiLocale(2026, 1, 15, 13, 45);
+    expect(inceputDeLuna(0, acum)).toEqual(dinPartiLocale(2026, 1, 1));
+    expect(inceputDeLuna(-1, acum)).toEqual(dinPartiLocale(2025, 12, 1));
+    expect(inceputDeLuna(2, acum)).toEqual(dinPartiLocale(2026, 3, 1));
   });
   it("numarul de zile respecta luna, inclusiv februarie bisect", () => {
-    expect(zileInLuna(new Date(2026, 8, 1))).toBe(30);
-    expect(zileInLuna(new Date(2028, 1, 1))).toBe(29);
-    expect(zileInLuna(new Date(2026, 1, 1))).toBe(28);
+    expect(zileInLuna(dinPartiLocale(2026, 9, 1))).toBe(30);
+    expect(zileInLuna(dinPartiLocale(2028, 2, 1))).toBe(29);
+    expect(zileInLuna(dinPartiLocale(2026, 2, 1))).toBe(28);
   });
 });

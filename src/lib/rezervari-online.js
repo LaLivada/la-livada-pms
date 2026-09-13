@@ -44,7 +44,7 @@ export function ultimeleOnline(rezervari, limita = REZERVARI_PE_CARD) {
    simpla: de la 20 in sus se pune „de". */
 const cuDe = (n, cuvant) => (n >= 20 ? `${n} de ${cuvant}` : `${n} ${cuvant}`);
 
-import { zileIntre } from "./timp.js";
+import { zileIntre, momentLocal } from "./timp.js";
 
 const MINUT = 60000, ORA = 3600000;
 
@@ -57,7 +57,8 @@ const MINUT = 60000, ORA = 3600000;
  * minute", ci „chiar acum" — un minus acolo ar arata ca o defectiune, si nu e.
  */
 export function candAVenit(iso, acum = new Date(), fmtDataOra) {
-  const t = new Date(iso ?? NaN).getTime();
+  /* Un sir fara fus e ora hotelului (lib/timp.js); cel din baza are Z. */
+  const t = momentLocal(iso ?? NaN).getTime();
   if (Number.isNaN(t)) return "";
   const delta = acum.getTime() - t;
   if (delta < MINUT) return "chiar acum";

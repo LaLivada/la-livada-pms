@@ -7,6 +7,7 @@
  *    cardul si-ar pierde rostul fara sa se vada ca s-a stricat.
  */
 import { describe, it, expect } from "vitest";
+import { momentLocal } from "./lib/timp.js";
 import { ultimeleOnline, candAVenit, SURSA_SITE, REZERVARI_PE_CARD }
   from "./lib/rezervari-online.js";
 
@@ -80,12 +81,13 @@ describe("ultimeleOnline", () => {
   });
 });
 
-/* Datele de aici sunt scrise FARA `Z`, adica in ora locala. Nu e o scapare:
-   pragul dintre „acum N ore" si „ieri" e pe zi calendaristica locala, iar cu
-   ore UTC testul ar fi trecut sau ar fi cazut dupa fusul masinii care il
-   ruleaza. */
+/* Datele de aici sunt scrise FARA `Z`: un sir fara fus e ora HOTELULUI
+   (lib/timp.js), iar pragul dintre „acum N ore" si „ieri" e pe ziua de la
+   Vaslui. „Acum" se construieste tot asa (momentLocal), altfel testul ar fi
+   trecut sau ar fi cazut dupa fusul masinii care il ruleaza — exact ce s-a
+   intamplat in CI (UTC) pe 14 septembrie 2026. */
 describe("candAVenit", () => {
-  const acum = new Date("2026-09-10T12:00:00");
+  const acum = momentLocal("2026-09-10T12:00:00");
   const fmt = (d) => `data:${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
 
   it("spune chiar acum sub un minut", () => {
@@ -112,7 +114,7 @@ describe("candAVenit", () => {
      ceva intrat aseara la 23:00, citit azi la 08:00, e „ieri" pentru omul de
      la receptie, nu „acum 9 ore". */
   it("trece pe ieri la schimbarea zilei, nu la 24 de ore", () => {
-    const dimineata = new Date("2026-09-10T08:00:00");
+    const dimineata = momentLocal("2026-09-10T08:00:00");
     expect(candAVenit("2026-09-09T23:00:00", dimineata)).toBe("ieri");
   });
 

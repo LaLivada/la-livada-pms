@@ -4,11 +4,13 @@ import {
   checkouturiRestante, zileIntarziere, ORE_CHECKIN_DEVREME, ZILE_CHECKIN_DEVREME,
   sosiriRestante, zileIntarziereSosire,
 } from "./lib/tranzitii.js";
+import { momentLocal } from "./lib/timp.js";
 
 /* Momentul de referinta al tuturor testelor. Fix, injectat explicit: o
    regula despre timp testata cu "acum" real trece sau cade dupa ora la care
-   ruleaza suita. */
-const ACUM = new Date("2026-08-20T10:00:00");
+   ruleaza suita. In ORA HOTELULUI (momentLocal), nu a masinii: „azi" e ziua
+   de la Vaslui, deci testul trece la fel pe ubuntu-ul din CI. */
+const ACUM = momentLocal("2026-08-20T10:00:00");
 const peste = (ore) => new Date(ACUM.getTime() + ore * 3600_000);
 
 const rez = (over = {}) => ({
@@ -74,7 +76,7 @@ describe("canCheckOut / canCancel / canNoShow", () => {
 
 describe("sosiriRestante — night audit pe sosiri neprezentate", () => {
   it("nu semnaleaza o sosire de azi, oricat de tarziu ar fi ora", () => {
-    const seara = new Date("2026-08-20T23:30:00");
+    const seara = momentLocal("2026-08-20T23:30:00");
     const r = rez({ status: "confirmed", checkin: "2026-08-20T14:00:00" });
     expect(sosiriRestante([r], seara)).toEqual([]);
   });
@@ -102,7 +104,7 @@ describe("sosiriRestante — night audit pe sosiri neprezentate", () => {
 
 describe("checkouturiRestante — night audit", () => {
   it("nu semnaleaza o plecare de azi, oricat de tarziu ar fi ora", () => {
-    const seara = new Date("2026-08-20T23:30:00");
+    const seara = momentLocal("2026-08-20T23:30:00");
     const r = rez({ status: "checkedin", checkout: "2026-08-20T11:00:00" });
     expect(checkouturiRestante([r], seara)).toEqual([]);
   });
@@ -164,12 +166,12 @@ describe("cazatAcum — sta cineva chiar acum in camera", () => {
 
   it("check-in facut, dar sosirea e peste trei zile → camera e libera", () => {
     expect(cazatAcum({ status: "checkedin", checkin: SOSIRE },
-      new Date("2026-09-08T07:00:00Z"))).toBe(false);
+      momentLocal("2026-09-08T07:00:00Z"))).toBe(false);
   });
 
   it("cu un minut inainte de ora sosirii, tot libera", () => {
     expect(cazatAcum({ status: "checkedin", checkin: SOSIRE },
-      new Date("2026-09-11T10:59:00Z"))).toBe(false);
+      momentLocal("2026-09-11T10:59:00Z"))).toBe(false);
   });
 
   it("fix la ora sosirii devine ocupata", () => {
@@ -179,20 +181,20 @@ describe("cazatAcum — sta cineva chiar acum in camera", () => {
 
   it("in timpul sejurului e ocupata", () => {
     expect(cazatAcum({ status: "checkedin", checkin: SOSIRE },
-      new Date("2026-09-12T09:00:00Z"))).toBe(true);
+      momentLocal("2026-09-12T09:00:00Z"))).toBe(true);
   });
 
   /* Capatul de sus ramane deschis: nimeni n-a apasat check-out, deci
      oaspetele poate fi inca inauntru. */
   it("ramane ocupata si dupa ora plecarii, cat timp statusul e checkedin", () => {
     expect(cazatAcum({ status: "checkedin", checkin: SOSIRE },
-      new Date("2026-09-20T09:00:00Z"))).toBe(true);
+      momentLocal("2026-09-20T09:00:00Z"))).toBe(true);
   });
 
   it("orice alt status inseamna camera libera", () => {
     for (const status of ["confirmed", "pending", "checkedout", "cancelled", "noshow"]) {
       expect(cazatAcum({ status, checkin: SOSIRE },
-        new Date("2026-09-12T09:00:00Z")), status).toBe(false);
+        momentLocal("2026-09-12T09:00:00Z")), status).toBe(false);
     }
   });
 });

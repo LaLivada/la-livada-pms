@@ -87,6 +87,10 @@ mașină.
   cu `TZ=America/New_York`. Înainte de schimbare suita trecea în orice fus
   fiindcă testele erau *consecvente cu fusul mașinii*, nu corecte — acum
   spun același lucru oriunde.
+- Local, pe Windows, Node ignoră un `TZ` diferit de `UTC` (Node 24, ICU cu
+  fusul sistemului); verificarea de acasă e `TZ=UTC npx vitest run`. Primul
+  push a picat în CI din cauza asta: cinci teste își construiau „acum" în
+  fusul mașinii — acum îl construiesc în ora hotelului.
 - În bază, după migrare: un sejur 14 sept 01:00 → 16 sept 11:00 (ora
   României) costă 2 nopți, la fel ca unul de la 14:00.
 
