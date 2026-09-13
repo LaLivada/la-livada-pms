@@ -12,9 +12,11 @@ import * as datePersonal from "../data/personal.js";
 import { mesajEroare } from "../lib/errors.js";
 import { audit } from "../lib/audit.js";
 import { fmtMoney, fmtDate, fmtDateTime, FMT_TIME, initials, FMT_MONTH_YEAR } from "../lib/format.js";
-import { ROLE_LABEL, ROOM_TYPE, SOURCES, sourceLabel, STATUS_CLASS, PERMISSIONS, ALL_PERMS } from "../lib/constante.js";
-import { nightsBetween, isStatsEligible } from "../lib/availability.js";
-import { reservationTotal } from "../lib/pricing.js";
+import { ROLE_LABEL, ROOM_TYPE, sourceLabel, STATUS_CLASS, PERMISSIONS, ALL_PERMS } from "../lib/constante.js";
+import { nightsBetween } from "../lib/availability.js";
+/* Cifrele lunare stau in lib/rapoarte.js (testate in src/rapoarte.test.js);
+   ecranul doar le memoizeaza si le deseneaza. */
+import { inceputDeLuna, statisticiLuna, statisticiProtocol } from "../lib/rapoarte.js";
 import { Dialog, toaster, useModalLock, Stat, PdfPreview } from "../ui/primitive.jsx";
 import { cameraDinDetaliu, filtreazaJurnal, ziiDistincte, grupeazaPeZi, etichetaZi } from "../lib/jurnal.js";
 import { generatePdfBlob, pregatesteFila, arataInFila, inchideFila } from "../lib/pdf.js";
@@ -416,114 +418,23 @@ export function ReportsView({ core, reservations }) {
   const [monthOffset, setMonthOffset] = useState(0);
   const [detaliuZilnic, setDetaliuZilnic] = useState(false);
 
-  const base = new Date();
-  base.setDate(1); base.setHours(0, 0, 0, 0);
-  base.setMonth(base.getMonth() + monthOffset);
-  const monthStart = new Date(base);
-  const monthEnd = new Date(base); monthEnd.setMonth(monthEnd.getMonth() + 1);
-  const daysInMonth = Math.round((monthEnd - monthStart) / 86400000);
+  const monthStart = inceputDeLuna(monthOffset);
   const monthStartMs = monthStart.getTime();
 
-  /* All month figures come from one memoized pass: dates parsed once per
-     reservation, rooms looked up through a map instead of a linear find
-     inside the day loop, and per-type nights accumulated in the same
-     sweep rather than re-scanning the month once per room type. */
-  const stats = useMemo(() => {
-    const roomById = new Map(core.rooms.map((r) => [r.id, r]));
-    const active = [];
-    // Rezervarile protocol au propria sectiune, separata (protocolStats mai
-    // jos) — nu intra in ocupare/venit/ADR/RevPAR/surse ca sa nu denatureze
-    // cifrele reale de business cu sederi pe care nu se incaseaza bani.
-    for (const r of reservations) {
-      if (!isStatsEligible(r)) continue;
-      const ciMs = new Date(r.checkin).getTime();
-      const coMs = new Date(r.checkout).getTime();
-      if (!Number.isFinite(ciMs) || !Number.isFinite(coMs)) continue;
-      const ciDay = new Date(ciMs); ciDay.setHours(0, 0, 0, 0);
-      const coDay = new Date(coMs); coDay.setHours(0, 0, 0, 0);
-      // Cota pe noapte din pretul REAL (inghetat/manual), nu un recalcul cu
-      // tarifele curente — la fel ca in TodayView.revenueToday, altfel
-      // veniturile de aici nu se potrivesc cu cele din "bySource" mai jos.
-      const totalNights = Math.max(1, Math.round((coDay - ciDay) / 86400000));
-      const perNight = reservationTotal(r, core) / totalNights;
-      active.push({ res: r, ciMs, coMs, ciDayMs: ciDay.getTime(), coDayMs: coDay.getTime(), room: roomById.get(r.roomId), perNight });
-    }
-
-    let roomNights = 0, revenue = 0;
-    const perDay = [];
-    const nightsByType = { tiny: 0, loft: 0 };
-
-    for (let i = 0; i < daysInMonth; i++) {
-      const d = new Date(monthStart); d.setDate(monthStart.getDate() + i);
-      const dStart = d.getTime();
-      let occ = 0, rev = 0;
-      for (const e of active) {
-        // Same room-night rule as the calendar footer: the departure day
-        // is not a sold night, so a turnover day counts once, not twice.
-        if (e.ciDayMs <= dStart && e.coDayMs > dStart) {
-          occ++;
-          if (e.room) {
-            rev += e.perNight;
-            if (nightsByType[e.room.type] != null) nightsByType[e.room.type]++;
-          }
-        }
-      }
-      roomNights += occ; revenue += rev;
-      perDay.push({ day: i + 1, occ, rev });
-    }
-
-    const capacity = core.rooms.length * daysInMonth;
-    const byType = ["tiny", "loft"].map((t) => {
-      const cap = core.rooms.filter((r) => r.type === t).length * daysInMonth;
-      const nights = nightsByType[t] || 0;
-      return { type: t, nights, cap, pct: cap ? Math.round((nights / cap) * 100) : 0 };
-    });
-
-    const monthEndMs = monthEnd.getTime();
-    const inMonth = active.filter((e) => e.ciMs < monthEndMs && e.coMs > monthStartMs);
-    const totalInMonth = inMonth.length;
-    const bySource = SOURCES.map((sc) => {
-      const list = inMonth.filter((e) => (e.res.source || "direct") === sc.key);
-      const rev = list.reduce((sum, e) => sum + reservationTotal(e.res, core), 0);
-      return { ...sc, count: list.length, rev, pct: totalInMonth ? Math.round((list.length / totalInMonth) * 100) : 0 };
-    }).filter((x) => x.count > 0).sort((a, b) => b.count - a.count);
-
-    return {
-      roomNights, revenue, perDay, capacity, byType, bySource,
-      occupancy: capacity ? Math.round((roomNights / capacity) * 100) : 0,
-      adr: roomNights ? revenue / roomNights : 0,
-      revpar: capacity ? revenue / capacity : 0,
-      maxOcc: Math.max(1, ...perDay.map((p) => p.occ)),
-    };
+  /* Calculul sta in lib/rapoarte.js (testat, si referinta pentru varianta
+     SQL) — aici doar memoizarea: o singura trecere pe schimbarea datelor
+     sau a lunii, nu la fiecare randare. */
+  const stats = useMemo(() => statisticiLuna(reservations, core, monthStart),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [reservations, core, monthStartMs, daysInMonth]);
+    [reservations, core, monthStartMs]);
 
   const { roomNights, revenue, perDay, capacity, byType, bySource, occupancy, adr, revpar, maxOcc } = stats;
 
-  /* Statistica separata, doar pentru camerele/rezervarile "protocol" —
-     numar sejururi, nopti si valoarea lor (pe nopti din luna, ca la
-     revenue de mai sus), fara sa se amestece cu cifrele de business. */
-  const protocolStats = useMemo(() => {
-    let count = 0, nights = 0, value = 0;
-    const seen = new Set();
-    for (const r of reservations) {
-      if (r.status !== "protocol") continue;
-      const ciMs = new Date(r.checkin).getTime();
-      const coMs = new Date(r.checkout).getTime();
-      if (!Number.isFinite(ciMs) || !Number.isFinite(coMs)) continue;
-      if (ciMs >= monthEnd.getTime() || coMs <= monthStartMs) continue;
-      if (!seen.has(r.id)) { seen.add(r.id); count++; }
-      const ciDay = new Date(ciMs); ciDay.setHours(0, 0, 0, 0);
-      const coDay = new Date(coMs); coDay.setHours(0, 0, 0, 0);
-      const totalNights = Math.max(1, Math.round((coDay - ciDay) / 86400000));
-      const perNight = reservationTotal(r, core) / totalNights;
-      for (let d = new Date(ciDay); d < coDay; d.setDate(d.getDate() + 1)) {
-        if (d.getTime() >= monthStartMs && d.getTime() < monthEnd.getTime()) { nights++; value += perNight; }
-      }
-    }
-    return { count, nights, value };
+  /* Statistica separata, doar pentru rezervarile "protocol" — nu se
+     amesteca cu cifrele de business. */
+  const protocolStats = useMemo(() => statisticiProtocol(reservations, core, monthStart),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [reservations, core, monthStartMs, daysInMonth]);
+    [reservations, core, monthStartMs]);
 
   return (
     <div>
