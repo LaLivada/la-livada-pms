@@ -12,7 +12,7 @@ import {
   CalendarDays, Users, DoorOpen, Plus, X, Search, ChevronLeft, ChevronRight,
   Sparkles, Check, Trash2, Pencil, UsersRound, LogIn, LogOut, Printer, Eye,
   ArrowRight, MoveRight, XCircle, MessageSquare, AlertTriangle, RefreshCw,
-  Undo2, Copy, Info, Wrench, Tag as TagIcon, Rows2, Rows3, Columns2, Columns3,
+  Undo2, Copy, Info, Wrench, Tag as TagIcon, Rows2, Rows3, Columns2, Columns3, CalendarRange,
   Zap, Flame, Wind, Snowflake, UserCheck, Clock, Globe,
 } from "lucide-react";
 import { uid } from "../lib/uid.js";
@@ -22,6 +22,10 @@ import { guestFullName, occupantName } from "../lib/nume.js";
 import { nightsBetween, rangesOverlap, validateStay, isLive, isStatsEligible } from "../lib/availability.js";
 import { ziLocala, adaugaZile, zileIntre, momentLocal, adaugaZileLaData, laOraLocala, partiLocale, esteWeekend } from "../lib/timp.js";
 import { planIntentie } from "../lib/scurtaturi.js";
+import {
+  CHEIE_LATIME, ETICHETA_LATIME, latimeImplicita, latimeSalvata, urmatoareaLatime, latimeDupaPinch,
+  latimeZiPx, decidePinch, distantaAtingeri,
+} from "../lib/calendar-latime.js";
 import { reservationTotal, nightlyRate, liveReservationTotalOnline, diferentaDePret } from "../lib/pricing.js";
 import { splitEvenly } from "../lib/money.js";
 import { isSameDay, isToday, canCheckIn, canCheckOut, canCancel, canNoShow, checkouturiRestante, zileIntarziere, sosiriRestante, zileIntarziereSosire, ZILE_CHECKIN_DEVREME } from "../lib/tranzitii.js";
@@ -224,11 +228,6 @@ export function CalendarView({ core, updateCore, reservations, updateReservation
   /* Implicit active — cerut pe 9 septembrie 2026: calendarul se deschide
      direct in vederea densa, nu mai cere un clic de fiecare data. */
   const [dense, setDense] = useState(true);
-  /* Zile mai late, ca sa incapa numele intreg pe bara. Separat de `dense`:
-     acela schimba inaltimea randului, asta latimea coloanei, si se pot
-     folosi si impreuna — multe camere pe ecran, cu nume citibile.
-     Tot implicit activ, din acelasi motiv. */
-  const [larg, setLarg] = useState(true);
   const [actionRes, setActionRes] = useState(null);
   const [blockInfo, setBlockInfo] = useState(null);
   const [moveId, setMoveId] = useState(null);
@@ -288,7 +287,50 @@ export function CalendarView({ core, updateCore, reservations, updateReservation
      tastatura cu trackpad. */
   useEffect(() => { setInPlus(0); setInainte(0); }, [offset, eTactil]);
 
+  /* Latimea zilelor (faza 3, C3, lib/calendar-latime.js): inguste, „7 zile
+     pe ecran" sau late (numele intreg). Separat de `dense`: acela schimba
+     inaltimea randului, asta latimea coloanei, si se pot folosi impreuna.
+     Implicit 7 zile pe tableta, late in rest; alegerea ramane in browser. */
+  const [latime, setLatimeStare] = useState(() =>
+    latimeSalvata(globalThis.localStorage)
+    || latimeImplicita({ tactil: window.matchMedia?.(INTREBARE_TACTIL).matches ?? false, latimeEcran: window.innerWidth }));
+  const setLatime = (mod) => {
+    setLatimeStare(mod);
+    try { localStorage.setItem(CHEIE_LATIME, mod); } catch { /* fara stocare, alegerea tine cat pagina */ }
+  };
+
   const zonaDerulare = useRef(null);
+  /* Latimea grilei, pentru „7 zile pe ecran": se imparte la sapte. Se
+     masoara cu ResizeObserver, nu din latimea ferestrei — grila are
+     margini si, pe desktop, bara laterala. */
+  const [latimeGrila, setLatimeGrila] = useState(0);
+  useEffect(() => {
+    const el = zonaDerulare.current;
+    if (!el) return;
+    setLatimeGrila(el.clientWidth);
+    if (typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(() => setLatimeGrila(el.clientWidth));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  const ziPx = latimeZiPx(latime, latimeGrila);
+
+  /* Pinch pe grila: doua degete departate = zile mai late, apropiate =
+     mai inguste, cate un pas. `touch-action: pan-x pan-y` pe .cal-scroll
+     lasa derularea browserului si opreste zoom-ul paginii — gestul ajunge
+     aici, nu la Safari. Referinta se muta dupa fiecare pas, deci un pinch
+     continuu urca treptele pe rand. */
+  const pinch = useRef(0);
+  const laAtingereStart = (e) => { pinch.current = distantaAtingeri(e.touches); };
+  const laAtingereMiscare = (e) => {
+    if (!pinch.current || e.touches.length < 2) return;
+    const d = distantaAtingeri(e.touches);
+    const directie = decidePinch(pinch.current, d);
+    if (!directie) return;
+    setLatime(latimeDupaPinch(latime, directie));
+    pinch.current = d;
+  };
+  const laAtingereSfarsit = () => { pinch.current = 0; };
   /* Latimea grilei chiar inainte de a adauga zile la stanga, ca sa stim cu
      cat s-a lungit dupa ce React redeseneaza. Vezi useLayoutEffect-ul de mai
      jos. Null cand nu e nicio adaugare in curs. */
@@ -587,13 +629,12 @@ export function CalendarView({ core, updateCore, reservations, updateReservation
           {dense ? <Rows3 size={16} /> : <Rows2 size={16} />}
         </button>
         <button
-          className={"icon-btn" + (larg ? " active" : "")}
-          onClick={() => setLarg((v) => !v)}
-          aria-pressed={larg}
-          title={larg ? "Zile înguste" : "Zile late — numele întreg"}
-          aria-label={larg ? "Treci la zile înguste" : "Lărgește zilele ca să se vadă numele întreg"}
+          className={"icon-btn" + (latime !== "ingust" ? " active" : "")}
+          onClick={() => setLatime(urmatoareaLatime(latime))}
+          title={`${ETICHETA_LATIME[latime]} · apasă pentru: ${ETICHETA_LATIME[urmatoareaLatime(latime)]}`}
+          aria-label={`Lățimea zilelor: ${ETICHETA_LATIME[latime]}. Treci la: ${ETICHETA_LATIME[urmatoareaLatime(latime)]}`}
         >
-          {larg ? <Columns3 size={16} /> : <Columns2 size={16} />}
+          {latime === "ingust" ? <Columns3 size={16} /> : latime === "saptamana" ? <CalendarRange size={16} /> : <Columns2 size={16} />}
         </button>
         {!doarCitire && (
           <button className="btn btn-primary" style={{ width: "auto" }} onClick={() => setModal({ reservation: null })}>
@@ -613,8 +654,10 @@ export function CalendarView({ core, updateCore, reservations, updateReservation
         </div>
       ) : null}
 
-      <div className={"cal-scroll" + (dense ? " dense" : "") + (larg ? " larg" : "")}
-        ref={zonaDerulare} onScroll={laDerulare}>
+      <div className={"cal-scroll" + (dense ? " dense" : "")} style={{ "--zi-w": `${ziPx}px` }}
+        ref={zonaDerulare} onScroll={laDerulare}
+        onTouchStart={laAtingereStart} onTouchMove={laAtingereMiscare}
+        onTouchEnd={laAtingereSfarsit} onTouchCancel={laAtingereSfarsit}>
         <div className="cal-grid" style={{ "--days": DAYS }}>
           <div className="cal-row cal-head">
             <div className="cal-roomcell"><div className="cal-roomcell-inner" style={{ fontWeight: 700, fontSize: 12 }}>Cameră</div></div>

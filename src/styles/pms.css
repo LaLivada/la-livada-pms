@@ -596,7 +596,11 @@
    Nu e o garantie pentru orice nume din lume: unul mai lung de atat tot se
    va taia, iar intreg ramane in tooltip si in fisa. E calibrarea pe ce
    exista, nu o promisiune fara capat. */
-.cal-scroll.larg{ --zi-w:190px; }
+/* Latimea zilei (--zi-w) vine inline, din lib/calendar-latime.js: 66px,
+   „7 zile pe ecran" (masurata) sau 190px. `pan-x pan-y` fara pinch-zoom:
+   pinch-ul pe grila schimba latimea zilelor (faza 3, C3), nu zoom-ul
+   paginii; derularea ramane a browserului. */
+.cal-scroll{ touch-action:pan-x pan-y; }
 
 .cal-scroll.dense .cal-cell{ min-height:38px; }
 .cal-scroll.dense .cal-bar{ top:4px; bottom:4px; font-size:var(--fs-xs); padding:3px 7px; }

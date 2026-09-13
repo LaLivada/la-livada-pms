@@ -13,7 +13,7 @@ se pune peste.
 | 2 | C2 — scurtături de tastatură | **făcut**, 14 septembrie 2026 (§2) |
 | 3 | C5 — conflictul de concurență cu diff și alegere | **făcut**, 14 septembrie 2026 (§3) |
 | 4 | C8 — indicator offline + coadă de salvări | **făcut**, 14 septembrie 2026 (§4) |
-| 5 | C3 — calendarul pe tabletă (7 zile, coloană lipicioasă) | de făcut |
+| 5 | C3 — calendarul pe tabletă (7 zile, coloană lipicioasă) | **făcut**, 14 septembrie 2026 (§5) |
 | 6 | C4 — fișa de rezervare cu secțiuni pliabile | de făcut |
 | 7 | C6 — rapoarte cu delta față de anul trecut + CSV | de făcut |
 | 8 | C7 — „nou de la ultima deschidere" | de făcut |
@@ -269,3 +269,52 @@ trimise din consolă arată și ascund pastila.
 - Realtime își reface singur canalul (faza 2, B3); coada nu se ocupă de el.
 - O salvare făcută offline și rămasă în coadă se pierde dacă fila e
   închisă forțat (după avertisment) sau dacă browserul e omorât.
+
+---
+
+## 5. Calendarul pe tabletă: 7 zile pe ecran și pinch (C3)
+
+### 5.1 Ce era
+
+Lățimea zilei avea două trepte: 66px (multe zile, nume trunchiate) și
+190px („zile late", implicită din 9 septembrie 2026). Pe o tabletă de 10"
+în landscape (1024px) zilele late arată 5 zile pe ecran; cele înguste 14,
+dar fără nume. Coloana cu numele camerei (`.cal-roomcell`) și rândul cu
+zilele (`.cal-head`) erau deja lipicioase — punctul din audit cerea și
+asta, nu mai e nimic de făcut acolo.
+
+### 5.2 Cum funcționează
+
+- **Trei trepte** (`src/lib/calendar-latime.js`): *înguste* (66px), *7 zile
+  pe ecran* și *late* (190px). „7 zile" împarte lățimea grilei (măsurată cu
+  `ResizeObserver`, fără coloana camerei de 78px) la șapte: ~135px pe zi pe
+  1024px, ~184px pe 1366px; sub 66px nu coboară (pe telefon rămâne
+  derulabil). Butonul din bară le parcurge în cerc; eticheta spune treapta
+  curentă și următoarea.
+- **Implicit**: „7 zile" pe tabletă (deget + ecran de la 700px), „late" pe
+  telefon și desktop (ca până acum). Alegerea rămâne în browser
+  (`localStorage`, `pms:calendar:latime`).
+- **Pinch pe grilă**: două degete depărtate cu 30% = o treaptă mai lată,
+  apropiate = mai îngustă; referința se mută după fiecare pas, deci un pinch
+  continuu urcă treptele pe rând; la capete se oprește (nu se învârte).
+  `.cal-scroll` primește `touch-action: pan-x pan-y`: derularea rămâne a
+  browserului, zoom-ul paginii pe grilă nu mai pornește — gestul ajunge la
+  aplicație. Restul paginii se poate mări în continuare.
+- Densitatea rândurilor (`dense`, butonul cu rânduri) rămâne separată și
+  neschimbată.
+
+### 5.3 Verificare
+
+`src/calendar-latime.test.js`: implicitul pe tabletă / telefon / desktop;
+alegerea salvată doar dacă e validă; ciclul butonului și pasul pinch-ului cu
+oprire la capete; pixelii pe zi (1024 → 135, 1366 → 184, telefon → 66);
+pragul pinch-ului (30%, tremurul nu schimbă nimic). În previzualizare, pe
+lățime de tabletă: butonul trece prin cele trei trepte și grila se
+redimensionează.
+
+### 5.4 Ce NU s-a schimbat
+
+- Fereastra rămâne de 30 de zile, cu creșterea prin derulare pe ecranele
+  tactile; „7 zile" e o lățime de coloană, nu o fereastră mai scurtă.
+- Nu s-a măsurat cu utilizatori (auditul o cerea); dacă recepția vrea altă
+  treaptă implicită pe tabletă, e o constantă în `latimeImplicita`.
