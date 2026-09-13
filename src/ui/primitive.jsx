@@ -349,12 +349,19 @@ export function OccupantStepper({ label, value, otherValue, capacity, min, onCha
  * aratat utilizatorului). Folosita si din folio, si din lista de facturi.
  */
 
-export const Stat = React.memo(function Stat({ label, value, sub }) {
+/* `delta` (faza 3, C6): { text, semn, titlu } — fata de aceeasi perioada
+   a anului trecut; semnul da culoarea (mai mult = mai bine). */
+export const Stat = React.memo(function Stat({ label, value, sub, delta }) {
   return (
     <div className="stat">
       <div className="stat-label">{label}</div>
       <div className="stat-value">{value}</div>
       <div className="stat-sub">{sub}</div>
+      {delta && (
+        <div className={"stat-delta" + (delta.semn > 0 ? " pozitiv" : delta.semn < 0 ? " negativ" : "")} title={delta.titlu}>
+          {delta.text}
+        </div>
+      )}
     </div>
   );
 });

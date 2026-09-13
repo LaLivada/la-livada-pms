@@ -6,7 +6,7 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Plus, X, Check, Trash2, Pencil, UserCog, LogOut, ShieldCheck, History, BarChart3, ChevronLeft, ChevronRight, TrendingUp, AlertTriangle, Settings, ArrowRight, Printer } from "lucide-react";
+import { Plus, X, Check, Trash2, Pencil, UserCog, LogOut, ShieldCheck, History, BarChart3, ChevronLeft, ChevronRight, TrendingUp, AlertTriangle, Settings, ArrowRight, Printer, Download } from "lucide-react";
 import { supabase } from "../supabase.js";
 import * as datePersonal from "../data/personal.js";
 import { mesajEroare } from "../lib/errors.js";
@@ -16,8 +16,9 @@ import { ROLE_LABEL, ROOM_TYPE, sourceLabel, STATUS_CLASS, PERMISSIONS, ALL_PERM
 import { nightsBetween } from "../lib/availability.js";
 /* Cifrele lunare vin din baza (raport_luna) si se traduc in lib/rapoarte.js
    (testat in src/rapoarte.test.js); ecranul doar le cere si le deseneaza. */
-import { inceputDeLuna, statisticiDinSql } from "../lib/rapoarte.js";
-import { FUS_HOTEL, partiLocale, adaugaZile } from "../lib/timp.js";
+import { inceputDeLuna, statisticiDinSql, deltaRaport, csvRaport, numeFisierRaport } from "../lib/rapoarte.js";
+import { FUS_HOTEL, partiLocale, adaugaZile, dinPartiLocale } from "../lib/timp.js";
+import { descarcaText } from "../lib/descarcare.js";
 import * as dateRapoarte from "../data/rapoarte.js";
 import { Dialog, toaster, useModalLock, Stat, PdfPreview } from "../ui/primitive.jsx";
 import { cameraDinDetaliu, filtreazaJurnal, ziiDistincte, grupeazaPeZi, etichetaZi, INTARZIERE_RECERERE_JURNAL_MS } from "../lib/jurnal.js";
@@ -429,11 +430,22 @@ export function ReportsView({ core }) {
      incarcate. Definitia ramane cea din lib/rapoarte.js (statisticiLuna),
      verificata cifra cu cifra cu SQL-ul (scripts/paritate-raport.mjs). Cat
      timp raspunsul e pe drum raman cifrele lunii de dinainte, estompate. */
-  const [raport, setRaport] = useState(() => ({ ...statisticiDinSql(null), pentru: null, eroare: "" }));
+  const [raport, setRaport] = useState(() => ({ ...statisticiDinSql(null), anTrecut: null, pentru: null, eroare: "" }));
+  const { an, luna } = partiLocale(monthStart);
   useEffect(() => {
     let activ = true;
-    dateRapoarte.raportLuna(partiLocale(monthStart).an, partiLocale(monthStart).luna)
-      .then((r) => { if (activ) setRaport({ ...statisticiDinSql(r), pentru: monthStartMs, eroare: "" }); })
+    Promise.all([
+      dateRapoarte.raportLuna(an, luna),
+      /* Aceeasi luna a anului trecut, pentru delta (faza 3, C6). Daca nu
+         vine, cardurile raman fara delta — nu fara cifre. */
+      dateRapoarte.raportLuna(an - 1, luna).catch((e) => {
+        console.warn("Raportul anului trecut nu s-a putut citi", e);
+        return null;
+      }),
+    ])
+      .then(([r, r1]) => {
+        if (activ) setRaport({ ...statisticiDinSql(r), anTrecut: statisticiDinSql(r1).luna, pentru: monthStartMs, eroare: "" });
+      })
       .catch((e) => {
         if (!activ) return;
         console.error("Raportul lunar nu s-a putut citi", e);
@@ -443,6 +455,13 @@ export function ReportsView({ core }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [monthStartMs]);
   const seIncarca = raport.pentru !== monthStartMs;
+  const etichetaAnTrecut = FMT_MONTH_YEAR.format(dinPartiLocale(an - 1, luna, 1));
+  const delta = deltaRaport(raport.luna, raport.anTrecut);
+  const cuDelta = (d) => (d ? { ...d, titlu: `față de ${etichetaAnTrecut}` } : undefined);
+  const exportaCsv = () => {
+    descarcaText(csvRaport(raport, { an, luna }), numeFisierRaport(an, luna), "text/csv;charset=utf-8", { bom: true });
+    audit.push("Raport exportat", FMT_MONTH_YEAR.format(monthStart));
+  };
 
   const { roomNights, revenue, perDay, capacity, byType, bySource, occupancy, adr, revpar, maxOcc } = raport.luna;
   /* Statistica separata, doar pentru rezervarile "protocol" — nu se
@@ -459,16 +478,26 @@ export function ReportsView({ core }) {
           </button>
           <button onClick={() => setMonthOffset((m) => m + 1)}><ChevronRight size={15} /></button>
         </div>
+        <div className="grow" />
+        <button type="button" className="btn btn-ghost" style={{ width: "auto" }} onClick={exportaCsv} disabled={seIncarca}
+          title="Zilele, totalul, sursele și tipurile de cameră ale lunii, în CSV (Excel)">
+          <Download size={14} /> Export CSV
+        </button>
       </div>
 
       {raport.eroare && <div className="drag-error" role="alert">{raport.eroare}</div>}
 
       <div style={{ opacity: seIncarca ? 0.55 : 1, transition: "opacity .15s" }} aria-busy={seIncarca}>
       <div className="stat-row">
-        <Stat label="Ocupare" value={`${occupancy}%`} sub={`${roomNights} din ${capacity} camere-nopți`} />
-        <Stat label="Venit" value={fmtMoney(revenue)} sub="prețuri reale, pe nopți din lună" />
-        <Stat label="ADR" value={fmtMoney(adr)} sub="tarif mediu pe noapte" />
-        <Stat label="RevPAR" value={fmtMoney(revpar)} sub="venit pe cameră disponibilă" />
+        <Stat label="Ocupare" value={`${occupancy}%`} sub={`${roomNights} din ${capacity} camere-nopți`} delta={cuDelta(delta?.ocupare)} />
+        <Stat label="Venit" value={fmtMoney(revenue)} sub="prețuri reale, pe nopți din lună" delta={cuDelta(delta?.venit)} />
+        <Stat label="ADR" value={fmtMoney(adr)} sub="tarif mediu pe noapte" delta={cuDelta(delta?.adr)} />
+        <Stat label="RevPAR" value={fmtMoney(revpar)} sub="venit pe cameră disponibilă" delta={cuDelta(delta?.revpar)} />
+      </div>
+      <div className="ldv-mic raport-comparatie">
+        {delta
+          ? `Deltele sunt față de ${etichetaAnTrecut}: ocuparea în puncte procentuale, restul în procente.`
+          : `Fără cifre pentru ${etichetaAnTrecut}, deci fără comparație.`}
       </div>
 
       {/* Tot blocul e apasabil, nu doar un link intr-un colt: graficul e

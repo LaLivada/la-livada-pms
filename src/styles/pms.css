@@ -2083,3 +2083,15 @@ label.field input, label.field select, label.field textarea{ cursor:auto; }
   margin:-4px 0 12px; padding:8px 10px; background:var(--surface-2); border-radius:var(--r-sm);
   font-size:var(--fs-sm); color:var(--text-muted); font-weight:500;
 }
+
+/* ---------------------------------------------------------------
+   RAPOARTE: delta fata de anul trecut pe carduri (faza 3, C6)
+----------------------------------------------------------------*/
+.stat-delta{
+  display:inline-block; margin-top:5px; padding:1px 7px; border-radius:var(--r-pill);
+  font-size:var(--fs-2xs); font-weight:700; font-variant-numeric:tabular-nums;
+  background:var(--surface-2); color:var(--text-muted);
+}
+.stat-delta.pozitiv{ background:var(--success-soft); color:var(--success); }
+.stat-delta.negativ{ background:var(--danger-soft); color:var(--danger); }
+.raport-comparatie{ margin:-10px 0 16px; }

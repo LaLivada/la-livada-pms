@@ -15,7 +15,7 @@ se pune peste.
 | 4 | C8 — indicator offline + coadă de salvări | **făcut**, 14 septembrie 2026 (§4) |
 | 5 | C3 — calendarul pe tabletă (7 zile, coloană lipicioasă) | **făcut**, 14 septembrie 2026 (§5) |
 | 6 | C4 — fișa de rezervare cu secțiuni pliabile | **făcut**, 14 septembrie 2026 (§6) |
-| 7 | C6 — rapoarte cu delta față de anul trecut + CSV | de făcut |
+| 7 | C6 — rapoarte cu delta față de anul trecut + CSV | **făcut**, 14 septembrie 2026 (§7) |
 | 8 | C7 — „nou de la ultima deschidere" | de făcut |
 | 9 | C9 — optimistic UI pe `room_status` | făcut deja în faza 2 (A6, `docs/faza2.md` §3) |
 | 10 | C10 — skeleton + timeout pe site și în aplicația de oaspete | de făcut |
@@ -375,3 +375,52 @@ rezervări deschide totul pliat, cu rezumatele.
 - Câmpurile, validările și salvarea sunt aceleași; nimic în bază.
 - Fișa de vizualizare (`ReservationViewModal`) și editorul de grup nu au
   secțiuni — nu erau în audit; se pot pune pe același tipar.
+
+---
+
+## 7. Rapoarte: delta față de anul trecut și export CSV (C6)
+
+### 7.1 Ce era
+
+Cele patru carduri (ocupare, venit, ADR, RevPAR) spuneau cifra lunii și
+atât; ca să știi dacă e bine sau rău trebuia să dai o lună înapoi, să ții
+minte, să revii. Nicio cale de a scoate cifrele din aplicație.
+
+### 7.2 Cum funcționează
+
+- **Două luni, o cerere**: ecranul cere `raport_luna` și pentru aceeași lună a
+  anului trecut (în paralel); dacă a doua nu vine, cardurile rămân fără
+  delta, nu fără cifre.
+- **Delta** (`deltaRaport`, `deltaFata` în `src/lib/rapoarte.js`): ocuparea în
+  **puncte procentuale** („+3 pp" spune mai mult decât „+25 %" când
+  ocuparea a trecut de la 12 la 15), venitul, ADR și RevPAR în procente;
+  minus tipografic; verde când e mai mult, roșu când e mai puțin. Fără
+  bază (0 anul trecut) nu se inventează un procent. O lună a anului trecut
+  fără nicio noapte și niciun leu nu e „0 %", e necunoscută (dinaintea
+  aplicației): cardurile rămân fără delta și un rând spune „Fără cifre
+  pentru septembrie 2025". Cardul `Stat` din `ui/primitive.jsx` are un
+  prop nou, `delta`; titlul lui spune față de ce lună e.
+- **Export CSV** (`csvRaport`, butonul din bară): luna, zilele (camere
+  ocupate, venit), totalul (camere-nopți, capacitate, ocupare, venit, ADR,
+  RevPAR), sursele, tipurile de cameră, protocolul — **aceleași cifre ca pe
+  ecran**, din același `statisticiDinSql`, nimic recalculat. Separator „;"
+  (Excel în română), BOM UTF-8 pentru diacritice, nume `raport-2026-09.csv`.
+  Descărcarea e în `src/lib/descarcare.js` (mutată din facturare, unde
+  rămâne cu numele vechi pentru exportul contabil). Exportul se trece în
+  jurnal.
+
+### 7.3 Verificare
+
+`src/rapoarte-delta.test.js`: procentele și punctele, semnul, fără bază;
+cele patru carduri din două luni; luna necunoscută → fără delta; CSV-ul
+rând cu rând (luna, zilele, totalul, sursele, tipurile, protocolul), aceleași
+cifre ca pe ecran, ghilimelele la „;", fără protocol fără tabelul lui,
+numele fișierului. În previzualizare: ecranul Rapoarte arată cardurile cu
+delta (sau rândul „fără cifre") și butonul de export.
+
+### 7.4 Ce NU s-a schimbat
+
+- Cifrele lunii vin tot din `raport_luna`; nimic nou în bază.
+- Comparația e doar cu aceeași lună a anului trecut (cum cere auditul), nu
+  cu luna precedentă.
+- Graficul zilnic, sursele și tipurile n-au delta — doar cele patru carduri.

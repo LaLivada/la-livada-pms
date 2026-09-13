@@ -11,6 +11,7 @@
  * (has_billing_permission + RLS), care nu se uita la ce crede browserul.
  */
 
+import { descarcaText } from "../lib/descarcare.js";
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 import {
@@ -2135,15 +2136,10 @@ ${m.payments.map((p) => `      <Payment date="${xmlEscape(dateOnly(p.date))}" me
   return `<?xml version="1.0" encoding="UTF-8"?>\n<AccountingExport format="generic_v1" generatedAt="${xmlEscape(new Date().toISOString())}">\n${invoicesXml}\n</AccountingExport>\n`;
 }
 
+/* Mutata in lib/descarcare.js (faza 3, C6), ca s-o foloseasca si
+   Rapoartele; ramane aici cu numele vechi pentru apelantii existenti. */
 export function downloadTextFile(text, filename, mime) {
-  const blob = new Blob([text], { type: mime });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url; a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
+  return descarcaText(text, filename, mime);
 }
 
 export function AccountingExportView({ core }) {

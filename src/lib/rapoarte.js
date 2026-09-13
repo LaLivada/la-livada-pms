@@ -10,7 +10,7 @@
 import { isStatsEligible } from "./availability.js";
 import { ziLocala, zileIntre, adaugaZile, inceputDeLuna, sfarsitDeLuna, zileInLuna } from "./timp.js";
 import { reservationTotal } from "./pricing.js";
-import { SOURCES } from "./constante.js";
+import { SOURCES, ROOM_TYPE } from "./constante.js";
 
 /* Lunile incep la miezul noptii de la Vaslui — definitia sta in lib/timp.js
    si e re-exportata de aici pentru ecranul de rapoarte si testele lui. */
@@ -150,3 +150,76 @@ export function statisticiProtocol(reservations, core, monthStart) {
   }
   return { count, nights, value };
 }
+
+/* ---------------------------------------------------------------
+   Delta fata de aceeasi luna a anului trecut (faza 3, C6).
+   Procente pentru bani (venit, ADR, RevPAR), puncte procentuale pentru
+   ocupare — „+3 pp" spune mai mult decat „+25 %" cand ocuparea a trecut
+   de la 12 la 15. Semnul e pentru culoare: pentru toate patru, mai mult e
+   mai bine. Minusul e cel tipografic (−), ca in restul cifrelor.
+----------------------------------------------------------------*/
+const semnat = (n, unitate) => `${n > 0 ? "+" : n < 0 ? "−" : "±"}${Math.abs(n)}${unitate}`;
+
+export function deltaFata(curent, anterior, { puncte = false } = {}) {
+  const c = Number(curent) || 0, a = Number(anterior) || 0;
+  if (puncte) {
+    const d = Math.round(c - a);
+    return { semn: Math.sign(d), text: semnat(d, " pp") };
+  }
+  /* Fara baza (0 anul trecut) nu exista procent: nu inventam „+∞ %". */
+  if (!a) return { semn: 0, text: "—", faraBaza: true };
+  const p = Math.round(((c - a) / a) * 100);
+  return { semn: Math.sign(p), text: semnat(p, " %") };
+}
+
+/* Cele patru carduri. `null` cand anul trecut n-are nimic in luna aceea
+   (nicio noapte, niciun leu): o luna dinaintea aplicatiei nu e „0 %", e
+   necunoscuta, iar cardurile spun asta in loc sa arate +∞. */
+export function deltaRaport(luna, anTrecut) {
+  if (!luna || !anTrecut || (!anTrecut.roomNights && !anTrecut.revenue)) return null;
+  return {
+    ocupare: deltaFata(luna.occupancy, anTrecut.occupancy, { puncte: true }),
+    venit: deltaFata(luna.revenue, anTrecut.revenue),
+    adr: deltaFata(luna.adr, anTrecut.adr),
+    revpar: deltaFata(luna.revpar, anTrecut.revpar),
+  };
+}
+
+/* ---------------------------------------------------------------
+   Export CSV al lunii (faza 3, C6): zilele, totalul, sursele, tipurile de
+   camera, protocolul — aceleasi cifre ca pe ecran (statisticiDinSql),
+   nimic recalculat. Separator „;" (Excel in romana il asteapta), un rand
+   gol intre tabele, numere intregi in lei. Fara BOM aici — il pune cine
+   scrie fisierul (descarcaText), ca textul sa ramana usor de testat.
+----------------------------------------------------------------*/
+const celula = (v) => {
+  const s = String(v ?? "");
+  return /[;"\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+};
+const rand = (...v) => v.map(celula).join(";");
+
+export function csvRaport(stat, { an, luna }) {
+  const { luna: l, protocol } = stat;
+  const linii = [];
+  linii.push(rand("luna", `${an}-${String(luna).padStart(2, "0")}`));
+  linii.push("");
+  linii.push(rand("zi", "camere_ocupate", "venit_lei"));
+  for (const p of l.perDay) linii.push(rand(p.day, p.occ, Math.round(p.rev)));
+  linii.push("");
+  linii.push(rand("camere_nopti", "capacitate", "ocupare_pct", "venit_lei", "adr_lei", "revpar_lei"));
+  linii.push(rand(l.roomNights, l.capacity, l.occupancy, Math.round(l.revenue), Math.round(l.adr), Math.round(l.revpar)));
+  linii.push("");
+  linii.push(rand("sursa", "rezervari", "venit_lei", "procent"));
+  for (const s of l.bySource) linii.push(rand(s.label, s.count, Math.round(s.rev), s.pct));
+  linii.push("");
+  linii.push(rand("tip_camera", "camere_nopti", "capacitate", "ocupare_pct"));
+  for (const t of l.byType) linii.push(rand(ROOM_TYPE[t.type]?.label || t.type, t.nights, t.cap, t.pct));
+  if (protocol?.count) {
+    linii.push("");
+    linii.push(rand("protocol_sejururi", "protocol_nopti", "protocol_valoare_lei"));
+    linii.push(rand(protocol.count, protocol.nights, Math.round(protocol.value)));
+  }
+  return linii.join("\n") + "\n";
+}
+
+export const numeFisierRaport = (an, luna) => `raport-${an}-${String(luna).padStart(2, "0")}.csv`;
