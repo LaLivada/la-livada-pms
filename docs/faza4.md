@@ -11,7 +11,7 @@ punct și **starea** implementării.
 | 2 | D4 — index pentru `docs/` | **făcut**, 14 septembrie 2026 (§2) |
 | 3 | D6 — `@ts-check` + JSDoc pe `src/lib/` și `src/data/` | **făcut**, 14 septembrie 2026 (§3) |
 | 4 | D1 — spargerea fișierelor mari (`rezervari.jsx`, `facturare.jsx`) | **făcut**, 14 septembrie 2026 (§4) |
-| 5 | D2 — stilurile inline → clase | de făcut, treptat |
+| 5 | D2 — stilurile inline → clase | **început**: plafon în test, 14 septembrie 2026 (§5); migrarea treptat |
 
 D5 (comentariile lungi) nu e o sarcină, e o regulă de păstrat; e scrisă acum
 și în README, la „Convenții".
@@ -165,3 +165,38 @@ calendarul, Azi, „vezi rezervarea" și fișa arată ca înainte.
 - Niciun comportament, nicio semnătură, niciun import din afara dosarului.
 - Următorul fișier care ar crește prea mult se taie cu același script, când
   se atinge oricum.
+
+---
+
+## 5. Stilurile inline (D2): plafonul
+
+### 5.1 Ce era
+
+377 de `style={{ … }}` în ecrane (cele mai multe în `camere.jsx`,
+`setari.jsx`, `facturare/folio.jsx`, `clienti.jsx`), deși `pms.css` are un
+sistem de jetoane și clase. Auditul propune migrarea treptată la clase și o
+regulă de lint cu excepții pentru valorile calculate.
+
+### 5.2 Cum funcționează
+
+- oxlint n-are o regulă pentru `style` (nici `forbid-dom-props`), deci
+  **plafonul e un test**: `src/stiluri-inline.test.js` numără `style={{` în
+  toate fișierele `.jsx` din `src` (fără teste) și cade dacă sunt mai multe
+  decât `PLAFON` (377 azi). Când scoți stiluri dintr-un ecran, cobori
+  plafonul la noul număr: merge doar în jos. Mesajul testului spune care
+  fișiere au cele mai multe.
+- **Excepțiile** rămân stiluri inline și stau în plafon: pozițiile calculate
+  din calendar (`left` / `width` ale barelor, `--zi-w`), lățimi care vin din
+  date. Un stil calculat n-are cum să fie clasă.
+- Migrarea propriu-zisă: câte un ecran, când se atinge oricum; întâi
+  repetițiile (`marginTop`, `display: flex` cu `gap`) care au deja clase în
+  `pms.css`.
+
+### 5.3 Verificare
+
+Testul trece la numărul de azi; o linie nouă cu `style={{` peste plafon îl
+face să cadă în CI.
+
+### 5.4 Ce NU s-a schimbat
+
+- Niciun stil n-a fost mutat încă; nimic vizual.

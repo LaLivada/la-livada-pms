@@ -112,4 +112,6 @@ niciodată în repo). Pașii exacți: `docs/disaster-recovery.md`.
 - Fișierele din `src/lib/` și `src/data/` încep cu `// @ts-check` și au JSDoc
   acolo unde tipul contează; `npm run typecheck` le verifică, iar un test cere
   pragma pe fiecare fișier nou de acolo.
+- Stilurile inline (`style={{ … }}`) nu mai cresc: `src/stiluri-inline.test.js`
+  are plafonul; când scoți stiluri dintr-un ecran, cobori plafonul.
 - Cheile și secretele nu intră niciodată în repo, nici în teste.
