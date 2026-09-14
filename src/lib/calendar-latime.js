@@ -1,3 +1,4 @@
+// @ts-check
 /* Latimea zilelor din calendar (faza 3, C3): trei trepte — zile inguste
  * (66px, multe zile deodata), „7 zile pe ecran" (cate incap in latimea
  * grilei: pe o tableta de 10" cam 135px pe zi, numele se citesc) si zile

@@ -1,3 +1,4 @@
+// @ts-check
 /* „Nouă de la ultima deschidere" (faza 3, C7) — logica pură.
  *
  * Reperul e `vazutPanaLa`, ștampila întoarsă de `marcheaza_prezenta()`

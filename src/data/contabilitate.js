@@ -1,3 +1,4 @@
+// @ts-check
 /* Acces la date pentru exportul de contabilitate.
  *
  * Primul modul din stratul `src/data/`. Rostul stratului nu e estetic: pana

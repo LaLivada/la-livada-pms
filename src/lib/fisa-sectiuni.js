@@ -1,3 +1,4 @@
+// @ts-check
 /* Fisa de rezervare in sectiuni pliabile (faza 3, C4): Oaspete · Sejur ·
  * Pret · Note · Acces. Aici sunt regulile pure — care sectiuni pornesc
  * deschise si ce scrie in capul fiecareia cand e pliata (rezumatul), plus

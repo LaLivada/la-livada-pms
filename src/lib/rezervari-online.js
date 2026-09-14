@@ -1,3 +1,4 @@
+// @ts-check
 /* Ce a intrat de pe site-ul propriu — logica pura.
  *
  * Cardul de pe „Azi" e primul lucru de pe primul ecran, deci e si singurul

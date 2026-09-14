@@ -1,3 +1,4 @@
+// @ts-check
 /* Acces la date pentru codurile de yala.
  *
  * Atentie la asimetrie, e deliberata: de AICI se poate doar CITI. Tabelele

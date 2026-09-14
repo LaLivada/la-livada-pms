@@ -1,3 +1,4 @@
+// @ts-check
 /* Permisiunile granulare de facturare ale utilizatorului curent.
  *
  * Obiect la nivel de modul, populat o singura data la autentificare: e

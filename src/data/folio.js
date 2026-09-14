@@ -1,3 +1,4 @@
+// @ts-check
 /* Acces la date pentru folio — nota de consum a unui sejur: cazarea plus
  * serviciile adaugate pe parcurs, inainte sa devina factura.
  *

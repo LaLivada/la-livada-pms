@@ -1,3 +1,4 @@
+// @ts-check
 /* Jurnalul de activitate — cine ce a modificat si cand.
  *
  * Obiect la nivel de modul, nu context React: orice componenta trebuie sa

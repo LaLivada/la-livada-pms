@@ -1,3 +1,4 @@
+// @ts-check
 /* Cautarea globala pe server (faza 3, C1): functia `cauta_rezervari` din
  * schema.sql — REZERVARI, nu oaspeti, cu titularul, camera si grupul pe
  * acelasi rand, ca lista sa se deseneze fara sa astepte nimic altceva.

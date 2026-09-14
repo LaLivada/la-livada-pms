@@ -1,3 +1,4 @@
+// @ts-check
 /* Cum se numeste un oaspete, pe ecran.
  *
  * Doua reguli care par banale dar nu sunt: numele afisat al unei rezervari

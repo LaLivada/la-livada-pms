@@ -1,3 +1,4 @@
+// @ts-check
 /* Generare PDF din DOM (html2canvas + jsPDF), nu window.print().
  *
  * Intoarce un Blob, nu descarca: pe telefon un fisier aterizat in Downloads
@@ -33,7 +34,7 @@ export async function generatePdfBlob(el, opts = {}) {
   } catch (e) {
     /* Textul pentru utilizator sta in lib/errors.js, ca toate celelalte —
        aici doar marcam despre ce fel de esec e vorba. */
-    const eroare = new Error(`Import dinamic eșuat: ${e?.message || e}`);
+    const eroare = /** @type {Error & { code?: string }} */ (new Error(`Import dinamic eșuat: ${e?.message || e}`));
     eroare.code = "APP_VERSIUNE";
     throw eroare;
   }

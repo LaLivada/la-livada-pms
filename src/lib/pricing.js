@@ -1,3 +1,4 @@
+// @ts-check
 /* Calculul preturilor — logica pura, extrasa din pms-app.jsx fara nicio
  * schimbare de comportament.
  *

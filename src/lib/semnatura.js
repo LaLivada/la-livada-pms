@@ -1,3 +1,4 @@
+// @ts-check
 /* Semnatura, ca traseu vectorial.
  *
  * DE CE SVG SI NU POZA. Trei motive, in ordinea importantei:

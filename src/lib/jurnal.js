@@ -1,3 +1,4 @@
+// @ts-check
 /* Jurnalul de activitate — filtrarea pe camera si pe zi, gruparea pe zile.
  *
  * Logica pura, testabila fara DOM. Regula pe care o apara: camera NU e un

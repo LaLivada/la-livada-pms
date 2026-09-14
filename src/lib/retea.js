@@ -1,3 +1,4 @@
+// @ts-check
 /* `fetch` cu limită de timp, plus regula de reîncercare.
  *
  * `fetch` singur așteaptă oricât: dacă serverul nu răspunde — o funcție
@@ -23,7 +24,7 @@ export async function fetchCuTimeout(url, optiuni = {}, ms = TIMEOUT_IMPLICIT_MS
     return await globalThis.fetch(url, { ...optiuni, signal: control.signal });
   } catch (e) {
     if (control.signal.aborted) {
-      const eroare = new Error(MESAJ_TIMEOUT);
+      const eroare = /** @type {Error & { timeout?: boolean, retea?: boolean }} */ (new Error(MESAJ_TIMEOUT));
       eroare.timeout = true;
       eroare.retea = true;
       throw eroare;

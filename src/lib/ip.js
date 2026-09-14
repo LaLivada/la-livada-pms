@@ -1,3 +1,4 @@
+// @ts-check
 /* Adresa reala a clientului, pentru plafoanele de rata.
  *
  * DE CE NU `x-forwarded-for`. Antetul e scris de client, iar Cloudflare doar

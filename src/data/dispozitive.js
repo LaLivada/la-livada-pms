@@ -1,3 +1,4 @@
+// @ts-check
 /* Acces la date pentru releele Shelly din camerele tehnice.
  *
  * Ca la acces.js, asimetria e deliberata: de aici se CITESTE starea si se

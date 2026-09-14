@@ -1,3 +1,4 @@
+// @ts-check
 /* Erorile din productie ajung in jurnal — faza 2, D7 din
  * docs/audit-2026-09.md.
  *
@@ -91,6 +92,7 @@ export function agentScurt(ua) {
 
 /* Randul din jurnal: tip, descriere, loc, componenta, ecran, agent —
    separate cu punct median, taiate la limita coloanei. */
+/** @param {{ tip?: string, eroare?: unknown, ev?: object, ecran?: string, agent?: string, componenta?: string }} [detalii] */
 export function detaliuEroare({ tip, eroare, ev, ecran, agent, componenta } = {}) {
   const parti = [`[${tip || "eroare"}] ${descrieEroare(eroare)}`];
   const loc = loculErorii(ev, eroare);
@@ -104,6 +106,7 @@ export function detaliuEroare({ tip, eroare, ev, ecran, agent, componenta } = {}
 /* Colectorul: decide daca un detaliu se scrie (dedupe + plafon) si il
    scrie prin `scrie(actiune, detaliu)` — de obicei scrieInJurnalTacut din
    lib/audit.js. `acum` e injectabil ca fereastra de dedupe sa fie testabila. */
+/** @param {{ scrie?: (actiune: string, detaliu: string) => Promise<unknown> | void, acum?: () => number, fereastraMs?: number, maxPeSesiune?: number }} [optiuni] */
 export function creeazaColector({
   scrie, acum = () => Date.now(),
   fereastraMs = FEREASTRA_DUBLURI_MS, maxPeSesiune = MAX_PE_SESIUNE,

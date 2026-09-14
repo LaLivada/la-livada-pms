@@ -1,3 +1,4 @@
+// @ts-check
 /* Matricele de referință pentru preț.
  *
  * ACESTA E CONTRACTUL dintre cele două implementări. Are două părți:

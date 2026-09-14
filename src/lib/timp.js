@@ -1,3 +1,4 @@
+// @ts-check
 /* Timpul hotelului — O SINGURA definitie a „zilei" pentru tot PMS-ul.
  *
  * DE CE. Pana pe 14 septembrie 2026 „azi", „ziua sosirii" si „miezul

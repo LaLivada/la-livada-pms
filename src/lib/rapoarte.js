@@ -1,3 +1,4 @@
+// @ts-check
 /* Cifrele lunare din ecranul Rapoarte — logică pură, extrasă din ReportsView
  * (features/setari.jsx) fără nicio schimbare de comportament, ca să poată fi
  * (1) testată direct și (2) comparată cu varianta SQL (`raport_luna`) care o

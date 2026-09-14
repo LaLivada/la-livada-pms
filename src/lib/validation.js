@@ -1,3 +1,4 @@
+// @ts-check
 /* Validări pure (fără React, fără rețea) — testabile direct.
  *
  * Deocamdată doar CUI-ul; e locul firesc pentru orice altă validare de

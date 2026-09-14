@@ -1,3 +1,4 @@
+// @ts-check
 /* Acces la date pentru ciclul de viata al facturii: emitere, anulare,
  * stornare.
  *

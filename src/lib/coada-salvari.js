@@ -1,3 +1,4 @@
+// @ts-check
 /* Coada de salvari (faza 3, C8): ce se intampla cu o scriere cand reteaua
  * e cazuta.
  *

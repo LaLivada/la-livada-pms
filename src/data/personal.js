@@ -1,3 +1,4 @@
+// @ts-check
 /* Acces la date pentru personal, autentificare si permisiuni de facturare.
  *
  * Domeniul cel mai sensibil al stratului, si de-aia merita cel mai mult sa

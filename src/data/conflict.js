@@ -1,3 +1,4 @@
+// @ts-check
 /* Cererile pentru conflictul de concurenta (faza 3, C5, lib/conflict.js):
  * versiunea de pe server a randurilor refuzate si cine a umblat ultima
  * data la ele. Aceleasi reguli ca in restul stratului: doar cereri, iesirea

@@ -1,3 +1,4 @@
+// @ts-check
 /* Descarcarea unui fisier text din browser (CSV, XML): un link temporar
  * cu URL de blob, apasat si sters. Pana in faza 3 (C6) statea in
  * features/facturare.jsx (downloadTextFile) — mutata aici ca s-o poata

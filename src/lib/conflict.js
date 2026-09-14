@@ -1,3 +1,4 @@
+// @ts-check
 /* Conflictul de concurenta la salvarea unei rezervari (faza 3, C5).
  *
  * Baza refuza o scriere cu stampila `updated_at` mai veche decat a ei

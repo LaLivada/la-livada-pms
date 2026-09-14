@@ -1,3 +1,4 @@
+// @ts-check
 /* Fisa de anuntare a sosirii — logica pura.
  *
  * Traieste aici, nu in componenta, din acelasi motiv ca lib/acces.js: se

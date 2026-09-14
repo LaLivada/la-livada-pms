@@ -1,3 +1,4 @@
+// @ts-check
 /* Starea partajata din tabelul `app_state`: cheie -> JSON.
  *
  * Ce a mai ramas din vremea in care TOATA aplicatia traia in cateva blob-uri

@@ -1,3 +1,4 @@
+// @ts-check
 /* Când merită reîncărcate datele la revenirea pe tab.
  *
  * Din 14 septembrie 2026 schimbările făcute din alt browser vin prin

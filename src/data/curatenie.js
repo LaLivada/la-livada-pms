@@ -1,3 +1,4 @@
+// @ts-check
 /* Acces la date pentru CURATENIE: statusul camerelor, tabelul `room_status`
  * (faza 2, A6 din docs/audit-2026-09.md; designul in docs/faza2.md §3).
  *

@@ -1,3 +1,4 @@
+// @ts-check
 /* Formatarea valorilor pentru afisare: bani, date, ore, initiale.
  *
  * Toate formatoarele Intl sunt construite O SINGURA DATA, la incarcarea

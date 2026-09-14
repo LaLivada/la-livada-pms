@@ -1,3 +1,4 @@
+// @ts-check
 /* Acces la date pentru OASPETI, la cerere.
  *
  * Din 13 septembrie 2026 (faza 1, docs/faza1.md §2.4) browserul nu mai tine

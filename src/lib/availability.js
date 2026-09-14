@@ -1,3 +1,4 @@
+// @ts-check
 /* Disponibilitate si intervale de sejur — logica pura, fara React si
  * fara acces la baza de date, ca sa poata fi testata direct.
  *

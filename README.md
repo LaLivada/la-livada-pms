@@ -60,9 +60,10 @@ Node 24 (vezi `engines`). Instalare: `npm ci`.
 | `npm run test:integration` | apeluri reale către proiectul din `.env`, cu cheia publică: ce poate face un vizitator neautentificat |
 | `npm run test:e2e` | Playwright pe `E2E_BASE_URL` (implicit `http://localhost:5173`) |
 | `npm run lint` | oxlint (`no-undef`, regulile hook-urilor) |
+| `npm run typecheck` | tipurile din JSDoc, pe `src/lib/` și `src/data/` (`jsconfig.json`) |
 | `npm run build`, `build:booking`, `build:guest` | cele trei bundle-uri |
 
-CI (`.github/workflows/ci.yml`): lint, testele de două ori (fusul mașinii și
+CI (`.github/workflows/ci.yml`): lint, verificarea de tipuri, testele de două ori (fusul mașinii și
 `TZ=America/New_York`, ca fusul hotelului să nu depindă de mașină), cele trei
 build-uri — la fiecare push și PR pe `main`. `backup.yml` face zilnic, la
 02:15 UTC, o copie criptată a bazei; ce trebuie configurat e în
@@ -103,4 +104,7 @@ niciodată în repo). Pașii exacți: `docs/disaster-recovery.md`.
   nu prin suprascriere.
 - O migrație înseamnă un fișier nou în `supabase/migrations/` **și** aceeași
   bucată adăugată la capătul lui `schema.sql`.
+- Fișierele din `src/lib/` și `src/data/` încep cu `// @ts-check` și au JSDoc
+  acolo unde tipul contează; `npm run typecheck` le verifică, iar un test cere
+  pragma pe fiecare fișier nou de acolo.
 - Cheile și secretele nu intră niciodată în repo, nici în teste.

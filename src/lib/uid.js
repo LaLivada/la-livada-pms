@@ -1,3 +1,4 @@
+// @ts-check
 /* Identificator scurt pentru randuri create in aplicatie.
  *
  * Mutat aici din pms-app.jsx cand stratul `src/data/` a inceput sa creeze

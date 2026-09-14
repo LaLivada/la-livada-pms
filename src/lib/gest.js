@@ -1,3 +1,4 @@
+// @ts-check
 /* Regula dublului tap, scoasa din componenta ca sa poata fi verificata.
  *
  * Sta separat pentru un singur motiv: pragul singur pare banal, dar are o

@@ -1,3 +1,4 @@
+// @ts-check
 /* Traducerea erorilor de la Supabase/Postgres în limbaj de recepție.
  *
  * Până acum, orice eșec de scriere ajungea la utilizator ca text brut din
@@ -33,6 +34,7 @@ const DUPA_COD = {
 
 /* Fragmente recunoscute din textul erorii, pentru cazurile fără cod util.
    Erorile de la Supabase Auth vin doar cu text, fără cod Postgres. */
+/** @type {[RegExp, string][]} */
 const DUPA_TEXT = [
   [/invalid login credentials/i, "Email sau parolă greșită."],
   [/email not confirmed/i, "Contul nu are emailul confirmat."],

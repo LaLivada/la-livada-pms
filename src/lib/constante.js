@@ -1,3 +1,4 @@
+// @ts-check
 /* Nomenclatoare si etichete fixe.
  *
  * Date pure, fara logica: ce statusuri exista, cum se numesc in romana, ce

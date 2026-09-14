@@ -1,3 +1,4 @@
+// @ts-check
 /* Acces la date pentru NUCLEUL aplicatiei: camerele, oaspetii, rezervarile,
  * grupurile, tarifele si nomenclatoarele.
  *

@@ -1,3 +1,4 @@
+// @ts-check
 /* Scurtaturile de tastatura (faza 3, C2) si intentiile pe care antetul le
  * trimite calendarului. Regulile sunt pure, ca sa poata fi testate fara
  * DOM: Shell (pms-app.jsx) doar asculta `keydown` si le aplica.

@@ -1,3 +1,4 @@
+// @ts-check
 /* Acces la date pentru fisele de cazare.
  *
  * Spre deosebire de `acces.js`, de aici se poate si SCRIE — receptia trebuie

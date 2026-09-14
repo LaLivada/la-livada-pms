@@ -1,3 +1,4 @@
+// @ts-check
 /* Acces la date pentru RAPOARTE.
  *
  * Raportul lunar se calculeaza in baza (`raport_luna`, schema.sql) din 13

@@ -1,3 +1,4 @@
+// @ts-check
 /* Cautarea globala (faza 3, C1): regulile pure ale casetei din antet —
  * ce text merita trimis serverului, cum se descrie un rezultat pe un rand,
  * cum se plimba selectia cu sagetile. Nimic din DOM, nimic din retea:

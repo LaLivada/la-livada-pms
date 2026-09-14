@@ -1,0 +1,24 @@
+{
+  "_comentariu": [
+    "Verificarea de tipuri pe modulele pure (faza 4, D6 din docs/audit-2026-09.md):",
+    "JSDoc, nu TypeScript. `checkJs: false` inseamna ca se verifica DOAR fisierele",
+    "care incep cu `// @ts-check` — azi toate cele din src/lib si src/data (un test",
+    "vegheaza ca fisierele noi de acolo sa aiba pragma). Fisierele importate de ele",
+    "(src/supabase.js, src/ui/*) nu sunt verificate pana nu primesc si ele pragma.",
+    "`strict: false`: tipuri unde conteaza, nu adnotari pe fiecare parametru.",
+    "Ruleaza cu `npm run typecheck`; CI o face la fiecare push."
+  ],
+  "compilerOptions": {
+    "allowJs": true,
+    "checkJs": false,
+    "noEmit": true,
+    "strict": false,
+    "target": "esnext",
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+    "skipLibCheck": true,
+    "types": []
+  },
+  "include": ["src/lib/**/*.js", "src/data/**/*.js"]
+}

@@ -1,3 +1,4 @@
+// @ts-check
 /* Bani — un singur loc unde se decide cum se rotunjeste.
  *
  * Motivul existentei acestui fisier: pana acum sumele se calculau in

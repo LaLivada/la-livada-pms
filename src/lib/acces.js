@@ -1,3 +1,4 @@
+// @ts-check
 /* Logica pura a accesului electronic la camere.
  *
  * Traieste aici, nu in functia edge, ca sa aiba o singura copie si sa poata

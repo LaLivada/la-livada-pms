@@ -1,3 +1,4 @@
+// @ts-check
 /* Coada de salvari — partea cu retea si browser (faza 3, C8). Regulile sunt
  * in lib/coada-salvari.js; aici sunt cererile efective, evenimentele
  * `online` / `visibilitychange`, ceasul de reincercare si garda de la
@@ -50,6 +51,7 @@ let oprire = null;
    `laEsec(lot, eroare)` — un verdict al bazei pentru un lot amanat;
    `laAmanare()` — prima operatie intrata intr-o coada goala, ca ecranul sa
    poata anunta o data „se trimite cand revine internetul". */
+/** @param {{ laScris?: (lot: object[], date: unknown) => void, laEsec?: (lot: object[], eroare: unknown) => void, laAmanare?: () => void }} [asculta] */
 export function pornesteCoada({ laScris, laEsec, laAmanare } = {}) {
   if (oprire) return oprire;
   const incearca = async () => {

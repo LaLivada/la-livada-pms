@@ -1,3 +1,4 @@
+// @ts-check
 /* Traducerea intre randurile din Postgres (snake_case) si obiectele folosite
  * in aplicatie (camelCase).
  *

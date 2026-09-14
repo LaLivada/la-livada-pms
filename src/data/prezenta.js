@@ -1,3 +1,4 @@
+// @ts-check
 /* Prezenta utilizatorului (faza 3, C7): functia `marcheaza_prezenta` din
  * schema.sql — o bataie de inima care intoarce reperul `vazut_pana_la`
  * (ISO, sau null la prima deschidere). Cand si cat de des se bate decide

@@ -1,3 +1,4 @@
+// @ts-check
 /* Acces la date pentru incasari: plati, chitante, seria de chitante.
  *
  * Aceleasi reguli ca in restul stratului `src/data/`: doar cereri. Nicio

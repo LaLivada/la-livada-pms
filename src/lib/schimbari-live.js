@@ -1,3 +1,4 @@
+// @ts-check
 /* Schimbari LIVE — ce face aplicatia cu un eveniment Realtime (faza 2, A6 +
  * B3 din docs/audit-2026-09.md; designul in docs/faza2.md §3).
  *

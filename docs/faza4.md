@@ -9,7 +9,7 @@ punct și **starea** implementării.
 |---|---|---|
 | 1 | D3 — README real | **făcut**, 14 septembrie 2026 (§1) |
 | 2 | D4 — index pentru `docs/` | **făcut**, 14 septembrie 2026 (§2) |
-| 3 | D6 — `@ts-check` + JSDoc pe `src/lib/` și `src/data/` | de făcut |
+| 3 | D6 — `@ts-check` + JSDoc pe `src/lib/` și `src/data/` | **făcut**, 14 septembrie 2026 (§3) |
 | 4 | D1 — spargerea fișierelor mari (`rezervari.jsx`, `facturare.jsx`) | de făcut, câte unul |
 | 5 | D2 — stilurile inline → clase | de făcut, treptat |
 
@@ -59,3 +59,48 @@ același commit; `README.md` trimite la el.
 
 - Documentele în sine. Cele două PDF-uri din `docs/` nu sunt în git și nu
   apar în index.
+
+---
+
+## 3. `@ts-check` + JSDoc pe modulele pure (D6)
+
+### 3.1 Ce era
+
+Douăzeci de mii de linii de JavaScript fără tipuri. Auditul nu propune
+migrarea la TypeScript (cost mare, câștig mic pe termen scurt), ci
+verificarea modulelor pure — `src/lib/` și `src/data/`, deja testate — prin
+JSDoc, fără build nou.
+
+### 3.2 Cum funcționează
+
+- `typescript` e devDependency doar pentru verificare (`tsc --noEmit`);
+  nimic nu se compilează prin el, bundle-urile rămân ale lui Vite.
+- `jsconfig.json`: `checkJs: false` — se verifică **doar** fișierele care
+  încep cu `// @ts-check`; azi toate cele 54 din `src/lib/` și `src/data/`.
+  Fișierele importate de ele (`src/supabase.js`, `src/ui/*`) nu sunt
+  verificate până nu primesc și ele pragma — așa se extinde câte un fișier,
+  fără să se aprindă tot proiectul deodată. `strict: false`: tipuri unde
+  contează, nu adnotări pe fiecare parametru (TypeScript 7 pornește strict;
+  cu strict ar fi apărut și erorile „implicit any", care nu spun nimic
+  despre defecte).
+- Ce a ieșit la prima verificare: 49 de fișiere curate din 54; 14 erori în
+  5 fișiere, toate de același fel — obiecte de opțiuni cu `= {}` (TypeScript
+  le vede tipul `{}`), proprietăți puse pe `Error` (`timeout`, `retea`,
+  `code`), un tabel de perechi `[RegExp, text]` dedus ca listă amestecată.
+  Rezolvate cu JSDoc (`@param`, `@type`), fără nicio schimbare de
+  comportament.
+- `npm run typecheck` rulează în CI după lint. `src/ts-check.test.js`
+  veghează ca fișierele noi din cele două dosare să aibă pragma: altfel un
+  fișier nou ar rămâne tăcut neverificat.
+
+### 3.3 Verificare
+
+`npm run typecheck` fără erori; suita (763 de teste, cu cel nou) și cele
+trei build-uri neschimbate.
+
+### 3.4 Ce NU s-a schimbat
+
+- Niciun comportament: doar comentarii JSDoc și două cast-uri pe `Error`.
+- Ecranele (`src/features/`, `src/ui/`), site-ul și aplicația de oaspete nu
+  sunt verificate încă; se adaugă fișier cu fișier, când se atinge oricum,
+  cu pragma pe prima linie.
