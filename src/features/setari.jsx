@@ -25,7 +25,8 @@ import { cameraDinDetaliu, filtreazaJurnal, ziiDistincte, grupeazaPeZi, eticheta
 import { ACTIUNE_EROARE } from "../lib/erori-productie.js";
 import { generatePdfBlob, pregatesteFila, arataInFila, inchideFila } from "../lib/pdf.js";
 
-export function UsersView() {
+export function UsersView({ user, onLogout }) {
+  const admin = user.role === "admin";
   const [list, setList] = useState(null);
   const [modal, setModal] = useState(null);
   const [loadError, setLoadError] = useState("");
@@ -35,7 +36,7 @@ export function UsersView() {
     try { setList(await datePersonal.listeazaPersonal()); setLoadError(""); }
     catch (e) { setLoadError(mesajEroare(e)); }
   }, []);
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { if (admin) load(); }, [admin, load]);
 
   const save = async (user, isNew) => {
     const camp = { idUtilizator: user.user_id, nume: user.name, rol: user.role };
@@ -74,14 +75,15 @@ export function UsersView() {
     load();
   };
 
-  if (list === null) {
-    return loadError
-      ? <div className="section-empty">Nu am putut încărca lista de useri: {loadError}</div>
-      : <div className="section-empty">Se încarcă…</div>;
-  }
-
-  return (
-    <div>
+  /* Lista echipei e doar a adminului (RLS o si refuza altora); ceilalti
+     gasesc aici doar contul lor. Contul sta primul: e ce cauta oricine
+     aici; echipa vine sub el. */
+  const echipa = !admin ? null : list === null ? (
+    <div className="section-empty">
+      {loadError ? `Nu am putut încărca lista de useri: ${loadError}` : "Se încarcă…"}
+    </div>
+  ) : (
+    <>
       <div className="note">
         Contul (email + parolă) se creează în Supabase → Authentication → Users. De aici legi doar
         numele și rolul de UUID-ul acelui cont.
@@ -111,6 +113,13 @@ export function UsersView() {
         ))}
       </div>
       {modal && <UserModal user={modal.user} list={list} onSave={save} onClose={() => setModal(null)} />}
+    </>
+  );
+
+  return (
+    <div>
+      <ContulMeu user={user} onLogout={onLogout} />
+      {echipa}
     </div>
   );
 }
@@ -204,11 +213,17 @@ export async function aparitiiInScurgeri(parola) {
   }
 }
 
-export function ProfileView({ user, onLogout, onBack }) {
+/* Contul propriu: cine esti, ce drepturi ai, schimbarea parolei si iesirea
+   din cont. Sta in „Useri și drepturi", deasupra echipei, nu pe un buton
+   propriu in antet: pe telefon, al patrulea buton din bara nu mai lasa loc
+   titlului ecranului. Formularul de parola e pliat — se schimba rar, iar
+   desfacut impingea echipa sub margine. */
+export function ContulMeu({ user, onLogout }) {
   const [password, setPassword] = useState("");
   const [password2, setPassword2] = useState("");
   const [msg, setMsg] = useState(null);
   const [busy, setBusy] = useState(false);
+  const [schimbaParola, setSchimbaParola] = useState(false);
   const mine = PERMISSIONS[user.role] || [];
 
   const changePassword = async () => {
@@ -235,46 +250,47 @@ export function ProfileView({ user, onLogout, onBack }) {
   };
 
   return (
-    <div style={{ maxWidth: 520 }}>
-      <div className="panel" style={{ marginBottom: 16 }}>
-        <div className="profile-head">
-          <div className="big-avatar">{initials(user.name)}</div>
-          <div>
-            <div className="pname">{user.name}</div>
-            <span className={"role-tag role-" + user.role}>{ROLE_LABEL[user.role]}</span>
+    <div className="panel cont-meu">
+      <div className="profile-head">
+        <div className="big-avatar">{initials(user.name)}</div>
+        <div className="cont-cine">
+          <div className="pname">{user.name}</div>
+          <span className={"role-tag role-" + user.role}>{ROLE_LABEL[user.role]}</span>
+        </div>
+        <div className="cont-actiuni">
+          <button className="btn btn-ghost" onClick={() => setSchimbaParola((v) => !v)} aria-expanded={schimbaParola}>
+            <ShieldCheck size={14} /> Schimbă parola
+          </button>
+          <button className="btn btn-danger" onClick={onLogout}><LogOut size={14} /> Ieși din cont</button>
+        </div>
+      </div>
+
+      {schimbaParola && (
+        <div className="cont-parola">
+          <div className="field-row">
+            <label className="field">
+              <span className="fl">Parolă nouă</span>
+              <input type="password" autoComplete="new-password" value={password} onChange={(e) => { setPassword(e.target.value); setMsg(null); }} />
+            </label>
+            <label className="field">
+              <span className="fl">Confirmă parola</span>
+              <input type="password" autoComplete="new-password" value={password2} onChange={(e) => { setPassword2(e.target.value); setMsg(null); }} />
+            </label>
           </div>
+          {msg && <div className={msg.type === "ok" ? "ok-text" : "error-text"} role="alert">{msg.text}</div>}
+          <button className="btn btn-primary" onClick={changePassword} disabled={busy}><ShieldCheck size={15} /> Salvează parola</button>
         </div>
-        <div className="perm-list">
-          {ALL_PERMS.map((p) => {
-            const has = mine.includes(p);
-            return (
-              <div className={"perm-item" + (has ? "" : " off")} key={p}>
-                {has ? <Check size={15} /> : <X size={15} />} {p}
-              </div>
-            );
-          })}
-        </div>
-      </div>
+      )}
 
-      <div className="panel" style={{ padding: 20, marginBottom: 16 }}>
-        <h4 style={{ margin: "0 0 14px", fontSize: 14 }}>Schimbă parola</h4>
-        <div className="field-row">
-          <label className="field">
-            <span className="fl">Parolă nouă</span>
-            <input type="password" autoComplete="new-password" value={password} onChange={(e) => { setPassword(e.target.value); setMsg(null); }} />
-          </label>
-          <label className="field">
-            <span className="fl">Confirmă parola</span>
-            <input type="password" autoComplete="new-password" value={password2} onChange={(e) => { setPassword2(e.target.value); setMsg(null); }} />
-          </label>
-        </div>
-        {msg && <div className="error-text" role="alert" style={{ color: msg.type === "ok" ? "var(--success)" : "var(--danger)", marginBottom: 10 }}>{msg.text}</div>}
-        <button className="btn btn-primary" onClick={changePassword} disabled={busy}><ShieldCheck size={15} /> Salvează parola</button>
-      </div>
-
-      <div style={{ display: "flex", gap: 8 }}>
-        <button className="btn btn-ghost" onClick={onBack}><ChevronLeft size={15} /> Înapoi</button>
-        <button className="btn btn-danger" onClick={onLogout}><LogOut size={14} /> Ieși din cont</button>
+      <div className="perm-list">
+        {ALL_PERMS.map((p) => {
+          const has = mine.includes(p);
+          return (
+            <div className={"perm-item" + (has ? "" : " off")} key={p}>
+              {has ? <Check size={15} /> : <X size={15} />} {p}
+            </div>
+          );
+        })}
       </div>
     </div>
   );

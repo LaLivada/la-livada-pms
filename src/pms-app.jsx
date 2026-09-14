@@ -29,13 +29,13 @@ import { validateCUIFormat, validatePhone, validateEmail } from "./lib/validatio
 import {
   FMT_MONEY, FMT_DATE, FMT_DATETIME, FMT_DATE_FULL, FMT_TIME, FMT_WEEKDAY, FMT_MONTH_YEAR,
   fmtMoney, fmtDate, fmtDateFull, fmtDateTime,
-  toDateInput, toLocalInputValue, withNewDate, initials, validatePrice,
+  toDateInput, toLocalInputValue, withNewDate, validatePrice,
 } from "./lib/format.js";
 import {
   ROOM_TYPE, STATUS_LABEL, STATUS_GLYPH, STATUS_CLASS, CREATE_STATUSES, EDIT_STATUSES,
   INVOICE_STATUS_LABEL, INVOICE_STATUS_CLASS, PAYMENT_METHOD_LABEL,
   BILLING_PERMISSION_LABEL, BILLING_PERMISSION_KEYS,
-  SOURCES, sourceLabel, DEFAULT_TAGS, ROLE_LABEL, JUDETE, TARI, PHONE_DIAL, DIAL_LIST,
+  SOURCES, sourceLabel, DEFAULT_TAGS, JUDETE, TARI, PHONE_DIAL, DIAL_LIST,
 } from "./lib/constante.js";
 /* Stratul de acces la date — cererile catre Supabase, grupate pe domenii,
    ca sa se poata audita intr-un loc ce citeste si ce scrie aplicatia.
@@ -120,7 +120,6 @@ function ConflictHost({ conflict, core, groups }) {
 const ReportsView = lazy(() => import("./features/setari.jsx").then((m) => ({ default: m.ReportsView })));
 const UsersView = lazy(() => import("./features/setari.jsx").then((m) => ({ default: m.UsersView })));
 const LogView = lazy(() => import("./features/setari.jsx").then((m) => ({ default: m.LogView })));
-const ProfileView = lazy(() => import("./features/setari.jsx").then((m) => ({ default: m.ProfileView })));
 const SettingsView = lazy(() => import("./features/setari.jsx").then((m) => ({ default: m.SettingsView })));
 const HousekeepingView = lazy(() => import("./features/camere.jsx").then((m) => ({ default: m.HousekeepingView })));
 const NightAuditGate = lazy(() => import("./features/rezervari.jsx").then((m) => ({ default: m.NightAuditGate })));
@@ -1305,14 +1304,17 @@ function Login({ onLogin }) {
    APP SHELL — nav + routed content
 ----------------------------------------------------------------*/
 /* Navigation lives in the top bar: the brand returns to Azi, Calendar sits
-   beside it, and everything else is grouped under Setări. */
+   beside it, and everything else is grouped under Setări — the personal
+   account included (password, logout): it lives inside „Useri și drepturi",
+   so on a phone the bar keeps room for the screen title instead of a
+   fourth button. */
 const SETTINGS_ITEMS = [
   { key: "clients", label: "Clienți", icon: Users, desc: "Oaspeți și grupuri", roles: ["admin", "receptionist"] },
   { key: "automation", label: "Automatizare", icon: Zap, desc: "Boiler, iluminat exterior și prize, pe camere tehnice", roles: ["admin", "receptionist"] },
   { key: "rooms", label: "Camere și tarife", icon: DoorOpen, desc: "Numere, tip, dispozitive Shelly/Sensibo și prețuri", roles: ["admin"] },
   { key: "financial", label: "Financiar", icon: Receipt, desc: "Facturi, încasări, produse și TVA", roles: ["admin"] },
   { key: "reports", label: "Rapoarte", icon: BarChart3, desc: "Ocupare, venit, ADR și RevPAR pe luni", roles: ["admin"] },
-  { key: "users", label: "Useri și drepturi", icon: UserCog, desc: "Conturi și roluri", roles: ["admin"] },
+  { key: "users", label: "Useri și drepturi", icon: UserCog, desc: "Contul tău; conturile și rolurile echipei", roles: ["admin", "receptionist", "housekeeping"] },
   { key: "log", label: "Jurnal de activitate", icon: History, desc: "Cine ce a modificat și când", roles: ["admin", "receptionist"] },
 ];
 
@@ -1327,8 +1329,7 @@ const VIEW_TITLES = {
   automation: ["Automatizare", "Relee Shelly pe camere tehnice"],
   rooms: ["Configurare camere", "Mapare dispozitive Shelly / Sensibo"],
   financial: ["Financiar", "Facturi, încasări, produse și TVA"],
-  users: ["Useri și drepturi", "Acces pe roluri"],
-  profile: ["Profilul meu", "Cont și securitate"],
+  users: ["Useri și drepturi", "Contul tău și accesul pe roluri"],
 };
 
 const VIEW_ROLES = {
@@ -1342,11 +1343,11 @@ const VIEW_ROLES = {
   clients: ["admin", "receptionist"],
   automation: ["admin", "receptionist"],
   settings: ["admin", "receptionist"],
-  profile: ["admin", "receptionist", "housekeeping"],
   rooms: ["admin"],
   financial: ["admin"],
   reports: ["admin"],
-  users: ["admin"],
+  /* Toata lumea: contul propriu sta aici; lista echipei, doar adminul. */
+  users: ["admin", "receptionist", "housekeeping"],
   log: ["admin", "receptionist"],
   seed: ["admin"],
 };
@@ -1498,21 +1499,15 @@ function Shell({ user, view, setView, onLogout, noutati, core, updateCore, reser
             {settingsItems.length > 0 && (
               <button
                 className={"icon-btn gear-btn" + (["settings", ...settingsItems.map((i) => i.key)].includes(safeView) ? " active" : "")}
-                onClick={() => setView("settings")}
+                /* Un singur ecran in Setari (camerista: doar contul ei) —
+                   rotita il deschide direct, fara o pagina cu un card. */
+                onClick={() => setView(settingsItems.length === 1 ? settingsItems[0].key : "settings")}
                 title="Setări"
                 aria-label="Setări"
               >
                 <Settings size={17} />
               </button>
             )}
-            <button
-              className={"avatar-btn" + (safeView === "profile" ? " active" : "")}
-              onClick={() => setView("profile")}
-              title={`${user.name} — ${ROLE_LABEL[user.role]}`}
-              aria-label="Profilul meu"
-            >
-              {initials(user.name)}
-            </button>
           </div>
         </header>
 
@@ -1521,9 +1516,6 @@ function Shell({ user, view, setView, onLogout, noutati, core, updateCore, reser
               Mesajul e discret deliberat: pe o conexiune buna chunk-ul vine in
               zeci de milisecunde, iar un spinner mare ar clipi suparator. */}
           <Suspense fallback={<div className="note">Se încarcă…</div>}>
-          {safeView === "profile" && (
-            <ProfileView user={user} onLogout={onLogout} onBack={() => setView(homeView)} />
-          )}
           {safeView === "settings" && <SettingsView setView={setView} items={settingsItems} />}
           {safeView === "today" && (
             <TodayView core={core} updateCore={updateCore} reservations={reservations}
@@ -1565,7 +1557,7 @@ function Shell({ user, view, setView, onLogout, noutati, core, updateCore, reser
               blocks={blocks} updateBlocks={updateBlocks} />
           )}
           {safeView === "financial" && <FinancialView core={core} updateCore={updateCore} />}
-          {safeView === "users" && <UsersView />}
+          {safeView === "users" && <UsersView user={user} onLogout={onLogout} />}
           </Suspense>
         </div>
       </div>
