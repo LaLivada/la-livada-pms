@@ -1711,34 +1711,34 @@ label.field input, label.field select, label.field textarea{ cursor:auto; }
 .tag-chip.on{ background:var(--accent); border-color:var(--accent); color:#fff; }
 .st-noshow{ background:var(--warning-soft); color:var(--warning); border:1px solid rgba(154,117,36,.35); }
 /* Culorile de stare din calendar — barele si legenda de sub ele. Tonuri
-   pline dar calde, nu tipatoare (14 septembrie 2026: prima varianta, cu
-   rosu si verde saturate, a fost prea stridenta): corai cerere, verde
-   confirmata, mustar protocol, turcoaz checked-in, gri checked-out,
-   bleumarin no-show, ardezie anulata (taiat), violet blocaj (dungat). Peste
-   fiecare, o lumina usoara dinspre stanga-sus: barele par usor bombate, nu
-   plate. Textul e alb — sau inchis, pe mustar si pe gri — cu contrast de cel
-   putin 4,5:1; aceleasi culori pe ambele teme. Etichetele de stare din
-   liste (.st-* singure) raman pastelate: acolo textul spune starea. */
-.cal-bar.st-pending,    .legend-chip.st-pending{    --bar-bg:#D34255; --bar-fg:#fff; }
-.cal-bar.st-confirmed,  .legend-chip.st-confirmed{  --bar-bg:#378539; --bar-fg:#fff; }
-.cal-bar.st-protocol,   .legend-chip.st-protocol{   --bar-bg:#E6BE45; --bar-fg:#1A1D22; }
-.cal-bar.st-checkedin,  .legend-chip.st-checkedin{  --bar-bg:#1B838C; --bar-fg:#fff; }
-.cal-bar.st-checkedout, .legend-chip.st-checkedout{ --bar-bg:#ADB1B8; --bar-fg:#1A1D22; }
-.cal-bar.st-noshow,     .legend-chip.st-noshow{     --bar-bg:#1F3E63; --bar-fg:#fff; }
-.cal-bar.st-cancelled,  .legend-chip.st-cancelled{  --bar-bg:#6B7280; --bar-fg:#fff; }
-.cal-bar.block-bar,     .legend-chip.block-bar{     --bar-bg:#7B5CC7; --bar-fg:#fff; }
+   palide, cu textul in nuanta inchisa a aceleiasi culori (14 septembrie
+   2026, a treia varianta: cele pline — si saturate, si calde — au fost prea
+   stridente): corai cerere, verde confirmata, mustar protocol, turcoaz
+   checked-in, gri checked-out, albastru no-show, mov-gri anulata (taiat),
+   lavanda blocaj (dungat). Peste fiecare ramane lumina dinspre stanga-sus.
+   Contrastul textului e de cel putin 5:1 peste tot; aceleasi culori pe
+   ambele teme. Etichetele de stare din liste (.st-* singure) raman cum
+   erau: acolo textul spune starea. */
+.cal-bar.st-pending,    .legend-chip.st-pending{    --bar-bg:#F5A9B0; --bar-fg:#6E1E29; }
+.cal-bar.st-confirmed,  .legend-chip.st-confirmed{  --bar-bg:#B5DDAC; --bar-fg:#1E5222; }
+.cal-bar.st-protocol,   .legend-chip.st-protocol{   --bar-bg:#F3DE95; --bar-fg:#5C4400; }
+.cal-bar.st-checkedin,  .legend-chip.st-checkedin{  --bar-bg:#A6DDE1; --bar-fg:#0F4A50; }
+.cal-bar.st-checkedout, .legend-chip.st-checkedout{ --bar-bg:#D9DCE1; --bar-fg:#3B4048; }
+.cal-bar.st-noshow,     .legend-chip.st-noshow{     --bar-bg:#B7CBE6; --bar-fg:#1B365D; }
+.cal-bar.st-cancelled,  .legend-chip.st-cancelled{  --bar-bg:#D8C7CF; --bar-fg:#4A2F3A; }
+.cal-bar.block-bar,     .legend-chip.block-bar{     --bar-bg:#CFC2EE; --bar-fg:#3E2A78; }
 .cal-bar.st-pending, .cal-bar.st-confirmed, .cal-bar.st-protocol, .cal-bar.st-checkedin, .cal-bar.st-checkedout, .cal-bar.st-noshow, .cal-bar.st-cancelled, .cal-bar.block-bar,
 .legend-chip.st-pending, .legend-chip.st-confirmed, .legend-chip.st-protocol, .legend-chip.st-checkedin, .legend-chip.st-checkedout, .legend-chip.st-noshow, .legend-chip.st-cancelled, .legend-chip.block-bar{
-  --bar-lumina:linear-gradient(135deg, rgba(255,255,255,.22), rgba(255,255,255,0) 55%);
+  --bar-lumina:linear-gradient(135deg, rgba(255,255,255,.45), rgba(255,255,255,0) 60%);
   background:var(--bar-lumina) var(--bar-bg); color:var(--bar-fg); border:none;
 }
 /* Blocajul ramane dungat, ca sa se deosebeasca de o rezervare si fara
-   culoare; dungile sunt o umbra deschisa peste violet, nu doua culori. */
+   culoare; dungile sunt o umbra usoara peste lavanda, nu doua culori. */
 .cal-bar.block-bar, .legend-chip.block-bar{
-  background:var(--bar-lumina), repeating-linear-gradient(45deg, rgba(255,255,255,.16) 0 6px, transparent 6px 12px) var(--bar-bg);
+  background:var(--bar-lumina), repeating-linear-gradient(45deg, rgba(62,42,120,.10) 0 6px, transparent 6px 12px) var(--bar-bg);
 }
-/* Pastila VIP e negativul barei: pe o bara cu text alb ar fi altfel alba
-   pe alb. */
+/* Pastila VIP e negativul barei: nuanta inchisa pe fond, cea palida pe
+   text. */
 .cal-bar .bar-vip{ background:var(--bar-fg); color:var(--bar-bg); }
 /* Insigna sursei (features/rezervari/insigna-sursa.jsx): disc alb pe coltul
    din stanga-sus al barei, cu pictograma sau litera sursei. Alb si pe tema
