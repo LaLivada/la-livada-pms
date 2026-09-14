@@ -42,6 +42,7 @@ import { cautaOaspeti, numarOaspeti, MIN_LITERE_CAUTARE } from "../data/oaspeti.
 import * as dateFise from "../data/fise.js";
 import { ORA_SOSIRE_IMPLICITA, ORA_PLECARE_IMPLICITA } from "../lib/acces.js";
 import { ultimeleOnline, candAVenit } from "../lib/rezervari-online.js";
+import { esteNoua } from "../lib/noutati.js";
 import { SectiuneAcces, cheamaAcces, reconciliazaAcces } from "./acces.jsx";
 import { SectiuneFisa } from "./fise.jsx";
 import { FolioPanel, InvoicePrint, BillingCustomerPicker, BillingCustomerModal, billingCustomerLabel } from "./facturare.jsx";
@@ -226,7 +227,17 @@ export function NightAuditGate({ restante, sosiri, core, updateCore, groups, upd
  *
  * Ascunderea butoanelor n-ar fi de ajuns singură — de aceea și dispecerul
  * de clic din celule iese devreme, nu doar controalele lipsesc. */
-export function CalendarView({ core, updateCore, reservations, updateReservations, groups, updateGroups, housekeeping, updateHousekeeping, blocks, updateBlocks, stergeRezervari, stergeGrupuri, stergeBlocaje, adaugaOaspetiInCache, salveazaOaspete, asiguraPerioada, intent, clearIntent, doarCitire = false }) {
+/* Eticheta „nou de la ultima deschidere" (faza 3, C7): nimic cand nu e
+   cazul, ca sa se poata pune direct in JSX. Mica pe bare si pe randurile
+   listelor, intreaga in capul fisei. */
+export function EtichetaNou({ res, noutati, mare = false }) {
+  if (!esteNoua(res, noutati)) return null;
+  return mare
+    ? <span className="role-tag tag-nou">Nouă de la ultima deschidere</span>
+    : <span className="bar-nou" title="Nouă de la ultima deschidere">nou</span>;
+}
+
+export function CalendarView({ core, updateCore, reservations, updateReservations, groups, updateGroups, housekeeping, updateHousekeeping, blocks, updateBlocks, stergeRezervari, stergeGrupuri, stergeBlocaje, adaugaOaspetiInCache, salveazaOaspete, asiguraPerioada, intent, clearIntent, doarCitire = false, noutati }) {
   const [offset, setOffset] = useState(0);
   const [pickerOpen, setPickerOpen] = useState(false);
   /* Implicit active — cerut pe 9 septembrie 2026: calendarul se deschide
@@ -781,6 +792,7 @@ export function CalendarView({ core, updateCore, reservations, updateReservation
                               : `${occupantName(span.res, core, groups) || "Fără nume"} · ${fmtDateTime(span.res.checkin)} → ${fmtDateTime(span.res.checkout)} · ${STATUS_LABEL[span.res.status]}`}
                           >
                             <span className="bar-glyph" aria-hidden="true">{STATUS_GLYPH[span.res.status]}</span>
+                            {!doarCitire && <EtichetaNou res={span.res} noutati={noutati} />}
                             {!doarCitire && span.res.groupId && <UsersRound size={11} style={{ flexShrink: 0, opacity: .8 }} />}
                             <span className="bar-name">
                               {doarCitire
@@ -884,6 +896,7 @@ export function CalendarView({ core, updateCore, reservations, updateReservation
       {viewModal && (
         <ReservationViewModal
           reservation={viewModal}
+          noutati={noutati}
           core={core}
           updateCore={updateCore}
           stergeRezervari={stergeRezervari}
@@ -924,7 +937,7 @@ export function CalendarView({ core, updateCore, reservations, updateReservation
    fac zoom pe iOS la focus si permit tastarea unei valori peste capacitate)
    si aplica limita direct in logica de crestere/scadere. */
 
-export function ReservationViewModal({ reservation, core, updateCore, groups, updateGroups, reservations, updateReservations, stergeRezervari, stergeGrupuri, blocks, onClose, onEdit }) {
+export function ReservationViewModal({ reservation, core, updateCore, groups, updateGroups, reservations, updateReservations, stergeRezervari, stergeGrupuri, blocks, onClose, onEdit, noutati }) {
   useModalLock();
   const guest = core.guests.find((g) => g.id === reservation.guestId) || null;
   const room = core.rooms.find((r) => r.id === reservation.roomId);
@@ -967,6 +980,7 @@ export function ReservationViewModal({ reservation, core, updateCore, groups, up
               : reservation.status === "cancelled" ? "role-receptionist" : "role-admin")}>
               <span aria-hidden="true">{STATUS_GLYPH[reservation.status]}</span> {STATUS_LABEL[reservation.status]}
             </span>
+            <EtichetaNou res={reservation} noutati={noutati} mare />
           </div>
           {reservation.tags?.length > 0 && (
             <div className="tag-row">
@@ -2223,7 +2237,7 @@ export async function doCheckOut(res, reservations, updateReservations, core, ho
  * „ultimele cinci" si ar fi aratat altceva — iar o anulare venita de pe site
  * e exact felul de veste pentru care exista cardul.
  */
-export function CardOnline({ rezervari, numeOaspete, numeCamera, core, onDeschide }) {
+export function CardOnline({ rezervari, numeOaspete, numeCamera, core, onDeschide, noutati }) {
   const acum = new Date();
   const ultimele = useMemo(() => ultimeleOnline(rezervari), [rezervari]);
 
@@ -2240,7 +2254,7 @@ export function CardOnline({ rezervari, numeOaspete, numeCamera, core, onDeschid
             onClick={() => onDeschide(r)}
             onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onDeschide(r); } }}
           >
-            <div className="primary">{numeOaspete(r)}</div>
+            <div className="primary">{numeOaspete(r)}<EtichetaNou res={r} noutati={noutati} /></div>
             <div className="secondary">
               <span className="mono">{numeCamera(r.roomId)}</span> ·{" "}
               {fmtDate(r.checkin)} → {fmtDate(r.checkout)} · {fmtMoney(reservationTotal(r, core))}
@@ -2265,7 +2279,7 @@ export function CardOnline({ rezervari, numeOaspete, numeCamera, core, onDeschid
   );
 }
 
-export function TodayView({ core, updateCore, reservations, updateReservations, housekeeping, updateHousekeeping, setView, groups, updateGroups, blocks, updateBlocks, stergeRezervari, stergeGrupuri, adaugaOaspetiInCache, salveazaOaspete }) {
+export function TodayView({ core, updateCore, reservations, updateReservations, housekeeping, updateHousekeeping, setView, groups, updateGroups, blocks, updateBlocks, stergeRezervari, stergeGrupuri, adaugaOaspetiInCache, salveazaOaspete, noutati }) {
   const [arrivalRes, setArrivalRes] = useState(null);
   const [viewRes, setViewRes] = useState(null);
   const [editRes, setEditRes] = useState(null);
@@ -2390,7 +2404,7 @@ export function TodayView({ core, updateCore, reservations, updateReservations, 
       </div>
 
       <CardOnline rezervari={reservations} numeOaspete={guestName} numeCamera={roomName}
-        core={core} onDeschide={setViewRes} />
+        core={core} onDeschide={setViewRes} noutati={noutati} />
 
       <div className="sub-tabs">
         <button className={todayTab === "arrivals" ? "on" : ""} onClick={() => setTodayTab("arrivals")}>
@@ -2416,7 +2430,7 @@ export function TodayView({ core, updateCore, reservations, updateReservations, 
                 onClick={() => setViewRes(r)}
                 onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setViewRes(r); } }}
               >
-                <div className="primary">{guestName(r)}</div>
+                <div className="primary">{guestName(r)}<EtichetaNou res={r} noutati={noutati} /></div>
                 <div className="secondary">
                   <span className="mono">{roomName(r.roomId)}</span> · {FMT_TIME.format(new Date(r.checkin))} · {fmtMoney(reservationTotal(r, core))}
                 </div>
@@ -2527,6 +2541,7 @@ export function TodayView({ core, updateCore, reservations, updateReservations, 
       {viewRes && (
         <ReservationViewModal
           reservation={viewRes}
+          noutati={noutati}
           core={core}
           updateCore={updateCore}
           stergeRezervari={stergeRezervari}

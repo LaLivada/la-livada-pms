@@ -86,6 +86,8 @@ import { uid } from "./lib/uid.js";
 import { mesajEroare } from "./lib/errors.js";
 import { esteConflict, pregatesteConflict, aplicaAlegerea } from "./lib/conflict.js";
 import { rezervariDePeServer, ultimeleModificari } from "./data/conflict.js";
+import { marcheazaPrezenta } from "./data/prezenta.js";
+import { idNoi, pornestePrezenta } from "./lib/noutati.js";
 import { eDubluTap, FARA_TAP } from "./lib/gest.js";
 import React, { useState, useEffect, useMemo, useCallback, useRef, lazy, Suspense } from "react";
 import { createPortal } from "react-dom";
@@ -408,6 +410,13 @@ function PMSApp() {
   const [initError, setInitError] = useState(null);
   const [reloadKey, setReloadKey] = useState(0);
   const [conflict, setConflict] = useState(null); // { randuri, alege } — dialogul C5, cat asteapta alegerea
+  /* „Nou de la ultima deschidere" (faza 3, C7): reperul vine de la
+     marcheaza_prezenta(); ce a creat chiar acest browser nu e „nou"
+     (lib/noutati.js). Multimea e aceeasi, mutata pe loc — randarea vine
+     oricum odata cu lista de rezervari in care au intrat id-urile. */
+  const [vazutPanaLa, setVazutPanaLa] = useState(null);
+  const aleMeleRef = useRef(new Set());
+  const noutati = useMemo(() => ({ vazutPanaLa, aleMele: aleMeleRef.current }), [vazutPanaLa]);
   /* Realtime (faza 2, B3): incarcarea porneste abia dupa prima abonare, iar
      evenimentele sosite in timpul unei incarcari asteapta in coada — vezi
      efectul de abonare, mai jos, si lib/schimbari-live.js. */
@@ -439,6 +448,8 @@ function PMSApp() {
     setLogEntries([]);
     setBlocks([]);
     setInitError(null);
+    setVazutPanaLa(null);
+    aleMeleRef.current.clear();
     setView("calendar");
     audit.entries = [];
     audit.user = null;
@@ -615,6 +626,16 @@ function PMSApp() {
     });
     return () => { clearTimeout(asteptare); opreste(); };
   }, [currentUser, aduLipsurile]);
+
+  /* Prezenta (faza 3, C7): o bataie la deschidere, la fiecare revenire pe
+     ecran si la cateva minute cat timp pagina e vizibila; reperul intors
+     alimenteaza etichetele „nou". Pe id, nu pe obiectul utilizatorului:
+     reimprospatarea numelui sau rolului nu e o deschidere noua. */
+  const idUtilizator = currentUser?.id;
+  useEffect(() => {
+    if (!idUtilizator) return;
+    return pornestePrezenta({ marcheaza: marcheazaPrezenta, laReper: setVazutPanaLa });
+  }, [idUtilizator]);
 
   useEffect(() => {
     if (!authChecked) return;
@@ -832,6 +853,7 @@ function PMSApp() {
        browser (nu din baza — syncTable nu mai sterge) pana la reincarcare.
        Stergerile nu mai trec pe aici: vezi stergeRezervari. */
     const combinat = uneste(before, next);
+    for (const id of idNoi(before, combinat)) aleMeleRef.current.add(id);
     setReservations(combinat);
     /* Ref-ul se actualizeaza si sincron, nu doar prin useEffect: doua
        salvari rapide una dupa alta ar citi altfel starea veche si ar
@@ -1184,6 +1206,7 @@ function PMSApp() {
       <ConflictHost conflict={conflict} core={core} groups={groups} />
       <Shell
         user={currentUser}
+        noutati={noutati}
         view={view}
         setView={setView}
         /* Golim si local, nu doar sesiunea: daca reteaua pica in timpul
@@ -1340,7 +1363,7 @@ function defaultViewFor(role) {
   return role === "housekeeping" ? "housekeeping" : "today";
 }
 
-function Shell({ user, view, setView, onLogout, core, updateCore, reservations, updateReservations, housekeeping, updateHousekeeping, groups, updateGroups, blocks, updateBlocks, stergeRezervari, stergeGrupuri, stergeBlocaje, stergeOaspete, salveazaOaspete, adaugaOaspetiInCache, asiguraPerioada, logEntries }) {
+function Shell({ user, view, setView, onLogout, noutati, core, updateCore, reservations, updateReservations, housekeeping, updateHousekeeping, groups, updateGroups, blocks, updateBlocks, stergeRezervari, stergeGrupuri, stergeBlocaje, stergeOaspete, salveazaOaspete, adaugaOaspetiInCache, asiguraPerioada, logEntries }) {
   const [calendarIntent, setCalendarIntent] = useState(null);
   /* Cautarea globala si scurtaturile (faza 3, C1/C2). Camerista nu vede
      nume de oaspeti — pentru ea nici caseta, nici „N": RLS i-ar da oricum
@@ -1508,7 +1531,8 @@ function Shell({ user, view, setView, onLogout, core, updateCore, reservations, 
               updateHousekeeping={updateHousekeeping} setView={setView} groups={groups}
               updateGroups={updateGroups} blocks={blocks} updateBlocks={updateBlocks}
               stergeRezervari={stergeRezervari} stergeGrupuri={stergeGrupuri}
-              adaugaOaspetiInCache={adaugaOaspetiInCache} salveazaOaspete={salveazaOaspete} />
+              adaugaOaspetiInCache={adaugaOaspetiInCache} salveazaOaspete={salveazaOaspete}
+              noutati={noutati} />
           )}
           {safeView === "reports" && <ReportsView core={core} />}
           {safeView === "log" && <LogView entries={logEntries} core={core} />}
@@ -1519,7 +1543,7 @@ function Shell({ user, view, setView, onLogout, core, updateCore, reservations, 
               blocks={blocks} updateBlocks={updateBlocks}
               stergeRezervari={stergeRezervari} stergeGrupuri={stergeGrupuri} stergeBlocaje={stergeBlocaje}
               adaugaOaspetiInCache={adaugaOaspetiInCache} salveazaOaspete={salveazaOaspete}
-              asiguraPerioada={asiguraPerioada}
+              asiguraPerioada={asiguraPerioada} noutati={noutati}
               doarCitire={user.role === "housekeeping"}
               intent={calendarIntent} clearIntent={() => setCalendarIntent(null)} />
           )}

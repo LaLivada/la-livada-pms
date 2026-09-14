@@ -2095,3 +2095,12 @@ label.field input, label.field select, label.field textarea{ cursor:auto; }
 .stat-delta.pozitiv{ background:var(--success-soft); color:var(--success); }
 .stat-delta.negativ{ background:var(--danger-soft); color:var(--danger); }
 .raport-comparatie{ margin:-10px 0 16px; }
+
+/* „Nou de la ultima deschidere" (faza 3, C7): pe bare langa bulina de
+   status, pe randurile listelor de pe Azi, si intreaga in capul fisei. */
+.bar-nou{
+  font-size:8.5px; font-weight:800; text-transform:uppercase; letter-spacing:.04em;
+  background:var(--accent); color:#fff; padding:1px 4px; border-radius:3px; flex-shrink:0;
+}
+.list-row .primary .bar-nou{ vertical-align:1px; margin-left:5px; }
+.tag-nou{ background:var(--accent); color:#fff; margin-left:6px; }

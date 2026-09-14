@@ -16,7 +16,7 @@ se pune peste.
 | 5 | C3 — calendarul pe tabletă (7 zile, coloană lipicioasă) | **făcut**, 14 septembrie 2026 (§5) |
 | 6 | C4 — fișa de rezervare cu secțiuni pliabile | **făcut**, 14 septembrie 2026 (§6) |
 | 7 | C6 — rapoarte cu delta față de anul trecut + CSV | **făcut**, 14 septembrie 2026 (§7) |
-| 8 | C7 — „nou de la ultima deschidere" | de făcut |
+| 8 | C7 — „nou de la ultima deschidere" | **făcut**, 14 septembrie 2026 (§8) |
 | 9 | C9 — optimistic UI pe `room_status` | făcut deja în faza 2 (A6, `docs/faza2.md` §3) |
 | 10 | C10 — skeleton + timeout pe site și în aplicația de oaspete | de făcut |
 
@@ -424,3 +424,61 @@ delta (sau rândul „fără cifre") și butonul de export.
 - Comparația e doar cu aceeași lună a anului trecut (cum cere auditul), nu
   cu luna precedentă.
 - Graficul zilnic, sursele și tipurile n-au delta — doar cele patru carduri.
+
+---
+
+## 8. „Nou de la ultima deschidere" (C7)
+
+### 8.1 Ce era
+
+Cardul „De pe site" arăta ultimele cinci rezervări online și atât. O
+rezervare intrată peste noapte de pe Booking, sau una făcută de colegul din
+tura cealaltă, nu se deosebea cu nimic de cele pe care le văzuseși deja:
+trebuia să le compari din memorie.
+
+### 8.2 Cum funcționează
+
+- **Reperul** e al utilizatorului, nu al dispozitivului: tabela
+  `staff_prezenta` (un rând pe cont, RLS pe rândul propriu, `anon` fără
+  acces) ține două ștampile. `ultima_prezenta` e bătaia de inimă: aplicația
+  cheamă `marcheaza_prezenta()` la deschidere, la fiecare revenire pe ecran
+  și la 5 minute cât timp pagina e vizibilă (`pornestePrezenta` în
+  `src/lib/noutati.js`). `vazut_pana_la` e reperul etichetei și se mută pe
+  vechea bătaie **doar când între două bătăi a trecut o pauză adevărată**
+  (30 de minute). Cu o singură ștampilă, un F5 din greșeală ar fi șters toate
+  etichetele („ai deschis-o acum două minute"). Funcția întoarce reperul, iar
+  aplicația îl ia de fiecare dată: telefonul care stă blocat două ore și
+  revine vede ce a intrat între timp, nu ce era nou dimineață.
+- **Ce e nou** (`esteNoua`): `created_at` după reper — și nu creată chiar din
+  acest browser. În `reservations` nu scrie cine a creat rândul, așa că
+  aplicația ține minte id-urile scrise din sesiunea curentă (`idNoi`, în
+  `updateReservations`): rezervarea pe care ai făcut-o tu acum zece minute
+  nu e o veste. La prima deschidere din viața contului reperul e `null` și
+  nimic nu e nou — altfel s-ar fi aprins tot calendarul.
+- **Unde se vede** (`EtichetaNou` în `src/features/rezervari.jsx`): pe barele
+  din calendar, lângă bulina de status („nou", mic); pe rândurile listelor
+  de pe Azi (Sosiri și „De pe site"); întreagă, în capul fișei de vizualizare
+  („Nouă de la ultima deschidere"). Vederea cameristei nu are `created_at` și
+  nici etichete.
+- Lipsa rețelei nu e o eroare: bătaia se încearcă iar data următoare.
+
+### 8.3 Verificare
+
+În bază, cu impersonare (Răzvan): prima chemare întoarce `null`, a doua
+(reîncărcare imediată) tot `null`, una după pauză întoarce ultima bătaie,
+următoarea fără pauză păstrează reperul; Răzvan vede un singur rând (al lui)
+și nu poate modifica rândul altcuiva; `anon` nu poate nici citi tabela, nici
+chema funcția. `src/noutati.test.js`: reperul, „exact la reper" nu e nou,
+fără reper nimic, ce am făcut eu nu e nou, fără `createdAt` nimic; bătaia de
+inimă la pornire, la interval doar cu pagina vizibilă, imediat la revenirea
+pe ecran (cu reperul mutat), fără rețea nu aruncă, după oprire tace.
+`src/card-online.test.js`: eticheta apare doar pe ce a intrat după reper și
+nu e al meu. În previzualizare: cu reperul dat înapoi în bază, etichetele
+apar pe bare, pe listele de pe Azi și în capul fișei.
+
+### 8.4 Ce NU s-a schimbat
+
+- `reservations` n-a primit nicio coloană; `created_at` era deja acolo.
+- Nu e o listă „ce a intrat de la ultima vizită" — doar eticheta, cum cere
+  auditul. Lista se poate face oricând peste același reper (`numaraNoi`).
+- Nimeni nu vede prezența altcuiva: nu e un ecran de supraveghere.

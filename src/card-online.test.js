@@ -37,7 +37,7 @@ const rez = (over) => ({
 
 const montate = [];
 
-async function randeaza(rezervari) {
+async function randeaza(rezervari, extra = {}) {
   const host = document.createElement("div");
   document.body.appendChild(host);
   const root = createRoot(host);
@@ -48,6 +48,7 @@ async function randeaza(rezervari) {
       numeOaspete: (r) => `Oaspete ${r.id}`,
       numeCamera: (id) => id.replace("r", ""),
       onDeschide: () => {},
+      ...extra,
     }));
   });
   return host;
@@ -70,6 +71,22 @@ describe("CardOnline", () => {
     ]);
     const nume = randuri(host).map((r) => r.querySelector(".primary").textContent);
     expect(nume).toEqual(["Oaspete noua", "Oaspete veche"]);
+  });
+
+  /* C7: eticheta „nou" — doar pe ce a intrat dupa reper si nu din acest
+     browser; fara reper (prima deschidere din viata contului) nicaieri. */
+  it("pune „nou” doar pe ce a intrat dupa ultima deschidere, nu si pe ce am facut eu", async () => {
+    const lista = [
+      rez({ id: "dinainte", createdAt: "2026-09-10T09:00:00Z" }),
+      rez({ id: "dupa",     createdAt: "2026-09-12T09:00:00Z" }),
+      rez({ id: "a-mea",    createdAt: "2026-09-12T10:00:00Z" }),
+    ];
+    const host = await randeaza(lista, { noutati: { vazutPanaLa: "2026-09-11T00:00:00Z", aleMele: new Set(["a-mea"]) } });
+    const cuNou = randuri(host).filter((r) => r.querySelector(".bar-nou"))
+      .map((r) => r.querySelector(".primary").firstChild.textContent);
+    expect(cuNou).toEqual(["Oaspete dupa"]);
+    const fara = await randeaza(lista, { noutati: { vazutPanaLa: null, aleMele: new Set() } });
+    expect(fara.querySelector(".bar-nou")).toBeNull();
   });
 
   it("nu arata mai mult de cinci", async () => {
