@@ -1942,6 +1942,11 @@ label.field input, label.field select, label.field textarea{ cursor:auto; }
      si fiecare pixel conteaza in calendar (cerut pe 14 septembrie 2026). */
   .content{ padding-left:max(6px, env(safe-area-inset-left)); padding-right:max(6px, env(safe-area-inset-right)); }
   .topbar{ padding-left:max(10px, env(safe-area-inset-left)); padding-right:max(10px, env(safe-area-inset-right)); }
+  /* Randul cu Azi si butoanele, mai scund (cerut pe 14 septembrie 2026):
+     tintele raman de 36px — cat un deget — in loc de 44. */
+  .cal-toolbar{ margin-bottom:6px; gap:6px; }
+  .cal-toolbar .btn, .cal-toolbar .week-nav button{ min-height:36px; padding-top:6px; padding-bottom:6px; }
+  .cal-toolbar .icon-btn{ width:36px; height:36px; }
   .field-row{ grid-template-columns:1fr; gap:0; }
   .field-row-2col{ grid-template-columns:1fr 1fr; gap:10px; }
   /* Trei campuri unul sub altul pe telefon — inghesuite pe un rand, „Prenume"
