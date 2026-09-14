@@ -18,7 +18,10 @@ se pune peste.
 | 7 | C6 — rapoarte cu delta față de anul trecut + CSV | **făcut**, 14 septembrie 2026 (§7) |
 | 8 | C7 — „nou de la ultima deschidere" | **făcut**, 14 septembrie 2026 (§8) |
 | 9 | C9 — optimistic UI pe `room_status` | făcut deja în faza 2 (A6, `docs/faza2.md` §3) |
-| 10 | C10 — skeleton + timeout pe site și în aplicația de oaspete | de făcut |
+| 10 | C10 — skeleton + timeout pe site și în aplicația de oaspete | **făcut**, 14 septembrie 2026 (§9) |
+
+Faza 3 s-a închis pe 14 septembrie 2026. Rămân sesiunile cu recepția, când
+vor fi; ce iese din ele se pune peste.
 
 ---
 
@@ -482,3 +485,61 @@ apar pe bare, pe listele de pe Azi și în capul fișei.
 - Nu e o listă „ce a intrat de la ultima vizită" — doar eticheta, cum cere
   auditul. Lista se poate face oricând peste același reper (`numaraNoi`).
 - Nimeni nu vede prezența altcuiva: nu e un ecran de supraveghere.
+
+---
+
+## 9. Schelet și mesaj de timeout pe site și în aplicația de oaspete (C10)
+
+### 9.1 Ce era
+
+Pe site, între „Caută camere" și lista de camere, singurul semn era textul
+butonului („Verific disponibilitatea…"); pagina de sub el rămânea goală, iar
+la confirmare (`?token=…`) scria „Se încarcă rezervarea…". Aplicația de
+oaspete spunea „Se încarcă…" și, dacă serverul nu răspundea la timp, arăta
+același ecran „Ceva n-a mers" ca pentru un link stricat — fără altă cale de
+a încerca din nou decât reîncărcarea paginii.
+
+### 9.2 Cum funcționează
+
+- **Scheletul** (`src/ui/schelet.jsx`, stilul în `src/ui/schelet-stil.js`):
+  rânduri gri în forma listei (titlu, un rând de text, prețul în dreapta),
+  cu un puls ușor, oprit la `prefers-reduced-motion`; pentru cititorul de
+  ecran e `role="status"` cu eticheta („Verific disponibilitatea…"). Un
+  singur fișier pentru amândouă aplicațiile, ca `lib/retea.js`, fără alte
+  dependențe; culorile vin din jetoanele fiecăreia (`--schelet-fond` etc.).
+- **Site**: scheletul stă exact unde vine lista de camere, cu același `ref`
+  — pagina derulează la el când începe căutarea și rămâne pe loc când
+  rândurile gri devin camere. La încărcarea confirmării, două rânduri.
+- **„Durează mai mult"** (`useIncet`): după 5 secunde apare un rând
+  „Durează mai mult decât de obicei — serverul pornește. Mai așteaptă
+  câteva secunde." — între „a înghețat?" și timeout-ul de 15 s din
+  `lib/retea.js` (B4). Dispare odată cu așteptarea.
+- **Timeout**: pe site, mesajul din B4 („Serverul nu a răspuns în timp util.
+  Încearcă din nou.") ajunge în alerta de deasupra formularului, ca până
+  acum; butonul „Caută camere" e chiar acolo. În aplicația de oaspete
+  timeout-ul are ecran propriu („Serverul n-a răspuns", `motivEsec`), cu
+  **„Încearcă din nou"** care reia încărcarea fără să reîncarce pagina;
+  „Ceva n-a mers" primește același buton. Un link incomplet sau expirat nu-l
+  are — reîncercarea nu l-ar repara.
+- Aplicația de oaspete arată scheletul în cardul de la încărcare, cu culorile
+  temei (se inversează odată cu tema de noapte).
+
+### 9.3 Verificare
+
+`src/schelet-ecran.test.js`: rolul de status și eticheta, numărul de
+rânduri, rândul „durează mai mult" doar la cerere, pulsul oprit la
+reduced-motion; `useIncet` nu se aprinde înainte de prag, se stinge odată cu
+așteptarea, o așteptare nouă pornește ceasul de la zero.
+`src/guest-refuz.test.js`: `motivEsec`, ecranul de timeout cu butonul care
+reia încărcarea, butonul lipsește la link incomplet sau expirat.
+`src/guest-stiluri.test.js` (existent) trece cu foaia extinsă. În
+previzualizare: site-ul arată scheletul sub formular în timpul căutării;
+aplicația de oaspete fără cod arată „Link incomplet" fără buton de
+reîncercare.
+
+### 9.4 Ce NU s-a schimbat
+
+- Timeout-ul și reîncercarea de transport sunt tot cele din B4
+  (`fetchCuTimeout`, `cuOReincercare`); nimic nou în rețea.
+- Site-ul n-are buton propriu de reîncercare la timeout: formularul e acolo.
+- Nimic în bază.

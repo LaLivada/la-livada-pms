@@ -18,6 +18,7 @@ import {
 import { citesteVremea } from "./vreme.js";
 import Fisa from "./Fisa.jsx";
 import Fereastra from "./Fereastra.jsx";
+import { Schelet, useIncet } from "../ui/schelet.jsx";
 import {
   TELEFON, TELEFON_SCRIS, ASISTENTA, ACASA, BUN_VENIT, IMPORTANT,
   ATRACTII, ATRACTII_PE_PAGINA, linkHarta,
@@ -94,9 +95,21 @@ const REFUZURI = {
   },
   eroare: {
     titlu: "Ceva n-a mers",
-    text: "N-am putut încărca datele. Încearcă să reîncarci pagina.",
+    text: "N-am putut încărca datele. Încearcă din nou; dacă tot nu merge, sună-ne.",
+  },
+  /* Timeout-ul (lib/retea.js, B4) e alt ecran decat „ceva n-a mers": omul
+     afla ca serverul n-a raspuns la timp, nu ca linkul e stricat. */
+  timeout: {
+    titlu: "Serverul n-a răspuns",
+    text: "Nu e vina linkului: serverul n-a răspuns la timp. Verifică internetul și încearcă din nou; dacă ești în fața ușii, sună-ne.",
   },
 };
+
+export const motivEsec = (e) => (e?.timeout ? "timeout" : "eroare");
+
+/* Doar esecurile trecatoare primesc „Incearca din nou"; un link expirat sau
+   incomplet nu se repara reincercand. */
+const SE_POATE_REINCERCA = new Set(["timeout", "eroare"]);
 
 /* Pictogramele sunt scrise aici, nu importate dintr-o biblioteca: sunt
    cateva, iar lucide-react ar fi adus un pachet intreg pentru ele. */
@@ -628,14 +641,19 @@ function CumAjungi({ deschideAcces }) {
   );
 }
 
-function Refuz({ motiv }) {
+export function Refuz({ motiv, onReincearca }) {
   const m = REFUZURI[motiv] || REFUZURI.eroare;
   return (
     <div className="g-pagina">
       <div className="g-card g-mesaj">
         <h1>{m.titlu}</h1>
         <p>{m.text}</p>
-        <a className="g-buton" href={`tel:${TELEFON}`}>Sună recepția</a>
+        <div className="g-mesaj-actiuni">
+          {SE_POATE_REINCERCA.has(motiv) && onReincearca && (
+            <button type="button" className="g-buton" onClick={onReincearca}>Încearcă din nou</button>
+          )}
+          <a className="g-buton" href={`tel:${TELEFON}`}>Sună recepția</a>
+        </div>
       </div>
       <p className="g-subsol">Complex La Livada · {TELEFON_SCRIS}</p>
     </div>
@@ -806,6 +824,7 @@ function Atractii() {
 export default function App() {
   const [cod, setCod] = useState(codDinAdresa);
   const [stare, setStare] = useState("incarca");
+  const [incercare, setIncercare] = useState(0); // „Încearcă din nou” de pe ecranul de refuz
   const [motiv, setMotiv] = useState(null);
   const [sejur, setSejur] = useState(null);
   const [acces, setAcces] = useState(null);
@@ -884,19 +903,25 @@ export default function App() {
         setMinibar(Array.isArray(m) ? m : []);
         setStare("gata");
       })
-      .catch(() => { if (viu) { setMotiv("eroare"); setStare("refuzat"); } });
+      .catch((e) => { if (viu) { setMotiv(motivEsec(e)); setStare("refuzat"); } });
 
     return () => { viu = false; };
-  }, [cod]);
+  }, [cod, incercare]);
 
+  /* Scheletul (faza 3, C10): cat timp vin sejurul si codul, pagina se
+     contureaza in loc sa spuna „se incarca"; dupa 5 secunde spune ca
+     dureaza mai mult decat de obicei. Hook-ul sta inaintea return-urilor. */
+  const incet = useIncet(stare === "incarca");
   if (stare === "incarca") {
     return (
       <div className="g-pagina">
-        <div className="g-card g-mesaj"><p>Se încarcă…</p></div>
+        <div className="g-card">
+          <Schelet randuri={3} eticheta="Se încarcă…" incet={incet} />
+        </div>
       </div>
     );
   }
-  if (stare === "refuzat") return <Refuz motiv={motiv} />;
+  if (stare === "refuzat") return <Refuz motiv={motiv} onReincearca={() => setIncercare((n) => n + 1)} />;
 
   /* Felul camerei si numarul ei, separat — nu un singur sir. Omul care
      tocmai a ajuns cauta NUMARUL, ca sa stie la ce usa sa se duca; „Tiny

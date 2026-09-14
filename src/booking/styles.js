@@ -32,6 +32,10 @@ export const STILURI = `
   --ldv-danger-soft:#fbeae7;
   --ldv-radius:6px;
   --ldv-gap:16px;
+  /* Scheletul de încărcare (ui/schelet.jsx, C10) își ia culorile de aici. */
+  --schelet-fond:var(--ldv-line-soft);
+  --schelet-linie:var(--ldv-line-soft);
+  --schelet-text:var(--ldv-muted);
 
   color:var(--ldv-ink);
   font: inherit;

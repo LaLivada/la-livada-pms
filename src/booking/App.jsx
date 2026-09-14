@@ -31,6 +31,7 @@ import {
   anuleazaRezervare, trimiteEmailConfirmare, confirmaRezervare, COD_INDISPONIBIL,
 } from "./api.js";
 import { STILURI } from "./styles.js";
+import { Schelet, useIncet, STIL_SCHELET } from "../ui/schelet.jsx";
 import { JUDETE, TARI, PREFIXE_TELEFON, PREFIX_IMPLICIT, telefonInternational } from "./nomenclatoare.js";
 import { Turnstile } from "./Turnstile.jsx";
 import { fotoPentru } from "./foto.js";
@@ -225,9 +226,9 @@ export default function App({ valoriInitiale }) {
   const cardRezultate = useRef(null);
   useEffect(() => {
     if (intaiRandare.current) { intaiRandare.current = false; return; }
-    /* Ref-ul e null oriunde în afară de „rezultate”: React îl golește la
-       demontarea cardului. Exact asta face distincția, fără o a doua
-       condiție pe `stare` care ar fi putut rămâne în urmă. */
+    /* Ref-ul e null oriunde în afară de „caut” (scheletul) și „rezultate”:
+       React îl golește la demontarea cardului. Exact asta face distincția,
+       fără o a doua condiție pe `stare` care ar fi putut rămâne în urmă. */
     const tinta = cardRezultate.current || document.querySelector(".ldv");
     tinta?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, [stare]);
@@ -379,12 +380,18 @@ export default function App({ valoriInitiale }) {
     }
   }
 
+  /* Scheletul (faza 3, C10): lista de camere se conturează cât timp
+     serverul caută; după 5 secunde spune că durează mai mult decât de
+     obicei. Timeout-ul propriu-zis (15 s) vine din lib/retea.js (B4) și
+     ajunge în `eroare`, cu textul lui. */
+  const incet = useIncet(stare === "caut" || stare === "incarca-confirmare");
+
   const pasCurent = stare === "caut" ? "cautare"
     : stare === "trimitere" ? "date" : stare;
 
   return (
     <div className="ldv">
-      <style>{STILURI}</style>
+      <style>{STILURI + STIL_SCHELET}</style>
 
       {stare !== "incarca-confirmare" && (
         <div className="ldv-pasi" aria-hidden="true">
@@ -403,7 +410,9 @@ export default function App({ valoriInitiale }) {
       )}
 
       {stare === "incarca-confirmare" && (
-        <div className="ldv-card"><div className="ldv-gol">Se încarcă rezervarea…</div></div>
+        <div className="ldv-card">
+          <Schelet randuri={2} eticheta="Se încarcă rezervarea…" incet={incet} />
+        </div>
       )}
 
       {/* ---------------- CĂUTARE ---------------- */}
@@ -463,6 +472,16 @@ export default function App({ valoriInitiale }) {
               {stare === "caut" ? "Verific disponibilitatea…" : "Caută camere"}
             </button>
           </div>
+        </div>
+      )}
+
+      {/* Scheletul stă exact unde vine lista, cu același ref: pagina
+          derulează la el când începe căutarea și rămâne pe loc când
+          rândurile gri devin camere. */}
+      {stare === "caut" && (
+        <div className="ldv-card" ref={cardRezultate}>
+          <h2>Camere disponibile</h2>
+          <Schelet randuri={3} eticheta="Verific disponibilitatea…" incet={incet} />
         </div>
       )}
 

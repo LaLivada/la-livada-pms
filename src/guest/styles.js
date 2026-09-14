@@ -16,6 +16,8 @@
 /* ATENTIE: tot ce urmeaza e un template literal. Fara backticks in
    comentariile CSS — inchid sirul, iar build-ul cade cu un mesaj despre
    punct si virgula lipsa, care nu trimite deloc la cauza reala. */
+import { STIL_SCHELET } from "../ui/schelet-stil.js";
+
 export const STILURI = `
 :root{
   /* Jetoanele de pe lalivada.ro (booking/brand.css). */
@@ -34,6 +36,11 @@ export const STILURI = `
   --g-faint:rgba(34,34,31,.42);
   --g-line:rgba(63,74,61,.16);
   --g-hair:rgba(63,74,61,.09);
+  /* Scheletul de incarcare (ui/schelet-stil.js, C10) isi ia culorile de aici;
+     jetoanele se inverseaza odata cu tema, deci si el. */
+  --schelet-fond:var(--g-hair);
+  --schelet-linie:var(--g-hair);
+  --schelet-text:var(--g-muted);
   --g-card:#fffdf8;
   /* Suprafata casetelor de formular si a panzei de semnat. Jeton, nu #fff
      scris in regula: textul din ele e --g-text, care se inverseaza in tema de
@@ -833,6 +840,8 @@ body{
   font-family:var(--editorial); font-weight:400; font-size:26px; margin:0 0 8px;
 }
 .g-mesaj p{ margin:0 0 18px; color:var(--g-muted); }
+.g-mesaj-actiuni{ display:flex; gap:10px; justify-content:center; flex-wrap:wrap; }
+.g-mesaj button.g-buton{ font:inherit; border:0; cursor:pointer; }
 /* Culoarea literei vine din jetonul care NU se inverseaza, desi blocul de
    noapte suprascrie oricum si fundalul, si litera, mai jos. Asa regula se
    citeste corect singura: pana acum parea stricata si scapa doar fiindca o
@@ -868,4 +877,4 @@ body{
   .g-buton{ background:var(--champagne); color:#15170f; }
   .g-fundal{ background:rgba(0,0,0,.68); }
 }
-`;
+` + STIL_SCHELET;
