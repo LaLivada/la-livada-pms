@@ -54,26 +54,23 @@ export function SectiuneFisa({ res, core }) {
 
   return (
     <div className="field">
-      <label>Fișă de cazare</label>
+      {/* Starea pe acelasi rand cu eticheta (ca la acces): „Nu e completată"
+          si atat — butonul de dedesubt spune ce se poate face. */}
+      <div className="field-rand">
+        <label>Fișă de cazare</label>
+        {fisa === undefined && <span className="field-nota">Se încarcă…</span>}
+        {fisa === null && <span className="field-nota">Nu e completată</span>}
+        {fisa && (
+          <span className="field-nota">
+            Completată {fmtDateTime(fisa.semnat_la)}
+            {fisa.completata_de ? ` · de ${fisa.completata_de}` : " · de oaspete"}
+          </span>
+        )}
+      </div>
 
-      {fisa === undefined && <div className="ldv-mic">Se încarcă…</div>}
-
-      {fisa === null && (
-        <div className="ldv-mic" style={{ color: "var(--muted)" }}>
-          Nu e completată. Oaspetele o poate completa din linkul lui, sau o
-          completezi tu aici.
-        </div>
-      )}
-
-      {fisa && (
-        <div className="ldv-mic">
-          Completată {fmtDateTime(fisa.semnat_la)}
-          {fisa.completata_de ? ` · de ${fisa.completata_de}` : " · de oaspete"}
-          {!fisa.semnatura_svg && (
-            <div style={{ color: "var(--danger)", marginTop: 2 }}>
-              Fără semnătură — {fisa.fara_semnatura_motiv}
-            </div>
-          )}
+      {fisa && !fisa.semnatura_svg && (
+        <div className="field-nota field-nota-pericol">
+          Fără semnătură — {fisa.fara_semnatura_motiv}
         </div>
       )}
 

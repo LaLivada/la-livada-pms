@@ -179,19 +179,22 @@ export function SectiuneAcces({ res, core }) {
 
   return (
     <div className="field">
-      <label>Acces cameră · {camera.name}</label>
-
-      {cod === undefined && <div className="ldv-mic">Se încarcă…</div>}
-
-      {cod === null && (
-        <div className="ldv-mic" style={{ color: "var(--muted)" }}>
-          {dupaCheckout
-            ? "Codul de acces a fost șters la check-out."
-            : facutCheckIn
-              ? "Codul de acces nu a fost generat."
-              : "Codul de acces se generează automat la check-in."}
-        </div>
-      )}
+      {/* Starea sta pe acelasi rand cu eticheta, scurt: pe telefon, o
+          propozitie sub fiecare eticheta impingea folio-ul sub margine.
+          Eticheta spune deja „acces", nota nu mai repeta. */}
+      <div className="field-rand">
+        <label>Acces cameră · {camera.name}</label>
+        {cod === undefined && <span className="field-nota">Se încarcă…</span>}
+        {cod === null && (
+          <span className="field-nota">
+            {dupaCheckout
+              ? "Codul a fost șters la check-out."
+              : facutCheckIn
+                ? "Codul nu a fost generat."
+                : "Codul se generează la check-in."}
+          </span>
+        )}
+      </div>
 
       {cod && cod.provider === "simulare" && (
         <div className="error-text" role="alert" style={{ marginBottom: 6 }}>

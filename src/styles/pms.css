@@ -2104,3 +2104,12 @@ label.field input, label.field select, label.field textarea{ cursor:auto; }
 }
 .list-row .primary .bar-nou{ vertical-align:1px; margin-left:5px; }
 .tag-nou{ background:var(--accent); color:#fff; margin-left:6px; }
+
+/* Eticheta unei sectiuni cu starea ei pe acelasi rand (acces, fisa de
+   cazare): pe telefon, o propozitie sub fiecare eticheta impingea folio-ul
+   sub margine. Se rupe pe doua randuri doar cand chiar nu incape. */
+.field-rand{ display:flex; align-items:baseline; gap:0 6px; flex-wrap:wrap; margin-bottom:6px; }
+.field-rand > label{ margin-bottom:0; }
+.field-nota{ font-size:var(--fs-sm); color:var(--text-muted); }
+.field-rand .field-nota::before{ content:"· "; }
+.field-nota-pericol{ display:block; color:var(--danger); margin-top:2px; }
