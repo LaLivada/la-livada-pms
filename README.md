@@ -24,8 +24,9 @@ fiecăreia: `public/`, `public-booking/`, `public-guest/`.
   (camelCase). Doar cereri, nu decizii.
 - `src/features/` — ecranele PMS-ului (calendar și rezervări, facturare,
   clienți, camere și curățenie, acces, automatizare, setări, jurnal…);
-  rezervările stau în `src/features/rezervari/`, câte o componentă pe fișier,
-  iar `rezervari.jsx` e doar poarta care le re-exportă;
+  rezervările stau în `src/features/rezervari/` și facturarea în
+  `src/features/facturare/`, câte o componentă pe fișier, iar `rezervari.jsx`
+  și `facturare.jsx` sunt doar porțile care le re-exportă;
   `src/ui/` — primitivele (dialog, secțiuni pliabile, schelet de încărcare);
   `src/pms-app.jsx` — starea aplicației și legăturile dintre ecrane.
 - `src/booking/`, `src/guest/` — cele două aplicații publice. Importă din

@@ -10,7 +10,7 @@ punct și **starea** implementării.
 | 1 | D3 — README real | **făcut**, 14 septembrie 2026 (§1) |
 | 2 | D4 — index pentru `docs/` | **făcut**, 14 septembrie 2026 (§2) |
 | 3 | D6 — `@ts-check` + JSDoc pe `src/lib/` și `src/data/` | **făcut**, 14 septembrie 2026 (§3) |
-| 4 | D1 — spargerea fișierelor mari (`rezervari.jsx`, `facturare.jsx`) | **în lucru**: `rezervari.jsx` făcut, 14 septembrie 2026 (§4); `facturare.jsx` urmează |
+| 4 | D1 — spargerea fișierelor mari (`rezervari.jsx`, `facturare.jsx`) | **făcut**, 14 septembrie 2026 (§4) |
 | 5 | D2 — stilurile inline → clase | de făcut, treptat |
 
 D5 (comentariile lungi) nu e o sarcină, e o regulă de păstrat; e scrisă acum
@@ -107,7 +107,7 @@ trei build-uri neschimbate.
 
 ---
 
-## 4. Spargerea fișierelor mari (D1): `rezervari.jsx`
+## 4. Spargerea fișierelor mari (D1): `rezervari.jsx` și `facturare.jsx`
 
 ### 4.1 Ce era
 
@@ -115,7 +115,8 @@ trei build-uri neschimbate.
 acțiuni de check-in / check-out într-un singur fișier, plus bannere de
 secțiune rămase de pe vremea când toată aplicația era un fișier („LOGIN",
 „CLIENTS VIEW", „SETTINGS HUB"), care nu mai descriau nimic din ce urma
-după ele.
+după ele. `src/features/facturare.jsx` avea 2.356 de linii: douăzeci și nouă
+de declarații (componente, ferestre, adaptorul XML), cu aceleași bannere.
 
 ### 4.2 Cum s-a făcut
 
@@ -129,6 +130,14 @@ după ele.
   `checkin-checkout.jsx` (doCheckIn, doCheckOut), `azi.jsx` (TodayView,
   CardOnline), `night-audit.jsx` (NightAuditGate), `eticheta-nou.jsx`
   (EtichetaNou). Fiecare are un antet care spune ce e.
+- `src/features/facturare/`, grupat pe ce face: `clienti-facturare.jsx`
+  (eticheta, alegerea și fereastra clientului de facturare), `emitere.jsx`
+  (`emiteFactura`, `ensureCazareLine` — separate, ca folio și factura să nu
+  se importe una pe alta), `folio.jsx` (FolioPanel, AddExtraForm,
+  InvoiceBuilderModal), `factura.jsx` (InvoicePrint, cu încasarea pe loc,
+  stornarea și corecțiile de linie), `produse.jsx`, `facturi-lista.jsx`,
+  `incasari.jsx`, `permisiuni.jsx`, `export-contabil.jsx`, `financiar.jsx`
+  (FinancialView, filele). `facturare.jsx` rămâne poarta, cu cele 26 de nume.
 - `rezervari.jsx` rămâne **poarta**: re-exportă aceleași nume, deci
   `pms-app` (import lazy) și testele n-au trebuit atinse; bundle-ul e același
   (poarta trage tot, ca înainte). Codul nou se pune direct în fișierul
@@ -143,9 +152,10 @@ după ele.
 
 Lint (`no-undef` e plasa de siguranță a tăierii), typecheck, suita și cele
 trei build-uri. Testele de ecran existente trec prin poartă (CardOnline,
-ReservationModal, doCheckIn), iar `src/rezervari-poarta.test.js`, nou, cere
-ca poarta să exporte exact cele zece nume de dinainte, toate funcții — deci
-fiecare fișier din dosar se încarcă. Previzualizarea în browser n-a fost
+ReservationModal, doCheckIn), iar `src/rezervari-poarta.test.js` și
+`src/facturare-poarta.test.js`, noi, cer ca fiecare poartă să exporte exact
+numele de dinainte (zece, respectiv douăzeci și șase), toate funcții — deci
+fiecare fișier din cele două dosare se încarcă. Previzualizarea în browser n-a fost
 posibilă după repornirea serverului local (sesiunea autentificată s-a
 pierdut, iar eu nu introduc parole); de verificat la prima deschidere:
 calendarul, Azi, „vezi rezervarea" și fișa arată ca înainte.
@@ -153,5 +163,5 @@ calendarul, Azi, „vezi rezervarea" și fișa arată ca înainte.
 ### 4.4 Ce NU s-a schimbat
 
 - Niciun comportament, nicio semnătură, niciun import din afara dosarului.
-- `facturare.jsx` (2.356 de linii) urmează, cu același script, când se
-  atinge oricum.
+- Următorul fișier care ar crește prea mult se taie cu același script, când
+  se atinge oricum.

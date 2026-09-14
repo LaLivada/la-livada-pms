@@ -5,7 +5,6 @@
  * acelasi cod, aceleasi nume exportate, fara schimbare de comportament.
  */
 
-import { Check } from "lucide-react";
 import { audit } from "../../lib/audit.js";
 import { guestFullName } from "../../lib/nume.js";
 import { rangesOverlap } from "../../lib/availability.js";
