@@ -33,6 +33,9 @@ export const FMT_DATE_FULL = new Intl.DateTimeFormat("ro-RO", { timeZone: FUS_HO
 export const FMT_TIME = new Intl.DateTimeFormat("ro-RO", { timeZone: FUS_HOTEL, hour: "2-digit", minute: "2-digit" });
 
 export const FMT_WEEKDAY = new Intl.DateTimeFormat("ro-RO", { timeZone: FUS_HOTEL, weekday: "short" });
+/* Numele intreg („miercuri"), pentru antetul calendarului cand coloana zilei
+   are loc (lib/calendar-latime.js, numeZiIntreg). */
+export const FMT_WEEKDAY_LONG = new Intl.DateTimeFormat("ro-RO", { timeZone: FUS_HOTEL, weekday: "long" });
 
 export const FMT_MONTH_YEAR = new Intl.DateTimeFormat("ro-RO", { timeZone: FUS_HOTEL, month: "long", year: "numeric" });
 

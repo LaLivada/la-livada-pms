@@ -67,6 +67,16 @@ export function latimeZiPx(mod, latimeGrila) {
   return ZI_INGUSTA_PX;
 }
 
+/* Antetul zilelor: numele intreg („miercuri", „duminică") cand coloana are
+   loc, prescurtat („mie.") cand n-are. Cerut pe 14 septembrie 2026 pentru
+   zilele late; pragul e in pixeli, nu pe treapta, ca „7 zile pe ecran" pe o
+   tableta (~135px) sa-l primeasca si ea, iar pe un telefon (66px) nu. Cel
+   mai lung nume are ~60px la 11px bold; 96 lasa loc si pentru margini. */
+export const ZI_NUME_INTREG_PX = 96;
+export function numeZiIntreg(ziPx) {
+  return (Number(ziPx) || 0) >= ZI_NUME_INTREG_PX;
+}
+
 /* Pinch: raportul dintre distanta curenta a degetelor si cea de referinta.
    Pragul e larg (30%) ca un tremur al mainii sa nu schimbe nimic; dupa un
    pas, referinta devine distanta curenta, deci un pinch continuu face

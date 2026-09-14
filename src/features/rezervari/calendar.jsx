@@ -18,10 +18,10 @@ import { ziLocala, adaugaZile, zileIntre, momentLocal, laOraLocala, partiLocale,
 import { planIntentie } from "../../lib/scurtaturi.js";
 import {
   CHEIE_LATIME, ETICHETA_LATIME, latimeImplicita, latimeSalvata, urmatoareaLatime, latimeDupaPinch,
-  latimeZiPx, decidePinch, distantaAtingeri,
+  latimeZiPx, numeZiIntreg, decidePinch, distantaAtingeri,
 } from "../../lib/calendar-latime.js";
 import { isToday } from "../../lib/tranzitii.js";
-import { fmtDate, fmtDateTime, toDateInput, FMT_WEEKDAY } from "../../lib/format.js";
+import { fmtDate, fmtDateTime, toDateInput, FMT_WEEKDAY, FMT_WEEKDAY_LONG } from "../../lib/format.js";
 import { ROOM_TYPE, STATUS_LABEL, STATUS_GLYPH, STATUS_CLASS } from "../../lib/constante.js";
 import { Dialog, toaster } from "../../ui/primitive.jsx";
 import { EtichetaNou } from "./eticheta-nou.jsx";
@@ -483,7 +483,7 @@ export function CalendarView({ core, updateCore, reservations, updateReservation
               const wk = esteWeekend(d);
               return (
                 <div key={i} className={"cal-daycell" + (isToday(d) ? " today" : wk ? " weekend" : "")}>
-                  {FMT_WEEKDAY.format(d)}<br />{fmtDate(d)}
+                  {(numeZiIntreg(ziPx) ? FMT_WEEKDAY_LONG : FMT_WEEKDAY).format(d)}<br />{fmtDate(d)}
                 </div>
               );
             })}

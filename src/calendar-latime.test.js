@@ -8,7 +8,7 @@
 import { describe, it, expect } from "vitest";
 import {
   LATIMI, latimeImplicita, latimeSalvata, urmatoareaLatime, latimeDupaPinch, latimeZiPx,
-  decidePinch, distantaAtingeri, CHEIE_LATIME,
+  decidePinch, distantaAtingeri, CHEIE_LATIME, numeZiIntreg, ZI_NUME_INTREG_PX,
 } from "./lib/calendar-latime.js";
 
 describe("latimeImplicita", () => {
@@ -82,5 +82,16 @@ describe("decidePinch / distantaAtingeri", () => {
   });
   it("distanta e cea euclidiana dintre primele doua atingeri", () => {
     expect(distantaAtingeri([{ clientX: 0, clientY: 0 }, { clientX: 3, clientY: 4 }])).toBe(5);
+  });
+});
+
+describe("numeZiIntreg", () => {
+  it("numele intreg al zilei doar cand coloana are loc: zile late si „7 zile” pe tableta, nu pe zile inguste", () => {
+    expect(numeZiIntreg(190)).toBe(true);
+    expect(numeZiIntreg(135)).toBe(true);
+    expect(numeZiIntreg(ZI_NUME_INTREG_PX)).toBe(true);
+    expect(numeZiIntreg(ZI_NUME_INTREG_PX - 1)).toBe(false);
+    expect(numeZiIntreg(66)).toBe(false);
+    expect(numeZiIntreg(undefined)).toBe(false);
   });
 });

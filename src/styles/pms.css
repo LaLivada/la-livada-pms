@@ -96,9 +96,6 @@
   .cal-daycell.today{ color:#0F1216; }
   .avatar-btn.active, .room-chip.on, .tag-chip.on, .guest-chip-av, .big-avatar,
   .rail .mark, .brand-mark, .settings-card:hover .ico{ color:#0F1216; }
-  .cal-bar.block-bar{
-    background:repeating-linear-gradient(45deg, var(--surface-3), var(--surface-3) 6px, var(--surface-2) 6px, var(--surface-2) 12px);
-  }
   .bar-vip{ color:var(--surface); }
   /* The registration sheet stays light — it is a printed document. */
   .arrival-sheet, .fisa{ background:#fff; color:#141412; }
@@ -1710,10 +1707,37 @@ label.field input, label.field select, label.field textarea{ cursor:auto; }
 .tag-chip:hover{ border-color:var(--accent); }
 .tag-chip.on{ background:var(--accent); border-color:var(--accent); color:#fff; }
 .st-noshow{ background:var(--warning-soft); color:var(--warning); border:1px solid rgba(154,117,36,.35); }
-.cal-bar.block-bar{
-  background:repeating-linear-gradient(45deg, var(--surface-3), var(--surface-3) 6px, var(--surface-2) 6px, var(--surface-2) 12px);
-  color:var(--text-2); border:1px solid var(--border);
+/* Culorile de stare din calendar — barele si legenda de sub ele: vii si
+   pline, dupa modelul Pyn Booking (cerut pe 14 septembrie 2026): rosu
+   cerere, verde confirmata, chihlimbar protocol, azuriu in casa, gri
+   plecat, mov blocaj; no-show albastru inchis si anulata visiniu (taiat),
+   ca sa nu se confunde cu cererea. Textul e alb sau inchis dupa cum cere
+   contrastul pe fiecare culoare (toate trec de 4,5:1). Aceleasi culori in
+   ambele teme: sunt suficient de saturate si pe fond inchis. Etichetele de
+   stare din liste (.st-* singure) raman pastelate: acolo textul spune
+   starea, culoarea doar o sprijina. */
+.cal-bar.st-pending,    .legend-chip.st-pending{    --bar-bg:#D9362A; --bar-fg:#fff; }
+.cal-bar.st-confirmed,  .legend-chip.st-confirmed{  --bar-bg:#5CB82F; --bar-fg:#0F1216; }
+.cal-bar.st-protocol,   .legend-chip.st-protocol{   --bar-bg:#F5A800; --bar-fg:#0F1216; }
+.cal-bar.st-checkedin,  .legend-chip.st-checkedin{  --bar-bg:#1FAEE8; --bar-fg:#0F1216; }
+.cal-bar.st-checkedout, .legend-chip.st-checkedout{ --bar-bg:#A6A6A6; --bar-fg:#0F1216; }
+.cal-bar.st-noshow,     .legend-chip.st-noshow{     --bar-bg:#1F5FAA; --bar-fg:#fff; }
+.cal-bar.st-cancelled,  .legend-chip.st-cancelled{  --bar-bg:#9B2226; --bar-fg:#fff; }
+.cal-bar.block-bar,     .legend-chip.block-bar{     --bar-bg:#8A4BDB; --bar-fg:#fff; }
+.cal-bar.st-pending, .cal-bar.st-confirmed, .cal-bar.st-protocol, .cal-bar.st-checkedin,
+.cal-bar.st-checkedout, .cal-bar.st-noshow, .cal-bar.st-cancelled, .cal-bar.block-bar,
+.legend-chip.st-pending, .legend-chip.st-confirmed, .legend-chip.st-protocol, .legend-chip.st-checkedin,
+.legend-chip.st-checkedout, .legend-chip.st-noshow, .legend-chip.st-cancelled, .legend-chip.block-bar{
+  background:var(--bar-bg); color:var(--bar-fg); border:1px solid rgba(0,0,0,.14);
 }
+/* Blocajul ramane dungat, ca sa se deosebeasca de o rezervare si fara
+   culoare; dungile sunt o umbra deschisa peste mov, nu doua culori. */
+.cal-bar.block-bar, .legend-chip.block-bar{
+  background:repeating-linear-gradient(45deg, rgba(255,255,255,.18) 0 6px, transparent 6px 12px) var(--bar-bg);
+}
+/* Pastila VIP e negativul barei: pe o bara cu text alb ar fi altfel alba
+   pe alb. */
+.cal-bar .bar-vip{ background:var(--bar-fg); color:var(--bar-bg); }
 .room-chips{ display:flex; flex-wrap:wrap; gap:6px; }
 .room-chip{
   padding:7px 11px; border-radius:8px; border:1px solid var(--border); background:var(--surface);
