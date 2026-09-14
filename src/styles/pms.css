@@ -517,12 +517,15 @@
 .cal-cell.weekend{ background:rgba(0,0,0,0.014); }
 .cal-cell.weekend:hover{ background:var(--surface-2); }
 .cal-bar{
-  position:absolute; top:7px; bottom:7px; left:3px; border-radius:var(--r-sm); padding:5px 9px;
+  position:absolute; top:7px; bottom:7px; left:3px; border-radius:999px; padding:5px 11px;
   font-size:var(--fs-sm); font-weight:600; display:flex; align-items:center; gap:6px;
-  overflow:hidden; white-space:nowrap; z-index:4;
+  white-space:nowrap; z-index:4;
   box-shadow:var(--shadow-sm); transition:transform .1s;
 }
-.cal-bar .bar-name{ overflow:hidden; text-overflow:ellipsis; }
+/* Bara nu-si mai taie continutul (overflow): insigna sursei iese pe coltul
+   ei. Numele isi are taierea proprie, cu „…"; restul (pictograme, VIP) e
+   fix si incape in umplutura. */
+.cal-bar .bar-name{ overflow:hidden; text-overflow:ellipsis; min-width:0; }
 .cal-bar .bar-nights{
   margin-left:auto; font-size:var(--fs-2xs); font-weight:700; opacity:.7;
   font-family:'IBM Plex Mono',monospace; flex-shrink:0;
@@ -606,7 +609,7 @@
 .cal-scroll{ touch-action:pan-x pan-y; }
 
 .cal-scroll.dense .cal-cell{ min-height:38px; }
-.cal-scroll.dense .cal-bar{ top:4px; bottom:4px; font-size:var(--fs-xs); padding:3px 7px; }
+.cal-scroll.dense .cal-bar{ top:4px; bottom:4px; font-size:var(--fs-xs); padding:3px 9px; }
 .cal-scroll.dense .cal-roomcell{ padding:5px 6px; }
 .cal-scroll.dense .cal-roomcell .rname{ font-size:var(--fs-base); }
 .cal-scroll.dense .rfloor{ display:none; }
@@ -617,7 +620,7 @@
 }
 .legend-item{ display:flex; align-items:center; gap:5px; }
 .legend-chip{
-  width:18px; height:18px; border-radius:var(--r-xs); display:flex; align-items:center;
+  width:18px; height:18px; border-radius:50%; display:flex; align-items:center;
   justify-content:center; font-size:var(--fs-3xs); font-weight:700; flex-shrink:0;
 }
 .toast-host{
@@ -1707,37 +1710,48 @@ label.field input, label.field select, label.field textarea{ cursor:auto; }
 .tag-chip:hover{ border-color:var(--accent); }
 .tag-chip.on{ background:var(--accent); border-color:var(--accent); color:#fff; }
 .st-noshow{ background:var(--warning-soft); color:var(--warning); border:1px solid rgba(154,117,36,.35); }
-/* Culorile de stare din calendar — barele si legenda de sub ele: vii si
-   pline, dupa modelul Pyn Booking (cerut pe 14 septembrie 2026): rosu
-   cerere, verde confirmata, chihlimbar protocol, azuriu in casa, gri
-   plecat, mov blocaj; no-show albastru inchis si anulata visiniu (taiat),
-   ca sa nu se confunde cu cererea. Textul e alb sau inchis dupa cum cere
-   contrastul pe fiecare culoare (toate trec de 4,5:1). Aceleasi culori in
-   ambele teme: sunt suficient de saturate si pe fond inchis. Etichetele de
-   stare din liste (.st-* singure) raman pastelate: acolo textul spune
-   starea, culoarea doar o sprijina. */
-.cal-bar.st-pending,    .legend-chip.st-pending{    --bar-bg:#D9362A; --bar-fg:#fff; }
-.cal-bar.st-confirmed,  .legend-chip.st-confirmed{  --bar-bg:#5CB82F; --bar-fg:#0F1216; }
-.cal-bar.st-protocol,   .legend-chip.st-protocol{   --bar-bg:#F5A800; --bar-fg:#0F1216; }
-.cal-bar.st-checkedin,  .legend-chip.st-checkedin{  --bar-bg:#1FAEE8; --bar-fg:#0F1216; }
-.cal-bar.st-checkedout, .legend-chip.st-checkedout{ --bar-bg:#A6A6A6; --bar-fg:#0F1216; }
-.cal-bar.st-noshow,     .legend-chip.st-noshow{     --bar-bg:#1F5FAA; --bar-fg:#fff; }
-.cal-bar.st-cancelled,  .legend-chip.st-cancelled{  --bar-bg:#9B2226; --bar-fg:#fff; }
-.cal-bar.block-bar,     .legend-chip.block-bar{     --bar-bg:#8A4BDB; --bar-fg:#fff; }
-.cal-bar.st-pending, .cal-bar.st-confirmed, .cal-bar.st-protocol, .cal-bar.st-checkedin,
-.cal-bar.st-checkedout, .cal-bar.st-noshow, .cal-bar.st-cancelled, .cal-bar.block-bar,
-.legend-chip.st-pending, .legend-chip.st-confirmed, .legend-chip.st-protocol, .legend-chip.st-checkedin,
-.legend-chip.st-checkedout, .legend-chip.st-noshow, .legend-chip.st-cancelled, .legend-chip.block-bar{
-  background:var(--bar-bg); color:var(--bar-fg); border:1px solid rgba(0,0,0,.14);
+/* Culorile de stare din calendar — barele si legenda de sub ele. Tonuri
+   pline dar calde, nu tipatoare (14 septembrie 2026: prima varianta, cu
+   rosu si verde saturate, a fost prea stridenta): corai cerere, verde
+   confirmata, mustar protocol, turcoaz checked-in, gri checked-out,
+   bleumarin no-show, ardezie anulata (taiat), violet blocaj (dungat). Peste
+   fiecare, o lumina usoara dinspre stanga-sus: barele par usor bombate, nu
+   plate. Textul e alb — sau inchis, pe mustar si pe gri — cu contrast de cel
+   putin 4,5:1; aceleasi culori pe ambele teme. Etichetele de stare din
+   liste (.st-* singure) raman pastelate: acolo textul spune starea. */
+.cal-bar.st-pending,    .legend-chip.st-pending{    --bar-bg:#D34255; --bar-fg:#fff; }
+.cal-bar.st-confirmed,  .legend-chip.st-confirmed{  --bar-bg:#378539; --bar-fg:#fff; }
+.cal-bar.st-protocol,   .legend-chip.st-protocol{   --bar-bg:#E6BE45; --bar-fg:#1A1D22; }
+.cal-bar.st-checkedin,  .legend-chip.st-checkedin{  --bar-bg:#1B838C; --bar-fg:#fff; }
+.cal-bar.st-checkedout, .legend-chip.st-checkedout{ --bar-bg:#ADB1B8; --bar-fg:#1A1D22; }
+.cal-bar.st-noshow,     .legend-chip.st-noshow{     --bar-bg:#1F3E63; --bar-fg:#fff; }
+.cal-bar.st-cancelled,  .legend-chip.st-cancelled{  --bar-bg:#6B7280; --bar-fg:#fff; }
+.cal-bar.block-bar,     .legend-chip.block-bar{     --bar-bg:#7B5CC7; --bar-fg:#fff; }
+.cal-bar.st-pending, .cal-bar.st-confirmed, .cal-bar.st-protocol, .cal-bar.st-checkedin, .cal-bar.st-checkedout, .cal-bar.st-noshow, .cal-bar.st-cancelled, .cal-bar.block-bar,
+.legend-chip.st-pending, .legend-chip.st-confirmed, .legend-chip.st-protocol, .legend-chip.st-checkedin, .legend-chip.st-checkedout, .legend-chip.st-noshow, .legend-chip.st-cancelled, .legend-chip.block-bar{
+  --bar-lumina:linear-gradient(135deg, rgba(255,255,255,.22), rgba(255,255,255,0) 55%);
+  background:var(--bar-lumina) var(--bar-bg); color:var(--bar-fg); border:none;
 }
 /* Blocajul ramane dungat, ca sa se deosebeasca de o rezervare si fara
-   culoare; dungile sunt o umbra deschisa peste mov, nu doua culori. */
+   culoare; dungile sunt o umbra deschisa peste violet, nu doua culori. */
 .cal-bar.block-bar, .legend-chip.block-bar{
-  background:repeating-linear-gradient(45deg, rgba(255,255,255,.18) 0 6px, transparent 6px 12px) var(--bar-bg);
+  background:var(--bar-lumina), repeating-linear-gradient(45deg, rgba(255,255,255,.16) 0 6px, transparent 6px 12px) var(--bar-bg);
 }
 /* Pastila VIP e negativul barei: pe o bara cu text alb ar fi altfel alba
    pe alb. */
 .cal-bar .bar-vip{ background:var(--bar-fg); color:var(--bar-bg); }
+/* Insigna sursei (features/rezervari/insigna-sursa.jsx): disc alb pe coltul
+   din stanga-sus al barei, cu pictograma sau litera sursei. Alb si pe tema
+   intunecata — e o insigna, nu o suprafata. */
+.bar-sursa{
+  position:absolute; top:-6px; left:-1px; width:16px; height:16px; border-radius:50%;
+  background:#fff; color:#2A2E35; box-shadow:0 1px 2px rgba(0,0,0,.3);
+  display:flex; align-items:center; justify-content:center;
+  font-size:9px; font-weight:800; line-height:1; z-index:1; pointer-events:none;
+}
+.bar-sursa-booking{ color:#1F3E63; }
+.bar-sursa-airbnb{ color:#E0475C; }
+.cal-scroll.dense .bar-sursa{ top:-5px; width:14px; height:14px; font-size:8px; }
 .room-chips{ display:flex; flex-wrap:wrap; gap:6px; }
 .room-chip{
   padding:7px 11px; border-radius:8px; border:1px solid var(--border); background:var(--surface);

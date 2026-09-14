@@ -23,6 +23,7 @@ import {
 import { isToday } from "../../lib/tranzitii.js";
 import { fmtDate, fmtDateTime, toDateInput, FMT_WEEKDAY, FMT_WEEKDAY_LONG } from "../../lib/format.js";
 import { ROOM_TYPE, STATUS_LABEL, STATUS_GLYPH, STATUS_CLASS } from "../../lib/constante.js";
+import { InsignaSursa } from "./insigna-sursa.jsx";
 import { Dialog, toaster } from "../../ui/primitive.jsx";
 import { EtichetaNou } from "./eticheta-nou.jsx";
 import { ReservationViewModal } from "./vizualizare.jsx";
@@ -594,6 +595,7 @@ export function CalendarView({ core, updateCore, reservations, updateReservation
                               ? `${fmtDateTime(span.res.checkin)} → ${fmtDateTime(span.res.checkout)} · ${STATUS_LABEL[span.res.status]}`
                               : `${occupantName(span.res, core, groups) || "Fără nume"} · ${fmtDateTime(span.res.checkin)} → ${fmtDateTime(span.res.checkout)} · ${STATUS_LABEL[span.res.status]}`}
                           >
+                            {!doarCitire && <InsignaSursa sursa={span.res.source} />}
                             <span className="bar-glyph" aria-hidden="true">{STATUS_GLYPH[span.res.status]}</span>
                             {!doarCitire && <EtichetaNou res={span.res} noutati={noutati} />}
                             {!doarCitire && span.res.groupId && <UsersRound size={11} style={{ flexShrink: 0, opacity: .8 }} />}
