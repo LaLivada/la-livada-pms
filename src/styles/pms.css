@@ -59,6 +59,11 @@
   --dur:.16s;
   --topbar-h:67px;
   --cal-toolbar-h:58px;
+  /* Lumina dinspre stanga-sus, de pe barele calendarului si de pe butoane
+     (14 septembrie 2026): un reflex alb pe suprafetele inchise; pe cele
+     deschise, unul mai alb si o umbra usoara la dreapta-jos. */
+  --lumina:linear-gradient(135deg, rgba(255,255,255,.24), rgba(255,255,255,0) 60%);
+  --lumina-deschis:linear-gradient(135deg, rgba(255,255,255,.75), rgba(255,255,255,0) 55%, rgba(0,0,0,.045));
   --radius:var(--r-lg);
   --radius-sm:var(--r-sm);
   --shadow-sm: 0 1px 2px rgba(25,25,23,0.05);
@@ -90,6 +95,9 @@
     --shadow-sm: 0 1px 2px rgba(0,0,0,0.4);
     --shadow: 0 1px 3px rgba(0,0,0,0.45), 0 8px 24px -8px rgba(0,0,0,0.55);
     --shadow-lg: 0 2px 6px rgba(0,0,0,0.5), 0 24px 48px -16px rgba(0,0,0,0.7);
+    /* Pe fond inchis, un reflex alb puternic ar fi o pata; ramane doar o
+       urma. */
+    --lumina-deschis:linear-gradient(135deg, rgba(255,255,255,.09), rgba(255,255,255,0) 60%);
   }
   .topbar{ background:rgba(27,30,36,0.86) !important; }
   .btn-primary{ color:#0F1216; }
@@ -500,8 +508,10 @@
 .cal-roomcell .rname{ font-weight:600; font-size:var(--fs-md); font-family:'IBM Plex Mono',monospace; }
 .cal-roomcell .rfloor{ font-size:var(--fs-2xs); color:var(--text-muted); margin-top:1px; }
 .room-cap-plus{ color:var(--danger); font-weight:700; }
+/* Doua randuri (ziua, data) strans asezate: capul tabelului lua cat un rand
+   si jumatate de camere (cerut mai scund pe 14 septembrie 2026). */
 .cal-daycell{
-  padding:10px 6px; border-right:1px solid var(--border-soft); text-align:center; font-size:var(--fs-xs);
+  padding:5px 4px; line-height:1.25; border-right:1px solid var(--border-soft); text-align:center; font-size:var(--fs-xs);
   color:var(--text-muted); font-weight:600; text-transform:capitalize;
 }
 .cal-daycell.today{
@@ -517,7 +527,7 @@
 .cal-cell.weekend{ background:rgba(0,0,0,0.014); }
 .cal-cell.weekend:hover{ background:var(--surface-2); }
 .cal-bar{
-  position:absolute; top:7px; bottom:7px; left:3px; border-radius:999px; padding:5px 11px;
+  position:absolute; top:7px; bottom:7px; left:3px; border-radius:10px; padding:5px 10px;
   font-size:var(--fs-sm); font-weight:600; display:flex; align-items:center; gap:6px;
   white-space:nowrap; z-index:4;
   box-shadow:var(--shadow-sm); transition:transform .1s;
@@ -609,7 +619,7 @@
 .cal-scroll{ touch-action:pan-x pan-y; }
 
 .cal-scroll.dense .cal-cell{ min-height:38px; }
-.cal-scroll.dense .cal-bar{ top:4px; bottom:4px; font-size:var(--fs-xs); padding:3px 9px; }
+.cal-scroll.dense .cal-bar{ top:4px; bottom:4px; font-size:var(--fs-xs); padding:3px 9px; border-radius:8px; }
 .cal-scroll.dense .cal-roomcell{ padding:5px 6px; }
 .cal-scroll.dense .cal-roomcell .rname{ font-size:var(--fs-base); }
 .cal-scroll.dense .rfloor{ display:none; }
@@ -662,15 +672,8 @@
 .bar-glyph{
   font-size:var(--fs-2xs); line-height:1; flex-shrink:0; opacity:.85; font-weight:700;
 }
-.st-pending{ background:var(--surface-2); color:var(--text-muted); border:1px dashed var(--border); }
-.st-confirmed{ background:var(--accent-soft); color:var(--accent-strong); border:1px solid rgba(43,92,138,.35); }
-.st-protocol{ background:#EDE7F6; color:#6A4C93; border:1px solid rgba(106,76,147,.35); }
-.st-checkedin{ background:var(--success-soft); color:var(--success); border:1px solid rgba(42,123,123,.35); }
-.st-checkedout{ background:var(--surface-2); color:var(--text-muted); border:1px solid var(--border); }
-.st-cancelled{ background:var(--danger-soft); color:var(--danger); border:1px solid var(--danger); text-decoration:line-through; }
-@media (prefers-color-scheme: dark){
-  .st-protocol{ background:rgba(139,109,196,0.2); color:#C6AEEB; border-color:rgba(198,174,235,.35); }
-}
+/* Culorile starilor (.st-*) sunt mai jos, la „Culorile de stare": aceleasi
+   pe barele din calendar, in legenda si pe etichetele din ferestre. */
 
 /* ---------- Lists ---------- */
 .list-row{
@@ -1669,12 +1672,14 @@ label.field input, label.field select, label.field textarea{ cursor:auto; }
 .mode-switch button.on{ background:var(--surface); color:var(--accent-strong); box-shadow:var(--shadow-sm); }
 .group-banner{
   display:flex; align-items:center; gap:8px; background:var(--accent-soft); color:var(--accent-strong);
-  border-radius:10px; padding:10px 12px; font-size:12.5px; margin-bottom:14px;
+  border-radius:10px; padding:10px 12px; font-size:var(--fs-sm); margin-bottom:14px;
 }
 /* Din modalul Vezi rezervare, banner-ul deschide grupul — restul locurilor
    unde apare (formularul de editare) raman doar informative. */
 .group-banner-link{
-  width:100%; border:none; font:inherit; text-align:left; cursor:pointer;
+  /* Nu `font:inherit`: prescurtarea lua si marimea de la fereastra (16px pe
+     telefon) si bannerul ajungea cat titlul. */
+  width:100%; border:none; font-family:inherit; font-size:var(--fs-sm); line-height:1.4; text-align:left; cursor:pointer;
   transition:background .12s;
 }
 .group-banner-link:hover{ filter:brightness(0.96); }
@@ -1709,29 +1714,34 @@ label.field input, label.field select, label.field textarea{ cursor:auto; }
 }
 .tag-chip:hover{ border-color:var(--accent); }
 .tag-chip.on{ background:var(--accent); border-color:var(--accent); color:#fff; }
-.st-noshow{ background:var(--warning-soft); color:var(--warning); border:1px solid rgba(154,117,36,.35); }
-/* Culorile de stare din calendar — barele si legenda de sub ele. Tonuri
-   palide, cu textul in nuanta inchisa a aceleiasi culori (14 septembrie
-   2026, a treia varianta: cele pline — si saturate, si calde — au fost prea
-   stridente): corai cerere, verde confirmata, mustar protocol, turcoaz
-   checked-in, gri checked-out, albastru no-show, mov-gri anulata (taiat),
-   lavanda blocaj (dungat). Peste fiecare ramane lumina dinspre stanga-sus.
-   Contrastul textului e de cel putin 5:1 peste tot; aceleasi culori pe
-   ambele teme. Etichetele de stare din liste (.st-* singure) raman cum
-   erau: acolo textul spune starea. */
-.cal-bar.st-pending,    .legend-chip.st-pending{    --bar-bg:#F5A9B0; --bar-fg:#6E1E29; }
-.cal-bar.st-confirmed,  .legend-chip.st-confirmed{  --bar-bg:#B5DDAC; --bar-fg:#1E5222; }
-.cal-bar.st-protocol,   .legend-chip.st-protocol{   --bar-bg:#F3DE95; --bar-fg:#5C4400; }
-.cal-bar.st-checkedin,  .legend-chip.st-checkedin{  --bar-bg:#A6DDE1; --bar-fg:#0F4A50; }
-.cal-bar.st-checkedout, .legend-chip.st-checkedout{ --bar-bg:#D9DCE1; --bar-fg:#3B4048; }
-.cal-bar.st-noshow,     .legend-chip.st-noshow{     --bar-bg:#B7CBE6; --bar-fg:#1B365D; }
-.cal-bar.st-cancelled,  .legend-chip.st-cancelled{  --bar-bg:#D8C7CF; --bar-fg:#4A2F3A; }
-.cal-bar.block-bar,     .legend-chip.block-bar{     --bar-bg:#CFC2EE; --bar-fg:#3E2A78; }
-.cal-bar.st-pending, .cal-bar.st-confirmed, .cal-bar.st-protocol, .cal-bar.st-checkedin, .cal-bar.st-checkedout, .cal-bar.st-noshow, .cal-bar.st-cancelled, .cal-bar.block-bar,
-.legend-chip.st-pending, .legend-chip.st-confirmed, .legend-chip.st-protocol, .legend-chip.st-checkedin, .legend-chip.st-checkedout, .legend-chip.st-noshow, .legend-chip.st-cancelled, .legend-chip.block-bar{
+/* Culorile de stare — pe barele din calendar, in legenda de sub el si pe
+   etichetele de stare din ferestre: aceeasi culoare pentru aceeasi stare,
+   oriunde (cerut pe 14 septembrie 2026, dupa ce ferestrele ramasesera pe
+   vechile pasteluri). Tonuri palide, cu textul in nuanta inchisa a
+   aceleiasi culori (a treia varianta: cele pline, si saturate si calde, au
+   fost prea stridente): corai cerere, verde confirmata, mustar protocol,
+   turcoaz checked-in, gri checked-out, albastru no-show, mov-gri anulata
+   (taiat), lavanda blocaj (dungat). Peste fiecare, lumina dinspre
+   stanga-sus. Contrastul textului e de cel putin 5:1 peste tot; aceleasi
+   culori pe ambele teme. Etichetele facturilor folosesc aceleasi clase
+   (INVOICE_STATUS_CLASS). */
+.st-pending{    --bar-bg:#F5A9B0; --bar-fg:#6E1E29; }
+.st-confirmed{  --bar-bg:#B5DDAC; --bar-fg:#1E5222; }
+.st-protocol{   --bar-bg:#F3DE95; --bar-fg:#5C4400; }
+.st-checkedin{  --bar-bg:#A6DDE1; --bar-fg:#0F4A50; }
+.st-checkedout{ --bar-bg:#D9DCE1; --bar-fg:#3B4048; }
+.st-noshow{     --bar-bg:#B7CBE6; --bar-fg:#1B365D; }
+.st-cancelled{  --bar-bg:#D8C7CF; --bar-fg:#4A2F3A; }
+.cal-bar.block-bar, .legend-chip.block-bar{ --bar-bg:#CFC2EE; --bar-fg:#3E2A78; }
+.st-pending, .st-confirmed, .st-protocol, .st-checkedin, .st-checkedout, .st-noshow, .st-cancelled,
+.cal-bar.block-bar, .legend-chip.block-bar{
   --bar-lumina:linear-gradient(135deg, rgba(255,255,255,.45), rgba(255,255,255,0) 60%);
-  background:var(--bar-lumina) var(--bar-bg); color:var(--bar-fg); border:none;
+  background:var(--bar-lumina) var(--bar-bg); color:var(--bar-fg); border:1px solid rgba(0,0,0,.08);
 }
+.st-cancelled{ text-decoration:line-through; }
+/* Barele n-au chenar: forma le-o dau culoarea si umbra. */
+.cal-bar.st-pending, .cal-bar.st-confirmed, .cal-bar.st-protocol, .cal-bar.st-checkedin,
+.cal-bar.st-checkedout, .cal-bar.st-noshow, .cal-bar.st-cancelled, .cal-bar.block-bar{ border:none; }
 /* Blocajul ramane dungat, ca sa se deosebeasca de o rezervare si fara
    culoare; dungile sunt o umbra usoara peste lavanda, nu doua culori. */
 .cal-bar.block-bar, .legend-chip.block-bar{
@@ -1928,6 +1938,10 @@ label.field input, label.field select, label.field textarea{ cursor:auto; }
    in this stylesheet would otherwise win by source order and silently defeat these) ---------- */
 @media (max-width:600px){
   .modal{ padding:18px 16px calc(18px + env(safe-area-inset-bottom)); }
+  /* Pe telefon, marginile laterale erau cele de tableta; ecranul e ingust
+     si fiecare pixel conteaza in calendar (cerut pe 14 septembrie 2026). */
+  .content{ padding-left:max(6px, env(safe-area-inset-left)); padding-right:max(6px, env(safe-area-inset-right)); }
+  .topbar{ padding-left:max(10px, env(safe-area-inset-left)); padding-right:max(10px, env(safe-area-inset-right)); }
   .field-row{ grid-template-columns:1fr; gap:0; }
   .field-row-2col{ grid-template-columns:1fr 1fr; gap:10px; }
   /* Trei campuri unul sub altul pe telefon — inghesuite pe un rand, „Prenume"
@@ -1978,6 +1992,16 @@ label.field input, label.field select, label.field textarea{ cursor:auto; }
   position:sticky; top:0; z-index:15;
   background:var(--bg);
 }
+
+/* Lumina de pe barele din calendar, si pe butoane (cerut pe 14 septembrie
+   2026). Sta in background-image, sub culoarea de fond a fiecarei stari;
+   starile (hover, active, on) sunt enumerate fiindca regulile lor folosesc
+   prescurtarea `background`, care ar sterge imaginea. */
+.btn-primary, .btn-primary:hover{ background-image:var(--lumina); }
+.btn-ghost, .btn-ghost:hover, .btn-danger, .btn-danger:hover,
+.icon-btn, .icon-btn:hover, .icon-btn.active, .gear-btn.active,
+.top-btn, .top-btn:hover, .top-btn.active,
+.week-nav button, .week-nav button:hover, .week-nav button.on{ background-image:var(--lumina-deschis); }
 
 /* Sub 16px, iOS face automat zoom pe pagina la focus. Regula sta la
    finalul foii de stil, cu !important, tocmai ca sa nu mai poata fi
@@ -2153,7 +2177,9 @@ label.field input, label.field select, label.field textarea{ cursor:auto; }
    cazare): pe telefon, o propozitie sub fiecare eticheta impingea folio-ul
    sub margine. Se rupe pe doua randuri doar cand chiar nu incape. */
 .field-rand{ display:flex; align-items:baseline; gap:0 6px; flex-wrap:wrap; margin-bottom:6px; }
-.field-rand > label{ margin-bottom:0; }
+/* Eticheta sta in .field-rand, nu direct in .field, deci regula
+   `.field > label` n-o prinde: aceleasi valori, aici. */
+.field-rand > label{ display:block; font-size:var(--fs-sm); font-weight:600; color:var(--text-muted); margin-bottom:0; }
 .field-nota{ font-size:var(--fs-sm); color:var(--text-muted); }
 .field-rand .field-nota::before{ content:"· "; }
 .field-nota-pericol{ display:block; color:var(--danger); margin-top:2px; }

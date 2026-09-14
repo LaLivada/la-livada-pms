@@ -14,7 +14,7 @@ import { nightsBetween, isLive } from "../../lib/availability.js";
 import { reservationTotal } from "../../lib/pricing.js";
 import { isSameDay, canCheckIn, canCheckOut, canCancel, canNoShow, ZILE_CHECKIN_DEVREME } from "../../lib/tranzitii.js";
 import { fmtMoney, fmtDate, fmtDateTime } from "../../lib/format.js";
-import { STATUS_LABEL, STATUS_GLYPH, sourceLabel } from "../../lib/constante.js";
+import { STATUS_LABEL, STATUS_GLYPH, STATUS_CLASS, sourceLabel } from "../../lib/constante.js";
 import { Dialog, toaster, useModalLock } from "../../ui/primitive.jsx";
 import { doCheckIn, doCheckOut } from "./checkin-checkout.jsx";
 
@@ -112,8 +112,7 @@ export function ReservationActions({ res: resSnapshot, core, groups, reservation
               </div>
             )}
           </div>
-          <span className={"role-tag " + (res.status === "checkedin" ? "role-housekeeping"
-            : res.status === "cancelled" ? "role-receptionist" : "role-admin")}>
+          <span className={"role-tag " + STATUS_CLASS[res.status]}>
             <span aria-hidden="true">{STATUS_GLYPH[res.status]}</span> {STATUS_LABEL[res.status]}
           </span>
         </div>

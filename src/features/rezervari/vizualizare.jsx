@@ -12,7 +12,7 @@ import { guestFullName, occupantName } from "../../lib/nume.js";
 import { nightsBetween } from "../../lib/availability.js";
 import { reservationTotal } from "../../lib/pricing.js";
 import { fmtMoney, fmtDate, fmtDateTime, initials } from "../../lib/format.js";
-import { STATUS_LABEL, STATUS_GLYPH, sourceLabel } from "../../lib/constante.js";
+import { STATUS_LABEL, STATUS_GLYPH, STATUS_CLASS, sourceLabel } from "../../lib/constante.js";
 import { Dialog, useModalLock } from "../../ui/primitive.jsx";
 import { SectiuneAcces } from "../acces.jsx";
 import { SectiuneFisa } from "../fise.jsx";
@@ -65,8 +65,7 @@ export function ReservationViewModal({ reservation, core, updateCore, groups, up
             {reservation.adults ?? 2} adulți{reservation.children ? ` + ${reservation.children} copii` : ""} · {sourceLabel(reservation.source)} · {fmtMoney(reservationTotal(reservation, core))}
           </div>
           <div style={{ marginTop: 6 }}>
-            <span className={"role-tag " + (reservation.status === "checkedin" ? "role-housekeeping"
-              : reservation.status === "cancelled" ? "role-receptionist" : "role-admin")}>
+            <span className={"role-tag " + STATUS_CLASS[reservation.status]}>
               <span aria-hidden="true">{STATUS_GLYPH[reservation.status]}</span> {STATUS_LABEL[reservation.status]}
             </span>
             <EtichetaNou res={reservation} noutati={noutati} mare />
