@@ -10,7 +10,7 @@ punct și **starea** implementării.
 | 1 | D3 — README real | **făcut**, 14 septembrie 2026 (§1) |
 | 2 | D4 — index pentru `docs/` | **făcut**, 14 septembrie 2026 (§2) |
 | 3 | D6 — `@ts-check` + JSDoc pe `src/lib/` și `src/data/` | **făcut**, 14 septembrie 2026 (§3) |
-| 4 | D1 — spargerea fișierelor mari (`rezervari.jsx`, `facturare.jsx`) | de făcut, câte unul |
+| 4 | D1 — spargerea fișierelor mari (`rezervari.jsx`, `facturare.jsx`) | **în lucru**: `rezervari.jsx` făcut, 14 septembrie 2026 (§4); `facturare.jsx` urmează |
 | 5 | D2 — stilurile inline → clase | de făcut, treptat |
 
 D5 (comentariile lungi) nu e o sarcină, e o regulă de păstrat; e scrisă acum
@@ -104,3 +104,54 @@ trei build-uri neschimbate.
 - Ecranele (`src/features/`, `src/ui/`), site-ul și aplicația de oaspete nu
   sunt verificate încă; se adaugă fișier cu fișier, când se atinge oricum,
   cu pragma pe prima linie.
+
+---
+
+## 4. Spargerea fișierelor mari (D1): `rezervari.jsx`
+
+### 4.1 Ce era
+
+`src/features/rezervari.jsx` avea 2.796 de linii: opt componente și cele două
+acțiuni de check-in / check-out într-un singur fișier, plus bannere de
+secțiune rămase de pe vremea când toată aplicația era un fișier („LOGIN",
+„CLIENTS VIEW", „SETTINGS HUB"), care nu mai descriau nimic din ce urma
+după ele.
+
+### 4.2 Cum s-a făcut
+
+- **Tăiere mecanică**, cu `scripts/sparge-fisier.mjs` (rămâne în repo pentru
+  `facturare.jsx`): fiecare declarație de nivel superior pleacă împreună cu
+  comentariul ei; importurile se recalculează (doar ce folosește fiecare
+  fișier), căile relative coboară un nivel; nicio linie de cod nu se schimbă.
+- `src/features/rezervari/`: `calendar.jsx` (CalendarView), `fisa-rezervare.jsx`
+  (ReservationModal, cu fereastra orelor), `vizualizare.jsx`
+  (ReservationViewModal), `actiuni.jsx` (ReservationActions),
+  `checkin-checkout.jsx` (doCheckIn, doCheckOut), `azi.jsx` (TodayView,
+  CardOnline), `night-audit.jsx` (NightAuditGate), `eticheta-nou.jsx`
+  (EtichetaNou). Fiecare are un antet care spune ce e.
+- `rezervari.jsx` rămâne **poarta**: re-exportă aceleași nume, deci
+  `pms-app` (import lazy) și testele n-au trebuit atinse; bundle-ul e același
+  (poarta trage tot, ca înainte). Codul nou se pune direct în fișierul
+  potrivit.
+- Bannerele vechi au fost lăsate deoparte, iar un comentariu (`doarCitire`)
+  care ajunsese departe de componenta lui a fost pus la loc.
+- Ce s-a învățat: `no-undef` din oxlint e plasa de siguranță a unei tăieri
+  ca asta — a prins un import lipsă (un nume folosit doar prin `...spread`,
+  pe care detectorul de folosiri îl luase drept acces la membru).
+
+### 4.3 Verificare
+
+Lint (`no-undef` e plasa de siguranță a tăierii), typecheck, suita și cele
+trei build-uri. Testele de ecran existente trec prin poartă (CardOnline,
+ReservationModal, doCheckIn), iar `src/rezervari-poarta.test.js`, nou, cere
+ca poarta să exporte exact cele zece nume de dinainte, toate funcții — deci
+fiecare fișier din dosar se încarcă. Previzualizarea în browser n-a fost
+posibilă după repornirea serverului local (sesiunea autentificată s-a
+pierdut, iar eu nu introduc parole); de verificat la prima deschidere:
+calendarul, Azi, „vezi rezervarea" și fișa arată ca înainte.
+
+### 4.4 Ce NU s-a schimbat
+
+- Niciun comportament, nicio semnătură, niciun import din afara dosarului.
+- `facturare.jsx` (2.356 de linii) urmează, cu același script, când se
+  atinge oricum.

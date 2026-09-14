@@ -24,6 +24,8 @@ fiecăreia: `public/`, `public-booking/`, `public-guest/`.
   (camelCase). Doar cereri, nu decizii.
 - `src/features/` — ecranele PMS-ului (calendar și rezervări, facturare,
   clienți, camere și curățenie, acces, automatizare, setări, jurnal…);
+  rezervările stau în `src/features/rezervari/`, câte o componentă pe fișier,
+  iar `rezervari.jsx` e doar poarta care le re-exportă;
   `src/ui/` — primitivele (dialog, secțiuni pliabile, schelet de încărcare);
   `src/pms-app.jsx` — starea aplicației și legăturile dintre ecrane.
 - `src/booking/`, `src/guest/` — cele două aplicații publice. Importă din
@@ -38,7 +40,9 @@ fiecăreia: `public/`, `public-booking/`, `public-guest/`.
   fișierului, ce primește și de ce există.
 - `scripts/` — unelte de rulat de mână: `backup.mjs` (copie a bazei, fără
   Docker), `export-migratii.mjs` (migrațiile aplicate → `supabase/migrations/`),
-  `paritate-raport.mjs` (paritatea JS ↔ SQL a raportului lunar), `wifi-qr.mjs`,
+  `paritate-raport.mjs` (paritatea JS ↔ SQL a raportului lunar),
+  `sparge-fisier.mjs` (taie un fișier mare în câte un fișier per componentă,
+  cu importurile recalculate), `wifi-qr.mjs`,
   `og-guest.mjs`, `acces-poze.mjs`, `bench/` (rezervări sintetice și
   măsurători).
 - `tests/` — integrare (`tests/integration`, pe proiectul real, cu cheia
