@@ -5367,8 +5367,15 @@ create trigger caldav_obiecte_schimbare
 -- Camerele deja ocupate în acea noapte se sar: o rezervare adevărată e mai
 -- importantă decât blocajul (și constrângerea fara_suprapunere ar refuza-o
 -- oricum).
+--
+-- Țin ziua doar evenimentele de TOATĂ ZIUA — aceeași sită ca la totalurile
+-- din ecranul Evenimente (`intraInTotal()`, evenimente-an.js). O degustare
+-- de două ore sau o vizită nu e o zi dată cuiva: se vede în calendarul
+-- sălilor, dar nu închide pensiunea. Regula stă aici, în funcție, nu la
+-- apelator, ca să nu poată fi uitată: cine cere blocarea trebuie să spună
+-- dacă evenimentul ține toată ziua.
 create or replace function blocheaza_zilele_evenimentului(
-  p_incepe timestamptz, p_se_termina timestamptz
+  p_incepe timestamptz, p_se_termina timestamptz, p_toata_ziua boolean
 ) returns int language plpgsql security definer set search_path = public as $$
 declare
   -- Ziua de la care se blochează, oricât de devreme ar fi evenimentul.
@@ -5380,7 +5387,7 @@ declare
   v_zi date; v_ultima date; v_de timestamptz; v_pana timestamptz;
   v_puse int := 0; v_acum int;
 begin
-  if p_incepe is null then return 0; end if;
+  if p_incepe is null or p_toata_ziua is not true then return 0; end if;
   -- Zilele trecute nu se mai blochează: n-ar apăra nimic.
   v_zi := greatest((p_incepe at time zone 'Europe/Bucharest')::date,
                    (now() at time zone 'Europe/Bucharest')::date,
@@ -5410,9 +5417,10 @@ begin
   return v_puse;
 end $$;
 
--- Reversul: o zi rămasă fără niciun eveniment activ își pierde blocajele.
--- Numai zilele chiar golite, fiindcă o zi poate ține două nunți în săli
--- diferite, iar anularea uneia n-o deschide.
+-- Reversul, cu aceeași sită: o zi pe care n-a mai rămas niciun eveniment de
+-- toată ziua își pierde blocajele — chiar dacă mai are ceva cu ore. Numai
+-- zilele chiar golite, fiindcă o zi poate ține două nunți în săli diferite,
+-- iar anularea uneia n-o deschide.
 create or replace function elibereaza_zilele_fara_evenimente(
   p_incepe timestamptz, p_se_termina timestamptz
 ) returns int language plpgsql security definer set search_path = public as $$
@@ -5426,7 +5434,8 @@ begin
   while v_zi <= v_ultima loop
     if not exists (
       select 1 from caldav_obiecte o join caldav_calendare c on c.id = o.calendar_id
-       where not o.sters and not o.anulat and c.activ and c.slug <> 'anulate'
+       where not o.sters and not o.anulat and o.toata_ziua
+         and c.activ and c.slug <> 'anulate'
          and o.incepe is not null
          and (o.incepe at time zone 'Europe/Bucharest')::date <= v_zi
          and (coalesce(o.se_termina - interval '1 millisecond', o.incepe)
@@ -5443,17 +5452,18 @@ begin
   return v_sterse;
 end $$;
 
--- Regula, de acum înainte: orice eveniment nou sau mutat își blochează
--- zilele. Un eveniment doar redenumit NU repune blocajele scoase de mână —
--- de aceea triggerul iese devreme când datele n-au fost atinse. Altfel
--- recepția ar scoate blocajul, iar următorul PUT de pe telefon l-ar pune
--- la loc.
+-- Regula, de acum înainte: orice eveniment de toată ziua, nou sau mutat,
+-- își blochează zilele. Un eveniment doar redenumit NU repune blocajele
+-- scoase de mână — de aceea triggerul iese devreme când nimic din ce
+-- contează n-a fost atins. Altfel recepția ar scoate blocajul, iar
+-- următorul PUT de pe telefon l-ar pune la loc.
 create or replace function caldav_blocaje_evenimente()
 returns trigger language plpgsql security definer set search_path = public as $$
 begin
   if TG_OP = 'UPDATE'
      and old.incepe     is not distinct from new.incepe
      and old.se_termina is not distinct from new.se_termina
+     and old.toata_ziua is not distinct from new.toata_ziua
      and old.anulat     = new.anulat
      and old.sters      = new.sters then
     return null;
@@ -5463,10 +5473,13 @@ begin
     perform elibereaza_zilele_fara_evenimente(old.incepe, old.se_termina);
   end if;
   if not new.sters and not new.anulat then
-    perform blocheaza_zilele_evenimentului(new.incepe, new.se_termina);
-  else
-    perform elibereaza_zilele_fara_evenimente(new.incepe, new.se_termina);
+    perform blocheaza_zilele_evenimentului(new.incepe, new.se_termina, new.toata_ziua);
   end if;
+  -- Și după blocare, nu doar în locul ei: un eveniment trecut de pe „toată
+  -- ziua" pe un interval orar (sau anulat, ori șters) își deschide zilele
+  -- dacă n-a mai rămas nimic pe ele. Blocajele tocmai puse nu pățesc nimic
+  -- — evenimentul lor e chiar acolo.
+  perform elibereaza_zilele_fara_evenimente(new.incepe, new.se_termina);
   return null;
 end $$;
 
@@ -5476,9 +5489,9 @@ create trigger caldav_obiecte_blocaje
 
 -- Nu sunt pentru browser: blocajele le pune triggerul, le scoate recepția
 -- ștergând rândul din calendar, ca pe orice blocaj.
-revoke execute on function blocheaza_zilele_evenimentului(timestamptz, timestamptz) from public, anon;
+revoke execute on function blocheaza_zilele_evenimentului(timestamptz, timestamptz, boolean) from public, anon;
 revoke execute on function elibereaza_zilele_fara_evenimente(timestamptz, timestamptz) from public, anon;
-grant execute on function blocheaza_zilele_evenimentului(timestamptz, timestamptz) to service_role;
+grant execute on function blocheaza_zilele_evenimentului(timestamptz, timestamptz, boolean) to service_role;
 grant execute on function elibereaza_zilele_fara_evenimente(timestamptz, timestamptz) to service_role;
 
 alter table caldav_calendare enable row level security;

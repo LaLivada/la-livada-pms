@@ -99,6 +99,12 @@ prin exact regulile unei rezervări adevărate. **Scos blocajul, ziua se
 rezervă din nou, inclusiv online** — și îl poate scoate atât adminul, cât și
 recepționerul, din dialogul blocajului, ca pe oricare altul.
 
+**Țin ziua doar evenimentele de toată ziua**, aceeași sită ca la totaluri
+(`intraInTotal()`, mai sus). O degustare de două ore sau o vizită se vede
+în calendarul sălilor, dar nu închide pensiunea. Regula stă în
+`blocheaza_zilele_evenimentului`, care primește `p_toata_ziua` și iese cu
+zero când nu e cazul, ca să nu poată fi uitată de vreun apelator.
+
 Blocajul e un rând obișnuit din `reservations` (`source = 'blocaj'`), ca să
 meargă tot ce merge deja pentru blocajele de mentenanță: fără preț, fără
 rapoarte, ștergere din calendar. Ce-l face „de eveniment" e
@@ -114,13 +120,13 @@ Camerele deja ocupate în acea noapte se sar — o rezervare adevărată e mai
 importantă decât blocajul.
 
 Le pune și le scoate triggerul `caldav_obiecte_blocaje`, la orice scriere în
-`caldav_obiecte` (import, ori PUT de pe telefon): eveniment nou sau mutat își
-blochează zilele, anulat sau șters și le eliberează — dar **numai zilele
-rămase fără niciun eveniment**, fiindcă o zi poate ține două nunți în săli
-diferite. Un eveniment doar redenumit nu atinge nimic, tocmai ca blocajele
-scoase de mână să nu reapară la următoarea sincronizare. `DTEND` fiind
-exclusiv, un eveniment de toată ziua 24→25 iulie închide noaptea de 24, dar
-nu și sosirea pe 25.
+`caldav_obiecte` (import, ori PUT de pe telefon): eveniment de toată ziua nou
+sau mutat își blochează zilele; anulat, șters, sau trecut pe interval orar,
+și le eliberează — dar **numai zilele rămase fără niciun eveniment de toată
+ziua**, fiindcă o zi poate ține două nunți în săli diferite. Un eveniment
+doar redenumit nu atinge nimic, tocmai ca blocajele scoase de mână să nu
+reapară la următoarea sincronizare. `DTEND` fiind exclusiv, un eveniment de
+toată ziua 24→25 iulie închide noaptea de 24, dar nu și sosirea pe 25.
 
 Se blochează **de la 1 ianuarie 2027 înainte** (constanta `c_de_la` din
 `blocheaza_zilele_evenimentului`). Restul lui 2026 e sezonul în curs:
