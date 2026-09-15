@@ -293,7 +293,12 @@ export function CalendarView({ core, updateCore, reservations, updateReservation
   const resByRoom = useMemo(() => {
     const map = new Map();
     for (const r of reservations) {
-      if (!isLive(r)) continue;
+      /* Anulatele si no-show-urile se deseneaza si ele (cerut pe 15
+         septembrie 2026: receptia vrea sa le vada, cu culorile din legenda),
+         dar nu tin loc: `moarta` le scoate din ocupare, iar in CSS stau sub
+         barele vii si mai subtiri, ca o rezervare noua peste ele sa se
+         citeasca intreaga. */
+      const moarta = !isLive(r);
       const ciMs = new Date(r.checkin).getTime();
       const coMs = new Date(r.checkout).getTime();
       if (!Number.isFinite(ciMs) || !Number.isFinite(coMs)) continue;
@@ -302,7 +307,7 @@ export function CalendarView({ core, updateCore, reservations, updateReservation
       const ciDay = ziLocala(ciMs), coDay = ziLocala(coMs);
       let bucket = map.get(r.roomId);
       if (!bucket) { bucket = []; map.set(r.roomId, bucket); }
-      bucket.push({ res: r, ciMs, coMs, ciDayMs: ciDay.getTime(), coDayMs: coDay.getTime() });
+      bucket.push({ res: r, moarta, ciMs, coMs, ciDayMs: ciDay.getTime(), coDayMs: coDay.getTime() });
     }
     return map;
   }, [reservations]);
@@ -335,7 +340,7 @@ export function CalendarView({ core, updateCore, reservations, updateReservation
     }
     return dayMs.map((dStart) => {
       let occ = 0;
-      for (const e of stays) if (e.ciDayMs <= dStart && e.coDayMs > dStart) occ++;
+      for (const e of stays) if (!e.moarta && e.ciDayMs <= dStart && e.coDayMs > dStart) occ++;
       return { occ, pct: core.rooms.length ? Math.round((occ / core.rooms.length) * 100) : 0 };
     });
   }, [dayMs, resByRoom, core.rooms.length]);
@@ -366,12 +371,12 @@ export function CalendarView({ core, updateCore, reservations, updateReservation
   const spansForRoomRaw = (roomId) =>
     (resByRoom.get(roomId) || [])
       .filter((e) => e.coMs > rangeStartMs && e.ciMs < rangeEndMs)
-      .map(({ res: r, ciMs, coMs }) => {
+      .map(({ res: r, moarta, ciMs, coMs }) => {
         const { startIdx, endIdx } = spanIndices(ciMs, coMs);
         if (startIdx === -1) return null;
         const ciDay = ziLocala(ciMs), coDay = ziLocala(coMs);
         return {
-          res: r, startIdx, endIdx, len: endIdx - startIdx + 1,
+          res: r, moarta, startIdx, endIdx, len: endIdx - startIdx + 1,
           nights: Math.max(1, zileIntre(ciDay, coDay)),
           clipStart: ciMs < rangeStartMs,
           clipEnd: coMs > rangeEndMs,
@@ -585,6 +590,7 @@ export function CalendarView({ core, updateCore, reservations, updateReservation
                               if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setActionRes(span.res); }
                             }}
                             className={"cal-bar " + STATUS_CLASS[span.res.status] +
+                              (span.moarta ? " bar-moarta" : "") +
                               (span.clipStart ? " clip-start" : "") + (span.clipEnd ? " clip-end" : "") +
                               (moveId === span.res.id ? " moving" : "")}
                             style={{ left: barLeft, width: `calc(${barWidthUnits} * 100% - 6px)` }}

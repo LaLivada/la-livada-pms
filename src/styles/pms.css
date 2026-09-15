@@ -1750,6 +1750,11 @@ label.field input, label.field select, label.field textarea{ cursor:auto; }
 /* Pastila VIP e negativul barei: nuanta inchisa pe fond, cea palida pe
    text. */
 .cal-bar .bar-vip{ background:var(--bar-fg); color:var(--bar-bg); }
+/* Anulatele si no-show-urile (calendar.jsx, `moarta`): se vad, dar nu tin
+   loc — sub barele vii si mai subtiri, ca o rezervare noua peste ele sa se
+   citeasca intreaga; fara umbra, ca sa nu para „deasupra". */
+.cal-bar.bar-moarta{ z-index:3; top:11px; bottom:11px; box-shadow:none; }
+.cal-scroll.dense .cal-bar.bar-moarta{ top:7px; bottom:7px; }
 /* Insigna sursei (features/rezervari/insigna-sursa.jsx): disc alb pe coltul
    din stanga-sus al barei, cu pictograma sau litera sursei. Alb si pe tema
    intunecata — e o insigna, nu o suprafata. */
@@ -2002,7 +2007,8 @@ label.field input, label.field select, label.field textarea{ cursor:auto; }
    2026). Sta in background-image, sub culoarea de fond a fiecarei stari;
    starile (hover, active, on) sunt enumerate fiindca regulile lor folosesc
    prescurtarea `background`, care ar sterge imaginea. */
-.btn-primary, .btn-primary:hover{ background-image:var(--lumina); }
+/* Si ziua de azi din antetul calendarului are reflexul (cerut pe 15 septembrie 2026). */
+.btn-primary, .btn-primary:hover, .cal-daycell.today{ background-image:var(--lumina); }
 .btn-ghost, .btn-ghost:hover, .btn-danger, .btn-danger:hover,
 .icon-btn, .icon-btn:hover, .icon-btn.active, .gear-btn.active,
 .top-btn, .top-btn:hover, .top-btn.active,
