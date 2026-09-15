@@ -2107,7 +2107,9 @@ label.field input, label.field select, label.field textarea{ cursor:auto; }
 }
 .an-legenda button.ascuns{ opacity:.45; text-decoration:line-through; }
 .an-legenda .an-nr{ color:var(--text-muted); font-weight:500; font-variant-numeric:tabular-nums; }
-.an-grila{ display:grid; grid-template-columns:repeat(auto-fill, minmax(230px, 1fr)); gap:12px; align-items:start; }
+/* Cel mult 4 luni pe rand (12 = 4×3), ca zilele sa ramana casute de ~45px
+   pe desktop, nu de 29px cum ar iesi cu 6 coloane pe un ecran lat. */
+.an-grila{ display:grid; grid-template-columns:repeat(auto-fill, minmax(min(100%, 300px), 1fr)); gap:12px; align-items:start; max-width:1400px; }
 .luna{ padding:10px 12px 12px; }
 .luna-cap{ display:flex; justify-content:space-between; align-items:baseline; gap:8px; margin-bottom:6px; }
 .luna-cap h4{ margin:0; font-size:var(--fs-sm); text-transform:capitalize; }
