@@ -261,7 +261,8 @@ Teste: `src/interfata.test.js`, `src/dialog-istoric-ecran.test.js`,
 ### 7.1. Antet, bara calendarului, „+” (15 septembrie 2026, seara)
 
 - Antet: titlul ecranului, mare, în stânga (fără „La Livada”); logo-ul auriu
-  (`public/logo-text.svg`: doar literele, fără copac, decupate din `logo.svg`)
+  (`public/logo-text.svg`: doar literele, fără copac și fără linia de dedesubt,
+  decupate din `logo.svg`)
   în dreapta, un clic reîncarcă pagina rămânând pe ecran (`reincarca` în
   `Shell`). Dublul tap pe pastilă face același lucru.
 - Calendar: bara cu Azi / ±7 zile / vederi stă sub tabel, lipită de rândul
