@@ -71,11 +71,20 @@ const segmentUrl = (s: string) => encodeURIComponent(s);
 export const PREFIX_PUBLIC = "/functions/v1";
 export const NUME_FUNCTIE = "/caldav";
 
-export function adreseDinCale(pathname: string): { baza: string; cale: string } {
+/* Prin domeniul PMS-ului (Vercel rescrie /caldav/* catre functie, iar
+   /.well-known/caldav trimite la /caldav/), calea publica e "/caldav";
+   direct pe supabase.co sau local, "/functions/v1/caldav". */
+export function prinDomeniulPms(gazdaPublica: string): boolean {
+  const g = gazdaPublica.trim().toLowerCase();
+  return g !== "" && !g.endsWith(".supabase.co") && !g.startsWith("localhost") && !g.startsWith("127.0.0.1");
+}
+
+export function adreseDinCale(pathname: string, gazdaPublica = ""): { baza: string; cale: string } {
   const i = pathname.indexOf(NUME_FUNCTIE + "/") >= 0 ? pathname.indexOf(NUME_FUNCTIE + "/")
     : pathname.endsWith(NUME_FUNCTIE) ? pathname.length - NUME_FUNCTIE.length : -1;
   const panaLaFunctie = i >= 0 ? pathname.slice(0, i + NUME_FUNCTIE.length) : NUME_FUNCTIE;
-  const baza = panaLaFunctie.startsWith(PREFIX_PUBLIC + "/") ? panaLaFunctie : PREFIX_PUBLIC + panaLaFunctie;
+  const baza = prinDomeniulPms(gazdaPublica) ? NUME_FUNCTIE
+    : panaLaFunctie.startsWith(PREFIX_PUBLIC + "/") ? panaLaFunctie : PREFIX_PUBLIC + panaLaFunctie;
   const cale = i >= 0 ? pathname.slice(i + NUME_FUNCTIE.length) || "/" : "/";
   return { baza, cale };
 }

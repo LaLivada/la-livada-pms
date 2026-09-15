@@ -1,5 +1,13 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "redirects": [
+    { "source": "/.well-known/caldav", "destination": "/caldav/", "permanent": true }
+  ],
+  "rewrites": [
+    { "source": "/caldav", "destination": "https://suoowrginsliyrbxqeap.supabase.co/functions/v1/caldav/" },
+    { "source": "/caldav/:cale*", "destination": "https://suoowrginsliyrbxqeap.supabase.co/functions/v1/caldav/:cale*" },
+    { "source": "/functions/v1/caldav/:cale*", "destination": "https://suoowrginsliyrbxqeap.supabase.co/functions/v1/caldav/:cale*" }
+  ],
   "headers": [
     {
       "source": "/(.*)",

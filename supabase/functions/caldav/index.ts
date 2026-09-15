@@ -186,7 +186,8 @@ async function importa(req: Request, slug: string): Promise<Response> {
    ca sa se vada ce a cerut telefonul si ce am refuzat. Fara Authorization. */
 function jurnal(req: Request, cale: string, stare: number, ms: number, corpCerere: string, corpRaspuns: string) {
   const ua = (req.headers.get("user-agent") || "-").split(" ").pop();
-  let linie = `caldav ${req.method} ${cale} depth=${req.headers.get("depth") ?? "-"} -> ${stare} (${ms}ms) ${ua}`;
+  const gazda = req.headers.get("x-forwarded-host") || req.headers.get("host") || "-";
+  let linie = `caldav ${req.method} ${cale} depth=${req.headers.get("depth") ?? "-"} -> ${stare} (${ms}ms) ${ua} gazda=${gazda}`;
   if (stare >= 400 && stare !== 401) linie += ` cerere=${JSON.stringify(corpCerere.slice(0, 700))} raspuns=${JSON.stringify(corpRaspuns.slice(0, 700))}`;
   console.log(linie);
 }
@@ -194,7 +195,8 @@ function jurnal(req: Request, cale: string, stare: number, ms: number, corpCerer
 /* ---------- intrarea ---------- */
 
 Deno.serve(async (req) => {
-  const { baza, cale } = adreseDinCale(new URL(req.url).pathname);
+  const gazdaPublica = req.headers.get("x-forwarded-host") || req.headers.get("host") || "";
+  const { baza, cale } = adreseDinCale(new URL(req.url).pathname, gazdaPublica);
 
   if (cale.startsWith("/import/")) {
     if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: cors(req) });
