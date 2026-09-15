@@ -63,3 +63,6 @@ backup-*
 # 3-4 MB bucata si nu au ce cauta in istoric — in repo intra doar cele
 # procesate, din public-guest/acces/.
 poze-acces/
+
+# exporturile .ics de pe Synology (date personale, nu intra in git)
+calendar/
