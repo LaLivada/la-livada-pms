@@ -260,11 +260,6 @@ function ServerSiSali() {
     <div className="sali">
       <div className="panel sali-server">
         <div className="sali-server-t"><KeyRound size={15} /> Serverul CalDAV</div>
-        <p className="sali-nota">
-          Calendarele de mai jos se văd în aplicația Calendar de pe iPhone sau Mac printr-un cont CalDAV.
-          Fiecare user își generează parola din Useri și drepturi → Contul tău, unde sunt și pașii de adăugare.
-          Calendarele noi se creează doar de aici, nu din telefon.
-        </p>
         <div className="sali-adresa">
           <input className="mono" readOnly value={ADRESA_SERVER} aria-label="Adresa serverului CalDAV" />
           <button type="button" className="icon-btn" onClick={() => copiaza(ADRESA_SERVER, "Adresa")} aria-label="Copiază adresa" title="Copiază adresa"><Copy size={15} /></button>
