@@ -12,12 +12,14 @@ import { fmtDateTime } from "../lib/format.js";
 import * as date from "../data/caldav.js";
 import * as datePersonal from "../data/personal.js";
 
-/* Pe telefon se scrie doar gazda: pms.lalivada.ro/.well-known/caldav trimite
-   (308) la serverul real de pe supabase.co, iar de acolo clientul merge singur.
-   Proxy prin Vercel nu se poate: mitigarea de sistem a Vercel provoaca
-   clientul Apple la a treia cerere (15 septembrie 2026). */
-const GAZDA = "pms.lalivada.ro";
+/* Adresa completa a serverului, direct pe supabase.co: pe iPhone se scrie
+   adresa principalului in campul Server. Numele scurt pms.lalivada.ro nu
+   merge pe iOS: dupa redirectul /.well-known/caldav catre alt host, iOS
+   ramane pe gazda initiala, iar un proxy prin Vercel e blocat de mitigarea
+   de sistem (15 septembrie 2026, vezi docs/caldav.md). Cu "@" ca atare, nu
+   %40: e permis in cale, iar serverul decodeaza oricum segmentele. */
 const ADRESA_SERVER = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/caldav/`;
+const adresaPrincipal = (utilizator) => `${ADRESA_SERVER}principals/${utilizator}/`;
 const CULORI = ["#2B5C8A", "#C2410C", "#0F766E", "#7C3AED", "#B45309", "#BE123C", "#4D7C0F", "#1D4ED8"];
 
 async function copiaza(text, ce) {
@@ -90,7 +92,6 @@ export function SaliView() {
           Fiecare user își generează parola din Useri și drepturi → Contul tău, unde sunt și pașii de adăugare.
           Calendarele noi se creează doar de aici, nu din telefon.
         </p>
-        <p className="sali-nota">Pe telefon ajunge numele <code>{GAZDA}</code>; adresa completă a serverului, pentru configurări avansate:</p>
         <div className="sali-adresa">
           <input className="mono" readOnly value={ADRESA_SERVER} aria-label="Adresa serverului CalDAV" />
           <button type="button" className="icon-btn" onClick={() => copiaza(ADRESA_SERVER, "Adresa")} aria-label="Copiază adresa" title="Copiază adresa"><Copy size={15} /></button>
@@ -183,7 +184,8 @@ export function ContCaldav({ user }) {
   }, [user.id]);
 
   const utilizator = cont?.utilizator || email;
-  const adresaLunga = utilizator ? `${ADRESA_SERVER}principals/${utilizator}/` : "";
+  const adresa = utilizator ? adresaPrincipal(utilizator) : "";
+  const urlAdresa = adresa ? new URL(adresa) : null;
 
   const genereaza = async () => {
     if (!email) { toaster.show("Nu știu emailul contului; reîncarcă pagina.", { tone: "danger" }); return; }
@@ -238,19 +240,15 @@ export function ContCaldav({ user }) {
             <div className="pasi-caldav">
               <div className="pasi-caldav-date">
                 <span>Server</span>
-                <span className="pasi-caldav-val"><code>{GAZDA}</code>
-                  <button type="button" className="icon-btn" onClick={() => copiaza(GAZDA, "Adresa")} aria-label="Copiază adresa serverului"><Copy size={14} /></button>
-                </span>
-                <span>Adresă completă (rezervă)</span>
-                <span className="pasi-caldav-val"><code>{adresaLunga}</code>
-                  <button type="button" className="icon-btn" onClick={() => copiaza(adresaLunga, "Adresa completă")} aria-label="Copiază adresa completă"><Copy size={14} /></button>
+                <span className="pasi-caldav-val"><code>{adresa}</code>
+                  <button type="button" className="icon-btn" onClick={() => copiaza(adresa, "Adresa")} aria-label="Copiază adresa serverului"><Copy size={14} /></button>
                 </span>
                 <span>Utilizator</span><span className="pasi-caldav-val"><code>{utilizator}</code></span>
                 <span>Parolă</span><span className="pasi-caldav-val">cea generată mai sus</span>
               </div>
               <ol>
-                <li><b>iPhone:</b> Configurări → Aplicații → Calendar → Conturi → Adaugă cont → Altul → Adaugă cont CalDAV. La Server scrie doar <code>{GAZDA}</code>, apoi Utilizator, Parolă și Următorul (telefonul găsește singur restul). Dacă cere port sau SSL: 443, cu SSL.</li>
-                <li><b>Mac:</b> Calendar → Configurări → Conturi → + → Alt cont CalDAV → tip „Automat”: utilizator, parolă și serverul <code>{GAZDA}</code>. Dacă nu merge automat, tip „Avansat” cu adresa completă de rezervă, port 443, cu SSL.</li>
+                <li><b>iPhone:</b> Configurări → Aplicații → Calendar → Conturi → Adaugă cont → Altul → Adaugă cont CalDAV. La Server lipește adresa completă de mai sus (cu tot cu https:// și cale), apoi Utilizator, Parolă și Următorul. Dacă cere port sau SSL: 443, cu SSL.</li>
+                <li><b>Mac:</b> Calendar → Configurări → Conturi → + → Alt cont CalDAV → tip „Avansat”: adresa serverului <code>{urlAdresa ? urlAdresa.host : ""}</code>, calea <code>{urlAdresa ? urlAdresa.pathname : ""}</code>, port 443, cu SSL.</li>
                 <li>În Calendar, bifează sălile pe care vrei să le vezi. Evenimentele adăugate din telefon ajung în PMS la următoarea sincronizare.</li>
               </ol>
             </div>

@@ -32,29 +32,37 @@ Funcția e deployată cu `--no-verify-jwt`: clienții CalDAV trimit
 2. **Fiecare user, Useri și drepturi → Contul tău**: „Generează parola”.
    Parola apare o singură dată; în bază stă doar SHA-256 al ei. Apoi, pe
    iPhone: Configurări → Aplicații → Calendar → Conturi → Adaugă cont →
-   Altul → Adaugă cont CalDAV, cu serverul `pms.lalivada.ro` (atât),
-   utilizatorul = emailul de login, parola generată; telefonul găsește
-   principalul prin `/.well-known/caldav`. Pe Mac: cont CalDAV „Automat”
-   cu același server. Rezervă, dacă adresa scurtă nu merge: adresa completă
-   `https://<project>.supabase.co/functions/v1/caldav/principals/<email>/`
-   (pe Mac, tip „Avansat”, port 443, SSL).
+   Altul → Adaugă cont CalDAV, cu serverul = adresa completă
+   `https://<project>.supabase.co/functions/v1/caldav/principals/<email>/`,
+   utilizatorul = emailul de login, parola generată. Pe Mac: cont CalDAV
+   „Avansat”, cu adresa serverului, calea de mai sus, portul 443 și SSL.
+   Numele scurt `pms.lalivada.ro` nu merge pe iPhone (vezi mai jos).
 3. Calendarele noi se creează doar din PMS. `MKCALENDAR` nu trece de
    poarta Supabase (răspunde 501), deci telefonul nu poate crea calendare
    sub acest cont; nici nu e nevoie.
 
-## Adresa scurtă: pms.lalivada.ro
+## De ce nu există o adresă scurtă (15 septembrie 2026)
 
-Pe telefon se scrie doar `pms.lalivada.ro`: `vercel.json` trimite
-`/.well-known/caldav` cu 308 direct la
-`https://<project>.supabase.co/functions/v1/caldav/` (redirect pe alt host,
-ca la Fastmail sau Google), iar clientul continuă pe supabase.co cu
-hrefurile `/functions/v1/caldav/...`. Un proxy prin Vercel (rescrieri
-`/caldav/*` către funcție) a fost încercat și abandonat pe 15 septembrie
-2026: mitigarea de sistem a Vercel (anti-DDoS, separată de regulile
-Firewall) provoacă clientul Apple la a treia cerere („Vercel Security
-Checkpoint”, `x-vercel-mitigated: challenge`, „System Rule” în Traffic),
-regulile Bypass din WAF n-o opresc, iar planul Hobby nu permite System
-Bypass. Redirectul e o singură cerere la Vercel, care trece.
+S-au încercat două căi ca pe telefon să se scrie doar `pms.lalivada.ro`,
+amândouă picate pe iOS:
+
+- **Proxy prin Vercel** (`/caldav/*` rescris către funcție): mitigarea de
+  sistem a Vercel (anti-DDoS, „System Rule” în Firewall → Traffic, separată
+  de regulile WAF) provoacă clientul Apple (`accountsd`/`dataaccessd`,
+  „uncategorized_bot”) la a treia cerere, cu fereastră de 10 minute pe IP;
+  regulile Bypass din WAF n-o opresc, iar planul Hobby nu permite System
+  Bypass (limită 0). Ar merge doar cu Vercel Pro (regulă Bypass cu
+  `bypassSystem`) sau cu alt proxy fără protecție anti-bot.
+- **Redirect `/.well-known/caldav`** (308, pe alt host, către funcție):
+  iOS urmează redirectul pentru prima cerere, dar rămâne apoi pe gazda
+  inițială și cere acolo căile descoperite (404 la Vercel). Redirectul
+  rămâne în `vercel.json` pentru clienții care urmează corect redirecturi
+  între gazde (Thunderbird), dar instrucțiunile din aplicație dau adresa
+  completă.
+
+Lecții Vercel: `:cale*`/`:cale+` nu prind căile cu bară finală (folosește
+`:cale(.*)`); rescrierile externe nu trimit `x-forwarded-host`; în funcția
+hostată `host` e `edge-runtime.supabase.com`.
 
 ## Protocolul, pe scurt
 
