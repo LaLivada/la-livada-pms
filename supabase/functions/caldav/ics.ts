@@ -154,6 +154,20 @@ export interface RezumatObiect {
   recurent: boolean;
   rrule: string | null;
   evenimente: number;
+  anulat: boolean;
+}
+
+/* Anulat inseamna doua lucruri in calendarele salilor, si amandoua conteaza:
+   STATUS:CANCELLED (il pune aplicatia de contracte) sau cuvantul ANULAT in
+   titlu (scris de mana in calendarul vechi de pe Synology). Pe 15 septembrie
+   2026, la import: 14 evenimente de primul fel, 26 de al doilea, doar doua
+   in amandoua. Cuvantul se cere intreg si la inceput de cuvant, ca „Anulat
+   Catalin", „- ANULAT!" si „anulat!!!!" sa intre, dar un nume care doar il
+   contine sa nu. Ecranele PMS le ascund; serverul CalDAV le trimite mai
+   departe la telefon neatinse, fiindca acolo Calendarul le arata taiate. */
+export function esteAnulat(status: string | null, titlu: string): boolean {
+  if ((status || "").trim().toUpperCase() === "CANCELLED") return true;
+  return /(^|\P{L})anulat/iu.test(titlu);
 }
 
 export function rezumaObiect(text: string): RezumatObiect | null {
@@ -176,9 +190,10 @@ export function rezumaObiect(text: string): RezumatObiect | null {
     seTermina = start.toataZiua ? new Date(start.data.getTime() + 86_400_000) : start.data;
   }
   const rrule = valoare(principal, "RRULE");
+  const titlu = dezescapeaza(valoare(principal, "SUMMARY") || "").trim();
   return {
     uid: (valoare(principal, "UID") || "").trim() || null,
-    titlu: dezescapeaza(valoare(principal, "SUMMARY") || "").trim(),
+    titlu,
     locatie: (() => { const l = valoare(principal, "LOCATION"); return l ? dezescapeaza(l).trim() || null : null; })(),
     incepe: start?.data ?? null,
     seTermina,
@@ -186,6 +201,7 @@ export function rezumaObiect(text: string): RezumatObiect | null {
     recurent: !!rrule || evenimente.some((e) => prop(e, "RDATE")),
     rrule,
     evenimente: evenimente.length,
+    anulat: esteAnulat(valoare(principal, "STATUS"), titlu),
   };
 }
 

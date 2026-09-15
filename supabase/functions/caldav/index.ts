@@ -44,6 +44,7 @@ function campuriDinRezumat(r: RezumatObiect) {
   return {
     uid: r.uid, rezumat: r.titlu || null, incepe: r.incepe?.toISOString() ?? null,
     se_termina: r.seTermina?.toISOString() ?? null, toata_ziua: r.toataZiua, recurent: r.recurent,
+    anulat: r.anulat,
   };
 }
 

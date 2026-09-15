@@ -9,6 +9,7 @@ import { describe, it, expect } from "vitest";
 import {
   liniiDesfacute, parseazaLinie, parseazaICS, momentDin, instantDinLocal, durataMs,
   rezumaObiect, valideazaObiect, imparteInObiecte, numeCalendar, culoareCalendar, dezescapeaza,
+  esteAnulat,
 } from "../supabase/functions/caldav/ics.ts";
 
 const EXPORT = [
@@ -135,6 +136,32 @@ describe("rezumatul unui obiect", () => {
     expect(cu(["DTSTART:20260718T130000Z", "DURATION:PT2H"]).seTermina.toISOString()).toBe("2026-07-18T15:00:00.000Z");
     expect(cu(["DTSTART;VALUE=DATE:20260718"]).seTermina.toISOString()).toBe("2026-07-18T21:00:00.000Z");
     expect(cu(["DTSTART:20260718T130000Z"]).seTermina.toISOString()).toBe("2026-07-18T13:00:00.000Z");
+  });
+
+  /* Anularea se scrie in doua feluri in calendarele salilor, iar ecranele PMS
+     trebuie sa le sara pe amandoua (15 septembrie 2026: 14 evenimente cu
+     STATUS:CANCELLED, 26 cu ANULAT in titlu, doua in amandoua). */
+  it("anulat: STATUS:CANCELLED sau cuvantul ANULAT din titlu", () => {
+    const cu = (linii) => rezumaObiect(["BEGIN:VCALENDAR", "BEGIN:VEVENT", "UID:x", "DTSTART;VALUE=DATE:20270605", ...linii, "END:VEVENT", "END:VCALENDAR"].join("\n"));
+    expect(cu(["STATUS:CANCELLED", "SUMMARY:Alexandru & Alexandra"]).anulat).toBe(true);
+    expect(cu(["STATUS:CONFIRMED", "SUMMARY:Cristi & Georgiana - ANULAT"]).anulat).toBe(true);
+    expect(cu(["STATUS:CONFIRMED", "SUMMARY:Cristi & Georgiana"]).anulat).toBe(false);
+    expect(cu(["SUMMARY:Cristi & Georgiana"]).anulat).toBe(false);
+    expect(cu([]).anulat).toBe(false);
+  });
+
+  it("anulat: felurile in care a fost scris de mana, si ce nu trebuie sa prinda", () => {
+    for (const titlu of [
+      "Samson Nicoleta -ANULAT", "Sava Raluca Gianina - ANULAT", "Vicol Andrei Alexandru - ANULAT!",
+      "Mădălin ANULAT ", "Leonid & Andreea - anulat!!!!", "ANULAT Cucoș Lucas !!!!! Deces",
+      "Anulat Catalin & Madalina", "Blanaru Gabriel Marian - Anulat", "Anulat! - Arhire Ionel-Valentin",
+    ]) expect(esteAnulat("CONFIRMED", titlu), titlu).toBe(true);
+    for (const titlu of ["Neanulat", "Ana & Lucian", "Manuela & Anulescu", ""]) {
+      expect(esteAnulat(null, titlu), titlu).toBe(false);
+    }
+    expect(esteAnulat("cancelled", "Andrei & Corina")).toBe(true);
+    expect(esteAnulat(" CANCELLED ", "Andrei & Corina")).toBe(true);
+    expect(esteAnulat("TENTATIVE", "Andrei & Corina")).toBe(false);
   });
 
   it("validarea unui PUT: VCALENDAR, macar un VEVENT, un singur UID", () => {

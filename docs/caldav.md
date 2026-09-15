@@ -14,9 +14,9 @@ Synology; evenimentele nu au nicio legătură cu rezervările pe camere
 | iCalendar: parsare, momente, rezumat, împărțirea unui export în obiecte | `supabase/functions/caldav/ics.ts` |
 | XML-ul cererilor WebDAV | `supabase/functions/caldav/xml.ts` |
 | Intrarea Deno: Basic auth, depozitul pe Supabase, importul .ics | `supabase/functions/caldav/index.ts` |
-| Tabelele `caldav_calendare`, `caldav_obiecte`, `caldav_conturi` | migrarea `20260915152127_sali_caldav` |
+| Tabelele `caldav_calendare`, `caldav_obiecte`, `caldav_conturi` | migrarea `20260915152127_sali_caldav`, apoi `caldav_obiecte_anulat` |
 | Ecranul „Evenimente” (admin: calendarul pe ani, serverul și sălile) și panoul din „Contul tău” | `src/features/caldav.jsx`, `src/data/caldav.js`, `src/lib/evenimente-an.js` |
-| Teste | `src/caldav-ics.test.js`, `src/caldav-servitor.test.js`, `src/evenimente-an.test.js`, `src/evenimente-ecran.test.js` |
+| Teste | `src/caldav-ics.test.js`, `src/caldav-servitor.test.js`, `src/caldav-date.test.js`, `src/evenimente-an.test.js`, `src/evenimente-ecran.test.js` |
 
 Funcția e deployată cu `--no-verify-jwt`: clienții CalDAV trimit
 `Authorization: Basic`, nu JWT Supabase. Validarea e în funcție.
@@ -48,7 +48,17 @@ unui an, cu o bulină colorată pe zi pentru fiecare sală care are ceva
 atunci; o zi apăsată își desface lista (titlu, sală, oră sau interval) chiar
 sub luna ei; sălile din legendă se ascund/arată cu un clic, iar anul se
 schimbă cu săgețile. **Serverul & săli**: adresa serverului, sălile (nume,
-culoare) și importul `.ics`. Zilele sunt cele de la Vaslui
+culoare) și importul `.ics`. **Evenimentele anulate nu se afișează și nu se numără** nicăieri în PMS.
+„Anulat” se scrie în două feluri, și amândouă contează: `STATUS:CANCELLED`
+(îl pune aplicația de contracte) sau cuvântul ANULAT în titlu (scris de mână
+în calendarul vechi de pe Synology). Regula e `esteAnulat()` din
+`ics.ts`; funcția edge o aplică la fiecare import și la fiecare PUT venit
+de pe telefon și scrie rezultatul în coloana `caldav_obiecte.anulat`
+(migrarea `caldav_obiecte_anulat`, care a marcat și rândurile vechi: 38 de
+evenimente din 820, pe 15 septembrie 2026). Serverul CalDAV le trimite mai
+departe neatinse — dacă n-ar face-o, telefonul le-ar șterge din Calendar.
+
+Zilele sunt cele de la Vaslui
 (`src/lib/timp.js`); DTEND e exclusiv, deci un eveniment de toată ziua
 5–7 iunie se termină pe 8 la 00:00 și ocupă trei zile. Seriile recurente
 apar doar la prima lor dată, marcate „se repetă” (expandarea RRULE rămâne
