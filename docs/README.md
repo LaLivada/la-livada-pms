@@ -12,6 +12,7 @@ fiecare. Un document nou se adaugă aici în același commit.
 | [`faza3.md`](faza3.md) | Faza 3 — UX: căutare globală, scurtături, conflicte cu diff, offline, tabletă, fișă pliabilă, rapoarte cu delta și CSV, „nou de la ultima deschidere", schelet și timeout. Închisă pe 14 septembrie 2026. |
 | [`faza4.md`](faza4.md) | Faza 4 — igienă continuă: README, indexul ăsta, `@ts-check` pe `lib`/`data`, spargerea fișierelor mari, stilurile inline. În lucru. |
 | [`PR-audit-p0-p3.md`](PR-audit-p0-p3.md) | Auditul de producție de dinaintea celui din septembrie: cele 20 de constatări (P0–P3) rezolvate, plus 5 găsite pe parcurs — 7 commit-uri, teste, disaster recovery. |
+| [`caldav.md`](caldav.md) | Serverul CalDAV al sălilor de evenimente, găzduit în PMS (funcția `caldav`), cu importul `.ics` de pe Synology și contul CalDAV per user; etapa 1 livrată pe 15 septembrie 2026. |
 | [`disaster-recovery.md`](disaster-recovery.md) | Ce se face dacă baza dispare sau Supabase e indisponibil, în ce ordine; verificat pe 19 august 2026. Are și pașii pentru backup-ul periodic (workflow, secrete, cheia age). |
 | [`guest-app.md`](guest-app.md) | Pagina oaspetelui, un link per cazare: ușă, cod de acces, detalii, minibar. Arhitectură și plan scrise pe codul din 3 septembrie 2026; implementată (`src/guest/`). |
 | [`fisa-cazare.md`](fisa-cazare.md) | Fișa de cazare completată și semnată de oaspete în pagina lui, în locul hârtiei. Arhitectură, 7 septembrie 2026; implementată (`fise_cazare`, `src/guest/Fisa.jsx`). |

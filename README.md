@@ -36,7 +36,7 @@ fiecăreia: `public/`, `public-booking/`, `public-guest/`.
   în ordinea în care a fost construită; `supabase/migrations/` — migrațiile
   aplicate pe proiectul live, câte un fișier, redabile cu `supabase db push`;
   `supabase/functions/` — funcțiile edge (Deno): `booking-create`,
-  `booking-email`, `ical-feed`, `access-provider`, `access-webhook`,
+  `booking-email`, `ical-feed`, `access-provider`, `access-webhook`, `caldav`,
   `guest-unlock`, `device-provider`, `anaf-lookup`. Fiecare are, în capul
   fișierului, ce primește și de ce există.
 - `scripts/` — unelte de rulat de mână: `backup.mjs` (copie a bazei, fără

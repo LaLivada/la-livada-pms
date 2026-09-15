@@ -2071,6 +2071,37 @@ label.field input, label.field select, label.field textarea{ cursor:auto; }
 .cont-optiune .mode-switch{ margin-bottom:0; }
 .cont-optiune-eticheta{ font-size:var(--fs-sm); font-weight:600; color:var(--text-muted); }
 .cont-optiune-nota{ font-size:var(--fs-xs); color:var(--text-muted); line-height:1.45; }
+/* Sali si CalDAV (15 septembrie 2026): ecranul adminului si panoul din
+   Contul tau (features/caldav.jsx). */
+.sali{ display:grid; gap:14px; max-width:820px; }
+.sali-server{ padding:14px 18px; display:grid; gap:8px; }
+.sali-server-t{ display:flex; align-items:center; gap:8px; font-weight:650; font-size:var(--fs-md); }
+.sali-nota{ margin:0; font-size:var(--fs-sm); color:var(--text-muted); line-height:1.45; }
+.sali-gol{ padding:12px 18px; }
+.sali-adresa{ display:flex; gap:6px; }
+.sali-adresa input{ flex:1; min-width:0; font-size:var(--fs-sm); }
+.sali-cap{ display:flex; align-items:baseline; justify-content:space-between; gap:10px; padding:14px 18px 6px; }
+.sali-cap h3{ margin:0; font-size:var(--fs-md); }
+.sala-rand{ display:flex; align-items:center; gap:10px; padding:10px 18px; border-top:1px solid var(--border-soft); }
+.sala-culoare{ width:14px; height:14px; border-radius:50%; flex-shrink:0; }
+.sala-culoare-input{ width:34px; height:34px; padding:2px; border:1px solid var(--border); border-radius:var(--r-sm); background:var(--surface); flex-shrink:0; }
+.sala-info{ display:grid; min-width:0; flex:1; }
+.sala-nume{ font-weight:600; }
+.sala-meta{ font-size:var(--fs-xs); color:var(--text-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.sala-nume-input{ flex:1; min-width:0; }
+.sala-btn{ width:auto; padding:8px 12px; white-space:nowrap; }
+.sala-adauga{ display:flex; gap:8px; align-items:center; padding:12px 18px; border-top:1px solid var(--border); }
+.cont-caldav{ padding:14px 20px; border-bottom:1px solid var(--border); display:grid; gap:8px; }
+.cont-caldav-actiuni{ display:flex; flex-wrap:wrap; gap:8px; }
+.cont-caldav-actiuni .btn{ width:auto; padding:8px 12px; }
+.parola-caldav-cutie{ display:grid; gap:6px; }
+.parola-caldav{ display:flex; align-items:center; gap:8px; padding:10px 12px; background:var(--surface-2); border:1px dashed var(--border); border-radius:var(--r-sm); }
+.parola-caldav code{ font-family:'IBM Plex Mono',monospace; font-size:var(--fs-lg); letter-spacing:.04em; user-select:all; flex:1; word-break:break-all; }
+.pasi-caldav{ display:grid; gap:10px; font-size:var(--fs-sm); color:var(--text-muted); line-height:1.5; }
+.pasi-caldav ol{ margin:0; padding-left:18px; display:grid; gap:6px; }
+.pasi-caldav code{ font-family:'IBM Plex Mono',monospace; font-size:var(--fs-xs); word-break:break-all; color:var(--text); }
+.pasi-caldav-date{ display:grid; grid-template-columns:auto 1fr; gap:4px 12px; align-items:center; }
+.pasi-caldav-val{ display:flex; align-items:center; gap:6px; min-width:0; }
 /* Eroarea de validare sub campul ei (formularul de rezervare). */
 .eroare-camp{ margin:-8px 0 12px; }
 /* Bara de actiuni a ferestrelor (Vezi rezervarea, formularul) ramane lipita

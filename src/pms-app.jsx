@@ -124,6 +124,7 @@ const UsersView = lazy(() => import("./features/setari.jsx").then((m) => ({ defa
 const LogView = lazy(() => import("./features/setari.jsx").then((m) => ({ default: m.LogView })));
 const SettingsView = lazy(() => import("./features/setari.jsx").then((m) => ({ default: m.SettingsView })));
 const HousekeepingView = lazy(() => import("./features/camere.jsx").then((m) => ({ default: m.HousekeepingView })));
+const SaliView = lazy(() => import("./features/caldav.jsx").then((m) => ({ default: m.SaliView })));
 const NightAuditGate = lazy(() => import("./features/rezervari.jsx").then((m) => ({ default: m.NightAuditGate })));
 const AutomatizareView = lazy(() => import("./features/automatizare.jsx").then((m) => ({ default: m.AutomatizareView })));
 import {
@@ -133,7 +134,7 @@ import {
   BarChart3, History, LogIn, Printer, Banknote, ArrowRight,
   Settings, Eye, XCircle, MoveRight, Tag as TagIcon, Rows2, Rows3, MessageSquare, Wrench, UserCheck,
   AlertTriangle, RefreshCw, Undo2, Copy, Info, Cpu, TrendingUp, Phone, MessageCircle,
-  Package, Receipt, CreditCard, FileDown, Mail, KeyRound, CalendarCheck, BedDouble
+  Package, Receipt, CreditCard, FileDown, Mail, KeyRound, CalendarCheck, BedDouble, CalendarRange
 } from "lucide-react";
 
 /* ---------------------------------------------------------------
@@ -1316,6 +1317,7 @@ const SETTINGS_ITEMS = [
   { key: "clients", label: "Clienți", icon: Users, desc: "Oaspeți și grupuri", roles: ["admin", "receptionist"] },
   { key: "automation", label: "Automatizare", icon: Zap, desc: "Boiler, iluminat exterior și prize, pe camere tehnice", roles: ["admin", "receptionist"] },
   { key: "rooms", label: "Camere și tarife", icon: DoorOpen, desc: "Numere, tip, dispozitive Shelly/Sensibo și prețuri", roles: ["admin"] },
+  { key: "sali", label: "Săli și CalDAV", icon: CalendarRange, desc: "Calendarele sălilor de evenimente, pe telefon prin CalDAV", roles: ["admin"] },
   { key: "financial", label: "Financiar", icon: Receipt, desc: "Facturi, încasări, produse și TVA", roles: ["admin"] },
   { key: "reports", label: "Rapoarte", icon: BarChart3, desc: "Ocupare, venit, ADR și RevPAR pe luni", roles: ["admin"] },
   { key: "users", label: "Useri și drepturi", icon: UserCog, desc: "Contul tău; conturile și rolurile echipei", roles: ["admin", "receptionist", "housekeeping"] },
@@ -1332,6 +1334,7 @@ const VIEW_TITLES = {
   housekeeping: ["Status camere", "Curățenie și pregătire pentru sosiri"],
   automation: ["Automatizare", "Relee Shelly pe camere tehnice"],
   rooms: ["Configurare camere", "Mapare dispozitive Shelly / Sensibo"],
+  sali: ["Săli și CalDAV", "Calendarele sălilor de evenimente și contul CalDAV"],
   financial: ["Financiar", "Facturi, încasări, produse și TVA"],
   users: ["Useri și drepturi", "Contul tău și accesul pe roluri"],
 };
@@ -1345,6 +1348,7 @@ const VIEW_ROLES = {
   calendar: ["admin", "receptionist", "housekeeping"],
   housekeeping: ["admin", "receptionist", "housekeeping"],
   clients: ["admin", "receptionist"],
+  sali: ["admin"],
   automation: ["admin", "receptionist"],
   settings: ["admin", "receptionist"],
   rooms: ["admin"],
@@ -1600,6 +1604,7 @@ function Shell({ user, view, setView, onLogout, noutati, core, updateCore, reser
             <HousekeepingView core={core} reservations={reservations} housekeeping={housekeeping} updateHousekeeping={updateHousekeeping} />
           )}
           {safeView === "automation" && <AutomatizareView core={core} />}
+          {safeView === "sali" && <SaliView />}
           {safeView === "rooms" && (
             <RoomsView core={core} updateCore={updateCore}
               reservations={reservations} updateReservations={updateReservations}

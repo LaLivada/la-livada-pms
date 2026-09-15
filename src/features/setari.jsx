@@ -23,6 +23,7 @@ import * as dateRapoarte from "../data/rapoarte.js";
 import { Dialog, toaster, useModalLock, Stat, PdfPreview } from "../ui/primitive.jsx";
 import { useInterfata } from "../ui/interfata.jsx";
 import { INTERFETE, ETICHETA_INTERFATA, TEME, ETICHETA_TEMA } from "../lib/interfata.js";
+import { ContCaldav } from "./caldav.jsx";
 import { cameraDinDetaliu, filtreazaJurnal, ziiDistincte, grupeazaPeZi, etichetaZi, INTARZIERE_RECERERE_JURNAL_MS } from "../lib/jurnal.js";
 import { ACTIUNE_EROARE } from "../lib/erori-productie.js";
 import { generatePdfBlob, pregatesteFila, arataInFila, inchideFila } from "../lib/pdf.js";
@@ -295,6 +296,9 @@ export function ContulMeu({ user, onLogout }) {
           </div>
         </div>
       </div>
+
+      {/* Parola CalDAV pentru calendarul salilor pe telefon (features/caldav.jsx). */}
+      <ContCaldav user={user} />
 
       {schimbaParola && (
         <div className="cont-parola">
