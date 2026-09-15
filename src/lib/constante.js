@@ -30,7 +30,9 @@ export const STATUS_CLASS = {
 /* La creare, o rezervare poate porni doar in una din aceste 3 stari.
    La editare, statusul revine la cel operational clasic — Cerere si
    Protocol sunt doar puncte de intrare, nu stari intre care se comuta
-   liber ulterior (vezi ReservationModal). */
+   liber ulterior (vezi ReservationModal). Protocolul isi pastreaza insa
+   marcajul dupa check-in, ca atribut (`protocol`, vezi esteProtocol in
+   lib/availability.js). */
 
 export const CREATE_STATUSES = ["pending", "confirmed", "protocol"];
 
@@ -39,7 +41,9 @@ export const EDIT_STATUSES = ["confirmed", "checkedin", "checkedout", "noshow", 
 /* Rezervarile "protocol" ocupa camera normal, dar nu se incaseaza bani pe
    ele — nu trebuie sa apara in nicio statistica de venit/ocupare din
    Rapoarte sau din fisele de client; vezi ReportsView (sectiune separata
-   pentru protocol) si ClientsView/GuestHistory. */
+   pentru protocol) si ClientsView/GuestHistory. Dupa check-in starea devine
+   „checkedin", dar atributul `protocol` ramane — de aceea oriunde conteaza
+   se intreaba esteProtocol(r), nu starea. */
 
 export const INVOICE_STATUS_LABEL = {
   draft: "Draft", issued: "Emisă", partially_paid: "Parțial plătită",

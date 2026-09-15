@@ -7,7 +7,7 @@
 
 import { audit } from "../../lib/audit.js";
 import { guestFullName } from "../../lib/nume.js";
-import { rangesOverlap } from "../../lib/availability.js";
+import { rangesOverlap, esteProtocol } from "../../lib/availability.js";
 import { canCheckIn, canCheckOut } from "../../lib/tranzitii.js";
 import { toaster } from "../../ui/primitive.jsx";
 import { cheamaAcces } from "../acces.jsx";
@@ -41,7 +41,10 @@ export async function doCheckIn(res, reservations, updateReservations, core, { f
     return { error: `Camera ${room?.name || ""} este încă ocupată de ${who}. Fă întâi check-out.` };
   }
 
-  const next = reservations.map((r) => (r.id === res.id ? { ...r, status: "checkedin" } : r));
+  /* Marcajul de protocol ramane dupa cazare: in baza il tine triggerul, aici
+     il pastram pe obiectul din memorie (Azi si rapoartele intreaba
+     esteProtocol, nu starea). */
+  const next = reservations.map((r) => (r.id === res.id ? { ...r, status: "checkedin", protocol: esteProtocol(r) } : r));
   await updateReservations(next);
   const room = core.rooms.find((x) => x.id === res.roomId);
   await audit.push("Check-in", `${room?.name || res.roomId} · ${guestFullName(core.guests.find((g) => g.id === res.guestId))}`, { roomId: res.roomId, reservationId: res.id });

@@ -200,3 +200,37 @@ face să cadă în CI.
 ### 5.4 Ce NU s-a schimbat
 
 - Niciun stil n-a fost mutat încă; nimic vizual.
+
+---
+
+## 6. Protocol: atribut, nu doar stare (15 septembrie 2026)
+
+### 6.1 Ce era
+
+„Protocol" era doar o stare a rezervării, folosită și ca marcaj „nu se
+încasează": Azi, `raport_luna`, `oaspeti_statistici` și fișele de client
+se uitau la `status = 'protocol'`. Consecință: o rezervare protocol nu putea
+face check-in (`canCheckIn` cerea „confirmed"), iar dacă ar fi făcut, ar fi
+devenit „checkedin" și ar fi intrat în venit ca un sejur plătit.
+
+### 6.2 Cum funcționează
+
+- Coloana `reservations.protocol` (boolean), pusă de triggerul
+  `reservations_protocol_din_status`: adevărată când starea e `protocol`,
+  păstrată la check-in / check-out / no-show / anulare, ștearsă când starea
+  e pusă explicit pe `pending` sau `confirmed`. Interfața n-o scrie —
+  `camelRes` o citește, `snakeRes` n-o trimite.
+- `esteProtocol(r)` (`lib/availability.js`) = starea `protocol` sau
+  atributul; `isStatsEligible`, Azi și `statisticiProtocol` întreabă pe ea.
+  `raport_luna` și `oaspeti_statistici` folosesc coloana.
+- `STATUSURI_CAZABILE = ["confirmed", "protocol"]`: protocolul face check-in
+  ca o rezervare confirmată; se anulează și trece pe no-show la fel.
+- În ferestre, un protocol deja cazat are „· Protocol" în rândul cu sursa.
+
+### 6.3 Verificare
+
+`src/tranzitii.test.js` (cazare, anulare, no-show pe protocol),
+`src/rapoarte.test.js` (un protocol cazat rămâne la statistica lui),
+`src/protocol-atribut.test.js` (atributul și maparea). Pe baza live, după
+migrare: singura rezervare protocol a primit atributul; `raport_luna`
+răspunde la fel ca înainte.

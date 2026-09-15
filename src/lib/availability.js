@@ -67,4 +67,10 @@ export function occupancyForStay(checkin, checkout, reservations, roomCount, exc
 /* Rezervarile care intra in cifrele de business (ocupare, venit, ADR, RevPAR).
    Protocolul ocupa camera real, dar nu se incaseaza pe el — daca ar intra in
    venit, ar strica toate mediile. */
-export const isStatsEligible = (r) => isLive(r) && r.status !== "protocol";
+/* Sejur neincasat („protocol"): starea 'protocol' pana la sosire, apoi
+   atributul `protocol` — coloana pusa de trigger dupa stare, care ramane la
+   check-in / check-out (migrarea „protocol ca atribut", 15 septembrie 2026).
+   Inainte, marcajul era doar starea: un protocol nu putea face check-in, iar
+   daca ar fi facut, ar fi intrat in venit ca un sejur platit. */
+export const esteProtocol = (r) => r.status === "protocol" || r.protocol === true;
+export const isStatsEligible = (r) => isLive(r) && !esteProtocol(r);

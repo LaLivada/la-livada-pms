@@ -138,6 +138,9 @@ create table reservations (
   status                text not null default 'confirmed'
                           check (status in ('pending','confirmed','protocol','checkedin',
                                             'checkedout','cancelled','noshow')),
+  -- Sejur neincasat („protocol"), pastrat si dupa check-in; il pune triggerul
+  -- reservations_protocol_din_status (sectiunea PROTOCOL CA ATRIBUT, la final).
+  protocol              boolean not null default false,
   adults                int not null default 2,
   children              int not null default 0,
   price_override        numeric,
@@ -2744,7 +2747,7 @@ select guest_id,
                                 - (checkin at time zone 'Europe/Bucharest')::date))
                 filter (where status not in ('cancelled', 'noshow')), 0) as nopti,
        coalesce(sum(coalesce(price_override, booked_price, 0))
-                filter (where status not in ('cancelled', 'noshow', 'protocol')), 0) as incasat,
+                filter (where status not in ('cancelled', 'noshow') and not protocol), 0) as incasat,
        max(checkin) filter (where status not in ('cancelled', 'noshow')) as ultima_sosire
 from reservations
 where guest_id is not null
@@ -2802,7 +2805,7 @@ begin
   v_pana_ts := v_pana::timestamp at time zone 'Europe/Bucharest';
 
   with r as (
-    select res.id, res.status,
+    select res.id, res.status, (res.protocol or res.status = 'protocol') as protocol,
            coalesce(nullif(res.source, ''), 'direct') as sursa,
            (res.checkin  at time zone 'Europe/Bucharest')::date as zi_sosire,
            (res.checkout at time zone 'Europe/Bucharest')::date as zi_plecare,
@@ -2823,12 +2826,12 @@ begin
     from generate_series(v_de, v_pana - 1, interval '1 day') d
   ), pe_zi as (
     select z.nr,
-           count(rn.id) filter (where rn.status <> 'protocol') as occ,
-           coalesce(sum(rn.total / rn.nopti) filter (where rn.status <> 'protocol' and rn.are_camera), 0) as rev,
-           count(rn.id) filter (where rn.status <> 'protocol' and rn.are_camera and rn.tip_camera = 'tiny') as tiny,
-           count(rn.id) filter (where rn.status <> 'protocol' and rn.are_camera and rn.tip_camera = 'loft') as loft,
-           count(rn.id) filter (where rn.status = 'protocol') as prot_nopti,
-           coalesce(sum(rn.total / rn.nopti) filter (where rn.status = 'protocol'), 0) as prot_valoare
+           count(rn.id) filter (where not rn.protocol) as occ,
+           coalesce(sum(rn.total / rn.nopti) filter (where not rn.protocol and rn.are_camera), 0) as rev,
+           count(rn.id) filter (where not rn.protocol and rn.are_camera and rn.tip_camera = 'tiny') as tiny,
+           count(rn.id) filter (where not rn.protocol and rn.are_camera and rn.tip_camera = 'loft') as loft,
+           count(rn.id) filter (where rn.protocol) as prot_nopti,
+           coalesce(sum(rn.total / rn.nopti) filter (where rn.protocol), 0) as prot_valoare
     from zile z
     left join rn on rn.zi_sosire <= z.zi and rn.zi_plecare > z.zi
     group by z.nr
@@ -2848,9 +2851,9 @@ begin
                       'cap',    (select count(*) from rooms where type = 'loft') * v_zile)),
     'bySource',   coalesce((select jsonb_agg(jsonb_build_object('key', sursa, 'count', n, 'rev', rev) order by n desc, sursa)
                     from (select sursa, count(*) as n, sum(total) as rev
-                          from rn where status <> 'protocol' group by sursa) s), '[]'::jsonb),
+                          from rn where not protocol group by sursa) s), '[]'::jsonb),
     'protocol',   jsonb_build_object(
-                    'count',  (select count(*) from rn where status = 'protocol'),
+                    'count',  (select count(*) from rn where protocol),
                     'nights', (select coalesce(sum(prot_nopti), 0) from pe_zi),
                     'value',  (select coalesce(sum(prot_valoare), 0) from pe_zi))
   ) into v_rezultat;
@@ -5190,3 +5193,30 @@ $$;
 revoke execute on function marcheaza_prezenta(interval) from public, anon;
 grant execute on function marcheaza_prezenta(interval) to authenticated, service_role;
 
+-- ============================================================================
+-- PROTOCOL CA ATRIBUT (15 septembrie 2026; migrarea 20260915041109)
+-- ============================================================================
+-- „Protocol" era doar o stare, folosita si ca marcaj „nu se incaseaza". Un
+-- asemenea sejur nu putea face check-in, iar daca ar fi facut, ar fi intrat
+-- in venit ca unul platit. Coloana reservations.protocol tine marcajul
+-- separat de stare: o pune triggerul cand starea e 'protocol', ramane la
+-- check-in / check-out / no-show / anulare si se sterge cand starea e pusa
+-- explicit pe 'pending' sau 'confirmed'. raport_luna si oaspeti_statistici
+-- (mai sus) se uita la coloana, nu la stare. Interfata n-o scrie niciodata.
+create or replace function reservations_protocol_din_status()
+returns trigger
+language plpgsql
+set search_path = public
+as $$
+begin
+  if new.status = 'protocol' then
+    new.protocol := true;
+  elsif new.status in ('pending', 'confirmed') then
+    new.protocol := false;
+  end if;
+  return new;
+end $$;
+drop trigger if exists reservations_protocol_din_status on reservations;
+create trigger reservations_protocol_din_status
+  before insert or update of status on reservations
+  for each row execute function reservations_protocol_din_status();

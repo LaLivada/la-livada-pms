@@ -10,9 +10,9 @@ import { Check, Pencil, LogIn, Eye, ArrowRight, MoveRight, XCircle, MessageSquar
 import { uid } from "../../lib/uid.js";
 import { audit } from "../../lib/audit.js";
 import { guestFullName, occupantName } from "../../lib/nume.js";
-import { nightsBetween, isLive } from "../../lib/availability.js";
+import { nightsBetween, isLive, esteProtocol } from "../../lib/availability.js";
 import { reservationTotal } from "../../lib/pricing.js";
-import { isSameDay, canCheckIn, canCheckOut, canCancel, canNoShow, ZILE_CHECKIN_DEVREME } from "../../lib/tranzitii.js";
+import { isSameDay, canCheckIn, canCheckOut, canCancel, canNoShow, ZILE_CHECKIN_DEVREME, STATUSURI_CAZABILE } from "../../lib/tranzitii.js";
 import { fmtMoney, fmtDate, fmtDateTime } from "../../lib/format.js";
 import { STATUS_LABEL, STATUS_GLYPH, STATUS_CLASS, sourceLabel } from "../../lib/constante.js";
 import { Dialog, toaster, useModalLock } from "../../ui/primitive.jsx";
@@ -51,7 +51,7 @@ export function ReservationActions({ res: resSnapshot, core, groups, reservation
   /* Explicatia apare doar cand check-in-ul chiar NU e posibil: cu fereastra
      de ZILE_CHECKIN_DEVREME zile, o sosire apropiata e deja cazabila, deci
      n-are ce explica. */
-  const checkInHint = res.status !== "confirmed" || mayCheckIn
+  const checkInHint = !STATUSURI_CAZABILE.includes(res.status) || mayCheckIn
     ? null
     : new Date(res.checkin) > now
       ? `Check-in disponibil cu ${ZILE_CHECKIN_DEVREME} zile înainte de sosire (${fmtDate(res.checkin)})`
@@ -104,7 +104,7 @@ export function ReservationActions({ res: resSnapshot, core, groups, reservation
               {" · "}{nightsBetween(res.checkin, res.checkout)} nopți
             </div>
             <div className="action-meta">
-              {res.adults ?? 2} adulți{res.children ? ` + ${res.children} copii` : ""} · {sourceLabel(res.source)} · {fmtMoney(reservationTotal(res, core))}
+              {res.adults ?? 2} adulți{res.children ? ` + ${res.children} copii` : ""} · {sourceLabel(res.source)} · {fmtMoney(reservationTotal(res, core))}{esteProtocol(res) && res.status !== "protocol" ? " · Protocol" : ""}
             </div>
             {res.tags?.length > 0 && (
               <div className="tag-row">

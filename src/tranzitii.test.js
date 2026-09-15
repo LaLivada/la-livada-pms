@@ -47,8 +47,12 @@ describe("canCheckIn — fereastra de 14 zile", () => {
     expect(canCheckIn(rez({ checkin: "2026-08-20T08:00:00" }), ACUM)).toBe(true);
   });
 
-  it("refuza orice status care nu e confirmat", () => {
-    for (const status of ["pending", "protocol", "checkedin", "checkedout", "cancelled", "noshow"]) {
+  it("protocolul se cazeaza ca o rezervare confirmata (pana pe 15 sept 2026 nu putea deloc)", () => {
+    expect(canCheckIn(rez({ status: "protocol" }), ACUM)).toBe(true);
+  });
+
+  it("refuza orice alt status", () => {
+    for (const status of ["pending", "checkedin", "checkedout", "cancelled", "noshow"]) {
       expect(canCheckIn(rez({ status }), ACUM)).toBe(false);
     }
   });
@@ -196,5 +200,12 @@ describe("cazatAcum — sta cineva chiar acum in camera", () => {
       expect(cazatAcum({ status, checkin: SOSIRE },
         momentLocal("2026-09-12T09:00:00Z")), status).toBe(false);
     }
+  });
+});
+
+describe("protocol", () => {
+  it("se anuleaza si trece pe no-show ca o rezervare confirmata — altfel ar ramane agatat", () => {
+    expect(canCancel(rez({ status: "protocol" }))).toBe(true);
+    expect(canNoShow(rez({ status: "protocol", checkin: peste(-48).toISOString() }), ACUM)).toBe(true);
   });
 });

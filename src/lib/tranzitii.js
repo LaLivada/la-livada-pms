@@ -34,8 +34,13 @@ export const ORE_CHECKIN_DEVREME = ZILE_CHECKIN_DEVREME * 24;
  * Un check-in facut cu mult inainte de ziua sosirii nu inseamna ca oaspetele
  * poate intra imediat in camera — vezi inceputCod in lib/acces.js, care tine
  * codul de acces inactiv pana in ziua rezervarii. */
+/* Se cazeaza si protocolul: e o rezervare ca oricare, doar neincasata
+   (atributul `protocol` ramane dupa check-in — vezi esteProtocol in
+   lib/availability.js). Pana pe 15 septembrie 2026 trecea doar „confirmed",
+   iar un sejur protocol nu putea fi cazat deloc. */
+export const STATUSURI_CAZABILE = ["confirmed", "protocol"];
 export const canCheckIn = (r, now = new Date()) =>
-  r.status === "confirmed"
+  STATUSURI_CAZABILE.includes(r.status)
   && ziLocala(r.checkin) >= ziLocala(now)
   && new Date(r.checkin).getTime() - new Date(now).getTime() <= ORE_CHECKIN_DEVREME * 3600_000;
 
@@ -69,8 +74,9 @@ export const cazatAcum = (r, now = new Date()) =>
 
 /* "pending" (Cerere) alaturi de "confirmed": o cerere netratata trebuie sa
    se poata anula in orice moment, la fel ca o rezervare confirmata — altfel
-   ramane agatata la nesfarsit fara nicio iesire. */
-export const STATUSURI_NEREZOLVATE = ["pending", "confirmed"];
+   ramane agatata la nesfarsit fara nicio iesire. Protocolul la fel: si el
+   asteapta o sosire, deci se anuleaza si trece pe no-show ca oricare. */
+export const STATUSURI_NEREZOLVATE = ["pending", "confirmed", "protocol"];
 
 export const canCancel = (r) => STATUSURI_NEREZOLVATE.includes(r.status);
 

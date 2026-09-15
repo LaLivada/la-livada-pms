@@ -8,7 +8,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { CalendarDays, Users, DoorOpen, Sparkles, LogIn, LogOut, Printer, ArrowRight, Globe } from "lucide-react";
 import { occupantName } from "../../lib/nume.js";
-import { nightsBetween, isLive } from "../../lib/availability.js";
+import { nightsBetween, isLive, esteProtocol } from "../../lib/availability.js";
 import { ziLocala, adaugaZile } from "../../lib/timp.js";
 import { reservationTotal } from "../../lib/pricing.js";
 import { canCheckIn, canCheckOut } from "../../lib/tranzitii.js";
@@ -139,7 +139,7 @@ export function TodayView({ core, updateCore, reservations, updateReservations, 
         // potriveste cu ce plateste efectiv oaspetele. Vezi reservationTotal.
         // Rezervarile "protocol" nu se incaseaza — nu intra in venit,
         // desi camera conteaza normal la ocupare (chiar e folosita).
-        if (r.status !== "protocol") {
+        if (!esteProtocol(r)) {
           const n = nightsBetween(r.checkin, r.checkout);
           rev += reservationTotal(r, core) / n;
         }

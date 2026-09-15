@@ -27,6 +27,9 @@ const rezervari = [
   { id: "c", roomId: "t2", checkin: zi(5), checkout: zi(8, 12), status: "cancelled", source: "direct", bookedPrice: 900 },
   // protocol: statistica separata, 2 nopti in luna, valoare 700 -> 350/noapte
   { id: "d", roomId: "t2", checkin: zi(20), checkout: zi(22, 12), status: "protocol", source: "direct", bookedPrice: 700 },
+  // protocol deja cazat: starea e "checkedin", dar atributul il tine la
+  // statistica lui, nu in venit (2 nopti, 500 -> 250/noapte)
+  { id: "f", roomId: "l1", checkin: zi(24), checkout: zi(26, 12), status: "checkedin", protocol: true, source: "direct", bookedPrice: 500 },
   // camera care nu exista: numara la ocupare, nu la venit (ca in ecran)
   { id: "e", roomId: "zzz", checkin: zi(15), checkout: zi(16, 12), status: "confirmed", source: "phone", bookedPrice: 100 },
 ];
@@ -84,7 +87,7 @@ describe("statisticiLuna", () => {
 
 describe("statisticiProtocol", () => {
   it("numara doar protocolul: sejururi, nopti in luna, valoare pe acele nopti", () => {
-    expect(statisticiProtocol(rezervari, core, LUNA)).toEqual({ count: 1, nights: 2, value: 700 });
+    expect(statisticiProtocol(rezervari, core, LUNA)).toEqual({ count: 2, nights: 4, value: 700 + 500 });
   });
 
   it("un protocol care intra in luna doar cu o noapte aduce doar cota ei", () => {
@@ -109,7 +112,7 @@ describe("statisticiDinSql", () => {
     zile: 30, roomNights: 5, revenue: "450.00", capacity: 90, perDay,
     byType: [{ type: "tiny", nights: 3, cap: 60 }, { type: "loft", nights: 1, cap: 30 }],
     bySource: [{ key: "direct", count: 1, rev: 300 }, { key: "phone", count: 1, rev: 100 }, { key: "site", count: 1, rev: "450" }],
-    protocol: { count: 1, nights: 2, value: 700 },
+    protocol: { count: 2, nights: 4, value: 1200 },
   };
   const ref = statisticiLuna(rezervari, core, LUNA);
 

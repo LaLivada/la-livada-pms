@@ -9,7 +9,7 @@ import { useState } from "react";
 import { Pencil, UsersRound, Printer } from "lucide-react";
 import { audit } from "../../lib/audit.js";
 import { guestFullName, occupantName } from "../../lib/nume.js";
-import { nightsBetween } from "../../lib/availability.js";
+import { nightsBetween, esteProtocol } from "../../lib/availability.js";
 import { reservationTotal } from "../../lib/pricing.js";
 import { fmtMoney, fmtDate, fmtDateTime, initials } from "../../lib/format.js";
 import { STATUS_LABEL, STATUS_GLYPH, STATUS_CLASS, sourceLabel } from "../../lib/constante.js";
@@ -62,7 +62,7 @@ export function ReservationViewModal({ reservation, core, updateCore, groups, up
             {" · "}{nightsBetween(reservation.checkin, reservation.checkout)} nopți
           </div>
           <div className="action-meta" style={{ marginTop: 1 }}>
-            {reservation.adults ?? 2} adulți{reservation.children ? ` + ${reservation.children} copii` : ""} · {sourceLabel(reservation.source)} · {fmtMoney(reservationTotal(reservation, core))}
+            {reservation.adults ?? 2} adulți{reservation.children ? ` + ${reservation.children} copii` : ""} · {sourceLabel(reservation.source)} · {fmtMoney(reservationTotal(reservation, core))}{esteProtocol(reservation) && reservation.status !== "protocol" ? " · Protocol" : ""}
           </div>
           <div style={{ marginTop: 6 }}>
             <span className={"role-tag " + STATUS_CLASS[reservation.status]}>

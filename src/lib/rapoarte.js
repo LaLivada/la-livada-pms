@@ -8,7 +8,7 @@
  *
  * Regula de noapte e aceeași cu subsolul calendarului: ziua plecării nu e
  * noapte vândută, deci o zi de rulaj (plecare + sosire) se numără o dată. */
-import { isStatsEligible } from "./availability.js";
+import { isStatsEligible, esteProtocol } from "./availability.js";
 import { ziLocala, zileIntre, adaugaZile, inceputDeLuna, sfarsitDeLuna, zileInLuna } from "./timp.js";
 import { reservationTotal } from "./pricing.js";
 import { SOURCES, ROOM_TYPE } from "./constante.js";
@@ -135,7 +135,7 @@ export function statisticiProtocol(reservations, core, monthStart) {
   let count = 0, nights = 0, value = 0;
   const seen = new Set();
   for (const r of reservations) {
-    if (r.status !== "protocol") continue;
+    if (!esteProtocol(r)) continue;
     const ciMs = new Date(r.checkin).getTime();
     const coMs = new Date(r.checkout).getTime();
     if (!Number.isFinite(ciMs) || !Number.isFinite(coMs)) continue;

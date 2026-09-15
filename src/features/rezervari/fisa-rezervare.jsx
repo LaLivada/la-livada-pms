@@ -20,7 +20,7 @@ import {
 } from "../../lib/fisa-sectiuni.js";
 import { liveReservationTotalOnline, diferentaDePret } from "../../lib/pricing.js";
 import { splitEvenly } from "../../lib/money.js";
-import { canCheckIn, canCheckOut, ZILE_CHECKIN_DEVREME } from "../../lib/tranzitii.js";
+import { canCheckIn, canCheckOut, ZILE_CHECKIN_DEVREME, STATUSURI_CAZABILE } from "../../lib/tranzitii.js";
 import { fmtMoney, fmtDate, fmtDateTime, toLocalInputValue, withNewDate, initials, validatePrice } from "../../lib/format.js";
 import { ROOM_TYPE, STATUS_LABEL, CREATE_STATUSES, EDIT_STATUSES, SOURCES, DEFAULT_TAGS } from "../../lib/constante.js";
 import { Dialog, toaster, useModalLock, useAduInVizor, useIntarziat, OccupantStepper } from "../../ui/primitive.jsx";
@@ -1000,7 +1000,7 @@ export function ReservationModal({ data, core, updateCore, reservations, updateR
                 <LogIn size={14} /> Marchează check-in
               </button>
             )}
-            {editing.status === "confirmed" && !canCheckIn(editing) && (
+            {STATUSURI_CAZABILE.includes(editing.status) && !canCheckIn(editing) && (
               <span className="quick-hint">
                 {new Date(editing.checkin) > new Date()
                   ? `Check-in disponibil cu ${ZILE_CHECKIN_DEVREME} zile înainte de sosire (${fmtDate(editing.checkin)})`

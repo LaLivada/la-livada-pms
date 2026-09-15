@@ -14,6 +14,10 @@ export const camelRes = (r) => ({
   checkin: r.checkin, checkout: r.checkout, status: r.status,
   adults: r.adults, children: r.children, priceOverride: r.price_override,
   bookedPrice: r.booked_price,
+  /* Sejur neincasat. Doar la citire: il pune triggerul din baza dupa stare
+     (reservations_protocol_din_status) si lipseste din snakeRes deliberat —
+     interfata n-are ce hotari la el. */
+  protocol: r.protocol === true || r.status === "protocol",
   source: r.source, tags: r.tags || [], notes: r.notes || "",
   occupantLastName: r.occupant_last_name || "", occupantFirstName: r.occupant_first_name || "",
   occupantPhone: r.occupant_phone || "", occupantName:
