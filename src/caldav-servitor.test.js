@@ -7,7 +7,7 @@
  * evenimente sterse ca vii, sau ar suprascrie o modificare mai noua.
  */
 import { describe, it, expect } from "vitest";
-import { serveste, adreseDinCale, prinDomeniulPms, PREFIX_SYNC } from "../supabase/functions/caldav/servitor.ts";
+import { serveste, adreseDinCale, PREFIX_SYNC } from "../supabase/functions/caldav/servitor.ts";
 import { DepozitMemorie } from "../supabase/functions/caldav/depozit-memorie.ts";
 import { propCerute, hrefuri, elementRadacina, intervalTimp, propPatchSetari, cereAltcevaDecatEvenimente } from "../supabase/functions/caldav/xml.ts";
 
@@ -224,18 +224,6 @@ describe("adreseDinCale: baza publica a hrefurilor, indiferent ce cale vede func
       .toEqual({ baza: "/functions/v1/caldav", cale: "/principals/office%40lalivada.com/" });
     expect(adreseDinCale("/caldav/")).toEqual({ baza: "/functions/v1/caldav", cale: "/" });
     expect(adreseDinCale("/caldav")).toEqual({ baza: "/functions/v1/caldav", cale: "/" });
-  });
-
-  it("prin domeniul PMS-ului (proxy Vercel) baza publica e /caldav; pe supabase.co sau local ramane /functions/v1/caldav", () => {
-    expect(prinDomeniulPms("pms.lalivada.ro")).toBe(true);
-    expect(prinDomeniulPms("suoowrginsliyrbxqeap.supabase.co")).toBe(false);
-    expect(prinDomeniulPms("edge-runtime.supabase.com")).toBe(false);
-    expect(prinDomeniulPms("pms.lalivada.ro:443")).toBe(true);
-    expect(prinDomeniulPms("localhost:54321")).toBe(false);
-    expect(prinDomeniulPms("")).toBe(false);
-    expect(adreseDinCale("/caldav/principals/office%40lalivada.com/", "pms.lalivada.ro"))
-      .toEqual({ baza: "/caldav", cale: "/principals/office%40lalivada.com/" });
-    expect(adreseDinCale("/caldav/", "suoowrginsliyrbxqeap.supabase.co")).toEqual({ baza: "/functions/v1/caldav", cale: "/" });
   });
 
   it("calea completa (local, supabase functions serve) nu dubleaza prefixul", () => {

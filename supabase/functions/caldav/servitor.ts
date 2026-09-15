@@ -71,24 +71,15 @@ const segmentUrl = (s: string) => encodeURIComponent(s);
 export const PREFIX_PUBLIC = "/functions/v1";
 export const NUME_FUNCTIE = "/caldav";
 
-/* Prin domeniul PMS-ului (Vercel rescrie /caldav/* catre functie, iar
-   /.well-known/caldav trimite la /caldav/), calea publica e "/caldav";
-   direct pe supabase.co sau local, "/functions/v1/caldav". Lista e
-   explicita: in functia hostata antetul host e edge-runtime.supabase.com,
-   nu <proiect>.supabase.co, deci "orice altceva decat supabase" ar fi gresit. */
-export const DOMENII_PMS = ["pms.lalivada.ro"];
-
-export function prinDomeniulPms(gazdaPublica: string): boolean {
-  const g = gazdaPublica.trim().toLowerCase().split(":")[0];
-  return DOMENII_PMS.includes(g);
-}
-
-export function adreseDinCale(pathname: string, gazdaPublica = ""): { baza: string; cale: string } {
+/* Serverul e servit doar direct, pe <proiect>.supabase.co (un proxy prin
+   Vercel nu merge: mitigarea de sistem a Vercel provoaca clientul Apple la a
+   treia cerere, iar pe planul Hobby nu se poate ocoli); numele scurt
+   pms.lalivada.ro doar trimite /.well-known/caldav incoace. */
+export function adreseDinCale(pathname: string): { baza: string; cale: string } {
   const i = pathname.indexOf(NUME_FUNCTIE + "/") >= 0 ? pathname.indexOf(NUME_FUNCTIE + "/")
     : pathname.endsWith(NUME_FUNCTIE) ? pathname.length - NUME_FUNCTIE.length : -1;
   const panaLaFunctie = i >= 0 ? pathname.slice(0, i + NUME_FUNCTIE.length) : NUME_FUNCTIE;
-  const baza = prinDomeniulPms(gazdaPublica) ? NUME_FUNCTIE
-    : panaLaFunctie.startsWith(PREFIX_PUBLIC + "/") ? panaLaFunctie : PREFIX_PUBLIC + panaLaFunctie;
+  const baza = panaLaFunctie.startsWith(PREFIX_PUBLIC + "/") ? panaLaFunctie : PREFIX_PUBLIC + panaLaFunctie;
   const cale = i >= 0 ? pathname.slice(i + NUME_FUNCTIE.length) || "/" : "/";
   return { baza, cale };
 }

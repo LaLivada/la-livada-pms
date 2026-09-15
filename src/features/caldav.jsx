@@ -12,13 +12,12 @@ import { fmtDateTime } from "../lib/format.js";
 import * as date from "../data/caldav.js";
 import * as datePersonal from "../data/personal.js";
 
-/* Adresa scurta: pms.lalivada.ro. Vercel rescrie /caldav/* catre functia
-   Supabase si trimite /.well-known/caldav la /caldav/, deci telefonul gaseste
-   singur principalul doar din numele gazdei. Adresa lunga, direct pe
-   supabase.co, ramane ca rezerva. */
+/* Pe telefon se scrie doar gazda: pms.lalivada.ro/.well-known/caldav trimite
+   (308) la serverul real de pe supabase.co, iar de acolo clientul merge singur.
+   Proxy prin Vercel nu se poate: mitigarea de sistem a Vercel provoaca
+   clientul Apple la a treia cerere (15 septembrie 2026). */
 const GAZDA = "pms.lalivada.ro";
-const ADRESA_SERVER = `https://${GAZDA}/caldav/`;
-const ADRESA_LUNGA = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/caldav/`;
+const ADRESA_SERVER = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/caldav/`;
 const CULORI = ["#2B5C8A", "#C2410C", "#0F766E", "#7C3AED", "#B45309", "#BE123C", "#4D7C0F", "#1D4ED8"];
 
 async function copiaza(text, ce) {
@@ -91,6 +90,7 @@ export function SaliView() {
           Fiecare user își generează parola din Useri și drepturi → Contul tău, unde sunt și pașii de adăugare.
           Calendarele noi se creează doar de aici, nu din telefon.
         </p>
+        <p className="sali-nota">Pe telefon ajunge numele <code>{GAZDA}</code>; adresa completă a serverului, pentru configurări avansate:</p>
         <div className="sali-adresa">
           <input className="mono" readOnly value={ADRESA_SERVER} aria-label="Adresa serverului CalDAV" />
           <button type="button" className="icon-btn" onClick={() => copiaza(ADRESA_SERVER, "Adresa")} aria-label="Copiază adresa" title="Copiază adresa"><Copy size={15} /></button>
@@ -183,7 +183,7 @@ export function ContCaldav({ user }) {
   }, [user.id]);
 
   const utilizator = cont?.utilizator || email;
-  const adresaLunga = utilizator ? `${ADRESA_LUNGA}principals/${utilizator}/` : "";
+  const adresaLunga = utilizator ? `${ADRESA_SERVER}principals/${utilizator}/` : "";
 
   const genereaza = async () => {
     if (!email) { toaster.show("Nu știu emailul contului; reîncarcă pagina.", { tone: "danger" }); return; }

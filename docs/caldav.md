@@ -44,17 +44,17 @@ Funcția e deployată cu `--no-verify-jwt`: clienții CalDAV trimit
 
 ## Adresa scurtă: pms.lalivada.ro
 
-`vercel.json` trimite `/.well-known/caldav` cu 308 la `/caldav/` și
-rescrie `/caldav/*` (și `/functions/v1/caldav/*`) către funcția
-Supabase, deci serverul se vede și pe domeniul PMS-ului. Rescrierea pune
-marcajul `?prin=pms` (Vercel nu trimite gazda publică mai departe, iar în
-funcția hostată `host` e `edge-runtime.supabase.com`), după care funcția
-alege baza hrefurilor `/caldav`; fără marcaj, `/functions/v1/caldav`
-(adresa lungă). Dacă protecția
-anti-bot a Vercel provoacă clienții CalDAV (pagina „Vercel Security
-Checkpoint”, antetul `x-vercel-mitigated: challenge`), în Vercel →
-proiect → Firewall se pune o regulă Bypass pentru `/caldav/*` și
-`/.well-known/caldav`.
+Pe telefon se scrie doar `pms.lalivada.ro`: `vercel.json` trimite
+`/.well-known/caldav` cu 308 direct la
+`https://<project>.supabase.co/functions/v1/caldav/` (redirect pe alt host,
+ca la Fastmail sau Google), iar clientul continuă pe supabase.co cu
+hrefurile `/functions/v1/caldav/...`. Un proxy prin Vercel (rescrieri
+`/caldav/*` către funcție) a fost încercat și abandonat pe 15 septembrie
+2026: mitigarea de sistem a Vercel (anti-DDoS, separată de regulile
+Firewall) provoacă clientul Apple la a treia cerere („Vercel Security
+Checkpoint”, `x-vercel-mitigated: challenge`, „System Rule” în Traffic),
+regulile Bypass din WAF n-o opresc, iar planul Hobby nu permite System
+Bypass. Redirectul e o singură cerere la Vercel, care trece.
 
 ## Protocolul, pe scurt
 
