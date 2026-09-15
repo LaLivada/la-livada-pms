@@ -583,7 +583,8 @@ export function CalendarView({ core, updateCore, reservations, updateReservation
 
       {/* Bara cu Azi, sub tabel, lipita de randul Ocupare (cerut pe 15
           septembrie 2026); pe telefon ramane la indemana, lipita jos. Butonul
-          de rezervare se ascunde acolo unde exista „+" in navigarea jos. */}
+          de rezervare ramane doar pe telefon, in interfata actuala: in cea
+          noua e „+” din navigarea jos, iar pe tableta si desktop e in antet. */}
       <div className="toolbar cal-toolbar cal-bara">
         <div className="week-nav">
           <button onClick={() => setOffset((o) => o - PAS_FEREASTRA)}

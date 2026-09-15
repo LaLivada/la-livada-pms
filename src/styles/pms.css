@@ -240,6 +240,18 @@
 }
 .top-btn:hover{ background:var(--surface-2); }
 .top-btn.active{ background:var(--accent-soft); color:var(--accent-strong); border-color:var(--accent); }
+/* „Rezervare noua" in antet, langa Calendar (cerut pe 15 septembrie 2026),
+   albastru ca butonul principal. Pe telefon nu incape si nici nu e nevoie:
+   acolo e „+" din navigarea jos (interfata noua) sau butonul din bara
+   calendarului (cea actuala). Cu .top-btn in selector, ca regula generala
+   a luminii de pe .top-btn (mai jos in foaie) sa nu o bata. */
+.top-btn.top-rez{
+  background:var(--accent); background-image:var(--lumina); border-color:var(--accent); color:#fff;
+  box-shadow:var(--shadow-sm);
+}
+.top-btn.top-rez:hover{ background:var(--accent-strong); border-color:var(--accent-strong); }
+:root.tema-intunecata .top-btn.top-rez{ color:#0F1216; }
+@media (max-width:600px){ .top-btn.top-rez{ display:none; } }
 /* Antet pe telefon: „Calendar" ramane doar pictograma (are aria-label si
    starea activa; titlul ecranului spune oricum unde esti), ca titlul sa nu
    se mai trunchieze la „La Liv… / Calenda…". */
@@ -411,6 +423,9 @@
 .cal-view .cal-scroll{ border-bottom-left-radius:0; border-bottom-right-radius:0; }
 .cal-toolbar .week-nav{ min-width:0; }
 .cal-toolbar .btn-primary{ white-space:nowrap; flex-shrink:0; }
+/* Butonul din bara calendarului ramane doar pe telefon, in interfata
+   actuala: pe tableta si desktop e in antet, langa Calendar (.top-rez). */
+@media (min-width:601px){ .cal-toolbar .btn-primary{ display:none; } }
 @media (max-width:720px){
   .cal-toolbar .week-nav button span{ display:none; }
   .cal-toolbar .week-nav button.on span{ display:inline; }

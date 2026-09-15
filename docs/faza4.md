@@ -270,3 +270,7 @@ Teste: `src/interfata.test.js`, `src/dialog-istoric-ecran.test.js`,
   tabletă și desktop și se ascunde pe telefon în interfața nouă, unde
   „+” din navigarea jos (`.nav-jos-plus`) deschide formularul prin
   intenția `nou`.
+- Desktop: aplicația ocupă tot ecranul (`#root` fără lățimea de 1126px din
+  șablonul Vite), iar „Rezervare nouă” stă în antet, lângă Calendar
+  (`.top-rez`, ascuns pe telefon). Butonul din bara calendarului rămâne doar
+  pe telefon, în interfața actuală.

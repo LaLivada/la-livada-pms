@@ -1531,6 +1531,15 @@ function Shell({ user, view, setView, onLogout, noutati, core, updateCore, reser
                 <CalendarDays size={16} /> <span>Calendar</span>
               </button>
             )}
+            {/* „Rezervare noua" langa Calendar (cerut pe 15 septembrie 2026),
+                pe tableta si desktop; pe telefon e „+" din navigarea jos.
+                Deschide formularul in calendar prin intentia „nou". */}
+            {canCalendar && user.role !== "housekeeping" && (
+              <button className="top-btn top-rez" title="Rezervare nouă" aria-label="Rezervare nouă"
+                onClick={() => { setCalendarIntent(intentie("nou")); setView("calendar"); }}>
+                <Plus size={16} /> <span>Rezervare nouă</span>
+              </button>
+            )}
             {settingsItems.length > 0 && (
               <button
                 className={"icon-btn gear-btn" + (["settings", ...settingsItems.map((i) => i.key)].includes(safeView) ? " active" : "")}
