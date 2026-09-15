@@ -58,6 +58,24 @@ const elementGol = (nume: string) => `<${SPATIU[nume] || "D"}:${nume}/>`;
 
 const segmentUrl = (s: string) => encodeURIComponent(s);
 
+/* Poarta Supabase taie "/functions/v1" din cale inainte sa ajunga la
+   functie (in Deno, pathname e "/caldav/..."), dar clientii vad functia la
+   "/functions/v1/caldav/...". Hrefurile din raspunsuri trebuie sa fie cele
+   publice: cu baza "/caldav" telefonul cerea "/caldav/principals/..." si
+   primea 404 de la poarta - asa a picat prima adaugare a contului pe
+   iPhone (15 septembrie 2026). Calea intoarsa e relativa la functie. */
+export const PREFIX_PUBLIC = "/functions/v1";
+export const NUME_FUNCTIE = "/caldav";
+
+export function adreseDinCale(pathname: string): { baza: string; cale: string } {
+  const i = pathname.indexOf(NUME_FUNCTIE + "/") >= 0 ? pathname.indexOf(NUME_FUNCTIE + "/")
+    : pathname.endsWith(NUME_FUNCTIE) ? pathname.length - NUME_FUNCTIE.length : -1;
+  const panaLaFunctie = i >= 0 ? pathname.slice(0, i + NUME_FUNCTIE.length) : NUME_FUNCTIE;
+  const baza = panaLaFunctie.startsWith(PREFIX_PUBLIC + "/") ? panaLaFunctie : PREFIX_PUBLIC + panaLaFunctie;
+  const cale = i >= 0 ? pathname.slice(i + NUME_FUNCTIE.length) || "/" : "/";
+  return { baza, cale };
+}
+
 export function seg(cale: string): string[] {
   return cale.split("/").filter(Boolean).map((s) => { try { return decodeURIComponent(s); } catch { return s; } });
 }

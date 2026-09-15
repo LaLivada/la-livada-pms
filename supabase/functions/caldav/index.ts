@@ -15,7 +15,7 @@
 //
 // deno-lint-ignore-file no-explicit-any
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { serveste, type Calendar, type Cont, type Depozit, type FiltruObiecte, type Obiect } from "./servitor.ts";
+import { adreseDinCale, serveste, type Calendar, type Cont, type Depozit, type FiltruObiecte, type Obiect } from "./servitor.ts";
 import { imparteInObiecte, rezumaObiect, type RezumatObiect } from "./ics.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -181,10 +181,7 @@ async function importa(req: Request, slug: string): Promise<Response> {
 /* ---------- intrarea ---------- */
 
 Deno.serve(async (req) => {
-  const url = new URL(req.url);
-  const i = url.pathname.indexOf("/caldav");
-  const baza = i >= 0 ? url.pathname.slice(0, i + "/caldav".length) : url.pathname;
-  const cale = i >= 0 ? url.pathname.slice(i + "/caldav".length) || "/" : "/";
+  const { baza, cale } = adreseDinCale(new URL(req.url).pathname);
 
   if (cale.startsWith("/import/")) {
     if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: cors(req) });

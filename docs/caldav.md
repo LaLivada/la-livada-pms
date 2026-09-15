@@ -54,6 +54,11 @@ Funcția e deployată cu `--no-verify-jwt`: clienții CalDAV trimit
   (`sters = true`) cu `sync_seq`-ul ștergerii.
 - `PROPPATCH` pe calendar: `displayname`, `calendar-color`,
   `calendar-order` se salvează; restul primesc 403 în propstat.
+- Hrefurile din răspunsuri sunt căi absolute publice
+  (`/functions/v1/caldav/...`), calculate de `adreseDinCale`: poarta
+  Supabase taie `/functions/v1` înainte ca cererea să ajungă în funcție,
+  iar cu baza văzută de funcție (`/caldav`) telefonul cerea o cale
+  inexistentă și pica la adăugarea contului.
 - `getctag` și `sync-token` vin din `caldav_calendare.ctag`, incrementat
   de triggerul `caldav_obiecte_schimbare` la orice scriere; același trigger
   pune `etag = md5(ics)`.

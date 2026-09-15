@@ -7,7 +7,7 @@
  * evenimente sterse ca vii, sau ar suprascrie o modificare mai noua.
  */
 import { describe, it, expect } from "vitest";
-import { serveste, PREFIX_SYNC } from "../supabase/functions/caldav/servitor.ts";
+import { serveste, adreseDinCale, PREFIX_SYNC } from "../supabase/functions/caldav/servitor.ts";
 import { DepozitMemorie } from "../supabase/functions/caldav/depozit-memorie.ts";
 import { propCerute, hrefuri, elementRadacina, intervalTimp, propPatchSetari, cereAltcevaDecatEvenimente } from "../supabase/functions/caldav/xml.ts";
 
@@ -203,5 +203,30 @@ describe("PROPPATCH si metode nepermise", () => {
     expect((await cere(dep, "PATCH", "/calendars/sala-mare/")).stare).toBe(405);
     expect((await cere(dep, "PROPFIND", "/altceva/")).stare).toBe(404);
     expect((await cere(dep, "PROPFIND", "/.well-known/caldav")).stare).toBe(301);
+  });
+});
+
+describe("adreseDinCale: baza publica a hrefurilor, indiferent ce cale vede functia", () => {
+  it("poarta Supabase taie /functions/v1: pathname /caldav/... da totusi baza publica", () => {
+    expect(adreseDinCale("/caldav/principals/office%40lalivada.com/"))
+      .toEqual({ baza: "/functions/v1/caldav", cale: "/principals/office%40lalivada.com/" });
+    expect(adreseDinCale("/caldav/")).toEqual({ baza: "/functions/v1/caldav", cale: "/" });
+    expect(adreseDinCale("/caldav")).toEqual({ baza: "/functions/v1/caldav", cale: "/" });
+  });
+
+  it("calea completa (local, supabase functions serve) nu dubleaza prefixul", () => {
+    expect(adreseDinCale("/functions/v1/caldav/calendars/sala-mare/"))
+      .toEqual({ baza: "/functions/v1/caldav", cale: "/calendars/sala-mare/" });
+    expect(adreseDinCale("/functions/v1/caldav")).toEqual({ baza: "/functions/v1/caldav", cale: "/" });
+  });
+
+  it("hrefurile din raspunsul principalului folosesc baza publica", async () => {
+    const { baza, cale } = adreseDinCale("/caldav/principals/ovidiu%40lalivada.ro/");
+    const corpIOS = `<?xml version="1.0" encoding="UTF-8"?><A:propfind xmlns:A="DAV:" xmlns:C="urn:ietf:params:xml:ns:caldav"><A:prop><A:current-user-principal/><A:principal-URL/><C:calendar-home-set/></A:prop></A:propfind>`;
+    const r = await serveste({ metoda: "PROPFIND", cale, antete: { depth: "0" }, corp: corpIOS }, CONT, depozitNou(), baza);
+    expect(r.stare).toBe(207);
+    expect(r.corp).toContain(`<D:href>${PRINCIPAL}</D:href>`);
+    expect(r.corp).toContain(`<D:href>${BAZA}/calendars/</D:href>`);
+    expect(r.corp).not.toContain("<D:href>/caldav/");
   });
 });
