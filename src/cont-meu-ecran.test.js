@@ -49,7 +49,9 @@ describe("Useri și drepturi", () => {
     const host = await deschide({ id: "u2", name: "Ana Pop", role: "housekeeping" }, onLogout);
     expect(host.querySelector(".cont-meu .pname").textContent).toBe("Ana Pop");
     expect(host.querySelector(".cont-meu .role-tag").textContent).toBe("Cameristă");
-    expect(butoane(host)).toEqual(["Schimbă parola", "Ieși din cont"]);
+    expect(butoane(host).slice(0, 2)).toEqual(["Schimbă parola", "Ieși din cont"]);
+    expect(butoane(host)).toEqual(expect.arrayContaining(["Nouă", "Actuală", "Ca sistemul", "Deschis", "Întunecat"]));
+    expect(butoane(host)).not.toContain("User nou");
     expect(listeazaPersonal).not.toHaveBeenCalled();
     await apasa(host, "Ieși din cont");
     expect(onLogout).toHaveBeenCalledTimes(1);
@@ -72,7 +74,8 @@ describe("Useri și drepturi", () => {
     expect(listeazaPersonal).toHaveBeenCalledTimes(1);
     expect(host.querySelector(".cont-meu .pname").textContent).toBe("Ovidiu");
     expect([...host.querySelectorAll(".list-row .primary")].map((e) => e.textContent)).toEqual(["Ovidiu", "Ana Pop"]);
-    expect(butoane(host).slice(0, 3)).toEqual(["Schimbă parola", "Ieși din cont", "User nou"]);
+    expect(butoane(host).slice(0, 2)).toEqual(["Schimbă parola", "Ieși din cont"]);
+    expect(butoane(host)).toContain("User nou");
     const pozitie = host.querySelector(".cont-meu").compareDocumentPosition(host.querySelector(".list-row"));
     expect(pozitie & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });

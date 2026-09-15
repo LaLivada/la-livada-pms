@@ -234,3 +234,26 @@ devenit „checkedin" și ar fi intrat în venit ca un sejur plătit.
 `src/protocol-atribut.test.js` (atributul și maparea). Pe baza live, după
 migrare: singura rezervare protocol a primit atributul; `raport_luna`
 răspunde la fel ca înainte.
+
+---
+
+## 7. Interfața nouă, cu comutator (15 septembrie 2026)
+
+Cele șapte propuneri de după faza 4, toate în spatele unui singur comutator
+din Useri și drepturi → Contul tău → **Interfața: Nouă / Actuală**
+(`lib/interfata.js`, `ui/interfata.jsx`; alegerea e a dispozitivului,
+în `localStorage`). „Actuală” readuce, dintr-o apăsare, forma de dinainte.
+
+| # | Ce | Unde |
+|---|---|---|
+| 1 | „Înapoi” al telefonului închide fereastra sau revine la ecranul anterior | `ui/istoric.jsx` (Dialog), `Shell` |
+| 2 | Erorile formularului de rezervare sub câmpul lor, aduse în vizor | `fisa-rezervare.jsx` (`EroareCamp`) |
+| 3 | Bara de acțiuni a ferestrelor lipită jos | `.ui-noua .modal .modal-actions` |
+| 4 | Navigare jos pe telefon (Azi/Camere, Calendar, Caută, Setări) | `Shell`, `.nav-jos` |
+| 5 | Ținte de 42–44px și la contact, rânduri, etichete | `@media (pointer: coarse)` sub `.ui-noua` |
+| 6 | Culorile stărilor din legendă și în Azi și în istoricul clientului | `azi.jsx`, `clienti.jsx` |
+| 7 | Aspect: Ca sistemul / Deschis / Întunecat | `lib/interfata.js` (`aplicaTema`), clasa `tema-intunecata` pe `<html>` |
+
+Tema nu depinde de comutator: „Ca sistemul” e comportamentul de dinainte.
+Teste: `src/interfata.test.js`, `src/dialog-istoric-ecran.test.js`,
+`src/cont-meu-ecran.test.js`.

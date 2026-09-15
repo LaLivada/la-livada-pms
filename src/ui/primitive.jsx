@@ -8,6 +8,7 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { X, Undo2, ChevronLeft, ChevronRight, Eye } from "lucide-react";
 import { uid } from "../lib/uid.js";
+import { useFereastraInIstoric } from "./istoric.jsx";
 
 export function PdfPreview({ blob, filename, onClose }) {
   const [url, setUrl] = useState(null);
@@ -90,6 +91,7 @@ export const FOCUSABLE = 'a[href],button:not([disabled]),input:not([disabled]),s
 
 export function Dialog({ title, onClose, children, className = "", overlayClassName = "", labelledBy }) {
   useModalLock();
+  useFereastraInIstoric(onClose);
   const ref = useRef(null);
   const restoreTo = useRef(null);
   const headingId = useRef(labelledBy || `dlg-${Math.random().toString(36).slice(2, 8)}`);

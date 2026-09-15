@@ -6,7 +6,7 @@
  * acelasi cod, aceleasi nume exportate, fara schimbare de comportament.
  */
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { DoorOpen, Plus, X, Search, Check, Trash2, UsersRound, LogIn, Printer, ArrowRight, Wrench, Clock } from "lucide-react";
 import { uid } from "../../lib/uid.js";
 import { audit } from "../../lib/audit.js";
@@ -24,6 +24,7 @@ import { canCheckIn, canCheckOut, ZILE_CHECKIN_DEVREME, STATUSURI_CAZABILE } fro
 import { fmtMoney, fmtDate, fmtDateTime, toLocalInputValue, withNewDate, initials, validatePrice } from "../../lib/format.js";
 import { ROOM_TYPE, STATUS_LABEL, CREATE_STATUSES, EDIT_STATUSES, SOURCES, DEFAULT_TAGS } from "../../lib/constante.js";
 import { Dialog, toaster, useModalLock, useAduInVizor, useIntarziat, OccupantStepper } from "../../ui/primitive.jsx";
+import { useInterfata } from "../../ui/interfata.jsx";
 import { cautaOaspeti, MIN_LITERE_CAUTARE } from "../../data/oaspeti.js";
 import * as dateFise from "../../data/fise.js";
 import { ORA_SOSIRE_IMPLICITA, ORA_PLECARE_IMPLICITA } from "../../lib/acces.js";
@@ -88,6 +89,14 @@ function OreCazareModal({ checkin, checkout, onClose, onSave }) {
   );
 }
 
+/* Eroarea de validare sub campul de care tine (interfata noua): ghidul cere
+   eroarea langa camp, nu doar un rand sus in fereastra. Un singur mesaj o
+   data, deci un singur ref, adus in vizor de ReservationModal. */
+function EroareCamp({ eroare, camp, noua, refEroare }) {
+  if (!noua || !eroare || eroare.camp !== camp) return null;
+  return <div ref={refEroare} className="error-text eroare-camp" role="alert">{eroare.text}</div>;
+}
+
 export function ReservationModal({ data, core, updateCore, reservations, updateReservations, groups, updateGroups, blocks, updateBlocks, stergeRezervari, stergeGrupuri, adaugaOaspetiInCache, salveazaOaspete, onClose }) {
   useModalLock();
   const editing = data.reservation;
@@ -140,7 +149,17 @@ export function ReservationModal({ data, core, updateCore, reservations, updateR
   const [occupantLastName, setOccupantLastName] = useState(editing?.occupantLastName || "");
   const [occupantFirstName, setOccupantFirstName] = useState(editing?.occupantFirstName || "");
   const [occupantPhone, setOccupantPhone] = useState(editing?.occupantPhone || "");
-  const [error, setError] = useState("");
+  /* Eroarea de validare: textul si campul de care tine. Interfata noua o
+     arata sub camp (EroareCamp) si il aduce in vizor; cea actuala, sus in
+     fereastra, ca pana acum. */
+  const [eroare, setEroare] = useState(null);
+  const setError = (text, camp = null) => setEroare(text ? { text, camp } : null);
+  const error = eroare?.text || "";
+  const { noua } = useInterfata();
+  const refEroare = useRef(null);
+  useEffect(() => {
+    if (noua && eroare?.camp) refEroare.current?.scrollIntoView?.({ block: "center", behavior: "smooth" });
+  }, [noua, eroare]);
   /* Sectiunile pliabile (faza 3, C4, lib/fisa-sectiuni.js): la o rezervare
      noua sunt deschise cele de completat (oaspete, sejur, pret); la editare
      toate stau pliate, cu rezumatul in cap — desfaci ce ai de schimbat. O
@@ -294,13 +313,13 @@ export function ReservationModal({ data, core, updateCore, reservations, updateR
        explicit, ca sa nu depinda de un setState care nu s-a aplicat inca. */
     const statusFinal = statusNou || status;
     if (isBlock) {
-      if (roomIds.length < 1) { setError("Selectează cel puțin o cameră de blocat."); return; }
+      if (roomIds.length < 1) { setError("Selectează cel puțin o cameră de blocat.", "camere"); return; }
       const dv = validateStay(checkin, checkout);
-      if (dv) { setError(dv.replace("check-in", "început").replace("check-out", "sfârșit")); return; }
+      if (dv) { setError(dv.replace("check-in", "început").replace("check-out", "sfârșit"), "date"); return; }
       const busy = conflictsFor(roomIds);
       if (busy.length) {
         const names = busy.map((id) => core.rooms.find((r) => r.id === id)?.name).join(", ");
-        setError(`Ocupate în acest interval: ${names}`); return;
+        setError(`Ocupate în acest interval: ${names}`, "camere"); return;
       }
       const newBlocks = roomIds.map((rid) => ({
         id: uid(), roomId: rid,
@@ -315,20 +334,20 @@ export function ReservationModal({ data, core, updateCore, reservations, updateR
     }
 
     if (!guestId) {
-      setError(isGroup ? "Alege clientul principal al grupului." : "Caută și alege un client, sau adaugă unul nou.");
+      setError(isGroup ? "Alege clientul principal al grupului." : "Caută și alege un client, sau adaugă unul nou.", "client");
       return;
     }
     const dateErr = validateStay(checkin, checkout);
-    if (dateErr) { setError(dateErr); return; }
+    if (dateErr) { setError(dateErr, "date"); return; }
     const priceErr = validatePrice(priceOverride);
-    if (priceErr) { setError(priceErr); return; }
-    if (!Number.isFinite(Number(adults)) || Number(adults) < 1) { setError("Numărul de adulți trebuie să fie cel puțin 1."); return; }
-    if (!Number.isFinite(Number(children)) || Number(children) < 0) { setError("Numărul de copii nu poate fi negativ."); return; }
+    if (priceErr) { setError(priceErr, "pret"); return; }
+    if (!Number.isFinite(Number(adults)) || Number(adults) < 1) { setError("Numărul de adulți trebuie să fie cel puțin 1.", "ocupare"); return; }
+    if (!Number.isFinite(Number(children)) || Number(children) < 0) { setError("Numărul de copii nu poate fi negativ.", "ocupare"); return; }
     /* Adulti/copii se clampeaza reactiv doar cand se modifica direct acele
        campuri — schimbarea camerei (sau a camerelor de grup) dupa aceea nu
        le reajusteaza, asa ca ocuparea trebuie reverificata explicit aici. */
     if (Number(adults) + Number(children) > maxOccupancy) {
-      setError(`Ocuparea aleasă (${Number(adults) + Number(children)}) depășește capacitatea ${isGroup ? "camerelor selectate" : "camerei selectate"} (${maxOccupancy}).`);
+      setError(`Ocuparea aleasă (${Number(adults) + Number(children)}) depășește capacitatea ${isGroup ? "camerelor selectate" : "camerei selectate"} (${maxOccupancy}).`, "ocupare");
       return;
     }
 
@@ -342,17 +361,17 @@ export function ReservationModal({ data, core, updateCore, reservations, updateR
        cazata. */
     if (statusFinal === "checkedin" && editing?.status !== "checkedin"
       && !canCheckIn({ status: "confirmed", checkin })) {
-      setError(`Check-in-ul se poate face cu cel mult ${ZILE_CHECKIN_DEVREME} zile înainte de sosire.`);
+      setError(`Check-in-ul se poate face cu cel mult ${ZILE_CHECKIN_DEVREME} zile înainte de sosire.`, "status");
       return;
     }
 
     if (isGroup) {
-      if (roomIds.length < 1) { setError("Selectează cel puțin o cameră pentru grup."); return; }
-      if (!groupName.trim()) { setError("Dă un nume grupului."); return; }
+      if (roomIds.length < 1) { setError("Selectează cel puțin o cameră pentru grup.", "camere"); return; }
+      if (!groupName.trim()) { setError("Dă un nume grupului.", "numeGrup"); return; }
       const busy = conflictsFor(roomIds);
       if (busy.length) {
         const names = busy.map((id) => core.rooms.find((r) => r.id === id)?.name).join(", ");
-        setError(`Ocupate în acest interval: ${names}`); return;
+        setError(`Ocupate în acest interval: ${names}`, "camere"); return;
       }
       const groupId = uid();
       const group = {
@@ -389,7 +408,7 @@ export function ReservationModal({ data, core, updateCore, reservations, updateR
       return;
     }
 
-    if (conflictsFor([roomId]).length) { setError("Camera este deja rezervată în acest interval."); return; }
+    if (conflictsFor([roomId]).length) { setError("Camera este deja rezervată în acest interval.", "camere"); return; }
 
     /* Spread `editing` first so fields this form doesn't expose — the
        per-room occupant name/phone on group rooms above all — survive a
@@ -618,6 +637,7 @@ export function ReservationModal({ data, core, updateCore, reservations, updateR
               <input value={groupName} onChange={(e) => { setGroupName(e.target.value); setError(""); }}
                 placeholder="ex. Familia Popescu · Nuntă Ionescu" />
             </label>}
+            <EroareCamp eroare={eroare} camp="numeGrup" noua={noua} refEroare={refEroare} />
 
             {isBlock && <label className="field">
               <span className="fl">Motiv</span>
@@ -685,6 +705,7 @@ export function ReservationModal({ data, core, updateCore, reservations, updateR
           </label>
         )}
 
+        <EroareCamp eroare={eroare} camp="camere" noua={noua} refEroare={refEroare} />
         <div className="field-row field-row-dates">
           <label className="field">
             <span className="fl">{isBlock ? "De la" : "Check-in"}</span>
@@ -707,6 +728,8 @@ export function ReservationModal({ data, core, updateCore, reservations, updateR
             <input type="date" value={checkout.slice(0, 10)} onChange={(e) => setCheckout(withNewDate(checkout, e.target.value))} />
           </label>
         </div>
+
+        <EroareCamp eroare={eroare} camp="date" noua={noua} refEroare={refEroare} />
 
         {/* Orele stau langa date, in sectiunea Sejur (pana in faza 3, C4,
             stateau deasupra sectiunii de acces, langa butoanele pe care le
@@ -737,6 +760,7 @@ export function ReservationModal({ data, core, updateCore, reservations, updateR
           </label>
         )}
 
+        <EroareCamp eroare={eroare} camp="status" noua={noua} refEroare={refEroare} />
         {!isBlock && (
           <label className="field">
             <span className="fl">Sursa rezervării</span>
@@ -778,6 +802,7 @@ export function ReservationModal({ data, core, updateCore, reservations, updateR
                   placeholder="Caută după nume, telefon sau oraș"
                 />
               </div>
+              <EroareCamp eroare={eroare} camp="client" noua={noua} refEroare={refEroare} />
               {guestQuery.trim() && (
                 matchingGuests.length > 0 ? (
                   <div className="guest-results" ref={refRezultateClient}>
@@ -859,6 +884,7 @@ export function ReservationModal({ data, core, updateCore, reservations, updateR
             </div>
           </div>
         )}
+        <EroareCamp eroare={eroare} camp="ocupare" noua={noua} refEroare={refEroare} />
         {!isBlock && (
           <div className="note" style={{ marginTop: -6 }}>
             Maxim {maxOccupancy} {maxOccupancy === 1 ? "persoană" : "persoane"} pentru {isGroup ? "camerele selectate" : "camera selectată"}.
@@ -900,6 +926,7 @@ export function ReservationModal({ data, core, updateCore, reservations, updateR
           </div>
         </div>
 
+        <EroareCamp eroare={eroare} camp="pret" noua={noua} refEroare={refEroare} />
         {!isBlock && editing && (
           <FolioPanel reservation={editing} core={core} updateCore={updateCore}
             billingCustomerId={billingCustomerId} setBillingCustomerId={setBillingCustomerId}
@@ -982,7 +1009,7 @@ export function ReservationModal({ data, core, updateCore, reservations, updateR
           </SectiunePliabila>
         )}
 
-        {error && <div className="error-text" role="alert" style={{ marginBottom: 10 }}>{error}</div>}
+        {error && (!noua || !eroare?.camp) && <div className="error-text" role="alert" style={{ marginBottom: 10 }}>{error}</div>}
 
         {editing && (
           <div className="quick-actions">

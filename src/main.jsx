@@ -12,12 +12,19 @@ import './styles/pms.css'
 import App from './App.jsx'
 import { instaleazaCapturaErori, creeazaColector } from './lib/erori-productie.js'
 import { scrieInJurnalTacut } from './lib/audit.js'
+import { aplicaTema, citesteTema } from './lib/interfata.js'
 
 /* Erorile neprinse (script, promisiune fara catch) ajung in jurnalul din
    activity_log — faza 2, D7. Instalat INAINTE de prima randare, ca sa prinda
    si un esec de pornire; scrierea reuseste doar dupa autentificare (RLS), dar
    dedupe-ul si plafonul sunt in colector, nu in baza. */
 instaleazaCapturaErori(window, creeazaColector({ scrie: scrieInJurnalTacut }))
+
+/* Tema (deschis / intunecat / ca sistemul) se pune pe <html> inainte de
+   prima randare, deci si pe ecranul de login — pms.css se uita la clasa,
+   nu la prefers-color-scheme (lib/interfata.js). Dupa autentificare o preia
+   InterfataProvider (ui/interfata.jsx), cu urmarirea sistemului. */
+aplicaTema(document, citesteTema(globalThis.localStorage), (q) => window.matchMedia?.(q))
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>

@@ -24,6 +24,9 @@
  */
 
 :root{
+  /* index.css (sablonul Vite) declara `light dark`; aici tema e a clasei
+     de pe <html>, vezi mai jos. */
+  color-scheme:light;
   --bg:#F7F7F5;
   --surface:#FFFFFF;
   --surface-2:#F2F2EF;
@@ -70,8 +73,12 @@
   --shadow: 0 1px 3px rgba(25,25,23,0.06), 0 8px 24px -8px rgba(25,25,23,0.10);
   --shadow-lg: 0 2px 6px rgba(25,25,23,0.07), 0 24px 48px -16px rgba(25,25,23,0.18);
 }
-@media (prefers-color-scheme: dark){
-  :root{
+/* Tema intunecata: clasa pusa pe <html> de lib/interfata.js — din setarea
+   „Aspect" (Contul meu) sau din prefers-color-scheme cand e „Ca sistemul".
+   Nu direct media query: asa se poate forta deschis / intunecat indiferent
+   de telefon (15 septembrie 2026). */
+:root.tema-intunecata{
+  color-scheme:dark;
     --bg:#14161A;
     --surface:#1B1E24;
     --surface-2:#232730;
@@ -99,15 +106,15 @@
        urma. */
     --lumina-deschis:linear-gradient(135deg, rgba(255,255,255,.09), rgba(255,255,255,0) 60%);
   }
-  .topbar{ background:rgba(27,30,36,0.86) !important; }
-  .btn-primary{ color:#0F1216; }
-  .cal-daycell.today{ color:#0F1216; }
-  .avatar-btn.active, .room-chip.on, .tag-chip.on, .guest-chip-av, .big-avatar,
-  .rail .mark, .brand-mark, .settings-card:hover .ico{ color:#0F1216; }
-  .bar-vip{ color:var(--surface); }
-  /* The registration sheet stays light — it is a printed document. */
-  .arrival-sheet, .fisa{ background:#fff; color:#141412; }
-}
+:root.tema-intunecata .topbar{ background:rgba(27,30,36,0.86) !important; }
+:root.tema-intunecata .btn-primary{ color:#0F1216; }
+:root.tema-intunecata .cal-daycell.today{ color:#0F1216; }
+:root.tema-intunecata .room-chip.on, :root.tema-intunecata .tag-chip.on, :root.tema-intunecata .guest-chip-av,
+:root.tema-intunecata .big-avatar, :root.tema-intunecata .rail .mark, :root.tema-intunecata .brand-mark,
+:root.tema-intunecata .settings-card:hover .ico{ color:#0F1216; }
+:root.tema-intunecata .bar-vip{ color:var(--surface); }
+/* The registration sheet stays light — it is a printed document. */
+:root.tema-intunecata .arrival-sheet, :root.tema-intunecata .fisa{ background:#fff; color:#141412; }
 
 *{box-sizing:border-box;}
 .pms{
@@ -1592,10 +1599,8 @@ label.field input, label.field select, label.field textarea{ cursor:auto; }
 .contact-quick .icon-btn.tel:hover{ background:var(--accent); color:#fff; }
 .contact-quick .icon-btn.wa{ background:#DCF8E4; color:#1E9E4E; }
 .contact-quick .icon-btn.wa:hover{ background:#25D366; color:#fff; }
-@media (prefers-color-scheme: dark){
-  .contact-quick .icon-btn.wa{ background:rgba(37,211,102,0.18); color:#3FDE7C; }
-  .contact-quick .icon-btn.wa:hover{ background:#25D366; color:#0F1216; }
-}
+:root.tema-intunecata .contact-quick .icon-btn.wa{ background:rgba(37,211,102,0.18); color:#3FDE7C; }
+:root.tema-intunecata .contact-quick .icon-btn.wa:hover{ background:#25D366; color:#0F1216; }
 .phone-input-row{ display:flex; gap:6px; }
 .phone-input-row input{ flex:1; min-width:0; }
 .phone-dial-wrap{ position:relative; flex-shrink:0; }
@@ -2013,6 +2018,63 @@ label.field input, label.field select, label.field textarea{ cursor:auto; }
 .icon-btn, .icon-btn:hover, .icon-btn.active, .gear-btn.active,
 .top-btn, .top-btn:hover, .top-btn.active,
 .week-nav button, .week-nav button:hover, .week-nav button.on{ background-image:var(--lumina-deschis); }
+
+/* ============================================================================
+   INTERFATA NOUA (15 septembrie 2026) — tot ce e doar al ei sta sub .ui-noua,
+   clasa de pe radacina .pms cand comutatorul din Contul meu e pe „Nouă"
+   (ui/interfata.jsx). Cu „Actuală" nimic de aici nu se aplica.
+   ============================================================================ */
+/* Comutatoarele din Contul meu. */
+.cont-optiuni{ padding:14px 20px 4px; border-bottom:1px solid var(--border); display:grid; gap:14px; }
+.cont-optiune{ display:grid; gap:6px; }
+.cont-optiune .mode-switch{ margin-bottom:0; }
+.cont-optiune-eticheta{ font-size:var(--fs-sm); font-weight:600; color:var(--text-muted); }
+.cont-optiune-nota{ font-size:var(--fs-xs); color:var(--text-muted); line-height:1.45; }
+/* Eroarea de validare sub campul ei (formularul de rezervare). */
+.eroare-camp{ margin:-8px 0 12px; }
+/* Bara de actiuni a ferestrelor (Vezi rezervarea, formularul) ramane lipita
+   de marginea de jos cat timp fereastra se deruleaza — Check-in / Salveaza
+   in zona degetului, nu sub margine. */
+.ui-noua .modal .modal-actions{
+  /* bottom negativ cat padding-ul ferestrei: dreptunghiul in care sta un
+     element sticky e scrollport-ul fara padding, altfel bara s-ar opri cu
+     22px deasupra marginii si continutul s-ar vedea pe sub ea. */
+  position:sticky; bottom:calc(-22px - env(safe-area-inset-bottom)); z-index:3; background:var(--surface);
+  margin:18px -22px calc(-22px - env(safe-area-inset-bottom));
+  padding:12px 22px calc(12px + env(safe-area-inset-bottom)); border-top:1px solid var(--border);
+}
+/* Tinte de atins: butoanele de contact si cele din randurile listelor
+   ajungeau la 34px pe telefon (regula lor batea minimul de 42). */
+@media (pointer: coarse){
+  .ui-noua .contact-quick .icon-btn, .ui-noua .row-actions .icon-btn{ width:42px; height:42px; }
+  .ui-noua .tag-chip, .ui-noua .room-chip{ min-height:44px; }
+}
+/* Navigarea jos pe telefon: patru tinte in zona degetului mare; butoanele
+   din antet se ascund acolo, antetul ramane cu titlul. */
+.nav-jos{ display:none; }
+@media (max-width:600px){
+  .ui-noua .modal .modal-actions{
+    bottom:calc(-18px - env(safe-area-inset-bottom));
+    margin:18px -16px calc(-18px - env(safe-area-inset-bottom));
+    padding:10px 16px calc(10px + env(safe-area-inset-bottom));
+  }
+  .ui-noua .nav-jos{
+    display:flex; position:fixed; left:0; right:0; bottom:0; z-index:20;
+    background:rgba(255,255,255,0.92); backdrop-filter:saturate(180%) blur(12px);
+    border-top:1px solid var(--border);
+    padding:6px max(6px, env(safe-area-inset-right)) calc(6px + env(safe-area-inset-bottom)) max(6px, env(safe-area-inset-left));
+  }
+  :root.tema-intunecata .ui-noua .nav-jos{ background:rgba(27,30,36,0.9); }
+  .nav-jos-btn{
+    flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px;
+    min-height:48px; border:none; background:none; color:var(--text-muted);
+    font-size:var(--fs-2xs); font-weight:600; border-radius:var(--r-sm);
+  }
+  .nav-jos-btn.on{ color:var(--accent-strong); background:var(--accent-soft); }
+  .ui-noua .topbar-actions .icon-btn, .ui-noua .topbar-actions .top-btn{ display:none; }
+  .ui-noua .content{ padding-bottom:calc(84px + env(safe-area-inset-bottom)); }
+  .ui-noua .toast-host{ bottom:calc(84px + env(safe-area-inset-bottom)); }
+}
 
 /* Sub 16px, iOS face automat zoom pe pagina la focus. Regula sta la
    finalul foii de stil, cu !important, tocmai ca sa nu mai poata fi
