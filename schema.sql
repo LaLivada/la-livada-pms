@@ -1907,6 +1907,44 @@ returns jsonb language sql stable security definer set search_path = public as $
 $$;
 
 
+-- Zilele cu evenimente în săli nu se pot rezerva ONLINE (15 septembrie 2026).
+--
+-- O nuntă în Grand'Or sau Magnifique ține toată pensiunea: camerele le
+-- împarte recepția, cu nuntașii, nu site-ul cu cine nimerește. Regula e
+-- generală, nu pe un an anume — orice zi de eveniment se închide online,
+-- de acum înainte. Recepția NU e atinsă: ea rezervă în continuare orice zi.
+--
+-- Sursa adevărului sunt chiar evenimentele calendarului CalDAV, nu o listă
+-- de zile ținută de mână: se mută un eveniment, se mută și ziua închisă.
+-- Anulatele nu închid nimic (au și calendarul lor gri, vezi caldav.md).
+--
+-- Ziua evenimentului e cea de la Vaslui, iar DTEND e exclusiv: un eveniment
+-- de toată ziua 24→25 iulie ocupă noaptea de 24, deci se ciocnește cu un
+-- sejur care are 24 printre nopți (checkin 24, checkout 25), dar nu cu unul
+-- care sosește pe 25.
+--
+-- Seriile recurente intră doar cu prima lor dată: serverul CalDAV nu
+-- desfășoară RRULE. La sălile de evenimente nu există serii.
+create or replace function zi_cu_eveniment(p_checkin timestamptz, p_checkout timestamptz)
+returns boolean language sql stable security definer set search_path = public as $$
+  select exists (
+    select 1
+      from caldav_obiecte o
+      join caldav_calendare c on c.id = o.calendar_id
+     where not o.sters
+       and not o.anulat
+       and c.activ
+       and c.slug <> 'anulate'
+       and o.incepe is not null
+       and (o.incepe at time zone 'Europe/Bucharest')::date
+             <= (p_checkout at time zone 'Europe/Bucharest')::date - 1
+       and (coalesce(o.se_termina - interval '1 millisecond', o.incepe)
+              at time zone 'Europe/Bucharest')::date
+             >= (p_checkin at time zone 'Europe/Bucharest')::date
+  );
+$$;
+
+
 -- Disponibilitatea pentru un grup întreg.
 --
 -- p_adults/p_children sunt TOTALUL grupului, nu ocuparea unei camere.
@@ -1946,6 +1984,10 @@ begin
   end if;
   if p_checkin > now() + interval '400 day' then
     return jsonb_build_object('error', 'Se pot căuta date doar în următoarele 400 de zile.');
+  end if;
+  -- Zi cu eveniment în săli: nu mai căutăm camere, spunem de ce.
+  if zi_cu_eveniment(p_checkin, p_checkout) then
+    return jsonb_build_object('error', 'În perioada aleasă avem un eveniment privat la noi și nu primim rezervări online. Sună-ne, vedem ce camere putem ține pentru tine.');
   end if;
 
   select (public_capacity()->>'maxGuests')::int into v_max_online;
@@ -2181,6 +2223,14 @@ begin
   -- expiră oricum.
   if coalesce(p_hold_minutes, 0) > 0 and coalesce(trim(p_email),'') = '' then
     raise exception 'Emailul e obligatoriu pentru rezervarea online.';
+  end if;
+
+  -- Aceeași ușă ca la căutare, dar asta e cea care ține: căutarea se poate
+  -- ocoli, crearea nu. Înainte de plafoane, ca o zi închisă să nu consume
+  -- din cota omului. Mesajul ajunge la oaspete așa cum e scris (funcția
+  -- edge booking-create îl dă mai departe).
+  if zi_cu_eveniment(p_checkin, p_checkout) then
+    raise exception 'În perioada aleasă avem un eveniment privat la noi și nu primim rezervări online. Sună-ne, vedem ce camere putem ține pentru tine.';
   end if;
 
   -- 3. RATE-LIMIT, pe trei paliere.
@@ -3264,6 +3314,7 @@ grant execute on function create_booking(text, timestamptz, timestamptz, text, t
 -- comentariul de aici („nu e expus public") descria o intenție care nu
 -- era de fapt aplicată. Descoperit de testele din tests/integration.
 revoke execute on function allocate_group(timestamptz, timestamptz, int, int, text) from public, anon;
+revoke execute on function zi_cu_eveniment(timestamptz, timestamptz) from public, anon;
 revoke execute on function public_capacity() from public;
 revoke execute on function online_adjustment_for_occupancy(numeric) from public, anon;
 revoke execute on function online_night_adjustment_pct(date, text) from public, anon;
@@ -3277,6 +3328,7 @@ revoke execute on function next_invoice_number(text)                  from publi
 revoke execute on function next_receipt_number(text)                  from public, anon;
 
 grant execute on function allocate_group(timestamptz, timestamptz, int, int, text) to authenticated, service_role;
+grant execute on function zi_cu_eveniment(timestamptz, timestamptz) to authenticated, service_role;
 grant execute on function online_adjustment_for_occupancy(numeric) to authenticated, service_role;
 grant execute on function online_night_adjustment_pct(date, text) to authenticated, service_role;
 grant execute on function stay_total(text, timestamptz, timestamptz, int, int, boolean, text) to authenticated, service_role;

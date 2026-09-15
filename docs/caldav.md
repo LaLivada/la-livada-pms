@@ -48,21 +48,48 @@ unui an, cu o bulină colorată pe zi pentru fiecare sală care are ceva
 atunci; o zi apăsată își desface lista (titlu, sală, oră sau interval) chiar
 sub luna ei; sălile din legendă se ascund/arată cu un clic, iar anul se
 schimbă cu săgețile. **Serverul & săli**: adresa serverului, sălile (nume,
-culoare) și importul `.ics`. **Evenimentele anulate nu se afișează și nu se numără** nicăieri în PMS.
-„Anulat” se scrie în două feluri, și amândouă contează: `STATUS:CANCELLED`
-(îl pune aplicația de contracte) sau cuvântul ANULAT în titlu (scris de mână
-în calendarul vechi de pe Synology). Regula e `esteAnulat()` din
-`ics.ts`; funcția edge o aplică la fiecare import și la fiecare PUT venit
-de pe telefon și scrie rezultatul în coloana `caldav_obiecte.anulat`
-(migrarea `caldav_obiecte_anulat`, care a marcat și rândurile vechi: 38 de
-evenimente din 820, pe 15 septembrie 2026). Serverul CalDAV le trimite mai
-departe neatinse — dacă n-ar face-o, telefonul le-ar șterge din Calendar.
+culoare) și importul `.ics`. **Evenimentele anulate trăiesc în calendarul gri „Anulate”** (slug
+`anulate`, culoare `#6B7280`). „Anulat” se scrie în două feluri, și
+amândouă contează: `STATUS:CANCELLED` (îl pune aplicația de contracte) sau
+cuvântul ANULAT în titlu (scris de mână în calendarul vechi de pe Synology).
+Regula e `esteAnulat()` din `ics.ts`, iar rezultatul stă în coloana
+`caldav_obiecte.anulat`.
+
+Mutarea o face singură funcția edge, în `scrieObiect`: orice eveniment
+anulat se scrie în calendarul gri, indiferent de sala cerută, iar copia din
+sală rămâne ca piatră de mormânt, ca telefonul să o șteargă de acolo și să o
+vadă în gri. Merge la fel la import și la un PUT de pe telefon (acolo se
+anulează scriind ANULAT în titlu): răspunsul PUT-ului poartă ETag-ul
+rândului nou, iar clientul află de mutare la următorul `sync-collection`.
+Calendarul gri se creează singur dacă lipsește. Migrările:
+`caldav_obiecte_anulat` (coloana, 38 de evenimente din 820 marcate pe 15
+septembrie 2026) și `caldav_calendar_anulate` (calendarul gri și mutarea
+celor 38).
+
+În ecranul Evenimente, „Anulate” pornește **ascuns** în legendă: anul arată
+implicit doar ce ține, iar numărul din dreapta anului numără doar
+calendarele arătate. Pe telefon apare ca orice calendar și poate fi debifat
+din aplicația Calendar.
 
 Zilele sunt cele de la Vaslui
 (`src/lib/timp.js`); DTEND e exclusiv, deci un eveniment de toată ziua
 5–7 iunie se termină pe 8 la 00:00 și ocupă trei zile. Seriile recurente
 apar doar la prima lor dată, marcate „se repetă” (expandarea RRULE rămâne
 pentru mai târziu).
+
+## Zilele cu evenimente nu se rezervă online (15 septembrie 2026)
+
+O nuntă ține toată pensiunea, iar camerele le împarte recepția cu nuntașii,
+nu site-ul cu cine nimerește. Funcția `zi_cu_eveniment(checkin, checkout)`
+răspunde dacă sejurul cerut atinge o zi cu eveniment, iar două porți o
+folosesc: `public_availability` (caută camere doar dacă ziua e liberă, și
+altfel explică de ce) și `create_public_booking` (cea care ține —
+căutarea se poate ocoli). Recepția nu e atinsă: din PMS se rezervă orice zi.
+
+Regula e generală, nu pe un an anume, iar sursa adevărului sunt chiar
+evenimentele: se mută un eveniment, se mută și ziua închisă; se anulează, se
+deschide ziua la loc. `DTEND` fiind exclusiv, un eveniment de toată ziua
+24→25 iulie închide noaptea de 24, dar nu și sosirea pe 25.
 
 ## De ce nu există o adresă scurtă (15 septembrie 2026)
 

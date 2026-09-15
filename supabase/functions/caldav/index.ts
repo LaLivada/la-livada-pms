@@ -48,6 +48,23 @@ function campuriDinRezumat(r: RezumatObiect) {
   };
 }
 
+/* Calendarul gri in care ajung toate evenimentele anulate, din orice sala.
+   Slug fix: dupa el il recunosc si ecranele PMS. Se creeaza singur daca
+   lipseste (proiect nou, sau daca a fost sters din greseala). */
+export const SLUG_ANULATE = "anulate";
+
+async function calendarulAnulate(): Promise<Calendar | null> {
+  const { data } = await admin.from("caldav_calendare").select("*").eq("slug", SLUG_ANULATE).maybeSingle();
+  if (data) return calendarDinRand(data);
+  const { data: nou } = await admin.from("caldav_calendare")
+    .insert({ slug: SLUG_ANULATE, nume: "Anulate", culoare: "#6B7280", ordine: 99 })
+    .select("*").maybeSingle();
+  if (nou) return calendarDinRand(nou);
+  /* Cursa cu alta cerere care tocmai l-a creat: il recitim. */
+  const { data: iar } = await admin.from("caldav_calendare").select("*").eq("slug", SLUG_ANULATE).maybeSingle();
+  return iar ? calendarDinRand(iar) : null;
+}
+
 const depozit: Depozit = {
   async calendare() {
     const { data, error } = await admin.from("caldav_calendare").select("*").eq("activ", true).order("ordine").order("nume");
@@ -83,11 +100,24 @@ const depozit: Depozit = {
     if (error) throw error;
     return data ? obiectDinRand(data) : null;
   },
+  /* Un eveniment anulat nu se scrie in sala lui, ci in calendarul gri — si
+     la import, si la un PUT de pe telefon (acolo se anuleaza scriind ANULAT
+     in titlu). Copia din sala devine piatra de mormant, ca telefonul sa o
+     stearga de acolo si sa o vada in gri. Raspunsul PUT-ului poarta ETag-ul
+     randului nou: clientul afla de mutare la urmatorul sync-collection,
+     cand sala ii spune ca resursa a disparut, iar „Anulate" ca a aparut. */
   async scrieObiect(calendarId, href, ics, rezumat) {
+    const gri = rezumat.anulat ? await calendarulAnulate() : null;
+    const tinta = gri ? gri.id : calendarId;
     const { data, error } = await admin.from("caldav_obiecte")
-      .upsert({ calendar_id: calendarId, href, ics, sters: false, ...campuriDinRezumat(rezumat) }, { onConflict: "calendar_id,href" })
+      .upsert({ calendar_id: tinta, href, ics, sters: false, ...campuriDinRezumat(rezumat) }, { onConflict: "calendar_id,href" })
       .select(COLOANE_OBIECT).single();
     if (error) throw error;
+    if (gri && rezumat.uid) {
+      const { error: eroareMutare } = await admin.from("caldav_obiecte").update({ sters: true })
+        .eq("uid", rezumat.uid).eq("sters", false).neq("calendar_id", tinta);
+      if (eroareMutare) throw eroareMutare;
+    }
     return obiectDinRand(data);
   },
   async stergeObiect(calendarId, href) {
@@ -171,15 +201,18 @@ async function importa(req: Request, slug: string): Promise<Response> {
   for (const ob of obiecte) {
     const rezumat = rezumaObiect(ob.ics);
     if (!rezumat) { ignorate++; continue; }
-    const existent = await depozit.obiectDupaUid(cal.id, ob.uid);
+    /* Anulatele se cauta si se scriu direct in calendarul gri, nu in sala:
+       altfel un re-import le-ar numara de fiecare data ca „noi". */
+    const tinta = rezumat.anulat ? (await calendarulAnulate()) ?? cal : cal;
+    const existent = await depozit.obiectDupaUid(tinta.id, ob.uid);
     if (existent) {
-      if (existent.ics !== ob.ics) { await depozit.scrieObiect(cal.id, existent.href, ob.ics, rezumat); actualizate++; }
+      if (existent.ics !== ob.ics) { await depozit.scrieObiect(tinta.id, existent.href, ob.ics, rezumat); actualizate++; }
       else ignorate++;
       continue;
     }
     let href = hrefSigur(ob.uid);
-    for (let i = 2; await depozit.obiect(cal.id, href); i++) href = hrefSigur(ob.uid).replace(/\.ics$/, `-${i}.ics`);
-    await depozit.scrieObiect(cal.id, href, ob.ics, rezumat);
+    for (let i = 2; await depozit.obiect(tinta.id, href); i++) href = hrefSigur(ob.uid).replace(/\.ics$/, `-${i}.ics`);
+    await depozit.scrieObiect(tinta.id, href, ob.ics, rezumat);
     noi++;
   }
   return json(200, { noi, actualizate, ignorate, total: obiecte.length });

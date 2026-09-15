@@ -23,11 +23,11 @@ export async function listeazaCalendare() {
   return data || [];
 }
 
-/* Cate evenimente vii si neanulate are fiecare calendar: { [calendar_id]: n }.
-   Anulatele raman in baza si pe telefon, dar nu se numara aici. */
+/* Cate evenimente vii are fiecare calendar: { [calendar_id]: n }. Anulatele
+   se numara la calendarul gri „Anulate", unde le muta functia edge. */
 /** @returns {Promise<Record<string, number>>} */
 export async function numarEvenimente() {
-  const { data, error } = await supabase.from("caldav_obiecte").select("calendar_id").eq("sters", false).eq("anulat", false);
+  const { data, error } = await supabase.from("caldav_obiecte").select("calendar_id").eq("sters", false);
   if (error) throw error;
   /** @type {Record<string, number>} */
   const n = {};
@@ -133,18 +133,18 @@ export async function importaICS(slug, text) {
 
 /** @typedef {{ id: string, calendar_id: string, uid: string | null, rezumat: string | null, incepe: string | null, se_termina: string | null, toata_ziua: boolean, recurent: boolean, anulat: boolean }} EvenimentSala */
 
-/* Evenimentele vii si neanulate care ating un an (cu o zi in plus de fiecare
-   parte, ora hotelului — fereastraAnului); asezarea exacta pe zile o face
-   lib/evenimente-an.js. Anulatele (STATUS:CANCELLED sau „ANULAT" in titlu,
-   coloana anulat, scrisa de functia edge) nu se afiseaza si nu se numara; pe
-   telefon raman, ca sa nu dispara si de acolo. Fara paginare: un an are sute
-   de evenimente, nu mii (PostgREST taie oricum la 1000 de randuri). */
+/* Evenimentele vii care ating un an (cu o zi in plus de fiecare parte, ora
+   hotelului — fereastraAnului); asezarea exacta pe zile o face
+   lib/evenimente-an.js. Anulatele (STATUS:CANCELLED sau „ANULAT" in titlu)
+   vin si ele, dar stau in calendarul gri „Anulate", pe care ecranul il tine
+   ascuns pana il ceri. Fara paginare: un an are sute de evenimente, nu mii
+   (PostgREST taie oricum la 1000 de randuri). */
 /** @param {number} an @returns {Promise<EvenimentSala[]>} */
 export async function listeazaEvenimente(an) {
   const { de, la } = fereastraAnului(an);
   const { data, error } = await supabase.from("caldav_obiecte")
     .select("id, calendar_id, uid, rezumat, incepe, se_termina, toata_ziua, recurent, anulat")
-    .eq("sters", false).eq("anulat", false).lt("incepe", la).gt("se_termina", de)
+    .eq("sters", false).lt("incepe", la).gt("se_termina", de)
     .order("incepe");
   if (error) throw error;
   return data || [];

@@ -25,6 +25,8 @@ import * as datePersonal from "../data/personal.js";
 const ADRESA_SERVER = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/caldav/`;
 const adresaPrincipal = (utilizator) => `${ADRESA_SERVER}principals/${utilizator}/`;
 const CULORI = ["#2B5C8A", "#C2410C", "#0F766E", "#7C3AED", "#B45309", "#BE123C", "#4D7C0F", "#1D4ED8"];
+/* Calendarul gri in care functia edge muta evenimentele anulate. */
+const SLUG_ANULATE = "anulate";
 
 const plural = (n) => `${n} ${n === 1 ? "eveniment" : "evenimente"}`;
 
@@ -79,11 +81,22 @@ function CalendarAnual() {
   const [seIncarca, setSeIncarca] = useState(true);
   const [ascunse, setAscunse] = useState(() => new Set());
   const [ziAleasa, setZiAleasa] = useState(null);
+  const filtruPornit = useRef(false);
 
   useEffect(() => {
     let viu = true;
     date.listeazaCalendare()
-      .then((c) => { if (viu) setCalendare(c); })
+      .then((c) => {
+        if (!viu) return;
+        setCalendare(c);
+        /* „Anulate" porneste ascuns: anul arata implicit doar ce tine, iar
+           gri-ul e la un clic distanta, in legenda. */
+        if (!filtruPornit.current) {
+          filtruPornit.current = true;
+          const gri = c.find((x) => x.slug === SLUG_ANULATE);
+          if (gri) setAscunse(new Set([gri.id]));
+        }
+      })
       .catch((e) => { if (viu) toaster.show(mesajEroare(e, "Nu am putut citi sălile."), { tone: "danger" }); });
     return () => { viu = false; };
   }, []);
@@ -113,7 +126,8 @@ function CalendarAnual() {
     for (const e of inAn) n[e.calendar_id] = (n[e.calendar_id] || 0) + 1;
     return n;
   }, [inAn]);
-  const peZile = useMemo(() => grupeazaPeZile(inAn.filter((e) => !ascunse.has(e.calendar_id)), an, ordineSala), [inAn, ascunse, an, ordineSala]);
+  const vizibile = useMemo(() => inAn.filter((e) => !ascunse.has(e.calendar_id)), [inAn, ascunse]);
+  const peZile = useMemo(() => grupeazaPeZile(vizibile, an, ordineSala), [vizibile, an, ordineSala]);
   const peLuni = useMemo(() => numarPeLuni(peZile), [peZile]);
   const luni = useMemo(() => luniAnului(an), [an]);
 
@@ -129,7 +143,7 @@ function CalendarAnual() {
           <button type="button" className="icon-btn" onClick={() => schimbaAn(an + 1)} aria-label="Anul următor"><ChevronRight size={16} /></button>
           {an !== anAzi && <button type="button" className="btn btn-ghost sala-btn" onClick={() => schimbaAn(anAzi)}>Anul curent</button>}
         </div>
-        <span className="sali-nota">{seIncarca ? "Se încarcă…" : `${plural(inAn.length)} în ${an}`}</span>
+        <span className="sali-nota">{seIncarca ? "Se încarcă…" : `${plural(vizibile.length)} în ${an}`}</span>
         <div className="an-legenda" role="group" aria-label="Săli: apasă ca să ascunzi sau să arăți">
           {calendare.map((c) => (
             <button type="button" key={c.id} className={ascunse.has(c.id) ? "ascuns" : ""} aria-pressed={!ascunse.has(c.id)}

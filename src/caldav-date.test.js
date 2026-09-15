@@ -1,8 +1,9 @@
 /* Interogarile ecranului Evenimente (src/data/caldav.js). Ce s-ar strica
- * tacut: un filtru scapat, si evenimentele ANULATE ar reaparea in calendar
- * si in numaratoarea salilor (cerut pe 15 septembrie 2026). Un test de
- * randare n-ar prinde asta — acolo stratul de date e mockuit —, deci aici
- * se verifica chiar lantul trimis catre PostgREST.
+ * tacut: fereastra anului calculata gresit, ori randurile sterse aduse
+ * inapoi in calendar. Evenimentele anulate VIN si ele — stau in calendarul
+ * gri „Anulate", iar ecranul il tine ascuns pana il ceri (15 septembrie
+ * 2026). Un test de randare n-ar prinde asta, acolo stratul de date e
+ * mockuit, deci aici se verifica chiar lantul trimis catre PostgREST.
  */
 import { describe, it, expect, beforeEach, vi } from "vitest";
 
@@ -31,10 +32,10 @@ beforeEach(() => {
 });
 
 describe("listeazaEvenimente", () => {
-  it("cere doar evenimentele vii si neanulate, in fereastra anului", async () => {
+  it("cere evenimentele vii din fereastra anului, anulatele incluse", async () => {
     await listeazaEvenimente(2027);
     expect(apeluri[0]).toEqual(["from", "caldav_obiecte"]);
-    expect(filtre()).toEqual([["sters", false], ["anulat", false]]);
+    expect(filtre()).toEqual([["sters", false]]);
     const lt = apeluri.find((a) => a[0] === "lt");
     const gt = apeluri.find((a) => a[0] === "gt");
     expect(lt).toEqual(["lt", "incepe", "2028-01-01T22:00:00.000Z"]);
@@ -51,9 +52,9 @@ describe("listeazaEvenimente", () => {
 });
 
 describe("numarEvenimente", () => {
-  it("numara pe calendar, fara sterse si fara anulate", async () => {
+  it("numara pe calendar, fara cele sterse; anulatele se numara la calendarul lor", async () => {
     raspuns = { data: [{ calendar_id: "c1" }, { calendar_id: "c2" }, { calendar_id: "c1" }], error: null };
     expect(await numarEvenimente()).toEqual({ c1: 2, c2: 1 });
-    expect(filtre()).toEqual([["sters", false], ["anulat", false]]);
+    expect(filtre()).toEqual([["sters", false]]);
   });
 });
