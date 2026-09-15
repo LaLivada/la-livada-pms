@@ -115,20 +115,26 @@ function egaleInTimpConstant(a: string, b: string): boolean {
   return d === 0;
 }
 
+/* De ce a picat autentificarea, pentru jurnal (fara parola, fara hash):
+   fara-antet, antet-invalid, parola-goala, cont-necunoscut, parola-gresita,
+   fara-staff; gol cand a reusit. */
+let motivRefuz = "";
+
 async function contDinBasic(antet: string | null): Promise<Cont | null> {
-  if (!antet || !/^Basic\s+/i.test(antet)) return null;
+  motivRefuz = "";
+  if (!antet || !/^Basic\s+/i.test(antet)) { motivRefuz = antet ? "antet-invalid" : "fara-antet"; return null; }
   let decodat = "";
   try { decodat = new TextDecoder().decode(Uint8Array.from(atob(antet.replace(/^Basic\s+/i, "").trim()), (c) => c.charCodeAt(0))); } catch { return null; }
   const p = decodat.indexOf(":");
-  if (p < 0) return null;
+  if (p < 0) { motivRefuz = "antet-invalid"; return null; }
   const utilizator = decodat.slice(0, p).trim().toLowerCase();
   const parola = decodat.slice(p + 1);
-  if (!utilizator || !parola) return null;
+  if (!utilizator || !parola) { motivRefuz = parola ? "utilizator-gol" : "parola-goala"; return null; }
   const { data: cont } = await admin.from("caldav_conturi").select("user_id, utilizator, email, parola_hash").eq("utilizator", utilizator).maybeSingle();
-  if (!cont) return null;
-  if (!egaleInTimpConstant(await sha256Hex(parola), cont.parola_hash)) return null;
+  if (!cont) { motivRefuz = "cont-necunoscut"; return null; }
+  if (!egaleInTimpConstant(await sha256Hex(parola), cont.parola_hash)) { motivRefuz = "parola-gresita"; return null; }
   const { data: staff } = await admin.from("staff").select("name").eq("user_id", cont.user_id).maybeSingle();
-  if (!staff) return null;
+  if (!staff) { motivRefuz = "fara-staff"; return null; }
   admin.from("caldav_conturi").update({ ultima_folosire: new Date().toISOString() }).eq("user_id", cont.user_id).then(() => {}, () => {});
   return { utilizator: cont.utilizator, nume: staff.name || cont.utilizator, email: cont.email ?? null };
 }
@@ -188,6 +194,7 @@ function jurnal(req: Request, cale: string, stare: number, ms: number, corpCerer
   const ua = (req.headers.get("user-agent") || "-").split(" ").pop();
   const gazda = req.headers.get("x-forwarded-host") || req.headers.get("host") || "-";
   let linie = `caldav ${req.method} ${cale} depth=${req.headers.get("depth") ?? "-"} -> ${stare} (${ms}ms) ${ua} gazda=${gazda}`;
+  if (stare === 401) linie += ` motiv=${motivRefuz || "-"}`;
   if (stare >= 400 && stare !== 401) linie += ` cerere=${JSON.stringify(corpCerere.slice(0, 700))} raspuns=${JSON.stringify(corpRaspuns.slice(0, 700))}`;
   console.log(linie);
 }
