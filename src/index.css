@@ -22,8 +22,9 @@
   background: var(--bg);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+  /* Fara -webkit-font-smoothing:antialiased si -moz-osx-font-smoothing:grayscale
+     (ramase din sablonul Vite): pe Mac cu ecran 1x faceau textul subtire si
+     neclar; ramane netezirea sistemului (15 septembrie 2026). */
 
   @media (max-width: 1024px) {
     font-size: 16px;
