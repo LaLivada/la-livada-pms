@@ -225,7 +225,14 @@
   display:block; font-size:var(--fs-xl); font-weight:650; letter-spacing:-0.025em; color:var(--text);
   white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
 }
-.brand-block .sub{ display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+/* Logo-ul auriu din dreapta antetului (public/logo.svg, 360×90.9): un clic
+   reincarca pagina (pms-app.jsx, reincarca). */
+.logo-btn{
+  display:flex; align-items:center; background:none; border:none; padding:4px 0 4px 6px;
+  border-radius:var(--r-sm); flex-shrink:0; touch-action:manipulation;
+}
+.logo-btn img{ display:block; height:26px; width:auto; }
+.logo-btn:active img{ opacity:.7; }
 .top-btn{
   display:flex; align-items:center; gap:7px; padding:9px 14px; border-radius:var(--r-sm);
   border:1px solid var(--border); background:var(--surface); font-size:var(--fs-base); font-weight:600;
@@ -391,7 +398,17 @@
    fost pusa. */
 .raport-sheet{ width:auto; }
 .toolbar{ display:flex; align-items:center; gap:10px; margin-bottom:16px; flex-wrap:wrap; }
-.cal-toolbar{ margin-bottom:10px; flex-wrap:nowrap; gap:8px; }
+/* Bara cu Azi sta sub tabel, ca un rand al lui de sub Ocupare (cerut pe 15
+   septembrie 2026): aceeasi margine si fundal ca randul Ocupare, colturile
+   de jos rotunjite in locul celor ale tabelului. */
+.cal-toolbar{
+  margin:0 0 12px; flex-wrap:nowrap; gap:8px; padding:6px 8px;
+  border:1px solid var(--border); border-top:none; border-radius:0 0 var(--radius) var(--radius);
+  background:var(--surface-2); box-shadow:var(--shadow-sm);
+}
+/* Cu parintele in selector: regula de baza a .cal-scroll vine mai jos in
+   foaie si ar castiga altfel prin ordine. */
+.cal-view .cal-scroll{ border-bottom-left-radius:0; border-bottom-right-radius:0; }
 .cal-toolbar .week-nav{ min-width:0; }
 .cal-toolbar .btn-primary{ white-space:nowrap; flex-shrink:0; }
 @media (max-width:720px){
@@ -417,8 +434,9 @@
 .week-nav button.on{ background:var(--accent-soft); color:var(--accent-strong); }
 .jump-wrap{ position:relative; display:flex; }
 .jump-wrap > button{ border-left:1px solid var(--border); }
+/* Se deschide in sus: bara cu Azi sta acum sub tabel, lipita jos. */
 .jump-pop{
-  position:absolute; top:calc(100% + 6px); left:50%; transform:translateX(-50%);
+  position:absolute; bottom:calc(100% + 6px); left:50%; transform:translateX(-50%);
   background:var(--surface); border:1px solid var(--border); border-radius:var(--r-sm);
   box-shadow:var(--shadow); padding:12px; z-index:30; width:220px;
 }
@@ -1954,7 +1972,9 @@ label.field input, label.field select, label.field textarea{ cursor:auto; }
   .topbar{ padding-left:max(10px, env(safe-area-inset-left)); padding-right:max(10px, env(safe-area-inset-right)); }
   /* Randul cu Azi si butoanele, mai scund (cerut pe 14 septembrie 2026):
      tintele raman de 36px — cat un deget — in loc de 44. */
-  .cal-toolbar{ margin-bottom:10px; gap:6px; }
+  .cal-toolbar{ gap:6px; padding:5px 6px; }
+  /* „+" din navigarea jos tine locul butonului de rezervare. */
+  .ui-noua .cal-toolbar .btn-primary{ display:none; }
   .cal-toolbar .btn, .cal-toolbar .week-nav button{ min-height:36px; padding-top:6px; padding-bottom:6px; }
   .cal-toolbar .icon-btn{ width:36px; height:36px; }
   .field-row{ grid-template-columns:1fr; gap:0; }
@@ -2004,8 +2024,14 @@ label.field input, label.field select, label.field textarea{ cursor:auto; }
 .cal-scroll{ max-height:none; overflow-y:visible; }
 .cal-foot{ position:static; }
 .cal-toolbar{
-  position:sticky; top:0; z-index:15;
-  background:var(--bg);
+  position:sticky; bottom:0; z-index:15;
+}
+/* Deasupra navigarii jos (61px + zona sigura, plus un pas), nu in spatele
+   ei; fereastra „Sari la data" se lipeste de marginea stanga, altfel
+   centrata pe butonul Azi iesea din ecran. */
+@media (max-width:600px){
+  .ui-noua .cal-toolbar{ bottom:calc(64px + env(safe-area-inset-bottom)); }
+  .jump-pop{ left:0; transform:none; }
 }
 
 /* Lumina de pe barele din calendar, si pe butoane (cerut pe 14 septembrie
@@ -2071,6 +2097,13 @@ label.field input, label.field select, label.field textarea{ cursor:auto; }
     font-size:var(--fs-2xs); font-weight:600; border-radius:var(--r-sm);
   }
   .nav-jos-btn.on{ color:var(--accent-strong); background:var(--accent-soft); }
+  .nav-jos-plus{
+    flex:0 0 auto; align-self:center; width:50px; height:50px; margin:0 6px; border-radius:50%; border:none;
+    background:var(--accent); background-image:var(--lumina); color:#fff;
+    display:flex; align-items:center; justify-content:center;
+    box-shadow:0 4px 12px rgba(0,0,0,.22);
+  }
+  .nav-jos-plus:active{ transform:scale(.95); }
   .ui-noua .topbar-actions .icon-btn, .ui-noua .topbar-actions .top-btn{ display:none; }
   .ui-noua .content{ padding-bottom:calc(84px + env(safe-area-inset-bottom)); }
   .ui-noua .toast-host{ bottom:calc(84px + env(safe-area-inset-bottom)); }

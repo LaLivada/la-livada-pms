@@ -1434,18 +1434,23 @@ function Shell({ user, view, setView, onLogout, noutati, core, updateCore, reser
     return () => window.removeEventListener("popstate", laInapoi);
   }, [noua, setView]);
 
-  /* Dublu tap pe pastila din stanga reincarca pagina, ramanand pe ecranul
-     curent. Pe telefon, in aplicatia adaugata pe ecranul de start, nu exista
-     bara de adresa, deci nu exista nici butonul de refresh — asta il
-     inlocuieste.
+  /* Reincarcarea paginii, ramanand pe ecranul curent. Pe telefon, in
+     aplicatia adaugata pe ecranul de start, nu exista bara de adresa, deci
+     nici butonul de refresh — il inlocuiesc logo-ul din dreapta antetului
+     (un clic, cerut pe 15 septembrie 2026) si dublul tap pe pastila din
+     stanga, ramas din obisnuinta. */
+  const reincarca = () => {
+    try { sessionStorage.setItem(CHEIE_ECRAN_REFRESH, safeView); } catch { /* fara bilet, pornim de acasa */ }
+    window.location.reload();
+  };
 
-     Numarat de mana, nu prin `onDoubleClick`: pe touch, `dblclick` e
+  /* Numarat de mana, nu prin `onDoubleClick`: pe touch, `dblclick` e
      sintetizat inconsecvent de la un motor la altul, adica tocmai cazul cerut.
 
      Pastila e doar buton de reincarcare, deci clicul ei nu mai urca la
      butonul-parinte: altfel prima apasare din pereche ar duce acasa, iar
-     refreshul ar aduce alt ecran decat cel de pe care a fost cerut. Numele
-     „La Livada" si subtitlul de alaturi raman drumul spre acasa. */
+     refreshul ar aduce alt ecran decat cel de pe care a fost cerut. Titlul
+     de alaturi ramane drumul spre acasa. */
   const ultimulTap = useRef(FARA_TAP);
   const dubluTap = (e) => {
     e.stopPropagation();
@@ -1456,8 +1461,7 @@ function Shell({ user, view, setView, onLogout, noutati, core, updateCore, reser
     const acum = performance.now();
     if (eDubluTap(ultimulTap.current, acum)) {
       ultimulTap.current = FARA_TAP;
-      try { sessionStorage.setItem(CHEIE_ECRAN_REFRESH, safeView); } catch { /* fara bilet, pornim de acasa */ }
-      window.location.reload();
+      reincarca();
       return;
     }
     ultimulTap.current = acum;
@@ -1501,9 +1505,10 @@ function Shell({ user, view, setView, onLogout, noutati, core, updateCore, reser
               title="Dublu tap — reîncarcă pagina, rămânând aici">
               <DoorOpen size={16} />
             </span>
+            {/* Titlul ecranului, mare, in locul numelui „La Livada" (cerut pe
+                15 septembrie 2026): logo-ul e acum in dreapta. */}
             <span className="brand-text">
-              <span className="brand-name">La Livada</span>
-              <span className="sub">{title}</span>
+              <span className="brand-name">{title}</span>
             </span>
           </button>
 
@@ -1538,6 +1543,10 @@ function Shell({ user, view, setView, onLogout, noutati, core, updateCore, reser
                 <Settings size={17} />
               </button>
             )}
+            <button className="logo-btn" onClick={reincarca}
+              title="La Livadă · reîncarcă pagina, rămânând aici" aria-label="Reîncarcă pagina">
+              <img src="/logo.svg" alt="La Livadă" />
+            </button>
           </div>
         </header>
 
@@ -1600,6 +1609,15 @@ function Shell({ user, view, setView, onLogout, noutati, core, updateCore, reser
           {canCalendar && (
             <button className={"nav-jos-btn" + (safeView === "calendar" ? " on" : "")} onClick={() => setView("calendar")}>
               <CalendarDays size={20} /><span>Calendar</span>
+            </button>
+          )}
+          {/* „+" pe mijloc, albastru (cerut pe 15 septembrie 2026): deschide
+              formularul de rezervare noua in calendar, prin intentia „nou"
+              (lib/scurtaturi.js) — aceeasi cale ca scurtatura de la tastatura. */}
+          {canCalendar && user.role !== "housekeeping" && (
+            <button className="nav-jos-plus" aria-label="Rezervare nouă" title="Rezervare nouă"
+              onClick={() => { setCalendarIntent(intentie("nou")); setView("calendar"); }}>
+              <Plus size={26} strokeWidth={2.5} />
             </button>
           )}
           {poateCauta && (

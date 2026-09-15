@@ -257,3 +257,14 @@ din Useri și drepturi → Contul tău → **Interfața: Nouă / Actuală**
 Tema nu depinde de comutator: „Ca sistemul” e comportamentul de dinainte.
 Teste: `src/interfata.test.js`, `src/dialog-istoric-ecran.test.js`,
 `src/cont-meu-ecran.test.js`.
+
+### 7.1. Antet, bara calendarului, „+” (15 septembrie 2026, seara)
+
+- Antet: titlul ecranului, mare, în stânga (fără „La Livada”); logo-ul auriu
+  în dreapta, un clic reîncarcă pagina rămânând pe ecran (`reincarca` în
+  `Shell`). Dublul tap pe pastilă face același lucru.
+- Calendar: bara cu Azi / ±7 zile / vederi stă sub tabel, lipită de rândul
+  Ocupare (`.cal-toolbar`, sticky jos). Butonul „Rezervare nouă” rămâne pe
+  tabletă și desktop și se ascunde pe telefon în interfața nouă, unde
+  „+” din navigarea jos (`.nav-jos-plus`) deschide formularul prin
+  intenția `nou`.

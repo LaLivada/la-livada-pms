@@ -406,69 +406,6 @@ export function CalendarView({ core, updateCore, reservations, updateReservation
 
   return (
     <div className="cal-view">
-      <div className="toolbar cal-toolbar">
-        <div className="week-nav">
-          <button onClick={() => setOffset((o) => o - PAS_FEREASTRA)}
-            aria-label={`Cele ${PAS_FEREASTRA} zile anterioare`}>
-            <ChevronLeft size={15} />
-            <span>{PAS_FEREASTRA} zile</span>
-          </button>
-          <div className="jump-wrap">
-            <button className={offset === 0 ? "on" : ""} onClick={(e) => { e.stopPropagation(); setPickerOpen((v) => !v); }}>
-              <CalendarDays size={14} />
-              <span>{offset === 0 ? "Azi" : fmtDate(ziAncora)}</span>
-            </button>
-            {pickerOpen && (
-              <div className="jump-pop" onClick={(e) => e.stopPropagation()}>
-                <label>Sari la data</label>
-                <input
-                  type="date"
-                  autoFocus
-                  value={toDateInput(ziAncora)}
-                  onChange={(e) => {
-                    if (!e.target.value) return;
-                    jumpTo(momentLocal(e.target.value));
-                  }}
-                />
-                <button className="btn btn-ghost" style={{ width: "100%" }} onClick={() => { setOffset(0); setPickerOpen(false); }}>
-                  Înapoi la azi
-                </button>
-              </div>
-            )}
-          </div>
-          <button onClick={() => setOffset((o) => o + PAS_FEREASTRA)}
-            aria-label={`Următoarele ${PAS_FEREASTRA} zile`}>
-            <span>{PAS_FEREASTRA} zile</span>
-            <ChevronRight size={15} />
-          </button>
-        </div>
-        <div className="grow" />
-        <button
-          className={"icon-btn" + (dense ? " active" : "")}
-          onClick={() => setDense((v) => !v)}
-          aria-pressed={dense}
-          title={dense ? "Vedere confortabilă" : "Vedere compactă"}
-          aria-label={dense ? "Treci la vedere confortabilă" : "Treci la vedere compactă"}
-        >
-          {dense ? <Rows3 size={16} /> : <Rows2 size={16} />}
-        </button>
-        <button
-          className={"icon-btn" + (latime !== "ingust" ? " active" : "")}
-          onClick={() => setLatime(urmatoareaLatime(latime))}
-          title={`${ETICHETA_LATIME[latime]} · apasă pentru: ${ETICHETA_LATIME[urmatoareaLatime(latime)]}`}
-          aria-label={`Lățimea zilelor: ${ETICHETA_LATIME[latime]}. Treci la: ${ETICHETA_LATIME[urmatoareaLatime(latime)]}`}
-        >
-          {latime === "ingust" ? <Columns3 size={16} /> : latime === "saptamana" ? <CalendarRange size={16} /> : <Columns2 size={16} />}
-        </button>
-        {!doarCitire && (
-          <button className="btn btn-primary" style={{ width: "auto" }} onClick={() => setModal({ reservation: null })}>
-            <Plus size={15} />
-            <span className="lbl-long">Rezervare nouă</span>
-            <span className="lbl-short">Rezervare</span>
-          </button>
-        )}
-      </div>
-
       {dragError && <div className="drag-error" role="alert">{dragError}</div>}
       {moveId ? (
         <div className="move-banner" role="status">
@@ -643,6 +580,73 @@ export function CalendarView({ core, updateCore, reservations, updateReservation
           </div>
         </div>
       </div>
+
+      {/* Bara cu Azi, sub tabel, lipita de randul Ocupare (cerut pe 15
+          septembrie 2026); pe telefon ramane la indemana, lipita jos. Butonul
+          de rezervare se ascunde acolo unde exista „+" in navigarea jos. */}
+      <div className="toolbar cal-toolbar cal-bara">
+        <div className="week-nav">
+          <button onClick={() => setOffset((o) => o - PAS_FEREASTRA)}
+            aria-label={`Cele ${PAS_FEREASTRA} zile anterioare`}>
+            <ChevronLeft size={15} />
+            <span>{PAS_FEREASTRA} zile</span>
+          </button>
+          <div className="jump-wrap">
+            <button className={offset === 0 ? "on" : ""} onClick={(e) => { e.stopPropagation(); setPickerOpen((v) => !v); }}>
+              <CalendarDays size={14} />
+              <span>{offset === 0 ? "Azi" : fmtDate(ziAncora)}</span>
+            </button>
+            {pickerOpen && (
+              <div className="jump-pop" onClick={(e) => e.stopPropagation()}>
+                <label>Sari la data</label>
+                <input
+                  type="date"
+                  autoFocus
+                  value={toDateInput(ziAncora)}
+                  onChange={(e) => {
+                    if (!e.target.value) return;
+                    jumpTo(momentLocal(e.target.value));
+                  }}
+                />
+                <button className="btn btn-ghost" style={{ width: "100%" }} onClick={() => { setOffset(0); setPickerOpen(false); }}>
+                  Înapoi la azi
+                </button>
+              </div>
+            )}
+          </div>
+          <button onClick={() => setOffset((o) => o + PAS_FEREASTRA)}
+            aria-label={`Următoarele ${PAS_FEREASTRA} zile`}>
+            <span>{PAS_FEREASTRA} zile</span>
+            <ChevronRight size={15} />
+          </button>
+        </div>
+        <div className="grow" />
+        <button
+          className={"icon-btn" + (dense ? " active" : "")}
+          onClick={() => setDense((v) => !v)}
+          aria-pressed={dense}
+          title={dense ? "Vedere confortabilă" : "Vedere compactă"}
+          aria-label={dense ? "Treci la vedere confortabilă" : "Treci la vedere compactă"}
+        >
+          {dense ? <Rows3 size={16} /> : <Rows2 size={16} />}
+        </button>
+        <button
+          className={"icon-btn" + (latime !== "ingust" ? " active" : "")}
+          onClick={() => setLatime(urmatoareaLatime(latime))}
+          title={`${ETICHETA_LATIME[latime]} · apasă pentru: ${ETICHETA_LATIME[urmatoareaLatime(latime)]}`}
+          aria-label={`Lățimea zilelor: ${ETICHETA_LATIME[latime]}. Treci la: ${ETICHETA_LATIME[urmatoareaLatime(latime)]}`}
+        >
+          {latime === "ingust" ? <Columns3 size={16} /> : latime === "saptamana" ? <CalendarRange size={16} /> : <Columns2 size={16} />}
+        </button>
+        {!doarCitire && (
+          <button className="btn btn-primary" style={{ width: "auto" }} onClick={() => setModal({ reservation: null })}>
+            <Plus size={15} />
+            <span className="lbl-long">Rezervare nouă</span>
+            <span className="lbl-short">Rezervare</span>
+          </button>
+        )}
+      </div>
+
 
       {blockInfo && (
         <Dialog onClose={() => setBlockInfo(null)} className="action-modal" title={undefined}>
