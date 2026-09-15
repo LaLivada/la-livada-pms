@@ -5489,8 +5489,19 @@ create trigger caldav_obiecte_blocaje
 
 -- Nu sunt pentru browser: blocajele le pune triggerul, le scoate recepția
 -- ștergând rândul din calendar, ca pe orice blocaj.
-revoke execute on function blocheaza_zilele_evenimentului(timestamptz, timestamptz, boolean) from public, anon;
-revoke execute on function elibereaza_zilele_fara_evenimente(timestamptz, timestamptz) from public, anon;
+--
+-- `authenticated` E NUMIT EXPLICIT, și nu degeaba. Supabase are ALTER
+-- DEFAULT PRIVILEGES care dă EXECUTE pe fiecare funcție nouă direct lui
+-- anon, authenticated și service_role — un grant propriu, pe care o
+-- revocare de la PUBLIC nu-l atinge. Fără rândul de mai jos, cele două au
+-- rămas chemabile de ORICE cont logat prin /rest/v1/rpc/..., inclusiv de o
+-- cameristă; fiind `security definer` ocolesc RLS, deci oricine avea un
+-- cont putea închide toată pensiunea pe ani sau putea șterge blocajele
+-- nunților. Găurit pe 16 septembrie 2026, închis în aceeași zi (măsurat:
+-- insert direct ca authenticated = refuzat de RLS, prin funcție = 16
+-- rânduri). Triggerul nu e atins: el rulează ca proprietarul tabelului.
+revoke execute on function blocheaza_zilele_evenimentului(timestamptz, timestamptz, boolean) from public, anon, authenticated;
+revoke execute on function elibereaza_zilele_fara_evenimente(timestamptz, timestamptz) from public, anon, authenticated;
 grant execute on function blocheaza_zilele_evenimentului(timestamptz, timestamptz, boolean) to service_role;
 grant execute on function elibereaza_zilele_fara_evenimente(timestamptz, timestamptz) to service_role;
 
