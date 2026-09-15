@@ -229,6 +229,8 @@ describe("adreseDinCale: baza publica a hrefurilor, indiferent ce cale vede func
   it("prin domeniul PMS-ului (proxy Vercel) baza publica e /caldav; pe supabase.co sau local ramane /functions/v1/caldav", () => {
     expect(prinDomeniulPms("pms.lalivada.ro")).toBe(true);
     expect(prinDomeniulPms("suoowrginsliyrbxqeap.supabase.co")).toBe(false);
+    expect(prinDomeniulPms("edge-runtime.supabase.com")).toBe(false);
+    expect(prinDomeniulPms("pms.lalivada.ro:443")).toBe(true);
     expect(prinDomeniulPms("localhost:54321")).toBe(false);
     expect(prinDomeniulPms("")).toBe(false);
     expect(adreseDinCale("/caldav/principals/office%40lalivada.com/", "pms.lalivada.ro"))

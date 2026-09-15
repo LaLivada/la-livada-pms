@@ -73,10 +73,14 @@ export const NUME_FUNCTIE = "/caldav";
 
 /* Prin domeniul PMS-ului (Vercel rescrie /caldav/* catre functie, iar
    /.well-known/caldav trimite la /caldav/), calea publica e "/caldav";
-   direct pe supabase.co sau local, "/functions/v1/caldav". */
+   direct pe supabase.co sau local, "/functions/v1/caldav". Lista e
+   explicita: in functia hostata antetul host e edge-runtime.supabase.com,
+   nu <proiect>.supabase.co, deci "orice altceva decat supabase" ar fi gresit. */
+export const DOMENII_PMS = ["pms.lalivada.ro"];
+
 export function prinDomeniulPms(gazdaPublica: string): boolean {
-  const g = gazdaPublica.trim().toLowerCase();
-  return g !== "" && !g.endsWith(".supabase.co") && !g.startsWith("localhost") && !g.startsWith("127.0.0.1");
+  const g = gazdaPublica.trim().toLowerCase().split(":")[0];
+  return DOMENII_PMS.includes(g);
 }
 
 export function adreseDinCale(pathname: string, gazdaPublica = ""): { baza: string; cale: string } {
