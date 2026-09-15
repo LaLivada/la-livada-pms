@@ -130,8 +130,8 @@ async function contDinBasic(antet: string | null): Promise<Cont | null> {
   const utilizator = decodat.slice(0, p).trim().toLowerCase();
   const parola = decodat.slice(p + 1);
   if (!utilizator || !parola) { motivRefuz = parola ? "utilizator-gol" : "parola-goala"; return null; }
-  const { data: cont } = await admin.from("caldav_conturi").select("user_id, utilizator, email, parola_hash").eq("utilizator", utilizator).maybeSingle();
-  if (!cont) { motivRefuz = "cont-necunoscut"; return null; }
+  const { data: cont, error: eroareCont } = await admin.from("caldav_conturi").select("user_id, utilizator, email, parola_hash").eq("utilizator", utilizator).maybeSingle();
+  if (!cont) { motivRefuz = "cont-necunoscut(" + JSON.stringify(utilizator.slice(0, 80)) + (eroareCont ? " eroare=" + eroareCont.message : "") + ")"; return null; }
   if (!egaleInTimpConstant(await sha256Hex(parola), cont.parola_hash)) { motivRefuz = "parola-gresita"; return null; }
   const { data: staff } = await admin.from("staff").select("name").eq("user_id", cont.user_id).maybeSingle();
   if (!staff) { motivRefuz = "fara-staff"; return null; }
