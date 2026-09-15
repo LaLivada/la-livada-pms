@@ -43,16 +43,20 @@ const NS = 'xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:caldav" xmlns:CS="htt
 const DAV = "1, 3, calendar-access";
 const ALLOW = "OPTIONS, PROPFIND, PROPPATCH, REPORT, GET, HEAD, PUT, DELETE";
 export const PREFIX_SYNC = "https://pms.lalivada.ro/caldav/sync/";
-const TIP_XML = 'application/xml; charset="utf-8"';
+const TIP_XML = "application/xml; charset=utf-8";
 
 /* Spatiul de nume al fiecarei proprietati cunoscute, pentru elementele
    goale din propstat-ul 404 si pentru cele randate. */
 const SPATIU: Record<string, string> = {
   "calendar-home-set": "C", "calendar-user-address-set": "C", "supported-calendar-component-set": "C",
   "calendar-data": "C", "schedule-calendar-transp": "C", "calendar-timezone": "C", "calendar-description": "C",
-  "schedule-inbox-url": "C", "schedule-outbox-url": "C", "calendar-free-busy-set": "C",
-  "getctag": "CS", "email-address-set": "CS", "notification-url": "CS",
-  "calendar-color": "A", "calendar-order": "A",
+  "schedule-inbox-URL": "C", "schedule-outbox-URL": "C", "schedule-default-calendar-URL": "C", "calendar-free-busy-set": "C",
+  "default-alarm-vevent-date": "C", "default-alarm-vevent-datetime": "C", "max-resource-size": "C", "supported-calendar-data": "C",
+  "getctag": "CS", "email-address-set": "CS", "notification-URL": "CS", "dropbox-home-URL": "CS",
+  "allowed-sharing-modes": "CS", "pushkey": "CS", "push-transports": "CS", "source": "CS", "invite": "CS",
+  "bulk-requests": "CS", "pre-publish-url": "CS", "publish-url": "CS",
+  "subscribed-strip-alarms": "CS", "subscribed-strip-attachments": "CS", "subscribed-strip-todos": "CS",
+  "calendar-color": "A", "calendar-order": "A", "refreshrate": "A", "autoprovisioned": "A", "language-code": "A", "location-code": "A",
 };
 const elementGol = (nume: string) => `<${SPATIU[nume] || "D"}:${nume}/>`;
 

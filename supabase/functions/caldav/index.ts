@@ -178,6 +178,19 @@ async function importa(req: Request, slug: string): Promise<Response> {
   return json(200, { noi, actualizate, ignorate, total: obiecte.length });
 }
 
+/* ---------- jurnalul cererilor ---------- */
+
+/* O linie per cerere in jurnalul functiei (Supabase -> Logs -> Edge
+   Functions): metoda, calea, adancimea, starea, durata si clientul; la
+   erori (in afara de 401) si corpurile cererii si raspunsului, trunchiate,
+   ca sa se vada ce a cerut telefonul si ce am refuzat. Fara Authorization. */
+function jurnal(req: Request, cale: string, stare: number, ms: number, corpCerere: string, corpRaspuns: string) {
+  const ua = (req.headers.get("user-agent") || "-").split(" ").pop();
+  let linie = `caldav ${req.method} ${cale} depth=${req.headers.get("depth") ?? "-"} -> ${stare} (${ms}ms) ${ua}`;
+  if (stare >= 400 && stare !== 401) linie += ` cerere=${JSON.stringify(corpCerere.slice(0, 700))} raspuns=${JSON.stringify(corpRaspuns.slice(0, 700))}`;
+  console.log(linie);
+}
+
 /* ---------- intrarea ---------- */
 
 Deno.serve(async (req) => {
@@ -190,16 +203,22 @@ Deno.serve(async (req) => {
     catch (e) { return new Response(JSON.stringify({ error: String((e as any)?.message || e) }), { status: 500, headers: { "Content-Type": "application/json", ...cors(req) } }); }
   }
 
+  const t0 = Date.now();
   const cont = await contDinBasic(req.headers.get("Authorization"));
-  if (!cont) return new Response("Autentificare necesară", { status: 401, headers: { "WWW-Authenticate": REALM, "DAV": "1, 3, calendar-access" } });
+  if (!cont) {
+    jurnal(req, cale, 401, Date.now() - t0, "", "");
+    return new Response("Autentificare necesară", { status: 401, headers: { "WWW-Authenticate": REALM, "DAV": "1, 3, calendar-access" } });
+  }
 
   const antete: Record<string, string> = {};
   req.headers.forEach((v, k) => { antete[k.toLowerCase()] = v; });
+  const corp = await req.text();
   try {
-    const r = await serveste({ metoda: req.method, cale, antete, corp: await req.text() }, cont, depozit, baza);
+    const r = await serveste({ metoda: req.method, cale, antete, corp }, cont, depozit, baza);
+    jurnal(req, cale, r.stare, Date.now() - t0, corp, r.corp);
     return new Response(r.corp.length ? r.corp : null, { status: r.stare, headers: r.antete });
   } catch (e) {
-    console.error("caldav", e);
+    console.error("caldav", req.method, cale, e);
     return new Response("Eroare internă", { status: 500 });
   }
 });

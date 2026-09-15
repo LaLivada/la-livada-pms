@@ -206,6 +206,18 @@ describe("PROPPATCH si metode nepermise", () => {
   });
 });
 
+describe("numele proprietatilor isi pastreaza literele (XML e case-sensitive)", () => {
+  it("propCerute nu trece in litere mici; principal-URL primeste 200, nu 404", async () => {
+    const corp = `<?xml version="1.0" encoding="UTF-8"?><A:propfind xmlns:A="DAV:" xmlns:C="urn:ietf:params:xml:ns:caldav"><A:prop><A:principal-URL/><C:schedule-inbox-URL/><A:current-user-principal/></A:prop></A:propfind>`;
+    expect(propCerute(corp)).toEqual(["principal-URL", "schedule-inbox-URL", "current-user-principal"]);
+    const r = await cere(depozitNou(), "PROPFIND", "/principals/ovidiu%40lalivada.ro/", corp, { depth: "0" });
+    expect(r.stare).toBe(207);
+    expect(r.corp).toContain(`<D:principal-URL><D:href>${PRINCIPAL}</D:href></D:principal-URL>`);
+    expect(r.corp).toContain("<C:schedule-inbox-URL/>");
+    expect(r.corp).not.toContain("principal-url");
+  });
+});
+
 describe("adreseDinCale: baza publica a hrefurilor, indiferent ce cale vede functia", () => {
   it("poarta Supabase taie /functions/v1: pathname /caldav/... da totusi baza publica", () => {
     expect(adreseDinCale("/caldav/principals/office%40lalivada.com/"))

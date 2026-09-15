@@ -35,11 +35,13 @@ export function elementRadacina(xml: string): string | null {
   return m ? m[1].toLowerCase() : null;
 }
 
+/* Numele isi pastreaza literele: XML e case-sensitive, iar iOS cere
+   principal-URL, schedule-inbox-URL etc. exact asa. */
 function numeCopii(corp: string): string[] {
   const out: string[] = [];
   const re = /<(?:[A-Za-z_][\w.-]*:)?([A-Za-z_][\w-]*)(?:\s[^>]*)?\/?>/g;
   let m: RegExpExecArray | null;
-  while ((m = re.exec(corp))) out.push(m[1].toLowerCase());
+  while ((m = re.exec(corp))) out.push(m[1]);
   return [...new Set(out)];
 }
 
