@@ -79,6 +79,16 @@ Zilele sunt cele de la Vaslui
 apar doar la prima lor dată, marcate „se repetă” (expandarea RRULE rămâne
 pentru mai târziu).
 
+**La totaluri intră doar evenimentele de toată ziua** (16 septembrie 2026).
+Numărul anului, numărul fiecărei luni și cifra de lângă fiecare sală din
+legendă numără numai ce ține o zi întreagă — nunțile, botezurile, zilele
+date cuiva. Un eveniment cu doar interval orar (o degustare, o vizită) **se
+vede în calendar** ca oricare altul, cu bulina și ora lui în lista zilei,
+dar nu umflă numerele: altfel „34 de evenimente în 2027" n-ar mai însemna
+34 de zile date. Regula e `intraInTotal()` din `evenimente-an.js`, folosită
+și de `numarPeLuni()`. Cele trei numere rămân astfel coerente între ele:
+cifrele sălilor se adună exact la numărul anului.
+
 ## Zilele cu evenimente se blochează în calendar (16 septembrie 2026)
 
 O nuntă ține toată pensiunea, iar camerele le împarte recepția cu nuntașii,

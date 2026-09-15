@@ -76,15 +76,25 @@ export function grupeazaPeZile(evenimente, an, ordineSala = () => 0) {
   return peZile;
 }
 
+/** La TOTALURI (anul, luna, sala din legenda) intra doar evenimentele de
+ * toata ziua — adica nuntile, botezurile, zilele tinute de cineva. Cele cu
+ * doar interval orar (o degustare, o vizita, o intalnire) se vad in
+ * calendar, dar nu umfla numerele: altfel „34 de evenimente in 2027" n-ar
+ * mai insemna 34 de zile date. Ceruta pe 16 septembrie 2026.
+ * @param {{ toata_ziua?: boolean }} ev @returns {boolean} */
+export function intraInTotal(ev) {
+  return ev?.toata_ziua === true;
+}
+
 /** Cate evenimente DISTINCTE are fiecare luna (index 0 = ianuarie): unul de
  * doua zile se numara o data in luna lui, sau o data in fiecare din cele
- * doua luni daca trece granita.
+ * doua luni daca trece granita. Numara doar ce trece de `intraInTotal`.
  * @param {Map<string, EvenimentSala[]>} peZile @returns {number[]} */
 export function numarPeLuni(peZile) {
   const seturi = Array.from({ length: 12 }, () => new Set());
   for (const [zi, lista] of peZile) {
     const luna = Number(zi.slice(5, 7)) - 1;
-    for (const ev of lista) seturi[luna].add(ev.id);
+    for (const ev of lista) if (intraInTotal(ev)) seturi[luna].add(ev.id);
   }
   return seturi.map((s) => s.size);
 }

@@ -6,7 +6,7 @@
 import { describe, it, expect } from "vitest";
 import {
   MAX_ZILE_EVENIMENT, cheieZi, descriereMoment, fereastraAnului, grupeazaPeZile, luniAnului,
-  numarPeLuni, titluZi, zileleEvenimentului,
+  intraInTotal, numarPeLuni, titluZi, zileleEvenimentului,
 } from "./lib/evenimente-an.js";
 
 const ev = (p) => ({ id: "x", calendar_id: "c", rezumat: "t", incepe: null, se_termina: null, toata_ziua: false, recurent: false, ...p });
@@ -64,7 +64,7 @@ describe("grupeazaPeZile / numarPeLuni", () => {
   });
   it("un eveniment peste granita de luna se numara o data in fiecare din cele doua luni", () => {
     const lista = [
-      ev({ id: "R", incepe: "2027-06-30T18:00:00Z", se_termina: "2027-07-01T02:00:00Z" }),
+      ev({ id: "R", incepe: "2027-06-29T21:00:00Z", se_termina: "2027-07-01T21:00:00Z", toata_ziua: true }),
       ev({ id: "S", incepe: "2027-06-04T21:00:00Z", se_termina: "2027-06-07T21:00:00Z", toata_ziua: true }),
     ];
     const peZile = grupeazaPeZile(lista, 2027);
@@ -74,6 +74,22 @@ describe("grupeazaPeZile / numarPeLuni", () => {
     expect(peLuni[5]).toBe(2);
     expect(peLuni[6]).toBe(1);
     expect(peLuni.reduce((a, b) => a + b, 0)).toBe(3);
+  });
+
+  /* Ceruta pe 16 septembrie 2026: o degustare de doua ore nu e o zi data
+     cuiva, deci se vede in calendar dar nu umfla numerele. */
+  it("la totaluri intra doar evenimentele de toata ziua", () => {
+    const nunta = ev({ id: "N", incepe: "2027-06-04T21:00:00Z", se_termina: "2027-06-05T21:00:00Z", toata_ziua: true });
+    const degustare = ev({ id: "D", incepe: "2027-06-05T09:00:00Z", se_termina: "2027-06-05T11:00:00Z" });
+    expect(intraInTotal(nunta)).toBe(true);
+    expect(intraInTotal(degustare)).toBe(false);
+    expect(intraInTotal(undefined)).toBe(false);
+
+    const peZile = grupeazaPeZile([nunta, degustare], 2027);
+    /* Amandoua raman in ziua lor — calendarul le arata pe amandoua. */
+    expect(peZile.get("2027-06-05").map((e) => e.id)).toEqual(["N", "D"]);
+    /* Dar iunie numara una singura. */
+    expect(numarPeLuni(peZile)[5]).toBe(1);
   });
 });
 

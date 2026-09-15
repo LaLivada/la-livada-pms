@@ -12,7 +12,7 @@ import { toaster } from "../ui/primitive.jsx";
 import { mesajEroare } from "../lib/errors.js";
 import { fmtDateTime } from "../lib/format.js";
 import { dataLocala, partiLocale } from "../lib/timp.js";
-import { ZILE_SAPT_SCURT, cheieZi, descriereMoment, grupeazaPeZile, luniAnului, numarPeLuni, titluZi, zileleEvenimentului } from "../lib/evenimente-an.js";
+import { ZILE_SAPT_SCURT, cheieZi, descriereMoment, grupeazaPeZile, intraInTotal, luniAnului, numarPeLuni, titluZi, zileleEvenimentului } from "../lib/evenimente-an.js";
 import * as date from "../data/caldav.js";
 import * as datePersonal from "../data/personal.js";
 
@@ -121,12 +121,16 @@ function CalendarAnual() {
     const prefix = `${an}-`;
     return evenimente.filter((e) => zileleEvenimentului(e).some((z) => z.startsWith(prefix)));
   }, [evenimente, an]);
+  /* Numerele din legenda se aduna la numarul anului, deci trec prin
+     aceeasi sita: doar evenimentele de toata ziua. */
   const numarPeSala = useMemo(() => {
     const n = {};
-    for (const e of inAn) n[e.calendar_id] = (n[e.calendar_id] || 0) + 1;
+    for (const e of inAn) if (intraInTotal(e)) n[e.calendar_id] = (n[e.calendar_id] || 0) + 1;
     return n;
   }, [inAn]);
   const vizibile = useMemo(() => inAn.filter((e) => !ascunse.has(e.calendar_id)), [inAn, ascunse]);
+  /* Cele cu interval orar raman in calendar, dar nu in totaluri. */
+  const cateInAn = useMemo(() => vizibile.filter(intraInTotal).length, [vizibile]);
   const peZile = useMemo(() => grupeazaPeZile(vizibile, an, ordineSala), [vizibile, an, ordineSala]);
   const peLuni = useMemo(() => numarPeLuni(peZile), [peZile]);
   const luni = useMemo(() => luniAnului(an), [an]);
@@ -143,7 +147,7 @@ function CalendarAnual() {
           <button type="button" className="icon-btn" onClick={() => schimbaAn(an + 1)} aria-label="Anul următor"><ChevronRight size={16} /></button>
           {an !== anAzi && <button type="button" className="btn btn-ghost sala-btn" onClick={() => schimbaAn(anAzi)}>Anul curent</button>}
         </div>
-        <span className="sali-nota">{seIncarca ? "Se încarcă…" : `${plural(vizibile.length)} în ${an}`}</span>
+        <span className="sali-nota">{seIncarca ? "Se încarcă…" : `${plural(cateInAn)} în ${an}`}</span>
         <div className="an-legenda" role="group" aria-label="Săli: apasă ca să ascunzi sau să arăți">
           {calendare.map((c) => (
             <button type="button" key={c.id} className={ascunse.has(c.id) ? "ascuns" : ""} aria-pressed={!ascunse.has(c.id)}

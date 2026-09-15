@@ -98,16 +98,21 @@ describe("EvenimenteView", () => {
     await apasa(butonEticheta(host, "Anul următor"));
     expect(anAfisat(host)).toBe("2027");
     expect(listeazaEvenimente).toHaveBeenLastCalledWith(2027);
-    expect(host.querySelector(".an-cap .sali-nota").textContent).toBe("3 evenimente în 2027");
-    expect([...host.querySelectorAll(".an-legenda button")].map((b) => b.textContent.trim())).toEqual(["Grand’Or Ballroom 1", "Sera 2", "Anulate 1"]);
+    /* La TOTALURI intra doar cele de toata ziua (cerut pe 16 septembrie
+       2026): din cele trei aratate, doar nunta „Alexandru & Alexandra". */
+    expect(host.querySelector(".an-cap .sali-nota").textContent).toBe("1 eveniment în 2027");
+    expect([...host.querySelectorAll(".an-legenda button")].map((b) => b.textContent.trim())).toEqual(["Grand’Or Ballroom 1", "Sera 0", "Anulate 1"]);
 
     const iunie = host.querySelectorAll("section.luna")[5];
-    expect(iunie.querySelector(".luna-cap .sali-nota").textContent).toBe("2 evenimente");
+    expect(iunie.querySelector(".luna-cap .sali-nota").textContent).toBe("1 eveniment");
+    /* Dar in calendar se vad amandoua, cu bulinele lor. */
     const zi = butonEticheta(host, "5 iunie: 2 evenimente");
     expect(zi).toBeDefined();
     expect(zi.querySelectorAll(".zi-pct svg")).toHaveLength(2);
-    /* 1 ianuarie 2028 nu e in 2027, dar Revelionul incepe pe 31 decembrie. */
+    /* 1 ianuarie 2028 nu e in 2027, dar Revelionul incepe pe 31 decembrie.
+       Are doar ore, deci decembrie ramane fara numar. */
     expect(butonEticheta(host, "31 decembrie: 1 eveniment")).toBeDefined();
+    expect(host.querySelectorAll("section.luna")[11].querySelector(".luna-cap .sali-nota")).toBeNull();
     expect(host.querySelectorAll(".zi.cu")).toHaveLength(2);
 
     await apasa(zi);
@@ -130,14 +135,14 @@ describe("EvenimenteView", () => {
     await apasa(butonEticheta(host, "Anul următor"));
     /* „Adrian & Monica" e anulat si cade pe 5 iunie 2027, peste celelalte
        doua — ziua arata doua evenimente, nu trei, iar anul 3, nu 4. */
-    expect(host.querySelector(".an-cap .sali-nota").textContent).toBe("3 evenimente în 2027");
+    expect(host.querySelector(".an-cap .sali-nota").textContent).toBe("1 eveniment în 2027");
     expect(butonEticheta(host, "5 iunie: 2 evenimente")).toBeDefined();
 
     const gri = [...host.querySelectorAll(".an-legenda button")].find((b) => b.textContent.includes("Anulate"));
     expect(gri.className).toContain("ascuns");
     await apasa(gri);
     expect(gri.getAttribute("aria-pressed")).toBe("true");
-    expect(host.querySelector(".an-cap .sali-nota").textContent).toBe("4 evenimente în 2027");
+    expect(host.querySelector(".an-cap .sali-nota").textContent).toBe("2 evenimente în 2027");
     const zi = butonEticheta(host, "5 iunie: 3 evenimente");
     expect(zi).toBeDefined();
     await apasa(zi);
@@ -155,7 +160,8 @@ describe("EvenimenteView", () => {
     await apasa(sera);
     expect(sera.getAttribute("aria-pressed")).toBe("false");
     expect(sera.className).toContain("ascuns");
-    expect(sera.textContent.trim()).toBe("Sera 2");
+    /* Numarul salii e tot un total, deci si el numara doar toata-ziua. */
+    expect(sera.textContent.trim()).toBe("Sera 0");
     expect(butonEticheta(host, "5 iunie: 1 eveniment")).toBeDefined();
     expect(butonEticheta(host, "31 decembrie: 1 eveniment")).toBeUndefined();
     expect(host.querySelectorAll(".zi.cu")).toHaveLength(1);
