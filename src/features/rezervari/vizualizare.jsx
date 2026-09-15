@@ -64,17 +64,15 @@ export function ReservationViewModal({ reservation, core, updateCore, groups, up
           <div className="action-meta" style={{ marginTop: 1 }}>
             {reservation.adults ?? 2} adulți{reservation.children ? ` + ${reservation.children} copii` : ""} · {sourceLabel(reservation.source)} · {fmtMoney(reservationTotal(reservation, core))}{esteProtocol(reservation) && reservation.status !== "protocol" ? " · Protocol" : ""}
           </div>
-          <div style={{ marginTop: 6 }}>
+          {/* Starea, „noua" si etichetele pe acelasi rand (cerut pe 15
+              septembrie 2026); se rup pe urmatorul doar daca nu incap. */}
+          <div className="fisa-etichete">
             <span className={"role-tag " + STATUS_CLASS[reservation.status]}>
               <span aria-hidden="true">{STATUS_GLYPH[reservation.status]}</span> {STATUS_LABEL[reservation.status]}
             </span>
             <EtichetaNou res={reservation} noutati={noutati} mare />
+            {reservation.tags?.map((t) => <span className="tag-mini" key={t}>{t}</span>)}
           </div>
-          {reservation.tags?.length > 0 && (
-            <div className="tag-row">
-              {reservation.tags.map((t) => <span className="tag-mini" key={t}>{t}</span>)}
-            </div>
-          )}
         </div>
         <button className="btn btn-ghost" style={{ width: "auto", padding: "8px 12px", flexShrink: 0 }} onClick={() => setShowArrival(true)}>
           <Printer size={14} /> Fișa de sosire

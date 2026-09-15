@@ -2244,7 +2244,11 @@ label.field input, label.field select, label.field textarea{ cursor:auto; }
   background:var(--accent); color:#fff; padding:1px 4px; border-radius:3px; flex-shrink:0;
 }
 .list-row .primary .bar-nou{ vertical-align:1px; margin-left:5px; }
-.tag-nou{ background:var(--accent); color:#fff; margin-left:6px; }
+.tag-nou{ background:var(--accent); color:#fff; }
+/* Capul fisei „Vezi rezervarea": starea, „Nouă" si etichetele (VIP...) pe
+   un singur rand, aliniate pe mijloc; VIP e mai mic decat eticheta de
+   stare, de aici align-items. */
+.fisa-etichete{ display:flex; flex-wrap:wrap; align-items:center; gap:6px; margin-top:6px; }
 
 /* Eticheta unei sectiuni cu starea ei pe acelasi rand (acces, fisa de
    cazare): pe telefon, o propozitie sub fiecare eticheta impingea folio-ul
