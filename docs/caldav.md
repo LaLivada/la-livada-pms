@@ -15,15 +15,15 @@ Synology; evenimentele nu au nicio legătură cu rezervările pe camere
 | XML-ul cererilor WebDAV | `supabase/functions/caldav/xml.ts` |
 | Intrarea Deno: Basic auth, depozitul pe Supabase, importul .ics | `supabase/functions/caldav/index.ts` |
 | Tabelele `caldav_calendare`, `caldav_obiecte`, `caldav_conturi` | migrarea `20260915152127_sali_caldav` |
-| Ecranul „Săli și CalDAV” (admin) și panoul din „Contul tău” | `src/features/caldav.jsx`, `src/data/caldav.js` |
-| Teste | `src/caldav-ics.test.js`, `src/caldav-servitor.test.js` |
+| Ecranul „Evenimente” (admin: calendarul pe ani, serverul și sălile) și panoul din „Contul tău” | `src/features/caldav.jsx`, `src/data/caldav.js`, `src/lib/evenimente-an.js` |
+| Teste | `src/caldav-ics.test.js`, `src/caldav-servitor.test.js`, `src/evenimente-an.test.js`, `src/evenimente-ecran.test.js` |
 
 Funcția e deployată cu `--no-verify-jwt`: clienții CalDAV trimit
 `Authorization: Basic`, nu JWT Supabase. Validarea e în funcție.
 
 ## Cum se folosește
 
-1. **Admin, Setări → Săli și CalDAV**: adaugă câte un calendar pentru
+1. **Admin, Setări → Evenimente → Serverul & săli**: adaugă câte un calendar pentru
    fiecare sală (nume, culoare). Pentru mutarea de pe Synology: exportă
    fiecare calendar ca `.ics` din Synology Calendar și importă-l în sala
    lui cu butonul de import. Importul împarte fișierul în obiecte per UID
@@ -40,6 +40,19 @@ Funcția e deployată cu `--no-verify-jwt`: clienții CalDAV trimit
 3. Calendarele noi se creează doar din PMS. `MKCALENDAR` nu trece de
    poarta Supabase (răspunde 501), deci telefonul nu poate crea calendare
    sub acest cont; nici nu e nevoie.
+
+## Ecranul Evenimente (15 septembrie 2026)
+
+Setări → Evenimente are două taburi. **Calendar pe ani**: cele 12 luni ale
+unui an, cu o bulină colorată pe zi pentru fiecare sală care are ceva
+atunci; o zi apăsată își desface lista (titlu, sală, oră sau interval) chiar
+sub luna ei; sălile din legendă se ascund/arată cu un clic, iar anul se
+schimbă cu săgețile. **Serverul & săli**: adresa serverului, sălile (nume,
+culoare) și importul `.ics`. Zilele sunt cele de la Vaslui
+(`src/lib/timp.js`); DTEND e exclusiv, deci un eveniment de toată ziua
+5–7 iunie se termină pe 8 la 00:00 și ocupă trei zile. Seriile recurente
+apar doar la prima lor dată, marcate „se repetă” (expandarea RRULE rămâne
+pentru mai târziu).
 
 ## De ce nu există o adresă scurtă (15 septembrie 2026)
 

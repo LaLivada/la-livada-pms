@@ -1,14 +1,18 @@
-/* SALI SI CALDAV (etapa 1, 15 septembrie 2026): ecranul adminului cu
- * calendarele salilor de evenimente (nume, culoare, import .ics) si panoul
- * din „Contul tau" de unde fiecare user isi ia parola CalDAV pentru
+/* EVENIMENTE — salile si CalDAV (etapa 1, 15 septembrie 2026; ecranul cu
+ * doua taburi in aceeasi zi): „Calendar pe ani" — evenimentele tuturor
+ * salilor, an cu an, pe 12 luni mici — si „Serverul & sali" — calendarele
+ * salilor (nume, culoare, import .ics) si adresa serverului. Tot aici e
+ * panoul din „Contul tau" de unde fiecare user isi ia parola CalDAV pentru
  * telefon. Serverul e functia supabase/functions/caldav; datele in
- * data/caldav.js.
+ * data/caldav.js; aritmetica pe zile in lib/evenimente-an.js.
  */
-import React, { useCallback, useEffect, useRef, useState } from "react";
-import { Plus, Trash2, Upload, Copy, KeyRound, Check, Pencil, X } from "lucide-react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Plus, Trash2, Upload, Copy, KeyRound, Check, Pencil, X, CalendarDays, Server, ChevronLeft, ChevronRight } from "lucide-react";
 import { toaster } from "../ui/primitive.jsx";
 import { mesajEroare } from "../lib/errors.js";
 import { fmtDateTime } from "../lib/format.js";
+import { dataLocala, partiLocale } from "../lib/timp.js";
+import { ZILE_SAPT_SCURT, cheieZi, descriereMoment, grupeazaPeZile, luniAnului, numarPeLuni, titluZi, zileleEvenimentului } from "../lib/evenimente-an.js";
 import * as date from "../data/caldav.js";
 import * as datePersonal from "../data/personal.js";
 
@@ -22,14 +26,183 @@ const ADRESA_SERVER = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/caldav/
 const adresaPrincipal = (utilizator) => `${ADRESA_SERVER}principals/${utilizator}/`;
 const CULORI = ["#2B5C8A", "#C2410C", "#0F766E", "#7C3AED", "#B45309", "#BE123C", "#4D7C0F", "#1D4ED8"];
 
+const plural = (n) => `${n} ${n === 1 ? "eveniment" : "evenimente"}`;
+
 async function copiaza(text, ce) {
   try { await navigator.clipboard.writeText(text); toaster.show(`${ce} copiat`, { tone: "ok" }); }
   catch { toaster.show("Nu am putut copia; selectează textul și copiază-l manual.", { tone: "danger" }); }
 }
 
-/* ---------- ecranul adminului ---------- */
+/* Bulina colorata a unei sali, ca SVG, nu ca stil inline: culoarea e a
+   salii, iar plafonul din stiluri-inline.test.js nu creste. */
+function Bulina({ culoare, marime = 14, className = "" }) {
+  return (
+    <svg className={className} width={marime} height={marime} viewBox="0 0 14 14" aria-hidden="true">
+      <circle cx="7" cy="7" r="7" fill={culoare || CULORI[0]} />
+    </svg>
+  );
+}
 
-export function SaliView() {
+/* ---------- ecranul adminului: doua taburi ---------- */
+
+export function EvenimenteView() {
+  const [tab, setTab] = useState("calendar");
+  return (
+    <div className="evenimente">
+      <div className="sub-tabs" role="tablist" aria-label="Secțiuni">
+        <button type="button" role="tab" aria-selected={tab === "calendar"} className={tab === "calendar" ? "on" : ""} onClick={() => setTab("calendar")}>
+          <CalendarDays size={14} /> Calendar pe ani
+        </button>
+        <button type="button" role="tab" aria-selected={tab === "server"} className={tab === "server" ? "on" : ""} onClick={() => setTab("server")}>
+          <Server size={14} /> Serverul &amp; săli
+        </button>
+      </div>
+      {tab === "calendar" ? <CalendarAnual /> : <ServerSiSali />}
+    </div>
+  );
+}
+
+/* ---------- tabul „Calendar pe ani" ---------- */
+
+/* 12 luni mici, cu cate o bulina pe zi pentru fiecare sala care are ceva
+   atunci. Ziua apasata isi desface lista chiar sub luna ei (pe telefon
+   lunile stau una sub alta, iar o lista la capatul paginii ar fi departe
+   de ziua apasata). Legenda ascunde/arata salile; anul se schimba cu
+   sagetile. Seriile recurente apar doar la prima lor data (functia nu
+   expandeaza RRULE), marcate „se repeta". */
+function CalendarAnual() {
+  const anAzi = partiLocale(Date.now())?.an ?? new Date().getFullYear();
+  const azi = dataLocala(Date.now());
+  const [an, setAn] = useState(anAzi);
+  const [calendare, setCalendare] = useState([]);
+  const [evenimente, setEvenimente] = useState([]);
+  const [seIncarca, setSeIncarca] = useState(true);
+  const [ascunse, setAscunse] = useState(() => new Set());
+  const [ziAleasa, setZiAleasa] = useState(null);
+
+  useEffect(() => {
+    let viu = true;
+    date.listeazaCalendare()
+      .then((c) => { if (viu) setCalendare(c); })
+      .catch((e) => { if (viu) toaster.show(mesajEroare(e, "Nu am putut citi sălile."), { tone: "danger" }); });
+    return () => { viu = false; };
+  }, []);
+
+  useEffect(() => {
+    let viu = true;
+    setSeIncarca(true);
+    date.listeazaEvenimente(an)
+      .then((ev) => { if (viu) setEvenimente(ev); })
+      .catch((e) => { if (viu) toaster.show(mesajEroare(e, "Nu am putut citi evenimentele."), { tone: "danger" }); })
+      .finally(() => { if (viu) setSeIncarca(false); });
+    return () => { viu = false; };
+  }, [an]);
+
+  const salaDupaId = useMemo(() => new Map(calendare.map((c) => [c.id, c])), [calendare]);
+  const ordineSala = useMemo(() => {
+    const m = new Map(calendare.map((c, i) => [c.id, i]));
+    return (id) => m.get(id) ?? calendare.length;
+  }, [calendare]);
+  /* Evenimentele care ating anul, indiferent de filtre: numerele din legenda. */
+  const inAn = useMemo(() => {
+    const prefix = `${an}-`;
+    return evenimente.filter((e) => zileleEvenimentului(e).some((z) => z.startsWith(prefix)));
+  }, [evenimente, an]);
+  const numarPeSala = useMemo(() => {
+    const n = {};
+    for (const e of inAn) n[e.calendar_id] = (n[e.calendar_id] || 0) + 1;
+    return n;
+  }, [inAn]);
+  const peZile = useMemo(() => grupeazaPeZile(inAn.filter((e) => !ascunse.has(e.calendar_id)), an, ordineSala), [inAn, ascunse, an, ordineSala]);
+  const peLuni = useMemo(() => numarPeLuni(peZile), [peZile]);
+  const luni = useMemo(() => luniAnului(an), [an]);
+
+  const schimbaAn = (nou) => { setAn(nou); setZiAleasa(null); };
+  const comuta = (id) => setAscunse((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+
+  return (
+    <div className="calendar-an">
+      <div className="an-cap">
+        <div className="an-nav">
+          <button type="button" className="icon-btn" onClick={() => schimbaAn(an - 1)} aria-label="Anul anterior"><ChevronLeft size={16} /></button>
+          <strong>{an}</strong>
+          <button type="button" className="icon-btn" onClick={() => schimbaAn(an + 1)} aria-label="Anul următor"><ChevronRight size={16} /></button>
+          {an !== anAzi && <button type="button" className="btn btn-ghost sala-btn" onClick={() => schimbaAn(anAzi)}>Anul curent</button>}
+        </div>
+        <span className="sali-nota">{seIncarca ? "Se încarcă…" : `${plural(inAn.length)} în ${an}`}</span>
+        <div className="an-legenda" role="group" aria-label="Săli: apasă ca să ascunzi sau să arăți">
+          {calendare.map((c) => (
+            <button type="button" key={c.id} className={ascunse.has(c.id) ? "ascuns" : ""} aria-pressed={!ascunse.has(c.id)}
+              onClick={() => comuta(c.id)} title={ascunse.has(c.id) ? `Arată ${c.nume}` : `Ascunde ${c.nume}`}>
+              <Bulina culoare={c.culoare} marime={10} /> {c.nume} <span className="an-nr">{numarPeSala[c.id] || 0}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="an-grila">
+        {luni.map((l, i) => {
+          const prefixLuna = `${an}-${String(l.luna).padStart(2, "0")}-`;
+          const listaZi = ziAleasa && ziAleasa.startsWith(prefixLuna) ? peZile.get(ziAleasa) : null;
+          return (
+            <section className="panel luna" key={l.luna} aria-label={`${l.nume} ${an}`}>
+              <div className="luna-cap">
+                <h4>{l.nume}</h4>
+                {peLuni[i] > 0 && <span className="sali-nota">{plural(peLuni[i])}</span>}
+              </div>
+              <div className="luna-zile">
+                {ZILE_SAPT_SCURT.map((z, k) => <span className="zs" key={k} aria-hidden="true">{z}</span>)}
+                {Array.from({ length: l.decalaj }, (_, k) => <span className="zi gol" key={`gol-${k}`} />)}
+                {Array.from({ length: l.zile }, (_, k) => {
+                  const zi = k + 1;
+                  const cheie = cheieZi(an, l.luna, zi);
+                  const lista = peZile.get(cheie);
+                  const clase = ["zi", cheie === azi ? "azi" : "", lista ? "cu" : "", cheie === ziAleasa ? "on" : ""].filter(Boolean).join(" ");
+                  if (!lista) return <span className={clase} key={cheie}>{zi}</span>;
+                  const sali = [...new Set(lista.map((e) => e.calendar_id))].map((id) => salaDupaId.get(id)).filter(Boolean);
+                  return (
+                    <button type="button" className={clase} key={cheie} aria-pressed={cheie === ziAleasa}
+                      aria-label={`${zi} ${l.nume}: ${plural(lista.length)}`}
+                      onClick={() => setZiAleasa(cheie === ziAleasa ? null : cheie)}>
+                      <span>{zi}</span>
+                      <span className="zi-pct">{sali.map((c) => <Bulina key={c.id} culoare={c.culoare} marime={5} />)}</span>
+                    </button>
+                  );
+                })}
+              </div>
+              {listaZi && (
+                <div className="zi-lista">
+                  <div className="zi-lista-cap">
+                    <strong>{titluZi(ziAleasa)}</strong>
+                    <button type="button" className="icon-btn" onClick={() => setZiAleasa(null)} aria-label="Închide lista zilei"><X size={14} /></button>
+                  </div>
+                  <ul>
+                    {listaZi.map((ev) => {
+                      const c = salaDupaId.get(ev.calendar_id);
+                      return (
+                        <li key={ev.id}>
+                          <Bulina culoare={c?.culoare} marime={10} />
+                          <span className="zi-ev">
+                            <span className="zi-ev-titlu">{ev.rezumat || "(fără titlu)"}</span>
+                            <span className="sali-nota">{c?.nume || "sală ștearsă"} · {descriereMoment(ev)}{ev.recurent ? " · se repetă" : ""}</span>
+                          </span>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              )}
+            </section>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/* ---------- tabul „Serverul & sali" ---------- */
+
+function ServerSiSali() {
   const [calendare, setCalendare] = useState([]);
   const [numar, setNumar] = useState({});
   const [seIncarca, setSeIncarca] = useState(true);
@@ -117,15 +290,11 @@ export function SaliView() {
               </>
             ) : (
               <>
-                {/* Bulina colorata ca SVG, nu ca stil inline: culoarea e a salii,
-                    iar plafonul din stiluri-inline.test.js nu creste. */}
-                <svg className="sala-culoare" width="14" height="14" viewBox="0 0 14 14" aria-hidden="true">
-                  <circle cx="7" cy="7" r="7" fill={c.culoare || CULORI[0]} />
-                </svg>
+                <Bulina className="sala-culoare" culoare={c.culoare} />
                 <span className="sala-info">
                   <span className="sala-nume">{c.nume}</span>
                   <span className="sala-meta">
-                    {numar[c.id] || 0} evenimente · <span className="mono">{c.slug}</span>
+                    {plural(numar[c.id] || 0)} · <span className="mono">{c.slug}</span>
                     {c.actualizat_la ? ` · schimbat ${fmtDateTime(new Date(c.actualizat_la))}` : ""}
                   </span>
                 </span>

@@ -1,6 +1,7 @@
 // @ts-check
-/* Salile de evenimente si contul CalDAV — datele pentru ecranul „Sali si
-   CalDAV" (admin) si pentru „Contul tau" (fiecare user). Serverul CalDAV
+/* Salile de evenimente si contul CalDAV — datele pentru ecranul „Evenimente"
+   (admin: calendarul pe ani, serverul si salile) si pentru „Contul tau"
+   (fiecare user). Serverul CalDAV
    propriu-zis e functia supabase/functions/caldav; aici sunt doar tabelele
    lui (caldav_calendare, caldav_obiecte, caldav_conturi) si importul de
    fisiere .ics, care trece prin functie (parsarea sta intr-un singur loc).
@@ -9,6 +10,7 @@
    baza ajunge doar hash-ul ei SHA-256 (caldav_conturi.parola_hash). Functia
    compara hash-ul la fiecare cerere a telefonului. */
 import { supabase } from "../supabase.js";
+import { fereastraAnului } from "../lib/evenimente-an.js";
 
 const CALENDAR = "id, slug, nume, culoare, ordine, ctag, activ, creat_la, actualizat_la";
 
@@ -126,4 +128,21 @@ export async function importaICS(slug, text) {
   });
   if (error) throw error;
   return data;
+}
+
+/** @typedef {{ id: string, calendar_id: string, uid: string | null, rezumat: string | null, incepe: string | null, se_termina: string | null, toata_ziua: boolean, recurent: boolean }} EvenimentSala */
+
+/* Evenimentele vii care ating un an (cu o zi in plus de fiecare parte, ora
+   hotelului — fereastraAnului); asezarea exacta pe zile o face
+   lib/evenimente-an.js. Fara paginare: un an are sute de evenimente, nu mii
+   (PostgREST taie oricum la 1000 de randuri). */
+/** @param {number} an @returns {Promise<EvenimentSala[]>} */
+export async function listeazaEvenimente(an) {
+  const { de, la } = fereastraAnului(an);
+  const { data, error } = await supabase.from("caldav_obiecte")
+    .select("id, calendar_id, uid, rezumat, incepe, se_termina, toata_ziua, recurent")
+    .eq("sters", false).lt("incepe", la).gt("se_termina", de)
+    .order("incepe");
+  if (error) throw error;
+  return data || [];
 }

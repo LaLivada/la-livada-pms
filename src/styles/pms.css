@@ -2071,8 +2071,9 @@ label.field input, label.field select, label.field textarea{ cursor:auto; }
 .cont-optiune .mode-switch{ margin-bottom:0; }
 .cont-optiune-eticheta{ font-size:var(--fs-sm); font-weight:600; color:var(--text-muted); }
 .cont-optiune-nota{ font-size:var(--fs-xs); color:var(--text-muted); line-height:1.45; }
-/* Sali si CalDAV (15 septembrie 2026): ecranul adminului si panoul din
-   Contul tau (features/caldav.jsx). */
+/* Evenimente — Sali si CalDAV (15 septembrie 2026): ecranul adminului
+   (taburile „Calendar pe ani" si „Serverul & sali") si panoul din Contul
+   tau (features/caldav.jsx). */
 .sali{ display:grid; gap:14px; max-width:820px; }
 .sali-server{ padding:14px 18px; display:grid; gap:8px; }
 .sali-server-t{ display:flex; align-items:center; gap:8px; font-weight:650; font-size:var(--fs-md); }
@@ -2091,6 +2092,46 @@ label.field input, label.field select, label.field textarea{ cursor:auto; }
 .sala-nume-input{ flex:1; min-width:0; }
 .sala-btn{ width:auto; padding:8px 12px; white-space:nowrap; }
 .sala-adauga{ display:flex; gap:8px; align-items:center; padding:12px 18px; border-top:1px solid var(--border); }
+/* Calendar pe ani: 12 luni mici, cu cate o bulina pe zi pentru fiecare sala
+   care are ceva atunci; ziua apasata isi desface lista chiar sub luna ei,
+   ca pe telefon (lunile una sub alta) sa nu fugi in josul paginii. */
+.evenimente{ display:grid; }
+.an-cap{ display:flex; align-items:center; gap:10px 14px; flex-wrap:wrap; margin-bottom:14px; }
+.an-nav{ display:flex; align-items:center; gap:6px; }
+.an-nav strong{ font-size:var(--fs-lg); min-width:4ch; text-align:center; font-variant-numeric:tabular-nums; }
+.an-legenda{ display:flex; flex-wrap:wrap; gap:6px; margin-left:auto; }
+.an-legenda button{
+  display:inline-flex; align-items:center; gap:6px; padding:5px 10px; border:1px solid var(--border);
+  border-radius:999px; background:var(--surface); color:var(--text); font:inherit; font-size:var(--fs-xs);
+  font-weight:600; cursor:pointer; transition:opacity .15s, background .15s;
+}
+.an-legenda button.ascuns{ opacity:.45; text-decoration:line-through; }
+.an-legenda .an-nr{ color:var(--text-muted); font-weight:500; font-variant-numeric:tabular-nums; }
+.an-grila{ display:grid; grid-template-columns:repeat(auto-fill, minmax(230px, 1fr)); gap:12px; align-items:start; }
+.luna{ padding:10px 12px 12px; }
+.luna-cap{ display:flex; justify-content:space-between; align-items:baseline; gap:8px; margin-bottom:6px; }
+.luna-cap h4{ margin:0; font-size:var(--fs-sm); text-transform:capitalize; }
+.luna-zile{ display:grid; grid-template-columns:repeat(7, minmax(0, 1fr)); gap:2px; }
+.luna-zile .zs{ text-align:center; font-size:10px; font-weight:600; color:var(--text-muted); padding-bottom:2px; }
+.zi{
+  aspect-ratio:1; min-width:0; border:none; border-radius:6px; background:transparent; padding:3px 0 0;
+  display:flex; flex-direction:column; align-items:center; gap:2px; font:inherit; font-size:11px; line-height:1;
+  color:var(--text); font-variant-numeric:tabular-nums;
+}
+.zi.gol{ visibility:hidden; }
+.zi.cu{ cursor:pointer; background:var(--surface-2); font-weight:650; transition:background .15s; }
+.zi.cu:hover{ background:var(--accent-soft); }
+.zi.cu:focus-visible{ outline:2px solid var(--accent-strong); outline-offset:1px; }
+.zi.on, .zi.on:hover{ background:var(--accent-soft); box-shadow:inset 0 0 0 2px var(--accent-strong); }
+.zi.azi{ box-shadow:inset 0 0 0 1px var(--accent-strong); }
+.zi-pct{ display:flex; gap:1px; height:5px; }
+.zi-lista{ margin-top:10px; padding-top:8px; border-top:1px solid var(--border-soft); display:grid; gap:6px; }
+.zi-lista-cap{ display:flex; align-items:center; justify-content:space-between; gap:8px; font-size:var(--fs-sm); }
+.zi-lista ul{ list-style:none; margin:0; padding:0; display:grid; gap:6px; }
+.zi-lista li{ display:flex; align-items:flex-start; gap:8px; }
+.zi-lista li svg{ margin-top:4px; flex-shrink:0; }
+.zi-ev{ display:grid; min-width:0; }
+.zi-ev-titlu{ font-weight:600; font-size:var(--fs-sm); overflow-wrap:anywhere; }
 .cont-caldav{ padding:14px 20px; border-bottom:1px solid var(--border); display:grid; gap:8px; }
 .cont-caldav-actiuni{ display:flex; flex-wrap:wrap; gap:8px; }
 .cont-caldav-actiuni .btn{ width:auto; padding:8px 12px; }
