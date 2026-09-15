@@ -225,8 +225,8 @@
   display:block; font-size:var(--fs-xl); font-weight:650; letter-spacing:-0.025em; color:var(--text);
   white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
 }
-/* Logo-ul auriu din dreapta antetului (public/logo.svg, 360×90.9): un clic
-   reincarca pagina (pms-app.jsx, reincarca). */
+/* Logo-ul auriu din dreapta antetului (public/logo-text.svg — literele fara
+   copac, 280×76): un clic reincarca pagina (pms-app.jsx, reincarca). */
 .logo-btn{
   display:flex; align-items:center; background:none; border:none; padding:4px 0 4px 6px;
   border-radius:var(--r-sm); flex-shrink:0; touch-action:manipulation;

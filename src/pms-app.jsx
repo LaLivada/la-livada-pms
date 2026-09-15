@@ -1545,7 +1545,9 @@ function Shell({ user, view, setView, onLogout, noutati, core, updateCore, reser
             )}
             <button className="logo-btn" onClick={reincarca}
               title="La Livadă · reîncarcă pagina, rămânând aici" aria-label="Reîncarcă pagina">
-              <img src="/logo.svg" alt="La Livadă" />
+              {/* Fara copac (cerut pe 15 septembrie 2026): doar literele,
+                  decupate din logo.svg. */}
+              <img src="/logo-text.svg" alt="La Livadă" />
             </button>
           </div>
         </header>
