@@ -4,11 +4,11 @@
     { "source": "/.well-known/caldav", "destination": "/caldav/", "permanent": true }
   ],
   "rewrites": [
-    { "source": "/caldav", "destination": "https://suoowrginsliyrbxqeap.supabase.co/functions/v1/caldav/" },
-    { "source": "/caldav/", "destination": "https://suoowrginsliyrbxqeap.supabase.co/functions/v1/caldav/" },
-    { "source": "/caldav/:cale+", "destination": "https://suoowrginsliyrbxqeap.supabase.co/functions/v1/caldav/:cale+" },
-    { "source": "/functions/v1/caldav/", "destination": "https://suoowrginsliyrbxqeap.supabase.co/functions/v1/caldav/" },
-    { "source": "/functions/v1/caldav/:cale+", "destination": "https://suoowrginsliyrbxqeap.supabase.co/functions/v1/caldav/:cale+" }
+    { "source": "/caldav", "destination": "https://suoowrginsliyrbxqeap.supabase.co/functions/v1/caldav/?prin=pms" },
+    { "source": "/caldav/", "destination": "https://suoowrginsliyrbxqeap.supabase.co/functions/v1/caldav/?prin=pms" },
+    { "source": "/caldav/:cale+", "destination": "https://suoowrginsliyrbxqeap.supabase.co/functions/v1/caldav/:cale+?prin=pms" },
+    { "source": "/functions/v1/caldav/", "destination": "https://suoowrginsliyrbxqeap.supabase.co/functions/v1/caldav/?prin=pms" },
+    { "source": "/functions/v1/caldav/:cale+", "destination": "https://suoowrginsliyrbxqeap.supabase.co/functions/v1/caldav/:cale+?prin=pms" }
   ],
   "headers": [
     {

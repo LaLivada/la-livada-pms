@@ -32,13 +32,29 @@ Funcția e deployată cu `--no-verify-jwt`: clienții CalDAV trimit
 2. **Fiecare user, Useri și drepturi → Contul tău**: „Generează parola”.
    Parola apare o singură dată; în bază stă doar SHA-256 al ei. Apoi, pe
    iPhone: Configurări → Aplicații → Calendar → Conturi → Adaugă cont →
-   Altul → Adaugă cont CalDAV, cu serverul
-   `https://<project>.supabase.co/functions/v1/caldav/principals/<email>/`,
-   utilizatorul = emailul de login, parola generată. Pe Mac: cont CalDAV
-   „Avansat”, cu adresa serverului, calea de mai sus, portul 443 și SSL.
+   Altul → Adaugă cont CalDAV, cu serverul `pms.lalivada.ro` (atât),
+   utilizatorul = emailul de login, parola generată; telefonul găsește
+   principalul prin `/.well-known/caldav`. Pe Mac: cont CalDAV „Automat”
+   cu același server. Rezervă, dacă adresa scurtă nu merge: adresa completă
+   `https://<project>.supabase.co/functions/v1/caldav/principals/<email>/`
+   (pe Mac, tip „Avansat”, port 443, SSL).
 3. Calendarele noi se creează doar din PMS. `MKCALENDAR` nu trece de
    poarta Supabase (răspunde 501), deci telefonul nu poate crea calendare
    sub acest cont; nici nu e nevoie.
+
+## Adresa scurtă: pms.lalivada.ro
+
+`vercel.json` trimite `/.well-known/caldav` cu 308 la `/caldav/` și
+rescrie `/caldav/*` (și `/functions/v1/caldav/*`) către funcția
+Supabase, deci serverul se vede și pe domeniul PMS-ului. Rescrierea pune
+marcajul `?prin=pms` (Vercel nu trimite gazda publică mai departe, iar în
+funcția hostată `host` e `edge-runtime.supabase.com`), după care funcția
+alege baza hrefurilor `/caldav`; fără marcaj, `/functions/v1/caldav`
+(adresa lungă). Dacă protecția
+anti-bot a Vercel provoacă clienții CalDAV (pagina „Vercel Security
+Checkpoint”, antetul `x-vercel-mitigated: challenge`), în Vercel →
+proiect → Firewall se pune o regulă Bypass pentru `/caldav/*` și
+`/.well-known/caldav`.
 
 ## Protocolul, pe scurt
 

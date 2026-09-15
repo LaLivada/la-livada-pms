@@ -15,7 +15,7 @@
 //
 // deno-lint-ignore-file no-explicit-any
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { adreseDinCale, serveste, type Calendar, type Cont, type Depozit, type FiltruObiecte, type Obiect } from "./servitor.ts";
+import { adreseDinCale, DOMENII_PMS, serveste, type Calendar, type Cont, type Depozit, type FiltruObiecte, type Obiect } from "./servitor.ts";
 import { imparteInObiecte, rezumaObiect, type RezumatObiect } from "./ics.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -192,7 +192,7 @@ async function importa(req: Request, slug: string): Promise<Response> {
    ca sa se vada ce a cerut telefonul si ce am refuzat. Fara Authorization. */
 function jurnal(req: Request, cale: string, stare: number, ms: number, corpCerere: string, corpRaspuns: string) {
   const ua = (req.headers.get("user-agent") || "-").split(" ").pop();
-  const gazda = req.headers.get("x-forwarded-host") || req.headers.get("host") || "-";
+  const gazda = new URL(req.url).searchParams.get("prin") === "pms" ? "pms(proxy)" : (req.headers.get("x-forwarded-host") || req.headers.get("host") || "-");
   let linie = `caldav ${req.method} ${cale} depth=${req.headers.get("depth") ?? "-"} -> ${stare} (${ms}ms) ${ua} gazda=${gazda}`;
   if (stare === 401) linie += ` motiv=${motivRefuz || "-"}`;
   if (stare >= 400 && stare !== 401) linie += ` cerere=${JSON.stringify(corpCerere.slice(0, 700))} raspuns=${JSON.stringify(corpRaspuns.slice(0, 700))}`;
@@ -202,8 +202,11 @@ function jurnal(req: Request, cale: string, stare: number, ms: number, corpCerer
 /* ---------- intrarea ---------- */
 
 Deno.serve(async (req) => {
-  const gazdaPublica = req.headers.get("x-forwarded-host") || req.headers.get("host") || "";
-  const { baza, cale } = adreseDinCale(new URL(req.url).pathname, gazdaPublica);
+  /* Rescrierea Vercel (pms.lalivada.ro/caldav/*) pune ?prin=pms, fiindca
+     gazda publica nu ajunge pana aici (host e edge-runtime.supabase.com). */
+  const url = new URL(req.url);
+  const gazdaPublica = url.searchParams.get("prin") === "pms" ? DOMENII_PMS[0] : (req.headers.get("x-forwarded-host") || req.headers.get("host") || "");
+  const { baza, cale } = adreseDinCale(url.pathname, gazdaPublica);
 
   if (cale.startsWith("/import/")) {
     if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: cors(req) });
