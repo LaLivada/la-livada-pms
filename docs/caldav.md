@@ -3,8 +3,9 @@
 *Etapa 1, 15 septembrie 2026.* PMS-ul găzduiește calendarele sălilor de
 evenimente și le servește prin CalDAV, ca aplicația Calendar de pe iPhone
 sau Mac să le vadă și să scrie în ele. Înlocuiește calendarul de pe
-Synology; evenimentele nu au nicio legătură cu rezervările pe camere
-(blocarea camerelor în zilele cu evenimente vine într-o etapă următoare).
+Synology. Din 16 septembrie 2026 zilele cu evenimente își blochează singure
+camerele în calendarul de rezervări, ca să nu se mai rezerve online (vezi
+mai jos).
 
 ## Piese
 
@@ -16,7 +17,8 @@ Synology; evenimentele nu au nicio legătură cu rezervările pe camere
 | Intrarea Deno: Basic auth, depozitul pe Supabase, importul .ics | `supabase/functions/caldav/index.ts` |
 | Tabelele `caldav_calendare`, `caldav_obiecte`, `caldav_conturi` | migrarea `20260915152127_sali_caldav`, apoi `caldav_obiecte_anulat` |
 | Ecranul „Evenimente” (admin: calendarul pe ani, serverul și sălile) și panoul din „Contul tău” | `src/features/caldav.jsx`, `src/data/caldav.js`, `src/lib/evenimente-an.js` |
-| Teste | `src/caldav-ics.test.js`, `src/caldav-servitor.test.js`, `src/caldav-date.test.js`, `src/evenimente-an.test.js`, `src/evenimente-ecran.test.js` |
+| Blocajele zilelor cu evenimente | `blocheaza_zilele_evenimentului`, `elibereaza_zilele_fara_evenimente`, triggerul `caldav_obiecte_blocaje` (schema.sql) |
+| Teste | `src/caldav-ics.test.js`, `src/caldav-servitor.test.js`, `src/caldav-date.test.js`, `src/evenimente-an.test.js`, `src/evenimente-ecran.test.js`, `src/blocaje-eveniment-ecran.test.js` |
 
 Funcția e deployată cu `--no-verify-jwt`: clienții CalDAV trimit
 `Authorization: Basic`, nu JWT Supabase. Validarea e în funcție.
@@ -77,19 +79,53 @@ Zilele sunt cele de la Vaslui
 apar doar la prima lor dată, marcate „se repetă” (expandarea RRULE rămâne
 pentru mai târziu).
 
-## Zilele cu evenimente nu se rezervă online (15 septembrie 2026)
+## Zilele cu evenimente se blochează în calendar (16 septembrie 2026)
 
 O nuntă ține toată pensiunea, iar camerele le împarte recepția cu nuntașii,
-nu site-ul cu cine nimerește. Funcția `zi_cu_eveniment(checkin, checkout)`
-răspunde dacă sejurul cerut atinge o zi cu eveniment, iar două porți o
-folosesc: `public_availability` (caută camere doar dacă ziua e liberă, și
-altfel explică de ce) și `create_public_booking` (cea care ține —
-căutarea se poate ocoli). Recepția nu e atinsă: din PMS se rezervă orice zi.
+nu site-ul cu cine nimerește. Deci **blocajul — nu evenimentul — e cel care
+închide ușa**: fiecare zi cu eveniment primește câte un blocaj pe fiecare
+cameră liberă, în chiar calendarul de rezervări, iar site-ul le vede ocupate
+prin exact regulile unei rezervări adevărate. **Scos blocajul, ziua se
+rezervă din nou, inclusiv online** — și îl poate scoate atât adminul, cât și
+recepționerul, din dialogul blocajului, ca pe oricare altul.
 
-Regula e generală, nu pe un an anume, iar sursa adevărului sunt chiar
-evenimentele: se mută un eveniment, se mută și ziua închisă; se anulează, se
-deschide ziua la loc. `DTEND` fiind exclusiv, un eveniment de toată ziua
-24→25 iulie închide noaptea de 24, dar nu și sosirea pe 25.
+Blocajul e un rând obișnuit din `reservations` (`source = 'blocaj'`), ca să
+meargă tot ce merge deja pentru blocajele de mentenanță: fără preț, fără
+rapoarte, ștergere din calendar. Ce-l face „de eveniment" e
+`external_source = 'eveniment'`, iar `external_uid` („ev:AAAALLZZ:camera") îl
+face unic pe zi și cameră. În calendar se vede chihlimbar, cu altă iconiță,
+și are rândul lui în legendă: **Rezervare evenimente**. Se numește doar
+„Evenimente", nu după mire și mireasă: acolo contează că ziua e ținută, nu
+de cine — iar `notes` de pe blocaje ajunge până la cameristă.
+
+O zi = o noapte: 14:00 → 11:00 a doua zi, ca orice sejur de o noapte, așa
+încât cine pleacă în dimineața nunții sau sosește a doua zi nu e atins.
+Camerele deja ocupate în acea noapte se sar — o rezervare adevărată e mai
+importantă decât blocajul.
+
+Le pune și le scoate triggerul `caldav_obiecte_blocaje`, la orice scriere în
+`caldav_obiecte` (import, ori PUT de pe telefon): eveniment nou sau mutat își
+blochează zilele, anulat sau șters și le eliberează — dar **numai zilele
+rămase fără niciun eveniment**, fiindcă o zi poate ține două nunți în săli
+diferite. Un eveniment doar redenumit nu atinge nimic, tocmai ca blocajele
+scoase de mână să nu reapară la următoarea sincronizare. `DTEND` fiind
+exclusiv, un eveniment de toată ziua 24→25 iulie închide noaptea de 24, dar
+nu și sosirea pe 25.
+
+Se blochează **de la 1 ianuarie 2027 înainte** (constanta `c_de_la` din
+`blocheaza_zilele_evenimentului`). Restul lui 2026 e sezonul în curs:
+înțelegerile pentru zilele cu nunți sunt deja făcute la telefon, iar
+închiderea lor acum n-ar apăra nimic. La umplerea inițială au intrat 64 de
+zile, 1024 de blocaje, până în octombrie 2028.
+
+Funcția `zi_cu_eveniment(checkin, checkout)` nu mai apără nimic — blocajele o
+fac singure. Ea doar recunoaște situația, citind blocajele, ca
+`public_availability` să dea explicația bună („avem un eveniment privat…")
+în loc de „nu mai sunt camere libere". Și o dă abia după ce chiar n-a găsit
+nimic: dacă recepția a scos blocajul de pe câteva camere, acelea se oferă.
+`create_public_booking` nu mai are poartă proprie — refuză de la sine, cu
+„nu mai sunt camere disponibile". Recepția nu e atinsă: din PMS se rezervă
+orice zi.
 
 ## De ce nu există o adresă scurtă (15 septembrie 2026)
 

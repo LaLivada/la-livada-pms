@@ -1907,40 +1907,27 @@ returns jsonb language sql stable security definer set search_path = public as $
 $$;
 
 
--- Zilele cu evenimente în săli nu se pot rezerva ONLINE (15 septembrie 2026).
+-- Sejurul cerut atinge o zi închisă de un eveniment? (16 septembrie 2026)
 --
 -- O nuntă în Grand'Or sau Magnifique ține toată pensiunea: camerele le
--- împarte recepția, cu nuntașii, nu site-ul cu cine nimerește. Regula e
--- generală, nu pe un an anume — orice zi de eveniment se închide online,
--- de acum înainte. Recepția NU e atinsă: ea rezervă în continuare orice zi.
+-- împarte recepția, cu nuntașii, nu site-ul cu cine nimerește. Zilele cu
+-- evenimente se închid online prin BLOCAJE puse în calendarul de rezervări
+-- (blocheaza_zilele_evenimentului, în secțiunea CalDAV): camerele blocate
+-- nu mai apar libere, prin exact regulile unei rezervări adevărate.
 --
--- Sursa adevărului sunt chiar evenimentele calendarului CalDAV, nu o listă
--- de zile ținută de mână: se mută un eveniment, se mută și ziua închisă.
--- Anulatele nu închid nimic (au și calendarul lor gri, vezi caldav.md).
---
--- Ziua evenimentului e cea de la Vaslui, iar DTEND e exclusiv: un eveniment
--- de toată ziua 24→25 iulie ocupă noaptea de 24, deci se ciocnește cu un
--- sejur care are 24 printre nopți (checkin 24, checkout 25), dar nu cu unul
--- care sosește pe 25.
---
--- Seriile recurente intră doar cu prima lor dată: serverul CalDAV nu
--- desfășoară RRULE. La sălile de evenimente nu există serii.
+-- Funcția asta nu apără nimic — blocajele o fac singure, ca orice rezervare.
+-- Ea doar recunoaște situația, ca oaspetele să primească explicația bună în
+-- loc de „nu mai sunt camere libere”. De aceea citește blocajele, nu
+-- evenimentele: se scot blocajele de mână (admin sau recepționer), ziua se
+-- rezervă din nou online și mesajul dispare odată cu ele.
 create or replace function zi_cu_eveniment(p_checkin timestamptz, p_checkout timestamptz)
 returns boolean language sql stable security definer set search_path = public as $$
   select exists (
-    select 1
-      from caldav_obiecte o
-      join caldav_calendare c on c.id = o.calendar_id
-     where not o.sters
-       and not o.anulat
-       and c.activ
-       and c.slug <> 'anulate'
-       and o.incepe is not null
-       and (o.incepe at time zone 'Europe/Bucharest')::date
-             <= (p_checkout at time zone 'Europe/Bucharest')::date - 1
-       and (coalesce(o.se_termina - interval '1 millisecond', o.incepe)
-              at time zone 'Europe/Bucharest')::date
-             >= (p_checkin at time zone 'Europe/Bucharest')::date
+    select 1 from reservations r
+     where r.external_source = 'eveniment'
+       and r.source = 'blocaj'
+       and r.status not in ('cancelled', 'noshow')
+       and tstzrange(r.checkin, r.checkout, '[)') && tstzrange(p_checkin, p_checkout, '[)')
   );
 $$;
 
@@ -1984,10 +1971,6 @@ begin
   end if;
   if p_checkin > now() + interval '400 day' then
     return jsonb_build_object('error', 'Se pot căuta date doar în următoarele 400 de zile.');
-  end if;
-  -- Zi cu eveniment în săli: nu mai căutăm camere, spunem de ce.
-  if zi_cu_eveniment(p_checkin, p_checkout) then
-    return jsonb_build_object('error', 'În perioada aleasă avem un eveniment privat la noi și nu primim rezervări online. Sună-ne, vedem ce camere putem ține pentru tine.');
   end if;
 
   select (public_capacity()->>'maxGuests')::int into v_max_online;
@@ -2044,7 +2027,13 @@ begin
       'guests',  jsonb_build_object('adults', v_ad, 'children', v_cop, 'total', v_pers),
       'options', v_optiuni,
       'error',
-        case when v_min_camere is not null then format(
+        -- Zi cu eveniment: blocajele au mâncat camerele, iar omul merită
+        -- explicația adevărată, nu „nu mai sunt camere libere”. Se caută
+        -- oricum înainte: dacă recepția a scos blocajul de pe câteva
+        -- camere, acelea se oferă și nu se mai ajunge aici.
+        case when zi_cu_eveniment(p_checkin, p_checkout) then
+          'În perioada aleasă avem un eveniment privat la noi și nu primim rezervări online. Sună-ne, vedem ce camere putem ține pentru tine.'
+        when v_min_camere is not null then format(
           'Pentru %s persoane sunt necesare %s camere, iar în fiecare trebuie să fie cel puțin un adult. Ai nevoie de cel puțin %s adulți sau de mai puține persoane.',
           v_pers, v_min_camere, v_min_camere)
         else 'Nu mai sunt camere libere pentru perioada și numărul de persoane alese.'
@@ -2223,14 +2212,6 @@ begin
   -- expiră oricum.
   if coalesce(p_hold_minutes, 0) > 0 and coalesce(trim(p_email),'') = '' then
     raise exception 'Emailul e obligatoriu pentru rezervarea online.';
-  end if;
-
-  -- Aceeași ușă ca la căutare, dar asta e cea care ține: căutarea se poate
-  -- ocoli, crearea nu. Înainte de plafoane, ca o zi închisă să nu consume
-  -- din cota omului. Mesajul ajunge la oaspete așa cum e scris (funcția
-  -- edge booking-create îl dă mai departe).
-  if zi_cu_eveniment(p_checkin, p_checkout) then
-    raise exception 'În perioada aleasă avem un eveniment privat la noi și nu primim rezervări online. Sună-ne, vedem ce camere putem ține pentru tine.';
   end if;
 
   -- 3. RATE-LIMIT, pe trei paliere.
@@ -2644,7 +2625,11 @@ select r.id,
        -- Motivul unui blocaj („Reparație instalație") se vede pe calendar și
        -- la cameristă — e informație de treabă. `notes` de pe o rezervare
        -- adevărată nu: acolo scrie despre oaspete.
-       case when r.source = 'blocaj' then r.notes end as notes
+       case when r.source = 'blocaj' then r.notes end as notes,
+       -- Doar pentru blocaje, din același motiv: pe o rezervare adevărată
+       -- ar spune că a venit de pe site. Calendarul deosebește după ea
+       -- blocajul unei zile cu eveniment de cel de mentenanță.
+       case when r.source = 'blocaj' then r.external_source end as external_source
 from reservations r
 where staff_role() is not null;
 
@@ -5355,6 +5340,146 @@ $$;
 create trigger caldav_obiecte_schimbare
   before insert or update on caldav_obiecte
   for each row execute function caldav_obiect_schimbat();
+
+-- ZILELE CU EVENIMENTE SE BLOCHEAZĂ ÎN CALENDAR (16 septembrie 2026)
+--
+-- O nuntă ține toată pensiunea, iar camerele le împarte recepția cu
+-- nuntașii, nu site-ul cu cine nimerește. Deci BLOCAJUL — nu evenimentul —
+-- e cel care închide ușa: camerele blocate nu mai sunt libere pentru
+-- nimeni, iar site-ul le vede ocupate prin exact aceleași reguli ca la o
+-- rezervare adevărată. Scos blocajul, ziua se deschide, fără nimic special
+-- de reținut (vezi zi_cu_eveniment, care doar recunoaște situația).
+--
+-- Blocajul e un rând obișnuit din `reservations` (source = 'blocaj'), ca să
+-- meargă tot ce merge deja pentru blocajele de mentenanță: triggerul de
+-- preț, excluderea din rapoarte, ștergerea din calendar de către admin și
+-- recepționer. Ce-l face „de eveniment” e `external_source = 'eveniment'`;
+-- `external_uid` („ev:AAAALLZZ:camera”) îl face unic pe zi și cameră, iar
+-- indexul res_extern_unic face re-crearea idempotentă.
+--
+-- Se numește doar „Evenimente”, nu după mire și mireasă: calendarul de
+-- rezervări e alt ecran decât cel al sălilor, acolo contează că ziua e
+-- ținută, nu de cine. Și `notes` de pe blocaje se vede până la cameristă
+-- (vederea rezervari_ocupare), deci numele n-are ce căuta acolo.
+--
+-- O zi = o noapte: 14:00 → 11:00 a doua zi, ca orice sejur de o noapte, așa
+-- încât cine pleacă în dimineața nunții sau sosește a doua zi nu e atins.
+-- Camerele deja ocupate în acea noapte se sar: o rezervare adevărată e mai
+-- importantă decât blocajul (și constrângerea fara_suprapunere ar refuza-o
+-- oricum).
+create or replace function blocheaza_zilele_evenimentului(
+  p_incepe timestamptz, p_se_termina timestamptz
+) returns int language plpgsql security definer set search_path = public as $$
+declare
+  -- Ziua de la care se blochează, oricât de devreme ar fi evenimentul.
+  -- Restul lui 2026 e sezonul în curs: rezervările și înțelegerile pentru
+  -- zilele cu nunți sunt deja făcute la telefon, iar închiderea lor acum
+  -- n-ar apăra nimic — ar încurca. De la data asta înainte regula e
+  -- generală, pe orice an.
+  c_de_la constant date := date '2027-01-01';
+  v_zi date; v_ultima date; v_de timestamptz; v_pana timestamptz;
+  v_puse int := 0; v_acum int;
+begin
+  if p_incepe is null then return 0; end if;
+  -- Zilele trecute nu se mai blochează: n-ar apăra nimic.
+  v_zi := greatest((p_incepe at time zone 'Europe/Bucharest')::date,
+                   (now() at time zone 'Europe/Bucharest')::date,
+                   c_de_la);
+  v_ultima := (coalesce(p_se_termina - interval '1 millisecond', p_incepe)
+                 at time zone 'Europe/Bucharest')::date;
+  while v_zi <= v_ultima loop
+    v_de   := (v_zi::text || ' 14:00')::timestamp at time zone 'Europe/Bucharest';
+    v_pana := ((v_zi + 1)::text || ' 11:00')::timestamp at time zone 'Europe/Bucharest';
+    insert into reservations (id, room_id, checkin, checkout, status, source,
+                              notes, external_source, external_uid)
+    select 'bl-ev-' || to_char(v_zi, 'YYYYMMDD') || '-' || r.id, r.id, v_de, v_pana,
+           'confirmed', 'blocaj', 'Evenimente',
+           'eveniment', 'ev:' || to_char(v_zi, 'YYYYMMDD') || ':' || r.id
+      from rooms r
+     where r.active
+       and not exists (
+         select 1 from reservations x
+          where x.room_id = r.id
+            and x.status not in ('cancelled', 'noshow')
+            and tstzrange(x.checkin, x.checkout, '[)') && tstzrange(v_de, v_pana, '[)'))
+    on conflict do nothing;
+    get diagnostics v_acum = row_count;
+    v_puse := v_puse + v_acum;
+    v_zi := v_zi + 1;
+  end loop;
+  return v_puse;
+end $$;
+
+-- Reversul: o zi rămasă fără niciun eveniment activ își pierde blocajele.
+-- Numai zilele chiar golite, fiindcă o zi poate ține două nunți în săli
+-- diferite, iar anularea uneia n-o deschide.
+create or replace function elibereaza_zilele_fara_evenimente(
+  p_incepe timestamptz, p_se_termina timestamptz
+) returns int language plpgsql security definer set search_path = public as $$
+declare
+  v_zi date; v_ultima date; v_sterse int := 0; v_acum int;
+begin
+  if p_incepe is null then return 0; end if;
+  v_zi := (p_incepe at time zone 'Europe/Bucharest')::date;
+  v_ultima := (coalesce(p_se_termina - interval '1 millisecond', p_incepe)
+                 at time zone 'Europe/Bucharest')::date;
+  while v_zi <= v_ultima loop
+    if not exists (
+      select 1 from caldav_obiecte o join caldav_calendare c on c.id = o.calendar_id
+       where not o.sters and not o.anulat and c.activ and c.slug <> 'anulate'
+         and o.incepe is not null
+         and (o.incepe at time zone 'Europe/Bucharest')::date <= v_zi
+         and (coalesce(o.se_termina - interval '1 millisecond', o.incepe)
+                at time zone 'Europe/Bucharest')::date >= v_zi)
+    then
+      delete from reservations
+       where external_source = 'eveniment'
+         and external_uid like 'ev:' || to_char(v_zi, 'YYYYMMDD') || ':%';
+      get diagnostics v_acum = row_count;
+      v_sterse := v_sterse + v_acum;
+    end if;
+    v_zi := v_zi + 1;
+  end loop;
+  return v_sterse;
+end $$;
+
+-- Regula, de acum înainte: orice eveniment nou sau mutat își blochează
+-- zilele. Un eveniment doar redenumit NU repune blocajele scoase de mână —
+-- de aceea triggerul iese devreme când datele n-au fost atinse. Altfel
+-- recepția ar scoate blocajul, iar următorul PUT de pe telefon l-ar pune
+-- la loc.
+create or replace function caldav_blocaje_evenimente()
+returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  if TG_OP = 'UPDATE'
+     and old.incepe     is not distinct from new.incepe
+     and old.se_termina is not distinct from new.se_termina
+     and old.anulat     = new.anulat
+     and old.sters      = new.sters then
+    return null;
+  end if;
+  -- Mutat: zilele părăsite se eliberează dacă n-a rămas nimic pe ele.
+  if TG_OP = 'UPDATE' then
+    perform elibereaza_zilele_fara_evenimente(old.incepe, old.se_termina);
+  end if;
+  if not new.sters and not new.anulat then
+    perform blocheaza_zilele_evenimentului(new.incepe, new.se_termina);
+  else
+    perform elibereaza_zilele_fara_evenimente(new.incepe, new.se_termina);
+  end if;
+  return null;
+end $$;
+
+create trigger caldav_obiecte_blocaje
+  after insert or update on caldav_obiecte
+  for each row execute function caldav_blocaje_evenimente();
+
+-- Nu sunt pentru browser: blocajele le pune triggerul, le scoate recepția
+-- ștergând rândul din calendar, ca pe orice blocaj.
+revoke execute on function blocheaza_zilele_evenimentului(timestamptz, timestamptz) from public, anon;
+revoke execute on function elibereaza_zilele_fara_evenimente(timestamptz, timestamptz) from public, anon;
+grant execute on function blocheaza_zilele_evenimentului(timestamptz, timestamptz) to service_role;
+grant execute on function elibereaza_zilele_fara_evenimente(timestamptz, timestamptz) to service_role;
 
 alter table caldav_calendare enable row level security;
 alter table caldav_obiecte   enable row level security;

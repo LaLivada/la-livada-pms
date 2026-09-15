@@ -53,9 +53,21 @@ describe("aplicaSchimbareRezervare — INSERT / UPDATE / DELETE dupa id", () => 
     const s = aplicaSchimbareRezervare({ reservations: [], blocks: [] },
       { tip: "INSERT", nou: rand({ id: "b1", source: "blocaj", notes: "renovare", guest_id: null }), vechi: null });
     expect(s.reservations).toEqual([]);
-    expect(s.blocks).toEqual([{ id: "b1", roomId: "r1001", start: "2026-09-20T11:00:00+00:00", end: "2026-09-22T08:00:00+00:00", reason: "renovare" }]);
+    expect(s.blocks).toEqual([{ id: "b1", roomId: "r1001", start: "2026-09-20T11:00:00+00:00", end: "2026-09-22T08:00:00+00:00", reason: "renovare", sursa: "" }]);
     const sters = aplicaSchimbareRezervare(s, { tip: "DELETE", nou: null, vechi: { id: "b1" } });
     expect(sters.blocks).toEqual([]);
+  });
+
+  /* Blocajul unei zile cu eveniment vine pe acelasi canal, dar calendarul
+     trebuie sa-l deosebeasca: de aceea `external_source` ajunge la ecran. */
+  it("blocajul de eveniment isi pastreaza sursa", () => {
+    const s = aplicaSchimbareRezervare({ reservations: [], blocks: [] },
+      { tip: "INSERT", vechi: null, nou: rand({
+        id: "bl-ev-20270724-r1001", source: "blocaj", notes: "Evenimente",
+        guest_id: null, external_source: "eveniment", external_uid: "ev:20270724:r1001" }) });
+    expect(s.blocks).toHaveLength(1);
+    expect(s.blocks[0].sursa).toBe("eveniment");
+    expect(s.blocks[0].reason).toBe("Evenimente");
   });
 
   it("camerista primeste vederea de ocupare, fara nume si fara pret", () => {

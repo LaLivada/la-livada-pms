@@ -171,6 +171,11 @@ export const snakeBillingCustomer = (c) => ({
    singura definitie, ca cele doua drumuri sa nu se departeze. */
 export const camelBlocaj = (b) => ({
   id: b.id, roomId: b.room_id, start: b.checkin, end: b.checkout, reason: b.notes || "",
+  /* De unde vine blocajul: "eveniment" pentru zilele tinute de o nunta
+     (puse de trigger, vezi blocheaza_zilele_evenimentului in schema.sql),
+     gol pentru cele puse de mana la mentenanta. Calendarul le arata
+     diferit; scoase, ziua se rezerva din nou, inclusiv online. */
+  sursa: b.external_source || "",
 });
 
 /* Statusul de curatenie, din tabelul `room_status` (faza 2, A6). Forma e cea

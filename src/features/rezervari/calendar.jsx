@@ -9,7 +9,7 @@
 import React, { useState, useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import {
   CalendarDays, Plus, ChevronLeft, ChevronRight, Trash2, UsersRound, MoveRight, MessageSquare,
-  Wrench, Rows2, Rows3, Columns2, Columns3, CalendarRange,
+  Wrench, Rows2, Rows3, Columns2, Columns3, CalendarRange, PartyPopper,
 } from "lucide-react";
 import { audit } from "../../lib/audit.js";
 import { guestFullName, occupantName } from "../../lib/nume.js";
@@ -29,6 +29,14 @@ import { EtichetaNou } from "./eticheta-nou.jsx";
 import { ReservationViewModal } from "./vizualizare.jsx";
 import { ReservationModal } from "./fisa-rezervare.jsx";
 import { ReservationActions } from "./actiuni.jsx";
+
+/* Blocajele zilelor cu evenimente: aceleași rânduri din `reservations` ca
+ * blocajele de mentenanță, dar puse automat de calendarul sălilor și scoase
+ * de recepție când vrea ziua înapoi la rezervări online. Se deosebesc prin
+ * `external_source`, adus de `camelBlocaj`. */
+const SURSA_EVENIMENT = "eveniment";
+const esteEveniment = (b) => b?.sursa === SURSA_EVENIMENT;
+const ETICHETA_BLOCAJ = (b) => (esteEveniment(b) ? "Rezervare evenimente" : "Blocaj");
 
 /* `doarCitire` — calendarul pentru cameristă.
  *
@@ -492,11 +500,11 @@ export function CalendarView({ core, updateCore, reservations, updateReservation
                           onKeyDown={doarCitire ? undefined : (e) => {
                             if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setBlockInfo(bSpan.block); }
                           }}
-                          className="cal-bar block-bar"
+                          className={"cal-bar block-bar" + (esteEveniment(bSpan.block) ? " event-bar" : "")}
                           style={{ width: `calc(${bSpan.len} * 100% - 6px)` }}
-                          title={`Blocat: ${bSpan.block.reason}`}
+                          title={`${ETICHETA_BLOCAJ(bSpan.block)}: ${bSpan.block.reason}`}
                         >
-                          <Wrench size={11} style={{ flexShrink: 0 }} />
+                          {esteEveniment(bSpan.block) ? <PartyPopper size={11} /> : <Wrench size={11} />}
                           <span className="bar-name">{bSpan.block.reason}</span>
                         </div>
                       )}
@@ -659,7 +667,7 @@ export function CalendarView({ core, updateCore, reservations, updateReservation
                   {" · "}{fmtDate(blockInfo.start)} → {fmtDate(blockInfo.end)}
                 </div>
               </div>
-              <span className="role-tag role-receptionist">Blocaj</span>
+              <span className="role-tag role-receptionist">{ETICHETA_BLOCAJ(blockInfo)}</span>
             </div>
             <div className="action-list">
               <button className="action-item danger" onClick={async () => {
@@ -675,7 +683,9 @@ export function CalendarView({ core, updateCore, reservations, updateReservation
               }}>
                 <span className="ai-ico"><Trash2 size={17} /></span>
                 <span className="ai-body"><span className="ai-t">Elimină blocajul</span>
-                  <span className="ai-d">Camera redevine disponibilă</span></span>
+                  <span className="ai-d">{esteEveniment(blockInfo)
+                    ? "Camera redevine disponibilă, inclusiv la rezervările online"
+                    : "Camera redevine disponibilă"}</span></span>
               </button>
             </div>
             <button className="btn btn-ghost" style={{ width: "100%", marginTop: 6 }} onClick={() => setBlockInfo(null)}>Închide</button>
@@ -690,6 +700,9 @@ export function CalendarView({ core, updateCore, reservations, updateReservation
         ))}
         <span className="legend-item">
           <span className="legend-chip block-bar"><Wrench size={9} /></span>Blocaj
+        </span>
+        <span className="legend-item">
+          <span className="legend-chip block-bar event-bar"><PartyPopper size={9} /></span>Rezervare evenimente
         </span>
       </div>
 

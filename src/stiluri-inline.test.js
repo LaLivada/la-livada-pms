@@ -10,7 +10,7 @@ import { describe, it, expect } from "vitest";
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 
-const PLAFON = 367;
+const PLAFON = 366;
 
 function fisiereJsx(d, acc = []) {
   for (const n of readdirSync(d)) {

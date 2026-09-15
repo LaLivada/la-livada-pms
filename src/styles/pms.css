@@ -1785,6 +1785,15 @@ label.field input, label.field select, label.field textarea{ cursor:auto; }
 .cal-bar.block-bar, .legend-chip.block-bar{
   background:var(--bar-lumina), repeating-linear-gradient(45deg, rgba(62,42,120,.10) 0 6px, transparent 6px 12px) var(--bar-bg);
 }
+/* Blocajul unei zile cu eveniment: aceeasi dunga, alta culoare. Chihlimbar,
+   ca sa se citeasca dintr-o privire ca ziua e tinuta de o nunta, nu de o
+   reparatie — si ca sa nu se confunde cu lavanda blocajelor obisnuite. */
+.cal-bar.event-bar, .legend-chip.event-bar{ --bar-bg:#F0C08A; --bar-fg:#5E3708; }
+.cal-bar.event-bar, .legend-chip.event-bar{
+  background:var(--bar-lumina), repeating-linear-gradient(45deg, rgba(94,55,8,.12) 0 6px, transparent 6px 12px) var(--bar-bg);
+}
+/* Iconita barei nu se strange cand numele e lung. */
+.cal-bar > svg{ flex-shrink:0; }
 /* Pastila VIP e negativul barei: nuanta inchisa pe fond, cea palida pe
    text. */
 .cal-bar .bar-vip{ background:var(--bar-fg); color:var(--bar-bg); }
