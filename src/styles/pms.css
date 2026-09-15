@@ -2124,6 +2124,25 @@ label.field input, label.field select, label.field textarea{ cursor:auto; }
   .ui-noua .toast-host{ bottom:calc(84px + env(safe-area-inset-bottom)); }
 }
 
+/* ============================================================================
+   DESKTOP LAT (15 septembrie 2026): scara de text a aplicatiei e de telefon
+   (13px de baza, etichete de 9–11px). Pe un monitor 1920×1080 la scalare
+   100% totul iese marunt si „neclar" — nu e pixelat, e mic. Peste 1400px
+   scara de text creste cu ~15% (tokenii --fs-*), iar logo-ul la 30px.
+   Nu `zoom`: Chrome nu imparte unitatile de viewport la zoom (100dvh al
+   ferestrelor ar iesi din ecran cu 15%), iar html2canvas (PDF-urile
+   facturilor si fiselor) nu il intelege. Documentele tiparite au marimi
+   scrise in px si nu se schimba.
+   ============================================================================ */
+@media (min-width:1400px){
+  :root{
+    --fs-3xs:10px; --fs-2xs:11px; --fs-xs:13px; --fs-sm:14px;
+    --fs-base:15px; --fs-md:16px; --fs-lg:18px; --fs-xl:21px;
+    --fs-2xl:24px; --fs-3xl:29px;
+  }
+  .logo-btn img{ height:30px; }
+}
+
 /* Sub 16px, iOS face automat zoom pe pagina la focus. Regula sta la
    finalul foii de stil, cu !important, tocmai ca sa nu mai poata fi
    rescrisa de vreo regula ulterioara cu specificitate egala (asa cum
