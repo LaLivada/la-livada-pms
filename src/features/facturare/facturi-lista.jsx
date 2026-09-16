@@ -6,11 +6,11 @@
  */
 
 import { useState, useEffect, useCallback } from "react";
-import { X, Search, Eye } from "lucide-react";
+import { X, Search, Eye, ExternalLink } from "lucide-react";
 import * as dateFacturare from "../../data/facturare.js";
 import { mesajEroare } from "../../lib/errors.js";
 import { fmtMoney, fmtDateFull } from "../../lib/format.js";
-import { INVOICE_STATUS_LABEL, INVOICE_STATUS_CLASS } from "../../lib/constante.js";
+import { INVOICE_STATUS_LABEL, INVOICE_STATUS_CLASS, OBLIO_EFACTURA_LABEL, OBLIO_EFACTURA_CLASS } from "../../lib/constante.js";
 import { InvoicePrint } from "./factura.jsx";
 import { billingCustomerLabel } from "./clienti-facturare.jsx";
 
@@ -109,6 +109,11 @@ export function InvoicesListView({ core }) {
                   <span className={"role-tag " + INVOICE_STATUS_CLASS[inv.status]} style={{ marginLeft: 8 }}>
                     {INVOICE_STATUS_LABEL[inv.status]}
                   </span>
+                  {inv.oblio_efactura_cod != null && (
+                    <span className={"role-tag oblio-chip " + OBLIO_EFACTURA_CLASS[String(inv.oblio_efactura_cod)]}>
+                      {OBLIO_EFACTURA_LABEL[String(inv.oblio_efactura_cod)]}
+                    </span>
+                  )}
                 </div>
                 <div className="secondary">
                   {customerLabel(inv.billing_customer_id)} · {inv.issue_date ? fmtDateFull(inv.issue_date) : "neemisă"}
@@ -119,6 +124,11 @@ export function InvoicesListView({ core }) {
                 {/* Emiterea se face din fereastra facturii (ochiul de
                     alaturi), nu de aici: se vede intai ce contine
                     documentul si abia apoi se aloca numarul. */}
+                {inv.oblio_link && (
+                  <a className="icon-btn" href={inv.oblio_link} target="_blank" rel="noopener noreferrer" aria-label="PDF din Oblio">
+                    <ExternalLink size={14} />
+                  </a>
+                )}
                 <button className="icon-btn" onClick={() => setPrintInvoiceId(inv.id)}
                   aria-label={inv.status === "draft" ? "Deschide draftul" : "Vezi factura"}>
                   <Eye size={14} />

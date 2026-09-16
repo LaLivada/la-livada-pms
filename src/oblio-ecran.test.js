@@ -26,13 +26,18 @@ vi.mock("./data/oblio.js", async (importOriginal) => {
 
 const anuleazaFactura = vi.fn(async () => ({ id: "i", status: "cancelled" }));
 const storneazaFactura = vi.fn(async () => ({ original: { id: "i", status: "credited" }, serie: "LL", numar: 2 }));
+const listeazaFacturi = vi.fn(async () => [
+  { id: "a", status: "issued", series: "LL", number: 7, oblio_numar: "0007", oblio_link: "https://www.oblio.eu/pdf/7", oblio_efactura_cod: 1, total_amount: 100, billing_customer_id: "c1", issue_date: "2026-09-16T10:00:00Z" },
+  { id: "b", status: "draft", total_amount: 50, billing_customer_id: "c1" },
+]);
 vi.mock("./data/facturare.js", async (importOriginal) => ({
-  ...(await importOriginal()), anuleazaFactura, storneazaFactura, serieActiva: vi.fn(async () => "LL"),
+  ...(await importOriginal()), anuleazaFactura, storneazaFactura, serieActiva: vi.fn(async () => "LL"), listeazaFacturi,
 }));
 vi.mock("./lib/permisiuni.js", () => ({ canBilling: () => true, billingPerms: { role: "admin", set: new Set() } }));
 
 const { OblioView } = await import("./features/facturare/oblio.jsx");
 const { InvoiceCancelCreditActions } = await import("./features/facturare/factura.jsx");
+const { InvoicesListView } = await import("./features/facturare/facturi-lista.jsx");
 
 const montate = [];
 async function randeaza(core = { invoiceIssuer: { cui: "ro12345678" } }) {
@@ -152,5 +157,21 @@ describe("InvoiceCancelCreditActions", () => {
     await apasa(butonText(host, "Confirmă"));
     expect(anuleazaFactura).toHaveBeenCalledWith("i");
     expect(cheamaOblio).not.toHaveBeenCalled();
+  });
+});
+
+describe("InvoicesListView", () => {
+  it("randul unei facturi emise prin Oblio are linkul la PDF si eticheta SPV; draftul, nu", async () => {
+    const host = document.createElement("div");
+    document.body.appendChild(host);
+    const root = createRoot(host);
+    montate.push({ root, host });
+    await act(async () => { root.render(React.createElement(InvoicesListView, { core: { billingCustomers: [] } })); });
+    await act(async () => {});
+    const linkuri = [...host.querySelectorAll('a[aria-label="PDF din Oblio"]')];
+    expect(linkuri.map((a) => a.getAttribute("href"))).toEqual(["https://www.oblio.eu/pdf/7"]);
+    expect(linkuri[0].getAttribute("target")).toBe("_blank");
+    expect(host.textContent).toContain("SPV: trimisă");
+    expect(host.textContent).toContain("LL 7");
   });
 });
