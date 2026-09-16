@@ -6,6 +6,7 @@
  */
 
 import * as dateFacturare from "../../data/facturare.js";
+import * as dateOblio from "../../data/oblio.js";
 import * as dateFolio from "../../data/folio.js";
 import { uid } from "../../lib/uid.js";
 import { mesajEroare } from "../../lib/errors.js";
@@ -17,6 +18,12 @@ import { toaster } from "../../ui/primitive.jsx";
 import { audit } from "../../lib/audit.js";
 
 export async function emiteFactura(invoice) {
+  /* Cu Oblio pornit (Financiar → Oblio), seria si numarul le da Oblio, prin
+     functia edge; altfel drumul vechi: seria locala + emite_factura. */
+  let setari = null;
+  try { setari = await dateOblio.setariOblio(); } catch { setari = null; }
+  if (dateOblio.oblioActiv(setari)) return emiteFacturaOblio(invoice);
+
   let serie;
   try {
     serie = await dateFacturare.serieActiva();
@@ -41,6 +48,21 @@ export async function emiteFactura(invoice) {
 
   await audit.push("Factură emisă", `${updated.series} ${updated.number} · ${fmtMoney(invoice.total_amount)}`);
   toaster.show(`Factura ${updated.series} ${updated.number} a fost emisă`, { tone: "ok" });
+  return updated;
+}
+
+/* La esec draftul ramane, cu oblio_stare = 'eroare' si mesajul lui Oblio;
+   apelantul reincarca factura ca sa-l arate (InvoicePrint.emite). */
+async function emiteFacturaOblio(invoice) {
+  const r = await dateOblio.cheamaOblio("emite", { invoiceId: invoice.id });
+  if (!r.ok) {
+    toaster.show(r.error || "Emiterea prin Oblio a eșuat", { tone: "danger" });
+    return null;
+  }
+  const updated = r.factura;
+  const numar = updated.oblio_numar || updated.number;
+  await audit.push("Factură emisă (Oblio)", `${updated.series} ${numar} · ${fmtMoney(invoice.total_amount)}`);
+  toaster.show(`Factura ${updated.series} ${numar} a fost emisă în Oblio`, { tone: "ok" });
   return updated;
 }
 

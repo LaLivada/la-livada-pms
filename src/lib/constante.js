@@ -55,6 +55,11 @@ export const INVOICE_STATUS_CLASS = {
   paid: "st-checkedin", cancelled: "st-cancelled", credited: "st-protocol",
 };
 
+/* Codul intors de Oblio la trimiterea in SPV (POST /docs/einvoice; vezi
+   docs/oblio.md). Cheile sunt siruri fiindca -1 nu poate fi cheie literala. */
+export const OBLIO_EFACTURA_LABEL = { "-1": "SPV: netrimisă", "0": "SPV: în procesare", "1": "SPV: trimisă", "2": "SPV: erori" };
+export const OBLIO_EFACTURA_CLASS = { "-1": "st-pending", "0": "st-noshow", "1": "st-checkedin", "2": "st-cancelled" };
+
 export const PAYMENT_METHOD_LABEL = {
   cash: "Numerar", card: "Card", bank_transfer: "Transfer bancar", other: "Altă metodă",
 };

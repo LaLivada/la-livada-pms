@@ -7,14 +7,15 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
-import { Check, Receipt, CreditCard, Printer, Undo2, XCircle } from "lucide-react";
+import { Check, Receipt, CreditCard, Printer, Undo2, XCircle, ExternalLink, Send } from "lucide-react";
 import * as dateFacturare from "../../data/facturare.js";
+import * as dateOblio from "../../data/oblio.js";
 import * as datePlati from "../../data/plati.js";
 import { mesajEroare } from "../../lib/errors.js";
 import { calcAmounts } from "../../lib/money.js";
 import { fmtMoney, fmtDateFull } from "../../lib/format.js";
 import { dataLocala } from "../../lib/timp.js";
-import { INVOICE_STATUS_LABEL, INVOICE_STATUS_CLASS, PAYMENT_METHOD_LABEL } from "../../lib/constante.js";
+import { INVOICE_STATUS_LABEL, INVOICE_STATUS_CLASS, PAYMENT_METHOD_LABEL, OBLIO_EFACTURA_LABEL, OBLIO_EFACTURA_CLASS } from "../../lib/constante.js";
 import { Dialog, toaster, useModalLock } from "../../ui/primitive.jsx";
 import { audit } from "../../lib/audit.js";
 import { canBilling } from "../../lib/permisiuni.js";
@@ -30,6 +31,8 @@ export function InvoicePrint({ invoiceId, core, onClose, onChanged }) {
   const [loading, setLoading] = useState(true);
   const fisaRef = useRef(null);
   const [emitere, setEmitere] = useState(false);
+  const [oblio, setOblio] = useState(null);
+  const [spv, setSpv] = useState(false);
 
   const emite = async () => {
     if (emitere) return;
@@ -39,10 +42,25 @@ export function InvoicePrint({ invoiceId, core, onClose, onChanged }) {
       if (actualizata) {
         setInvoice(actualizata);
         onChanged?.(actualizata);
+      } else {
+        /* Prin Oblio, un refuz lasa draftul cu mesajul lor in oblio_eroare;
+           il recitim ca sa-l aratam sub butoane. */
+        await load();
       }
     } finally {
       setEmitere(false);
     }
+  };
+  const trimiteSpv = async () => {
+    if (spv) return;
+    setSpv(true);
+    const r = await dateOblio.cheamaOblio("efactura-trimite", { invoiceId: invoice.id });
+    setSpv(false);
+    if (!r.ok) { toaster.show(r.error, { tone: "danger" }); return; }
+    setInvoice(r.factura);
+    onChanged?.(r.factura);
+    await audit.push("e-Factura trimisă în SPV", `${r.factura.series} ${r.factura.oblio_numar || r.factura.number} · cod ${r.cod}`);
+    toaster.show(OBLIO_EFACTURA_LABEL[String(r.cod)] || "Trimisă în SPV", { tone: r.cod === 2 ? "danger" : "ok" });
   };
 
   // Coala e fixata la 794px (latimea A4); pe ecran trebuie sa incapa in
@@ -78,6 +96,7 @@ export function InvoicePrint({ invoiceId, core, onClose, onChanged }) {
     setLines(det?.linii ?? []);
     setCustomer(det?.client ?? null);
     setPayments(det?.plati ?? []);
+    try { setOblio(await dateOblio.setariOblio()); } catch { setOblio(null); }
     setLoading(false);
     return det?.factura ?? null;
   }, [invoiceId]);
@@ -143,6 +162,11 @@ export function InvoicePrint({ invoiceId, core, onClose, onChanged }) {
     <Dialog onClose={onClose} title={invoice.series ? `Factură ${invoice.series} ${invoice.number}` : "Factură (draft)"} className="arrival-modal invoice-modal" overlayClassName="arrival-overlay">
       <div className="no-print" style={{ display: "flex", gap: 8, marginBottom: 14, flexWrap: "wrap" }}>
         <span className={"role-tag " + INVOICE_STATUS_CLASS[invoice.status]}>{INVOICE_STATUS_LABEL[invoice.status]}</span>
+        {invoice.oblio_efactura_cod != null && (
+          <span className={"role-tag oblio-chip " + OBLIO_EFACTURA_CLASS[String(invoice.oblio_efactura_cod)]}>
+            {OBLIO_EFACTURA_LABEL[String(invoice.oblio_efactura_cod)]}
+          </span>
+        )}
         <div className="grow" />
         {/* Emiterea sta aici, in fereastra draftului: se vede intai ce
             contine factura si abia apoi se aloca numarul — spre deosebire
@@ -150,7 +174,18 @@ export function InvoicePrint({ invoiceId, core, onClose, onChanged }) {
         {invoice.status === "draft" && canBilling("issue_invoice") && (
           <button className="btn btn-primary" style={{ width: "auto" }}
             onClick={emite} disabled={emitere}>
-            <Receipt size={15} /> {emitere ? "Se emite…" : "Emite factura"}
+            <Receipt size={15} /> {emitere ? "Se emite…" : (dateOblio.oblioActiv(oblio) ? "Emite prin Oblio" : "Emite factura")}
+          </button>
+        )}
+        {invoice.oblio_link && (
+          <a className="btn btn-ghost btn-lat" href={invoice.oblio_link} target="_blank" rel="noopener noreferrer">
+            <ExternalLink size={15} /> PDF din Oblio
+          </a>
+        )}
+        {invoice.oblio_stare === "emisa" && dateOblio.oblioActiv(oblio) && canBilling("issue_invoice")
+          && invoice.oblio_efactura_cod !== 0 && invoice.oblio_efactura_cod !== 1 && (
+          <button className="btn btn-ghost btn-lat" onClick={trimiteSpv} disabled={spv}>
+            <Send size={15} /> {spv ? "Se trimite…" : "Trimite în SPV"}
           </button>
         )}
         <button className="btn btn-ghost" style={{ width: "auto" }} onClick={() => window.print()}>
@@ -159,8 +194,14 @@ export function InvoicePrint({ invoiceId, core, onClose, onChanged }) {
       </div>
       {invoice.status === "draft" && canBilling("issue_invoice") && (
         <div className="note no-print" style={{ marginTop: -6, marginBottom: 14 }}>
-          La emitere se alocă serie și număr, iar factura nu mai poate fi modificată —
-          orice corecție ulterioară se face doar prin stornare.
+          {dateOblio.oblioActiv(oblio)
+            ? "La emitere, Oblio alocă seria și numărul și generează PDF-ul; factura nu mai poate fi modificată — orice corecție ulterioară se face doar prin stornare."
+            : "La emitere se alocă serie și număr, iar factura nu mai poate fi modificată — orice corecție ulterioară se face doar prin stornare."}
+        </div>
+      )}
+      {invoice.status === "draft" && invoice.oblio_stare === "eroare" && (
+        <div className="note no-print oblio-eroare">
+          Oblio a refuzat emiterea: {invoice.oblio_eroare}. Corectează și apasă din nou „Emite prin Oblio”.
         </div>
       )}
 
@@ -462,8 +503,19 @@ export function InvoiceCancelCreditActions({ invoice, onChanged }) {
   const cancelInvoice = async () => {
     setBusy(true);
     try {
-      const data = await dateFacturare.anuleazaFactura(invoice.id);
-      await audit.push("Factură anulată", `${invoice.series || "draft"} ${invoice.number || ""}`.trim());
+      let data;
+      if (invoice.oblio_stare === "emisa") {
+        /* Emisa prin Oblio → se anuleaza intai acolo; baza se schimba doar
+           daca Oblio a acceptat. */
+        const r = await dateOblio.cheamaOblio("anuleaza", { invoiceId: invoice.id });
+        /* Mesajul lui Oblio se arata ca atare, nu prin mesajEroare, care ar
+           invalui un text necunoscut in „eroare neasteptata”. */
+        if (!r.ok) { toaster.show(r.error, { tone: "danger" }); return; }
+        data = r.factura;
+      } else {
+        data = await dateFacturare.anuleazaFactura(invoice.id);
+      }
+      await audit.push("Factură anulată", `${invoice.series || "draft"} ${invoice.oblio_numar || invoice.number || ""}`.trim());
       onChanged(data);
       setConfirm(null);
     } catch (e) {
@@ -484,12 +536,21 @@ export function InvoiceCancelCreditActions({ invoice, onChanged }) {
          Alternativa (serie proprie pentru stornari) e permisa legal, dar ar
          cere o serie configurata explicit in Financiar → Serii; alegerea a
          fost numerotarea continua. */
-      const serieStorno = await dateFacturare.serieActiva();
-      if (!serieStorno) {
-        toaster.show("Nu există nicio serie de facturare activă. Configureaz-o în Financiar → Serii.", { tone: "danger" });
-        return;
+      let original, serie, numar;
+      if (invoice.oblio_stare === "emisa") {
+        const r = await dateOblio.cheamaOblio("storneaza", { invoiceId: invoice.id });
+        if (!r.ok) { toaster.show(r.error, { tone: "danger" }); return; }
+        original = r.original;
+        serie = r.stornare.series;
+        numar = r.stornare.oblio_numar || r.stornare.number;
+      } else {
+        const serieStorno = await dateFacturare.serieActiva();
+        if (!serieStorno) {
+          toaster.show("Nu există nicio serie de facturare activă. Configureaz-o în Financiar → Serii.", { tone: "danger" });
+          return;
+        }
+        ({ original, serie, numar } = await dateFacturare.storneazaFactura(invoice, { serie: serieStorno }));
       }
-      const { original, serie, numar } = await dateFacturare.storneazaFactura(invoice, { serie: serieStorno });
       await audit.push("Factură stornată",
         `${serie} ${numar} stornează ${invoice.series || ""} ${invoice.number || ""}`.trim());
       toaster.show(`Stornare emisă: ${serie} ${numar}`, { tone: "ok" });

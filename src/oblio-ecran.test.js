@@ -24,7 +24,15 @@ vi.mock("./data/oblio.js", async (importOriginal) => {
   return { ...real, setariOblio: vi.fn(async () => ({ ...setari })), salveazaSetariOblio, cheamaOblio };
 });
 
+const anuleazaFactura = vi.fn(async () => ({ id: "i", status: "cancelled" }));
+const storneazaFactura = vi.fn(async () => ({ original: { id: "i", status: "credited" }, serie: "LL", numar: 2 }));
+vi.mock("./data/facturare.js", async (importOriginal) => ({
+  ...(await importOriginal()), anuleazaFactura, storneazaFactura, serieActiva: vi.fn(async () => "LL"),
+}));
+vi.mock("./lib/permisiuni.js", () => ({ canBilling: () => true, billingPerms: { role: "admin", set: new Set() } }));
+
 const { OblioView } = await import("./features/facturare/oblio.jsx");
+const { InvoiceCancelCreditActions } = await import("./features/facturare/factura.jsx");
 
 const montate = [];
 async function randeaza(core = { invoiceIssuer: { cui: "ro12345678" } }) {
@@ -33,6 +41,15 @@ async function randeaza(core = { invoiceIssuer: { cui: "ro12345678" } }) {
   const root = createRoot(host);
   montate.push({ root, host });
   await act(async () => { root.render(React.createElement(OblioView, { core })); });
+  await act(async () => {});
+  return host;
+}
+async function randeazaActiuni(invoice, onChanged) {
+  const host = document.createElement("div");
+  document.body.appendChild(host);
+  const root = createRoot(host);
+  montate.push({ root, host });
+  await act(async () => { root.render(React.createElement(InvoiceCancelCreditActions, { invoice, onChanged })); });
   await act(async () => {});
   return host;
 }
@@ -93,5 +110,47 @@ describe("OblioView", () => {
     cheamaOblio.mockResolvedValueOnce({ ok: true, firma: "La Livada SRL", serii: [{ nume: "LL", urmatorul: 1 }], seriaOk: false, cote: [] });
     await apasa(butonText(host, "Verifică legătura"));
     expect(host.querySelector(".oblio-rezultat").textContent).toContain("seria „XX” nu există");
+  });
+});
+
+describe("InvoiceCancelCreditActions", () => {
+  const EMISA_OBLIO = { id: "i", status: "issued", paid_amount: 0, series: "LL", number: 7, oblio_numar: "0007", oblio_stare: "emisa" };
+  const EMISA_LOCAL = { id: "i", status: "issued", paid_amount: 0, series: "LL", number: 1, oblio_stare: "neemisa" };
+
+  it("factura emisa prin Oblio se anuleaza prin Oblio", async () => {
+    const onChanged = vi.fn();
+    cheamaOblio.mockResolvedValueOnce({ ok: true, factura: { ...EMISA_OBLIO, status: "cancelled" } });
+    const host = await randeazaActiuni(EMISA_OBLIO, onChanged);
+    await apasa(butonText(host, "Anulează factura"));
+    await apasa(butonText(host, "Confirmă"));
+    expect(cheamaOblio).toHaveBeenCalledWith("anuleaza", { invoiceId: "i" });
+    expect(anuleazaFactura).not.toHaveBeenCalled();
+    expect(onChanged).toHaveBeenCalledWith(expect.objectContaining({ status: "cancelled" }));
+  });
+  it("factura emisa prin Oblio se storneaza prin Oblio, cu numarul lui", async () => {
+    const onChanged = vi.fn();
+    cheamaOblio.mockResolvedValueOnce({ ok: true, stornare: { id: "nc", series: "LL", number: 8, oblio_numar: "0008" }, original: { ...EMISA_OBLIO, status: "credited" } });
+    const host = await randeazaActiuni(EMISA_OBLIO, onChanged);
+    await apasa(butonText(host, "Stornează"));
+    await apasa(butonText(host, "Confirmă"));
+    expect(cheamaOblio).toHaveBeenCalledWith("storneaza", { invoiceId: "i" });
+    expect(storneazaFactura).not.toHaveBeenCalled();
+    expect(onChanged).toHaveBeenCalledWith(expect.objectContaining({ status: "credited" }));
+  });
+  it("refuzul lui Oblio nu schimba nimic", async () => {
+    const onChanged = vi.fn();
+    cheamaOblio.mockResolvedValueOnce({ ok: false, error: "Oblio: documentul nu poate fi anulat" });
+    const host = await randeazaActiuni(EMISA_OBLIO, onChanged);
+    await apasa(butonText(host, "Anulează factura"));
+    await apasa(butonText(host, "Confirmă"));
+    expect(onChanged).not.toHaveBeenCalled();
+  });
+  it("factura emisa local merge pe drumul vechi", async () => {
+    const onChanged = vi.fn();
+    const host = await randeazaActiuni(EMISA_LOCAL, onChanged);
+    await apasa(butonText(host, "Anulează factura"));
+    await apasa(butonText(host, "Confirmă"));
+    expect(anuleazaFactura).toHaveBeenCalledWith("i");
+    expect(cheamaOblio).not.toHaveBeenCalled();
   });
 });
