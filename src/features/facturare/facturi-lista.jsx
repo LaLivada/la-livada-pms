@@ -86,7 +86,7 @@ export function InvoicesListView({ core }) {
             <option key={s} value={s}>{INVOICE_STATUS_LABEL[s]}</option>
           ))}
         </select>
-        <button type="button" className="btn btn-primary" style={{ width: "auto" }}
+        <button type="button" className="btn btn-primary btn-lat"
           onClick={() => setSearchAplicat(search.trim())}>
           <Search size={15} /> Caută
         </button>
@@ -94,7 +94,7 @@ export function InvoicesListView({ core }) {
         <span className="badge-count">{filtered.length} facturi · {fmtMoney(totals.total)} · încasat {fmtMoney(totals.paid)}</span>
       </div>
       {loadError ? (
-        <div className="note" style={{ color: "var(--danger)" }}>{loadError}</div>
+        <div className="note fact-nota-eroare">{loadError}</div>
       ) : invoices === null ? (
         <div className="note">Se încarcă…</div>
       ) : filtered.length === 0 ? (
@@ -106,7 +106,7 @@ export function InvoicesListView({ core }) {
               <div>
                 <div className="primary">
                   {inv.series ? `${inv.series} ${inv.number}` : "Draft"}
-                  <span className={"role-tag " + INVOICE_STATUS_CLASS[inv.status]} style={{ marginLeft: 8 }}>
+                  <span className={"role-tag " + INVOICE_STATUS_CLASS[inv.status] + " ml-8"}>
                     {INVOICE_STATUS_LABEL[inv.status]}
                   </span>
                   {/* `?? …`: un cod nou de la Oblio n-are voie sa dea
@@ -121,8 +121,8 @@ export function InvoicesListView({ core }) {
                   {customerLabel(inv.billing_customer_id)} · {inv.issue_date ? fmtDateFull(inv.issue_date) : "neemisă"}
                 </div>
               </div>
-              <div className="row-actions" style={{ gap: 10 }}>
-                <span className="mono" style={{ fontWeight: 650 }}>{fmtMoney(inv.total_amount)}</span>
+              <div className="row-actions facturi-actiuni">
+                <span className="mono fact-suma">{fmtMoney(inv.total_amount)}</span>
                 {/* Emiterea se face din fereastra facturii (ochiul de
                     alaturi), nu de aici: se vede intai ce contine
                     documentul si abia apoi se aloca numarul. */}

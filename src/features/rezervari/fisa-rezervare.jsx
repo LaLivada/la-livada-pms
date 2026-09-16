@@ -72,7 +72,7 @@ function OreCazareModal({ checkin, checkout, onClose, onSave }) {
         </label>
       </div>
 
-      <p className="ldv-mic" style={{ marginTop: 10 }}>
+      <p className="ldv-mic mt-10">
         Codul de acces urmează exact aceste ore: merge de la ora de sosire
         până la cea de plecare, plus minutele de grație din Setări.
         {schimbat && " Codul curent se reface automat la salvare."}
@@ -80,7 +80,7 @@ function OreCazareModal({ checkin, checkout, onClose, onSave }) {
 
       <div className="modal-actions">
         <button className="btn btn-ghost" onClick={onClose}>Anulează</button>
-        <button className="btn btn-primary" style={{ width: "auto" }} disabled={!valid}
+        <button className="btn btn-primary btn-lat" disabled={!valid}
           onClick={() => onSave(checkin.slice(0, 11) + ora1, checkout.slice(0, 11) + ora2)}>
           Salvează orele
         </button>
@@ -737,13 +737,13 @@ export function ReservationModal({ data, core, updateCore, reservations, updateR
             data si ora tin impreuna). Nu apar la blocaje: un blocaj de
             mentenanta n-are cod de acces, deci ora lui nu deschide nicio usa. */}
         {!isBlock && (
-          <div className="field" style={{ marginBottom: 4 }}>
-            <button type="button" className="btn btn-ghost" style={{ width: "auto" }}
+          <div className="field mb-4">
+            <button type="button" className="btn btn-ghost btn-lat"
               onClick={() => setOreModal(true)}>
               <Clock size={14} /> Orele cazării · {checkin.slice(11, 16)} → {checkout.slice(11, 16)}
             </button>
             {editing && (oraDin(checkin) !== ORA_SOSIRE_IMPLICITA || oraDin(checkout) !== ORA_PLECARE_IMPLICITA) && (
-              <div className="ldv-mic" style={{ marginTop: 6 }}>
+              <div className="ldv-mic mt-6">
                 Ore diferite de cele obișnuite ({ORA_SOSIRE_IMPLICITA}:00 → {ORA_PLECARE_IMPLICITA}:00).
                 Codul de acces urmează orele de aici.
               </div>
@@ -794,7 +794,7 @@ export function ReservationModal({ data, core, updateCore, reservations, updateR
             </div>
           ) : (
             <div className="guest-search">
-              <div className="search-box" style={{ maxWidth: "none", width: "100%" }}>
+              <div className="search-box fisar-guest-search">
                 <Search size={15} color="var(--text-muted)" />
                 <input
                   value={guestQuery}
@@ -824,11 +824,11 @@ export function ReservationModal({ data, core, updateCore, reservations, updateR
                   <div className="guest-none" ref={refRezultateClient}>
                     <div>Niciun client cu „{guestQuery.trim()}”.</div>
                     {cautareServerEsuata && (
-                      <div className="note" style={{ marginTop: 6 }}>
+                      <div className="note mt-6">
                         Căutarea în baza de date a eșuat — se văd doar clienții deja încărcați.
                       </div>
                     )}
-                    <button className="btn btn-primary" style={{ width: "auto", marginTop: 10 }} onClick={startAddGuest}>
+                    <button className="btn btn-primary btn-lat mt-10" onClick={startAddGuest}>
                       <Plus size={15} /> Adaugă client nou
                     </button>
                   </div>
@@ -865,7 +865,7 @@ export function ReservationModal({ data, core, updateCore, reservations, updateR
                 onChange={(e) => setOccupantPhone(e.target.value)}
               />
             </div>
-            <div className="ldv-mic" style={{ marginTop: 6 }}>
+            <div className="ldv-mic mt-6">
               Completează doar dacă în cameră stă altcineva decât clientul.
               Codul de acces pleacă pe WhatsApp la acest număr.
             </div>
@@ -886,7 +886,7 @@ export function ReservationModal({ data, core, updateCore, reservations, updateR
         )}
         <EroareCamp eroare={eroare} camp="ocupare" noua={noua} refEroare={refEroare} />
         {!isBlock && (
-          <div className="note" style={{ marginTop: -6 }}>
+          <div className="note mt-neg6">
             Maxim {maxOccupancy} {maxOccupancy === 1 ? "persoană" : "persoane"} pentru {isGroup ? "camerele selectate" : "camera selectată"}.
           </div>
         )}
@@ -980,7 +980,7 @@ export function ReservationModal({ data, core, updateCore, reservations, updateR
         {editing?.messages?.length > 0 && (
           <div className="field">
             <label>Mesaje ({editing.messages.length})</label>
-            <div className="msg-list" style={{ marginTop: 0 }}>
+            <div className="msg-list mt-0">
               {[...editing.messages].reverse().map((m) => (
                 <div className="msg-item" key={m.id}>
                   <div className="msg-text">{m.text}</div>
@@ -1009,7 +1009,7 @@ export function ReservationModal({ data, core, updateCore, reservations, updateR
           </SectiunePliabila>
         )}
 
-        {error && (!noua || !eroare?.camp) && <div className="error-text" role="alert" style={{ marginBottom: 10 }}>{error}</div>}
+        {error && (!noua || !eroare?.camp) && <div className="error-text mb-10" role="alert">{error}</div>}
 
         {editing && (
           <div className="quick-actions">
@@ -1053,7 +1053,7 @@ export function ReservationModal({ data, core, updateCore, reservations, updateR
           <button className="btn btn-ghost" onClick={onClose} disabled={saving}>Anulează</button>
           {/* `() => save()`, nu `save`: altfel React ar trimite evenimentul de
               click drept prim argument, adica drept status. */}
-          <button className="btn btn-primary" style={{ width: "auto" }} onClick={() => save()} disabled={saving}>
+          <button className="btn btn-primary btn-lat" onClick={() => save()} disabled={saving}>
             <Check size={15} /> {saving ? "Se salvează..." : "Salvează"}
           </button>
         </div>

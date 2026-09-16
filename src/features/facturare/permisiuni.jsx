@@ -46,26 +46,26 @@ export function BillingPermissionsView() {
       `${staffMember?.name || userId} · ${BILLING_PERMISSION_LABEL[perm]}`);
   };
 
-  if (loadError) return <div className="note" style={{ color: "var(--danger)" }}>{loadError}</div>;
+  if (loadError) return <div className="note fact-nota-eroare">{loadError}</div>;
   if (staffList === null) return <div className="note">Se încarcă…</div>;
 
   return (
     <div>
-      <div className="note" style={{ marginBottom: 14 }}>
+      <div className="note mb-14">
         Adminii au automat toate drepturile de facturare. Restul userilor primesc doar ce e bifat aici.
       </div>
       {staffList.length === 0 ? (
         <div className="section-empty">Niciun user non-admin.</div>
       ) : (
-        <div className="panel" style={{ overflowX: "auto" }}>
+        <div className="panel of-x-auto">
           {staffList.map((u) => (
-            <div className="list-row" key={u.user_id} style={{ flexDirection: "column", alignItems: "stretch", gap: 8 }}>
-              <div className="primary">{u.name} <span className={"role-tag role-" + u.role} style={{ marginLeft: 8 }}>{ROLE_LABEL[u.role]}</span></div>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: "6px 16px" }}>
+            <div className="list-row permis-user-rand" key={u.user_id}>
+              <div className="primary">{u.name} <span className={"role-tag role-" + u.role + " ml-8"}>{ROLE_LABEL[u.role]}</span></div>
+              <div className="fact-bife-lista">
                 {BILLING_PERMISSION_KEYS.map((perm) => {
                   const has = perms[u.user_id]?.has(perm) || false;
                   return (
-                    <label key={perm} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 14 }}>
+                    <label key={perm} className="fact-rand-bifa">
                       <input type="checkbox" checked={has} onChange={() => toggle(u.user_id, perm, has)} />
                       {BILLING_PERMISSION_LABEL[perm]}
                     </label>

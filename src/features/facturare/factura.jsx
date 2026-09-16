@@ -160,7 +160,7 @@ export function InvoicePrint({ invoiceId, core, onClose, onChanged }) {
 
   return createPortal(
     <Dialog onClose={onClose} title={invoice.series ? `Factură ${invoice.series} ${invoice.number}` : "Factură (draft)"} className="arrival-modal invoice-modal" overlayClassName="arrival-overlay">
-      <div className="no-print" style={{ display: "flex", gap: 8, marginBottom: 14, flexWrap: "wrap" }}>
+      <div className="no-print factura-bara-actiuni">
         <span className={"role-tag " + INVOICE_STATUS_CLASS[invoice.status]}>{INVOICE_STATUS_LABEL[invoice.status]}</span>
         {/* `?? …`: un cod nou de la Oblio n-are voie sa dea
             class="… undefined" si o eticheta goala. */}
@@ -174,7 +174,7 @@ export function InvoicePrint({ invoiceId, core, onClose, onChanged }) {
             contine factura si abia apoi se aloca numarul — spre deosebire
             de un buton in lista, unde se apasa fara sa vezi documentul. */}
         {invoice.status === "draft" && canBilling("issue_invoice") && (
-          <button className="btn btn-primary" style={{ width: "auto" }}
+          <button className="btn btn-primary btn-lat"
             onClick={emite} disabled={emitere}>
             <Receipt size={15} /> {emitere ? "Se emite…" : (dateOblio.oblioActiv(oblio) ? "Emite prin Oblio" : "Emite factura")}
           </button>
@@ -193,12 +193,12 @@ export function InvoicePrint({ invoiceId, core, onClose, onChanged }) {
             <Send size={15} /> {spv ? "Se trimite…" : "Trimite în SPV"}
           </button>
         )}
-        <button className="btn btn-ghost" style={{ width: "auto" }} onClick={() => window.print()}>
+        <button className="btn btn-ghost btn-lat" onClick={() => window.print()}>
           <Printer size={15} /> Printează
         </button>
       </div>
       {invoice.status === "draft" && canBilling("issue_invoice") && (
-        <div className="note no-print" style={{ marginTop: -6, marginBottom: 14 }}>
+        <div className="note no-print mt-neg6 mb-14">
           {dateOblio.oblioActiv(oblio)
             ? "La emitere, Oblio alocă seria și numărul și generează PDF-ul; factura nu mai poate fi modificată — orice corecție ulterioară se face doar prin stornare."
             : "La emitere se alocă serie și număr, iar factura nu mai poate fi modificată — orice corecție ulterioară se face doar prin stornare."}
@@ -299,7 +299,7 @@ export function InvoicePrint({ invoiceId, core, onClose, onChanged }) {
             </tbody>
           </table>
           {invoice.status === "draft" && canBilling("create_invoice") && (
-            <div className="note no-print" style={{ marginTop: 6 }}>
+            <div className="note no-print mt-6">
               Editează denumirea, cantitatea sau prețul direct în tabel — totalul facturii se recalculează automat. O factură emisă nu se mai poate edita (doar stornare).
             </div>
           )}
@@ -450,7 +450,7 @@ export function RecordPaymentInline({ invoice, core, onChanged }) {
   };
 
   return (
-    <div className="panel no-print" style={{ padding: 16, marginTop: 16 }}>
+    <div className="panel no-print p-16 mt-16">
       {open ? (
         <>
           <div className="field-row field-row-2col">
@@ -465,7 +465,7 @@ export function RecordPaymentInline({ invoice, core, onChanged }) {
             </label>
           </div>
           {isCash && (
-            <div className="note" style={{ marginBottom: 10 }}>
+            <div className="note mb-10">
               Se alocă automat numărul următor din seria de chitanțe {receiptSeries?.series || "CH"}
               {receiptSeries ? ` (${receiptSeries.series} ${receiptSeries.next_number})` : ""}.
             </div>
@@ -481,16 +481,16 @@ export function RecordPaymentInline({ invoice, core, onChanged }) {
             </div>
           )}
           <label className="field"><span className="fl">Referință (opțional)</span><input value={reference} onChange={(e) => setReference(e.target.value)} /></label>
-          <div className="modal-actions" style={{ marginTop: 0 }}>
+          <div className="modal-actions mt-0">
             <div className="grow" />
             <button className="btn btn-ghost" onClick={() => setOpen(false)}>Renunță</button>
-            <button className="btn btn-primary" style={{ width: "auto" }} onClick={submit} disabled={saving}>
+            <button className="btn btn-primary btn-lat" onClick={submit} disabled={saving}>
               <Check size={15} /> {saving ? "Se salvează…" : "Salvează"}
             </button>
           </div>
         </>
       ) : (
-        <button className="btn btn-primary" style={{ width: "auto" }} onClick={() => setOpen(true)}>
+        <button className="btn btn-primary btn-lat" onClick={() => setOpen(true)}>
           <CreditCard size={15} /> Adaugă plată{sold > 0 ? ` (${fmtMoney(sold)} rest)` : ""}
         </button>
       )}
@@ -572,28 +572,28 @@ export function InvoiceCancelCreditActions({ invoice, onChanged }) {
   };
 
   return (
-    <div className="no-print" style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap", alignItems: "center" }}>
+    <div className="no-print factura-anulare-actiuni">
       {confirm === "cancel" ? (
         <>
-          <span style={{ fontSize: 13 }}>Sigur anulezi factura?</span>
-          <button className="btn btn-danger" style={{ width: "auto" }} disabled={busy} onClick={cancelInvoice}>Confirmă</button>
-          <button className="btn btn-ghost" style={{ width: "auto" }} onClick={() => setConfirm(null)}>Renunță</button>
+          <span className="factura-confirmare-text">Sigur anulezi factura?</span>
+          <button className="btn btn-danger btn-lat" disabled={busy} onClick={cancelInvoice}>Confirmă</button>
+          <button className="btn btn-ghost btn-lat" onClick={() => setConfirm(null)}>Renunță</button>
         </>
       ) : confirm === "credit" ? (
         <>
-          <span style={{ fontSize: 13 }}>Sigur storne­zi? Se emite o factură nouă, cu sume negative.</span>
-          <button className="btn btn-danger" style={{ width: "auto" }} disabled={busy} onClick={creditInvoice}>Confirmă</button>
-          <button className="btn btn-ghost" style={{ width: "auto" }} onClick={() => setConfirm(null)}>Renunță</button>
+          <span className="factura-confirmare-text">Sigur storne­zi? Se emite o factură nouă, cu sume negative.</span>
+          <button className="btn btn-danger btn-lat" disabled={busy} onClick={creditInvoice}>Confirmă</button>
+          <button className="btn btn-ghost btn-lat" onClick={() => setConfirm(null)}>Renunță</button>
         </>
       ) : (
         <>
           {Number(invoice.paid_amount) === 0 && canBilling("cancel_invoice") && (
-            <button className="btn btn-ghost" style={{ width: "auto" }} onClick={() => setConfirm("cancel")}>
+            <button className="btn btn-ghost btn-lat" onClick={() => setConfirm("cancel")}>
               <XCircle size={15} /> Anulează factura
             </button>
           )}
           {canBilling("create_credit_note") && (
-            <button className="btn btn-ghost" style={{ width: "auto" }} onClick={() => setConfirm("credit")}>
+            <button className="btn btn-ghost btn-lat" onClick={() => setConfirm("credit")}>
               <Undo2 size={15} /> Stornează
             </button>
           )}

@@ -326,7 +326,7 @@ export function AutomatizareView({ core }) {
         </div>
         <div className="tabs-actions">
           <button
-            className="btn btn-ghost" style={{ width: "auto" }}
+            className="btn btn-ghost btn-lat"
             disabled={ocupat === "refresh"} onClick={actualizeaza}
           >
             <RefreshCw size={15} /> {ocupat === "refresh" ? "Se actualizează…" : "Actualizează starea"}
@@ -484,7 +484,7 @@ function Automatizari({ dispozitive, reguli, rulare, ocupat, onComanda, onComuta
     <>
       <StareCiclu rulare={rulare} />
 
-      <div className="panel" style={{ marginBottom: 14 }}>
+      <div className="panel mb-14">
         {/* Titlul o singura data, deasupra: „control manual" e ce au in comun
             amandoua randurile, nu o insusire a fiecaruia. Repetat pe fiecare
             rand, lungea titlurile fara sa adauge nimic. */}
@@ -620,17 +620,17 @@ function CameraTehnica({ ct, dispozitive, numeCamera, ocupat, onComuta, onAdauga
   const peCanal = new Map(dispozitive.map((d) => [d.canal, d]));
 
   return (
-    <div className="panel" style={{ marginBottom: 14 }}>
+    <div className="panel mb-14">
       <div className="dv-head">
         <div className="dv-info">
           <div className="dv-title">
             Camera tehnică {ct.nr}
             {/* Numerele camerelor ingrosate, restul stins: cand cauti o
                 camera anume, „1013" e singurul lucru pe care il scanezi. */}
-            <span style={{ color: "var(--text-muted)", fontWeight: 500 }}>
-              · camerele <strong style={{ color: "var(--text)" }}>{nume[0]}</strong>
+            <span className="autom-camere-sufix">
+              · camerele <strong className="autom-camera-nume">{nume[0]}</strong>
               {" și "}
-              <strong style={{ color: "var(--text)" }}>{nume[1]}</strong>
+              <strong className="autom-camera-nume">{nume[1]}</strong>
             </span>
           </div>
           <div className="dv-sub">
@@ -640,15 +640,15 @@ function CameraTehnica({ ct, dispozitive, numeCamera, ocupat, onComuta, onAdauga
           </div>
         </div>
         {isAdmin() && (
-          <div className="row-actions" style={{ marginLeft: "auto" }}>
+          <div className="row-actions ml-auto">
             {!idShelly && (
-              <button className="btn btn-ghost" style={{ width: "auto" }} onClick={onAdauga}>
+              <button className="btn btn-ghost btn-lat" onClick={onAdauga}>
                 <Plus size={14} /> Adaugă Shelly
               </button>
             )}
             {idShelly && (confirmaStergere ? (
               <>
-                <span style={{ fontSize: 12, color: "var(--danger)", fontWeight: 600 }}>Ștergi Shelly-ul din camera tehnică?</span>
+                <span className="autom-confirma-text">Ștergi Shelly-ul din camera tehnică?</span>
                 <button
                   className="icon-btn" aria-label="Confirmă ștergerea"
                   onClick={async () => {
@@ -661,7 +661,7 @@ function CameraTehnica({ ct, dispozitive, numeCamera, ocupat, onComuta, onAdauga
                     } finally { setConfirmaStergere(false); }
                   }}
                 ><Trash2 size={14} /></button>
-                <button className="btn btn-ghost" style={{ width: "auto" }} onClick={() => setConfirmaStergere(false)}>
+                <button className="btn btn-ghost btn-lat" onClick={() => setConfirmaStergere(false)}>
                   Renunță
                 </button>
               </>
@@ -822,7 +822,7 @@ function AdaugaReleu({ ct, numeCamera, idFolosite, onClose, onGata }) {
 
       <div className="note">
         Se vor crea cele patru relee, în ordinea de pe dispozitiv:
-        <ul style={{ margin: "6px 0 0", paddingLeft: 18 }}>
+        <ul className="autom-lista-relee">
           {CANALE.map((c) => (
             <li key={c.canal}>
               <strong>Releu {c.iesire}</strong> · {c.eticheta} —{" "}

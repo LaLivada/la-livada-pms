@@ -78,8 +78,8 @@ export function GroupPrint({ group, core, reservations, onClose }) {
     <Dialog onClose={onClose} className="arrival-modal" overlayClassName="arrival-overlay" title={undefined}>
       <div className="modal-head no-print">
         <h3>Listă cazare grup</h3>
-        <div style={{ display: "flex", gap: 8 }}>
-          <button className="btn btn-primary" style={{ width: "auto" }} onClick={download} disabled={downloading}>
+        <div className="grupuri-print-actions">
+          <button className="btn btn-primary btn-lat" onClick={download} disabled={downloading}>
             <Printer size={15} /> {downloading ? "Se generează…" : "Vezi PDF"}
           </button>
           <button className="icon-btn" onClick={onClose} aria-label="Închide fereastra"><X size={16} /></button>
@@ -516,7 +516,7 @@ export function GroupEditor({ group, core, groups, updateGroups, reservations, u
       {rows.length !== liveRows.length && (() => {
         const n = rows.length - liveRows.length;
         return (
-          <div className="note" style={{ marginBottom: 12 }}>
+          <div className="note mb-12">
             {n === 1 ? "O cameră anulată nu intră" : `${n} camere anulate nu intră`} în cifrele de mai sus —
             {n === 1 ? " rămâne" : " rămân"} mai jos, marcată{n === 1 ? "" : "e"}.
           </div>
@@ -549,13 +549,13 @@ export function GroupEditor({ group, core, groups, updateGroups, reservations, u
       )}
 
       {span && (
-        <div className="note" style={{ marginBottom: 12 }}>
+        <div className="note mb-12">
           Interval grup: {fmtDate(span.checkin)} → {fmtDate(span.checkout)}. Fiecare cameră poate avea propriile
           date — camerele adăugate pornesc de la intervalul grupului și pot fi ajustate individual.
         </div>
       )}
 
-      {error && <div className="drag-error" role="alert" style={{ marginBottom: 10 }}>{error}</div>}
+      {error && <div className="drag-error mb-10" role="alert">{error}</div>}
 
       <div className="grp-rows">
         {rows.map((r) => {
@@ -701,11 +701,11 @@ export function GroupEditor({ group, core, groups, updateGroups, reservations, u
             <button className="link-btn" onClick={() => setAddOpen(false)}>Renunță</button>
           </div>
           {freeRooms.length === 0 ? (
-            <p style={{ fontSize: "var(--fs-base)", color: "var(--text-muted)", margin: "0 0 12px" }}>
+            <p className="grupuri-camera-lipsa">
               Nicio cameră liberă în intervalul grupului.
             </p>
           ) : (
-            <div className="room-chips" style={{ marginBottom: 12 }}>
+            <div className="room-chips mb-12">
               {freeRooms.map((room) => (
                 <button className="room-chip" key={room.id} onClick={() => addRoom(room.id)}>
                   {room.name}
@@ -715,16 +715,16 @@ export function GroupEditor({ group, core, groups, updateGroups, reservations, u
           )}
         </div>
       ) : (
-        <button className="btn btn-ghost" style={{ width: "100%", marginTop: 4 }} onClick={() => setAddOpen(true)}>
+        <button className="btn btn-ghost w-full mt-4" onClick={() => setAddOpen(true)}>
           <Plus size={15} /> Adaugă cameră în grup
         </button>
       )}
 
-      <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
-        <button className="btn btn-ghost" style={{ flex: 1 }} onClick={onPrint}>
+      <div className="grupuri-editor-footer">
+        <button className="btn btn-ghost grow" onClick={onPrint}>
           <Printer size={15} /> Listă cazare
         </button>
-        <button className="btn btn-primary" style={{ flex: 1 }} onClick={onClose}>
+        <button className="btn btn-primary grow" onClick={onClose}>
           <Check size={15} /> Gata
         </button>
       </div>
@@ -865,11 +865,11 @@ export function GroupsView({ core, groups, updateGroups, reservations, updateRes
                         confirmId ar putea rămâne setat după o retrogradare
                         din admin. */}
                     {isAdmin() && (
-                      <button className="btn btn-danger" style={{ padding: "8px 12px" }} onClick={() => removeGroup(g.id)}>
+                      <button className="btn btn-danger btn-mic" onClick={() => removeGroup(g.id)}>
                         Șterge tot
                       </button>
                     )}
-                    <button className="btn btn-ghost" style={{ padding: "8px 12px" }} onClick={() => setConfirmId(null)}>
+                    <button className="btn btn-ghost btn-mic" onClick={() => setConfirmId(null)}>
                       Renunță
                     </button>
                   </>

@@ -2426,3 +2426,433 @@ label.field input, label.field select, label.field textarea{ cursor:auto; }
 .field-nota{ font-size:var(--fs-sm); color:var(--text-muted); }
 .field-rand .field-nota::before{ content:"· "; }
 .field-nota-pericol{ display:block; color:var(--danger); margin-top:2px; }
+
+/* ---------- Camere (features/camere.jsx) ----------
+   Clasele care au înlocuit stilurile inline de aici (D2, faza 4).
+   Ecranul are patru zone: lista camerelor, fereastra unei camere, panoul
+   „mod trecere liberă" și filele de tarife/etichete — de-aia sub-prefixe.
+   Singurul `style` rămas e transformarea glisorului de ușă, care e
+   calculată din poziția degetului. */
+
+/* --- Lista camerelor (RoomsView) --- */
+/* Tipul camerei, scris mai șters lângă numele ei în rândul din listă. */
+.camere-tip{ color:var(--text-muted); font-weight:500; }
+/* Ce se mai șterge odată cu camera, la confirmarea din rând. */
+/* Mărimile scrise în px, nu în jetoane: peste 1400px blocul „DESKTOP LAT"
+   redefinește `--fs-*`, iar un jeton ar face textul cu ~15% mai mare decât
+   era. D2 nu schimbă nimic la vedere. */
+.camere-sterge-avert{ font-size:12px; color:var(--danger); font-weight:600; }
+
+/* --- Fereastra camerei (RoomModal) --- */
+/* Linkul iCal și butonul de copiere, pe un rând. */
+.camere-ical-rand{ display:flex; gap:8px; }
+/* Cât timp camera n-a fost salvată, câmpul arată un text de așteptare, nu
+   un link — gri, ca să nu pară ceva de copiat. Selectorul îl include pe
+   `.field input`: regula de culoare a câmpurilor din formular e la fel de
+   specifică, iar o clasă simplă ar pierde. */
+.field input.camere-ical-gol{ color:var(--text-muted); }
+/* Butoanele de sincronizare/testare a yalei stau lipite de câmpul de
+   deasupra, nu la distanța obișnuită dintre secțiunile ferestrei. A doua
+   regulă bate bara lipită de jos din interfața nouă (`.ui-noua .modal
+   .modal-actions`), care altfel ar impune margin:18px prin scurtătură. */
+.camere-yale-actiuni{ margin-top:4px; }
+.ui-noua .modal .modal-actions.camere-yale-actiuni{ margin-top:4px; }
+/* Perechea Nu / Da dintr-o confirmare (deschiderea ușii, trecerea liberă). */
+.camere-confirm-btns{ display:flex; gap:8px; }
+
+/* --- Mod trecere liberă (PassageModePanel) --- */
+/* Cele două acțiuni „pe toate yalele"; se rup pe două rânduri pe telefon. */
+.camere-pasaj-bulk{ display:flex; gap:8px; flex-wrap:wrap; }
+/* Rândul de acțiuni al unei yale: mai multe butoane decât într-un rând
+   obișnuit de listă, deci și un pic mai răsfirat decât `.row-actions`. */
+.camere-pasaj-actiuni{ align-items:center; gap:8px; }
+/* Trecerea liberă activă e o stare de atenționat, nu una obișnuită — de-aia
+   eticheta ia culorile de pericol, nu pe cele ale rolurilor. */
+.camere-pasaj-activ{ background:var(--danger-soft); color:var(--danger); }
+/* Trei butoane pe rândul unei yale: mai strânse chiar și decât `.btn-mic`,
+   altfel rândul nu încape lângă numele yalei. */
+.camere-pasaj-btn{ padding:6px 10px; }
+/* Ca `.camere-yale-actiuni`, cu aceeași grijă la interfața nouă. */
+.camere-pasaj-final{ margin-top:14px; }
+.ui-noua .modal .modal-actions.camere-pasaj-final{ margin-top:14px; }
+
+/* --- Etichete (TagsView) --- */
+/* Câmpul de etichetă nouă e mai îngust decât căutarea obișnuită: în el se
+   scrie un cuvânt, nu un nume de oaspete. */
+.camere-eticheta-cauta{ max-width:320px; }
+/* Redenumirea se face pe loc, în rândul listei: câmpul nu e într-un
+   `.field`, așa că își poartă singur aspectul de input. */
+.camere-eticheta-edit{
+  flex:1; padding:9px 11px; border:1px solid var(--accent);
+  border-radius:var(--r-sm); font-size:var(--fs-base);
+  background:var(--surface); color:var(--text);
+}
+
+/* --- Tarife și optimizator de preț (RatesView, OnlinePricingView) --- */
+/* Butonul de salvare cu starea lui alături („Salvat" / „Modificări
+   nesalvate"), pe amândouă filele. */
+.camere-salvare-rand{ display:flex; align-items:center; gap:10px; }
+/* Tot în px, din același motiv ca la `.camere-sterge-avert`. */
+.camere-salvat{ color:var(--success); font-size:13px; font-weight:600; }
+.camere-nesalvat{ color:var(--text-muted); font-size:13px; }
+/* Antet de secțiune în interiorul unui panou cu padding propriu: fără
+   chenar și fără padding, doar textul și aerul de sub el. */
+.camere-tarife-cap{ padding:0; border:none; margin-bottom:14px; }
+/* Un sezon în lista de sezoane; nu e `.list-row`, fiindcă are două rânduri
+   (numele, apoi grila de date și tarife). */
+.camere-sezon{ padding:16px; border-bottom:1px solid var(--border-soft); }
+.camere-sezon-cap{ display:flex; gap:8px; margin-bottom:10px; }
+/* Numele sezonului: input liber, în afara unui `.field`. */
+.camere-sezon-nume{
+  flex:1; padding:9px 12px; border:1px solid var(--border);
+  border-radius:10px; font-size:13.5px;
+}
+
+/* ---------- Setări (features/setari.jsx) ----------
+   Clasele care au înlocuit stilurile inline de aici (D2, faza 4). */
+
+/* -- Useri și drepturi (UsersView, UserModal) -- */
+.setari-user-dreapta{ display:flex; align-items:center; gap:10px; }
+/* UUID-ul userului (aici) și ora din jurnal (mai jos, LogView) sunt in
+   interiorul unui `.list-row`, unde `.list-row .secondary` (pms.css) fixeaza
+   font-size la --fs-sm. Stilul inline batea acea regula cu 11px; compound-ul
+   de mai jos (3 clase, fata de 2) egaleaza si depaseste specificitatea, ca sa
+   castige 11px la fel ca inainte.
+   In px, nu in jetonul --fs-xs: pe „desktop lat" (pms.css, @media
+   min-width:1400px) jetoanele --fs-* cresc, iar stilul inline de dinainte nu
+   crestea odata cu ele — un jeton ar fi schimbat marimea pe monitor lat. */
+.list-row .secondary.setari-id-mic{ font-size:11px; }
+
+/* -- Raport zilnic: fereastra cu detaliul pe zile (OcupareZilnicaModal) -- */
+.setari-ocupare-modal-actiuni{ display:flex; gap:8px; }
+/* `.tabel-zile thead th` (pms.css) pune text-align:left, cu o clasa si doua
+   elemente in selector. Compound-ul de mai jos (doua clase + un element) e
+   mai specific si castiga, si in thead, si in tfoot (unde n-avea cu ce se
+   bate, dar ramane consecvent). */
+.tabel-zile th.setari-ocupare-num{ text-align:right; }
+
+/* -- Rapoarte lunare (ReportsView) -- */
+/* Stilul inline avea `opacity: seIncarca ? .55 : 1` — ternar intre doua
+   constante, deci nu e stil calculat (regulamentul D2): devine o clasa de
+   baza si un modificator, comutate din className. */
+.setari-raport-continut{ opacity:1; transition:opacity .15s; }
+.setari-raport-incarca{ opacity:.55; }
+.setari-raport-buton{ padding:18px; margin-bottom:14px; width:100%; text-align:left; }
+/* `.section-head` (pms.css) are o singura clasa in selector, ca și clasa de
+   mai jos — la specificitate egala, câștigă fiindcă fișierul ăsta e lipit la
+   coada lui pms.css (după regula din regulament). */
+.setari-raport-cap{ padding:0; border:none; margin-bottom:14px; display:flex; align-items:center; justify-content:space-between; }
+.setari-raport-vezi-zile{ font-weight:500; }
+.setari-raport-meter-rand{ display:flex; align-items:center; gap:12px; min-width:160px; }
+/* px, nu jetonul --fs-base: vezi nota de la `.setari-id-mic` — pe „desktop
+   lat" jetonul ar creste, stilul inline de dinainte nu crestea. */
+.setari-raport-meter-pct{ font-size:13px; font-weight:600; }
+
+/* -- Jurnal (LogView) -- */
+/* Aceeași observație ca la `.setari-raport-cap`: `.field{ margin-bottom:14px; }`
+   (pms.css) are o singură clasă; la specificitate egală câștigă poziția — clasa
+   de mai jos e mai la coadă. */
+.setari-jrn-camp{ margin-bottom:0; flex:1 1 160px; }
+/* px, nu jetonul --fs-sm: aceeasi nota ca la `.setari-id-mic`. */
+.setari-jrn-user{ font-size:12px; font-weight:600; }
+
+/* -- Configurare: grila de file (SettingsView) --
+   `.t` și `.d` există deja, dar doar în interiorul `.settings-card` (pms.css,
+   unde fixează font-size/culoare/line-height) — clasa e folosită o singură
+   dată în tot codul, deci extindem direct regula existentă cu display:block,
+   fără o clasă nouă. */
+.settings-card .t{ display:block; }
+.settings-card .d{ display:block; }
+
+/* ---------- Folio (features/facturare/folio.jsx) ----------
+   Clasele care au înlocuit stilurile inline de aici (D2, faza 4). */
+.folio-eroare{ color:var(--danger); }
+/* .row-actions are gap:6px implicit; randul unei pozitii de folio (suma +
+   butonul de stergere) foloseste 10px, ca inainte. */
+.folio-pozitie-actiuni{ gap:10px; }
+/* Suma unei pozitii, in FolioPanel si in randul de selectie din constructor
+   (acelasi rol, acelasi 650 in ambele locuri). */
+.folio-suma{ font-weight:650; }
+.folio-total-rand{ background:var(--surface-2); }
+.folio-total-suma{ font-weight:700; }
+/* Eticheta clicabila (checkbox + nume/pret pozitie) dintr-un rand de
+   selectie al constructorului de factura. */
+.folio-selectie-rand{ display:flex; align-items:center; gap:10px; cursor:pointer; flex:1; min-width:0; }
+/* Zona din dreapta aceluiasi rand: eticheta de agregare (optionala) + suma. */
+.folio-selectie-meta{ display:flex; align-items:center; gap:10px; }
+.folio-agregare-eticheta{ display:flex; align-items:center; gap:6px; font-size:12px; color:var(--text-muted); }
+
+/* ---------- Factura (features/facturare/factura.jsx) ----------
+   Clasele care au înlocuit stilurile inline de aici (D2, faza 4).
+   NU ating .inv-sheet-wrap / .inv-scaler: scalarea colii A4
+   (height: sheetH * scale, transform: scale(${scale})) e calculată la
+   rulare din marimea containerului si ramane inline — vezi raportul
+   pentru verificarea regulilor de print care le ating. */
+.factura-bara-actiuni{ display:flex; gap:8px; margin-bottom:14px; flex-wrap:wrap; }
+.factura-anulare-actiuni{ display:flex; gap:8px; margin-top:12px; flex-wrap:wrap; align-items:center; }
+/* Textul de confirmare de langa butoanele Anulează/Stornează. */
+.factura-confirmare-text{ font-size:13px; }
+
+/* ==================== FACTURARE — lotul 2 (D2, faza 4) ====================
+   Stilurile inline din produse.jsx, export-contabil.jsx, incasari.jsx,
+   clienti-facturare.jsx, permisiuni.jsx si facturi-lista.jsx
+   (src/features/facturare/). Regula de aur: aceleasi declaratii ca stilul
+   inline inlocuit — nicio schimbare vizuala. Blocul se lipeste dupa
+   utilitarele comune (D2), deci orice clasa de-aici bate orice regula
+   anterioara cu aceeasi specificitate — exact cum batea stilul inline. */
+
+/* ---------- Comune (mai multe ecrane din acest lot) ----------
+   Aceeasi combinatie de declaratii aparea identic in cel putin doua
+   ecrane — o singura clasa in loc de doua identice. */
+/* Eticheta unei bife dintr-un rand de filtre/permisiuni: export-contabil.jsx
+   (statusuri incluse la export) si permisiuni.jsx (fiecare permisiune).
+   14px fix, NU var(--fs-md): la 1400px+ jetonul urca la 16px, ceea ce ar
+   fi o schimbare vizuala fata de stilul inline inlocuit (fontSize: 14). */
+.fact-rand-bifa{ display:flex; align-items:center; gap:6px; font-size:14px; }
+/* Suma cu accent langa .mono: export-contabil.jsx, incasari.jsx,
+   facturi-lista.jsx. */
+.fact-suma{ font-weight:650; }
+/* Mesaj de eroare intr-un .note: incasari.jsx, permisiuni.jsx,
+   facturi-lista.jsx. */
+.fact-nota-eroare{ color:var(--danger); }
+/* Lista de bife care se ruleaza pe mai multe randuri: export-contabil.jsx
+   (impreuna cu .mt-6 — acolo mai are si un spatiu deasupra) si
+   permisiuni.jsx (singura, fara spatiu suplimentar). */
+.fact-bife-lista{ display:flex; flex-wrap:wrap; gap:6px 16px; }
+
+/* ---------- Produse si emitent (features/facturare/produse.jsx) ---------- */
+/* Checkbox-ul „Activ” din formularul de produs — .salutation-opt n-are
+   nicio regula proprie in pms.css, doar layout-ul inline de-aici. */
+.produse-activ-camp{ display:inline-flex; margin-bottom:14px; }
+/* Randul cu butonul de salvare si nota „Modificări nesalvate”, in cardul
+   emitentului (InvoiceIssuerCard). Nu e .oblio-actiuni: acela mai are
+   flex-wrap:wrap si margin-top:4px, pe care stilul inline de-aici nu le avea. */
+.produse-emitent-actiuni{ display:flex; align-items:center; gap:10px; }
+.produse-inactiv{ color:var(--text-muted); font-weight:500; }
+
+/* ---------- Exportul contabil (features/facturare/export-contabil.jsx) ---------- */
+.export-nota-avertisment{ color:var(--warning); }
+/* Eticheta-rand a unei facturi din lista de bifat pentru export. */
+.export-linie-bifa{ display:flex; align-items:center; gap:10px; cursor:pointer; flex:1; min-width:0; }
+
+/* ---------- Incasarile (features/facturare/incasari.jsx) ---------- */
+/* Randul unei metode de plata: eticheta ocupa tot spatiul, bifa „activă”
+   si stergerea stau pe coloane fixe (peste grila implicita a .field-row). */
+.incasari-metoda-rand{ grid-template-columns:1fr auto auto; align-items:center; gap:10px; width:100%; }
+/* Adaugata peste .fact-rand-bifa: eticheta „activă” nu trebuie sa se rupa
+   pe doua randuri langa checkbox. */
+.incasari-metoda-nowrap{ white-space:nowrap; }
+.incasari-serie-camp{ max-width:200px; margin:0; }
+
+/* ---------- Clientii de facturare (features/facturare/clienti-facturare.jsx) ---------- */
+.clfact-cautare{ max-width:none; width:100%; }
+
+/* ---------- Drepturile de facturare (features/facturare/permisiuni.jsx) ---------- */
+/* Randul unui user: eticheta si bifele dedesubt, nu pe acelasi rand ca in
+   .list-row implicit. */
+.permis-user-rand{ flex-direction:column; align-items:stretch; gap:8px; }
+
+/* ---------- Lista facturilor (features/facturare/facturi-lista.jsx) ---------- */
+.facturi-actiuni{ gap:10px; }
+
+/* ---------- Clienți (features/clienti.jsx) ----------
+   Clasele care au înlocuit stilurile inline de aici (D2, faza 4). */
+/* Compusă cu .secondary, nu o clasă simplă: `.list-row .secondary` are deja
+   margin-top:2px, cu specificitate (0,2,0) — egală cu a oricărei clase
+   simple de-a noastră, indiferent unde ar sta în foaie. O clasă simplă ar
+   putea pierde față de ea. Compunerea cu .secondary urcă specificitatea la
+   (0,2,0) și câștigă prin ordine (blocul nostru e la coada fișierului). */
+.secondary.clienti-linie-sumar{ margin-top:3px; }
+.clienti-suma{ font-weight:650; }
+.clienti-text-eroare{ color:var(--danger); }
+.clienti-telefon-rand{ display:flex; align-items:center; gap:8px; }
+
+/* ---------- Fișe de cazare (features/fise.jsx) ----------
+   Aceeași capcană de specificitate ca la Clienți: rândurile din FiseView
+   stau tot într-un .list-row, deci `.secondary.fise-…` (nu o clasă simplă). */
+.secondary.fise-linie-sumar{ margin-top:3px; }
+.secondary.fise-linie-eroare{ color:var(--danger); }
+/* var(--muted) e exact ce scria stilul inline — jetonul nu există în :root
+   (doar --text-muted), dar nu era treaba mea să-l corectez pe drum. */
+.fise-nota-info{ margin-bottom:12px; color:var(--muted); }
+
+/* ---------- Grupuri (features/grupuri.jsx) ---------- */
+.grupuri-print-actions{ display:flex; gap:8px; }
+.grupuri-camera-lipsa{ font-size:var(--fs-base); color:var(--text-muted); margin:0 0 12px; }
+.grupuri-editor-footer{ display:flex; gap:8px; margin-top:10px; }
+
+/* ---------- Documente tipăribile (features/documente.jsx) ---------- */
+.docum-modal-actions{ display:flex; gap:8px; }
+/* transform-origin e constant, deci a primit clasă; transform rămâne inline
+   (`scale(${scale})`, calculat la rulare — regula de aur D2). Împărțite pe
+   proprietăți, nu pe tot style-ul: .arrival-scaler n-are nicio regulă de
+   bază (doar una de print, pe transform/zoom, care nu atinge transform-origin),
+   deci n-are cu ce să intre în conflict. */
+.docum-scaler{ transform-origin:top left; }
+
+/* ---------- Fișa rezervare (features/rezervari/fisa-rezervare.jsx) ----------
+   Clasele care au înlocuit stilurile inline de aici (D2, faza 4). */
+/* Caseta de căutare a clientului: lățimea plină a panoului „Oaspete", nu
+   plafonul de 340px din .search-box. */
+.fisar-guest-search{ max-width:none; width:100%; }
+
+/* ---------- Calendarul (features/rezervari/calendar.jsx) ----------
+   Clasele care au înlocuit stilurile inline de aici (D2, faza 4). Pozițiile
+   barelor și tot ce se calculează din date (left, width:calc(...), --zi-w,
+   --days) rămân inline — vezi raportul pentru motiv, linie cu linie. */
+.cal-move-btn{ padding:6px 12px; }
+/* Font-size în px, NU jeton --fs-*: la „DESKTOP LAT" (@media min-width:1400px,
+   mai jos în pms.css) jetoanele --fs-* cresc, iar antetul „Cameră" nu trebuia
+   să crească — stilul inline pe care îl înlocuiește era tot în px. */
+.cal-head-camera{ font-weight:700; font-size:12px; }
+.cal-bar-icon-grup{ flex-shrink:0; opacity:.8; }
+.cal-bar-icon-mesaj{ flex-shrink:0; opacity:.75; }
+/* „Ocupare" din piciorul calendarului: mărime și familie proprii, în orice
+   mod (dens sau nu). .cal-scroll.dense .cal-roomcell .rname (4 clase, mai sus
+   în pms.css) ar bate o clasă mai simplă în vederea densă — selectorul de
+   aici are aceeași specificitate (tot 4 clase) și vine după în fișier, deci
+   câștigă în ambele moduri, la fel cum câștiga înainte stilul inline.
+   Font-size în px, nu jeton, pentru același motiv ca la .cal-head-camera. */
+.cal-foot .cal-roomcell .rname.cal-foot-rname{ font-size:11px; font-family:inherit; font-weight:700; }
+
+/* ---------- Night audit (features/rezervari/night-audit.jsx) ----------
+   Clasele care au înlocuit stilurile inline de aici (D2, faza 4). */
+.naudit-boot{ max-width:560px; align-items:stretch; text-align:left; }
+.naudit-header{ display:flex; gap:12px; align-items:flex-start; }
+/* Rândul din lista de restanțe/sosiri: coloană, nu rândul implicit al
+   .list-row, și un gap propriu (10px, nu cele 12px din .list-row). */
+.naudit-row-col{ flex-direction:column; align-items:stretch; gap:10px; }
+
+/* ---------- Acțiunile pe o rezervare (features/rezervari/actiuni.jsx) ----------
+   Clasele care au înlocuit stilurile inline de aici (D2, faza 4). */
+.actiuni-msg-actions{ display:flex; gap:8px; justify-content:flex-end; }
+/* Padding propriu al butonului Salvează din compunerea mesajului: 8px 14px,
+   nu cele 8px 12px din .btn-mic. */
+.actiuni-btn-salveaza{ padding:8px 14px; }
+.actiuni-confirm-actions{ display:flex; gap:8px; }
+
+/* ---------- Vezi rezervarea (features/rezervari/vizualizare.jsx) ----------
+   Clasele care au înlocuit stilurile inline de aici (D2, faza 4). */
+/* Rândul de sus rămâne orizontal chiar și sub 640px, unde .action-head trece
+   pe coloană (regula ei mobilă e tot o singură clasă, dar mai sus în fișier
+   — asta o bate): butonul „Fișa de sosire" trebuie să stea în dreapta
+   rândurilor, și pe telefon. */
+.vizual-head{ flex-direction:row; align-items:flex-start; flex-wrap:nowrap; gap:10px; }
+
+/* ---------- Azi (features/rezervari/azi.jsx) ----------
+   Toate cele 7 stiluri inline de aici s-au mutat pe utilitare existente
+   (.min-w-0, .cursor-pointer, .btn-lat, .btn-mic) — niciun rol nou, deci
+   nicio clasă nouă aici. */
+
+/* ---------- Automatizare (features/automatizare.jsx) ----------
+   Clasele care au înlocuit stilurile inline de aici (D2, faza 4).
+   Reutilizate din pms.css, fără redefinire aici: .btn-lat (width:auto pe
+   butoanele „Actualizează starea", „Adaugă Shelly", „Renunță"), .mb-14
+   (cele două panouri) și .ml-auto (rândul de acțiuni al camerei tehnice).
+   Nu s-a găsit niciun stil calculat la rulare in acest fișier — culorile de
+   stare ale releelor sunt deja className condiționat (.dv-icon-on / -off /
+   -necunoscut, .dv-stare-on / -off), nu style inline. */
+
+/* Sufixul „· camerele X și Y" din titlul camerei tehnice: mai stins decât
+   titlul (`.dv-title` are font-weight:600), de-aia ii trebuie propriul
+   font-weight, nu doar culoarea. */
+.autom-camere-sufix{ color:var(--text-muted); font-weight:500; }
+/* Numerele camerelor, scoase la loc din sufixul stins de mai sus. */
+.autom-camera-nume{ color:var(--text); }
+/* Întrebarea de confirmare înainte de ștergerea unui Shelly dintr-o cameră
+   tehnică. font-size ramane in px, NU var(--fs-sm): blocul „DESKTOP LAT"
+   (@media min-width:1400px) redefineste jetoanele --fs-*, deci un jeton aici
+   ar creste marimea pe monitor lat fata de cei 12px ficsi din stilul inline
+   original — schimbare vizuala interzisa de regula de aur. */
+.autom-confirma-text{ font-size:12px; color:var(--danger); font-weight:600; }
+/* Lista celor patru relee din dialogul de adăugare a unui Shelly nou. */
+.autom-lista-relee{ margin:6px 0 0; padding-left:18px; }
+
+/* ---------- Acces electronic (features/acces.jsx) ----------
+   Clasele care au înlocuit stilurile inline de aici (D2, faza 4).
+   Reutilizate din pms.css, fără redefinire aici: .mb-6 și .mt-8 (de doua ori:
+   pe trimiteri și peste `.quick-actions`, unde câștigă fiindcă vine mai jos
+   in cascada decat margin-top:4px al clasei). Stilul cu marginTop:8 de pe
+   `.error-text` (linia cu {eroare}) a fost șters, nu mutat: clasa are deja
+   margin-top:8px (pms.css, langa .error-text), deci inline-ul era un
+   duplicat exact, fara efect vizual propriu. Niciun stil calculat aici. */
+
+/* Notă mică, stinsă, sub un câmp — „fără yală asociată" și intervalul de
+   valabilitate al codului. var(--muted) e chiar tokenul din stilul inline
+   original (nu var(--text-muted)); copiat identic, ca sa nu schimbe nimic. */
+.acces-nota{ color:var(--muted); }
+/* Codul de acces, cifrele mari de deasupra butoanelor de trimitere. 26px nu
+   e in scara de fonturi (…21, 25…), deci ramane in px, ca in stilul original. */
+.acces-cod-mare{ font-size:26px; font-weight:700; letter-spacing:.12em; }
+/* Nota „Numărul de WhatsApp nu este disponibil", centrată pe inaltimea
+   randului de butoane de trimitere. */
+.acces-nota-centrata{ align-self:center; }
+
+/* ---------- Primitive UI (ui/primitive.jsx) ----------
+   Clasele care au înlocuit stilurile inline de aici (D2, faza 4).
+   Reutilizat din pms.css, fără redefinire aici: .btn-lat, pe toate cele
+   cinci butoane cu width:auto (Închide din PdfPreview, cele patru din
+   Paginare/Section). Niciun stil calculat aici. */
+
+/* Dimensiunea fișierului PDF (KB), centrată langa butonul „Deschide în filă
+   nouă" din antetul de acțiuni al previzualizării. */
+.ui-nota-centrata{ align-self:center; }
+
+/* ---------- Utilitare (D2): clase în locul stilurilor inline ----------
+   Punctul D2 din audit: `style={{ … }}` în JSX, deși fișierul ăsta are deja
+   jetoane și clase. Cele cu mai multe proprietăți au primit clase cu nume
+   de rol, în secțiunile ecranelor de mai sus; aici rămân doar ajustările
+   dintr-o singură proprietate — o margine, o aliniere — care n-au un rol
+   propriu și n-ar merita un nume inventat.
+
+   Setul e ÎNCHIS și există doar ca înlocuitor al stilurilor inline. Nu e
+   începutul unui sistem de utilitare: ce are un rol primește o clasă cu
+   nume, nu o combinație de utilitare.
+
+   DE CE LA CAPĂTUL FIȘIERULUI: un stil inline bate orice clasă. Ca
+   înlocuitorul lui să se comporte identic, regula trebuie să fie ultima
+   dintre cele de aceeași specificitate — inclusiv după interogările media,
+   care nu adaugă specificitate. O componentă care trebuie totuși să câștige
+   o face cu un selector mai specific, nu mutându-se mai jos. */
+.m-0{ margin:0; }
+.mt-0{ margin-top:0; }
+.mt-1{ margin-top:1px; }
+.mt-3{ margin-top:3px; }
+.mt-4{ margin-top:4px; }
+.mt-6{ margin-top:6px; }
+.mt-8{ margin-top:8px; }
+.mt-10{ margin-top:10px; }
+.mt-12{ margin-top:12px; }
+.mt-14{ margin-top:14px; }
+.mt-16{ margin-top:16px; }
+.mt-18{ margin-top:18px; }
+.mt-24{ margin-top:24px; }
+/* Nota care se lipește de butonul de deasupra ei (fereastra facturii). */
+.mt-neg6{ margin-top:-6px; }
+.mb-0{ margin-bottom:0; }
+.mb-4{ margin-bottom:4px; }
+.mb-6{ margin-bottom:6px; }
+.mb-10{ margin-bottom:10px; }
+.mb-12{ margin-bottom:12px; }
+.mb-14{ margin-bottom:14px; }
+.mb-16{ margin-bottom:16px; }
+.mb-20{ margin-bottom:20px; }
+.mb-22{ margin-bottom:22px; }
+.ml-8{ margin-left:8px; }
+.mr-8{ margin-right:8px; }
+.ml-auto{ margin-left:auto; }
+.p-16{ padding:16px; }
+.p-18{ padding:18px; }
+.text-right{ text-align:right; }
+.text-left{ text-align:left; }
+/* Într-un rând flex, un copil nu se lasă strâns sub conținutul lui decât cu
+   min-width:0 — fără el, `text-overflow:ellipsis` din interior nu se aplică
+   niciodată, iar rândul crește peste lățimea cardului. */
+.min-w-0{ min-width:0; }
+.no-shrink{ flex-shrink:0; }
+.w-full{ width:100%; }
+.cursor-pointer{ cursor:pointer; }
+.of-x-auto{ overflow-x:auto; }
+/* Buton mai strâns decât cel implicit (`.btn` are 11px 18px), în rânduri de
+   acțiuni. Se pune lângă `.btn-lat`, care îi ia lățimea de 100%. */
+.btn-mic{ padding:8px 12px; }

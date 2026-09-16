@@ -88,7 +88,7 @@ export function BillingCustomerPicker({ value, customers, defaultLabel, onChange
         </div>
       ) : (
         <>
-          <div className="search-box" style={{ maxWidth: "none", width: "100%" }}>
+          <div className="search-box clfact-cautare">
             <Search size={15} color="var(--text-muted)" />
             <input
               value={query}
@@ -113,21 +113,21 @@ export function BillingCustomerPicker({ value, customers, defaultLabel, onChange
               <div className="guest-none" ref={refRezultate}>
                 <div>Niciun client cu „{query.trim()}”.</div>
                 {onNewBillingCustomer && (
-                  <button type="button" className="btn btn-primary" style={{ width: "auto", marginTop: 10 }} onClick={onNewBillingCustomer}>
+                  <button type="button" className="btn btn-primary btn-lat mt-10" onClick={onNewBillingCustomer}>
                     <Plus size={15} /> Adaugă client nou
                   </button>
                 )}
               </div>
             )
           ) : (
-            <div className="note" style={{ margin: 0 }}>Implicit: {defaultLabel}</div>
+            <div className="note m-0">Implicit: {defaultLabel}</div>
           )}
         </>
       )}
 
       {pending && (
         <Dialog onClose={() => setPending(null)} title="Confirmă clientul de facturare">
-          <div className="guest-chip" style={{ marginBottom: 14 }}>
+          <div className="guest-chip mb-14">
             <div className="guest-chip-av">{initials(billingCustomerLabel(pending))}</div>
             <div className="guest-chip-body">
               <div className="gname">{billingCustomerLabel(pending)}</div>
@@ -154,7 +154,7 @@ export function BillingCustomerPicker({ value, customers, defaultLabel, onChange
           <div className="modal-actions">
             <div className="grow" />
             <button type="button" className="btn btn-ghost" onClick={() => setPending(null)}>Renunță</button>
-            <button type="button" className="btn btn-primary" style={{ width: "auto" }}
+            <button type="button" className="btn btn-primary btn-lat"
               onClick={() => { onChange(pending.id); setPending(null); setQuery(""); }}>
               <Check size={15} /> Da, facturează pe acest client
             </button>
@@ -290,7 +290,7 @@ export function BillingCustomerModal({ customer, seedFromGuest, existingCustomer
 
   return (
     <Dialog onClose={onClose} title={customer?.id ? "Editează client de facturare" : "Client de facturare nou"}>
-      <div className="mode-switch" style={{ marginBottom: 14 }}>
+      <div className="mode-switch mb-14">
         <button className={c.kind === "person" ? "on" : ""} onClick={() => { setC({ ...c, kind: "person" }); setError(""); setNameWarning(null); }}>
           <UserCheck size={14} /> Persoană fizică
         </button>
@@ -318,7 +318,7 @@ export function BillingCustomerModal({ customer, seedFromGuest, existingCustomer
             <label className="field"><span className="fl">Nr. Reg. Comerțului</span><input value={c.regCom} onChange={set("regCom")} placeholder="J12/345/2020" /></label>
           </div>
           {c.kind === "company" && c.cui && cuiCheck.warn && (
-            <div className="note" style={{ marginTop: -6, marginBottom: 14 }}>{cuiCheck.message}</div>
+            <div className="note mt-neg6 mb-14">{cuiCheck.message}</div>
           )}
           <label className="field"><span className="fl">Persoană de contact</span><input value={c.contactName} onChange={set("contactName")} placeholder="Nume persoană contact" /></label>
         </>
@@ -358,11 +358,11 @@ export function BillingCustomerModal({ customer, seedFromGuest, existingCustomer
         </label>
       </div>
 
-      {error && <div className="error-text" role="alert" style={{ marginBottom: 10 }}>{error}</div>}
+      {error && <div className="error-text mb-10" role="alert">{error}</div>}
       <div className="modal-actions">
         <div className="grow" />
         <button className="btn btn-ghost" onClick={onClose} disabled={saving}>Anulează</button>
-        <button className="btn btn-primary" style={{ width: "auto" }} onClick={submit} disabled={saving}>
+        <button className="btn btn-primary btn-lat" onClick={submit} disabled={saving}>
           <Check size={15} /> {saving ? "Se salvează…" : "Salvează"}
         </button>
       </div>

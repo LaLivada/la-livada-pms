@@ -87,7 +87,7 @@ export function ReservationActions({ res: resSnapshot, core, groups, reservation
   return (
     <Dialog onClose={onClose} className="action-modal" title={undefined}>
         <div className="action-head">
-          <div style={{ minWidth: 0 }}>
+          <div className="min-w-0">
             <div className="action-guest">{occupantName(res, core, groups) || "Fără nume"}</div>
             {guestFullName(guest) && guestFullName(guest) !== occupantName(res, core, groups) && (
               <div className="action-meta">Rezervat de {guestFullName(guest)}</div>
@@ -157,10 +157,10 @@ export function ReservationActions({ res: resSnapshot, core, groups, reservation
             <div className="msg-compose">
               <textarea rows={3} autoFocus maxLength={2000} value={msgText} placeholder="ex. Sosesc după ora 22 · cerere pat suplimentar"
                 onChange={(e) => setMsgText(e.target.value)} />
-              <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-                <button className="btn btn-ghost" style={{ padding: "8px 12px" }}
+              <div className="actiuni-msg-actions">
+                <button className="btn btn-ghost btn-mic"
                   onClick={() => { setMsgOpen(false); setMsgText(""); }}>Renunță</button>
-                <button className="btn btn-primary" style={{ width: "auto", padding: "8px 14px" }}
+                <button className="btn btn-primary btn-lat actiuni-btn-salveaza"
                   onClick={() => ruleaza(addMessage)} disabled={!msgText.trim() || busy}>
                   <Check size={14} /> Salvează
                 </button>
@@ -208,9 +208,9 @@ export function ReservationActions({ res: resSnapshot, core, groups, reservation
             confirmCancel ? (
               <div className="action-confirm">
                 <span>Anulezi rezervarea?</span>
-                <div style={{ display: "flex", gap: 8 }}>
-                  <button className="btn btn-ghost" style={{ padding: "8px 12px" }} onClick={() => setConfirmCancel(false)} disabled={busy}>Nu</button>
-                  <button className="btn btn-danger" style={{ padding: "8px 12px" }} onClick={() => ruleaza(cancel)} disabled={busy}>Da, anulează</button>
+                <div className="actiuni-confirm-actions">
+                  <button className="btn btn-ghost btn-mic" onClick={() => setConfirmCancel(false)} disabled={busy}>Nu</button>
+                  <button className="btn btn-danger btn-mic" onClick={() => ruleaza(cancel)} disabled={busy}>Da, anulează</button>
                 </div>
               </div>
             ) : (
@@ -223,9 +223,9 @@ export function ReservationActions({ res: resSnapshot, core, groups, reservation
           )}
         </div>
 
-        {actionError && <div className="drag-error" role="alert" style={{ marginTop: 10 }}>{actionError}</div>}
+        {actionError && <div className="drag-error mt-10" role="alert">{actionError}</div>}
 
-        <button className="btn btn-ghost" style={{ width: "100%", marginTop: 6 }} onClick={onClose}>Închide</button>
+        <button className="btn btn-ghost w-full mt-6" onClick={onClose}>Închide</button>
       </Dialog>
   );
 }

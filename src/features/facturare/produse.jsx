@@ -68,15 +68,15 @@ export function ProductModal({ product, vatRates, onSave, onClose }) {
           </select>
         </label>
       </div>
-      <label className="salutation-opt" style={{ display: "inline-flex", marginBottom: 14 }}>
+      <label className="salutation-opt produse-activ-camp">
         <input type="checkbox" checked={p.active} onChange={(e) => setP({ ...p, active: e.target.checked })} />
         Activ (apare la adăugarea de extra în folio)
       </label>
-      {error && <div className="error-text" role="alert" style={{ marginBottom: 10 }}>{error}</div>}
+      {error && <div className="error-text mb-10" role="alert">{error}</div>}
       <div className="modal-actions">
         <div className="grow" />
         <button className="btn btn-ghost" onClick={onClose}>Anulează</button>
-        <button className="btn btn-primary" style={{ width: "auto" }} onClick={submit}><Check size={15} /> Salvează</button>
+        <button className="btn btn-primary btn-lat" onClick={submit}><Check size={15} /> Salvează</button>
       </div>
     </Dialog>
   );
@@ -107,8 +107,8 @@ export function InvoiceIssuerCard({ core, updateCore }) {
   };
 
   return (
-    <div className="panel" style={{ padding: 18, marginBottom: 20 }}>
-      <div className="section-head" style={{ padding: 0, border: "none", marginBottom: 14 }}>
+    <div className="panel oblio-panel">
+      <div className="section-head oblio-head">
         Date emitent (pe factura PDF)
       </div>
       <div className="field-row field-row-2col">
@@ -131,11 +131,11 @@ export function InvoiceIssuerCard({ core, updateCore }) {
         <label className="field"><span className="fl">Email</span><input type="email" value={draft.email} onChange={set("email")} /></label>
         <label className="field"><span className="fl">Telefon</span><input value={draft.phone} onChange={set("phone")} /></label>
       </div>
-      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-        <button className="btn btn-primary" style={{ width: "auto" }} onClick={save} disabled={!dirty || saving}>
+      <div className="produse-emitent-actiuni">
+        <button className="btn btn-primary btn-lat" onClick={save} disabled={!dirty || saving}>
           <Check size={15} /> {saving ? "Se salvează…" : "Salvează"}
         </button>
-        {dirty && <span style={{ color: "var(--text-muted)", fontSize: 13 }}>Modificări nesalvate</span>}
+        {dirty && <span className="oblio-nesalvat">Modificări nesalvate</span>}
       </div>
     </div>
   );
@@ -187,9 +187,9 @@ export function ProductsView({ core, updateCore }) {
       <div className="toolbar">
         <span className="badge-count">{vatRates.length} cote TVA</span>
         <div className="grow" />
-        <button className="btn btn-ghost" style={{ width: "auto" }} onClick={addVatRate}><Plus size={15} /> Cotă nouă</button>
+        <button className="btn btn-ghost btn-lat" onClick={addVatRate}><Plus size={15} /> Cotă nouă</button>
       </div>
-      <div className="panel" style={{ marginBottom: 20 }}>
+      <div className="panel mb-20">
         {vatRates.length === 0 ? (
           <div className="section-empty">Nicio cotă de TVA definită.</div>
         ) : vatRates.map((v) => (
@@ -206,7 +206,7 @@ export function ProductsView({ core, updateCore }) {
       <div className="toolbar">
         <span className="badge-count">{products.length} produse/servicii</span>
         <div className="grow" />
-        <button className="btn btn-primary" style={{ width: "auto" }} onClick={() => setModal({ product: null })} disabled={!vatRates.length}>
+        <button className="btn btn-primary btn-lat" onClick={() => setModal({ product: null })} disabled={!vatRates.length}>
           <Plus size={15} /> Produs nou
         </button>
       </div>
@@ -218,7 +218,7 @@ export function ProductsView({ core, updateCore }) {
           <div className="list-row" key={p.id}>
             <div>
               <div className="primary">
-                {p.name} {!p.active && <span style={{ color: "var(--text-muted)", fontWeight: 500 }}>(inactiv)</span>}
+                {p.name} {!p.active && <span className="produse-inactiv">(inactiv)</span>}
               </div>
               <div className="secondary">
                 {p.category} · {fmtMoney(p.defaultPrice)} / {p.unit} · {vatRates.find((v) => v.id === p.vatRateId)?.label || "—"}
@@ -229,8 +229,8 @@ export function ProductsView({ core, updateCore }) {
               <button className="icon-btn" onClick={() => setModal({ product: p })} aria-label={`Editează ${p.name}`}><Pencil size={14} /></button>
               {confirmId === p.id ? (
                 <>
-                  <button className="btn btn-danger" style={{ padding: "8px 12px" }} onClick={() => removeProduct(p.id)}>Confirmă</button>
-                  <button className="btn btn-ghost" style={{ padding: "8px 12px" }} onClick={() => setConfirmId(null)}>Renunță</button>
+                  <button className="btn btn-danger btn-mic" onClick={() => removeProduct(p.id)}>Confirmă</button>
+                  <button className="btn btn-ghost btn-mic" onClick={() => setConfirmId(null)}>Renunță</button>
                 </>
               ) : (
                 <button className="icon-btn" onClick={() => setConfirmId(p.id)} aria-label={`Șterge ${p.name}`}><Trash2 size={14} /></button>

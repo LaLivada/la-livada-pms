@@ -35,9 +35,9 @@ export function NightAuditGate({ restante, sosiri, core, updateCore, groups, upd
 
   return (
     <div className="login-wrap">
-      <div className="boot boot-error" style={{ maxWidth: 560, alignItems: "stretch", textAlign: "left" }}>
-        <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
-          <AlertTriangle size={24} style={{ flexShrink: 0 }} />
+      <div className="boot boot-error naudit-boot">
+        <div className="naudit-header">
+          <AlertTriangle size={24} className="no-shrink" />
           <div>
             <strong>Închide ziua</strong>
             <p>
@@ -54,13 +54,13 @@ export function NightAuditGate({ restante, sosiri, core, updateCore, groups, upd
         </div>
 
         {restante.length > 0 && (
-          <div className="panel" style={{ marginTop: 4 }}>
+          <div className="panel mt-4">
             {restante.map((r) => {
               const camera = core.rooms.find((x) => x.id === r.roomId);
               const zile = zileIntarziere(r);
               return (
-                <div className="list-row" style={{ flexDirection: "column", alignItems: "stretch", gap: 10 }} key={r.id}>
-                  <div style={{ minWidth: 0 }}>
+                <div className="list-row naudit-row-col" key={r.id}>
+                  <div className="min-w-0">
                     <div className="primary">
                       <span className="mono">{camera?.name || r.roomId}</span>
                       {" · "}{occupantName(r, core, groups) || "Fără nume"}
@@ -96,13 +96,13 @@ export function NightAuditGate({ restante, sosiri, core, updateCore, groups, upd
         )}
 
         {sosiri.length > 0 && (
-          <div className="panel" style={{ marginTop: restante.length > 0 ? 10 : 4 }}>
+          <div className={"panel " + (restante.length > 0 ? "mt-10" : "mt-4")}>
             {sosiri.map((r) => {
               const camera = core.rooms.find((x) => x.id === r.roomId);
               const zile = zileIntarziereSosire(r);
               return (
-                <div className="list-row" style={{ flexDirection: "column", alignItems: "stretch", gap: 10 }} key={r.id}>
-                  <div style={{ minWidth: 0 }}>
+                <div className="list-row naudit-row-col" key={r.id}>
+                  <div className="min-w-0">
                     <div className="primary">
                       <span className="mono">{camera?.name || r.roomId}</span>
                       {" · "}{occupantName(r, core, groups) || "Fără nume"}
@@ -152,7 +152,7 @@ export function NightAuditGate({ restante, sosiri, core, updateCore, groups, upd
           </div>
         )}
 
-        <button className="btn btn-ghost" style={{ width: "100%", marginTop: 4 }} onClick={onLogout}>
+        <button className="btn btn-ghost w-full mt-4" onClick={onLogout}>
           <LogOut size={15} /> Delogare
         </button>
       </div>

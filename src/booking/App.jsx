@@ -536,7 +536,7 @@ export default function App({ valoriInitiale }) {
               )}
 
               {optiune && (
-                <div className="ldv-sumar" style={{ marginTop: 16 }}>
+                <div className="ldv-sumar ldv-sumar-optiune">
                   {optiune.rooms.map((r, i) => (
                     <div className="ldv-sumar-linie" key={i}>
                       <span>{numeTip(r.roomType)} {optiune.roomsNeeded > 1 && `#${i + 1}`}</span>
@@ -703,7 +703,7 @@ export default function App({ valoriInitiale }) {
               {stare === "trimitere" ? "Se trimite…" : "Trimite rezervarea"}
             </button>
           </div>
-          <p className="ldv-mic" style={{ marginTop: 12 }}>
+          <p className="ldv-mic ldv-nota-plata">
             Prețul final se confirmă de noi la trimitere. Nu se cere plată online.
           </p>
         </div>
@@ -721,7 +721,7 @@ export default function App({ valoriInitiale }) {
             <p className="ldv-mic">Notează numărul — îl folosim când ne suni.</p>
           </div>
 
-          <div className="ldv-sumar" style={{ marginTop: 16 }}>
+          <div className="ldv-sumar ldv-sumar-rezervare">
             {confirmare.guestName && (
               <div className="ldv-sumar-linie"><span>Pe numele</span><span>{confirmare.guestName}</span></div>
             )}
@@ -738,14 +738,14 @@ export default function App({ valoriInitiale }) {
           </div>
 
           {confirmare.status === "cancelled" ? (
-            <div className="ldv-alerta ldv-alerta-info" style={{ marginTop: 4 }}>
+            <div className="ldv-alerta ldv-alerta-info ldv-alerta-confirmare">
               Camerele au fost eliberate. Dacă a fost o greșeală, sună-ne —
               putem verifica dacă mai sunt disponibile.
             </div>
           ) : confirmare.status === "pending" ? (
-            <div className="ldv-alerta ldv-alerta-info" style={{ marginTop: 4 }}>
+            <div className="ldv-alerta ldv-alerta-info ldv-alerta-confirmare">
               <strong>Ți-am trimis un email la {oaspete.email || "adresa dată"}.</strong>
-              <p style={{ margin: "6px 0 0" }}>
+              <p className="ldv-alerta-detalii">
                 Apasă butonul din mesaj ca rezervarea să devină fermă. Ținem
                 camerele {minuteRamase(confirmare.holdExpiresAt)}; dacă nu
                 confirmi, se eliberează singure și poți relua căutarea
@@ -753,13 +753,13 @@ export default function App({ valoriInitiale }) {
               </p>
             </div>
           ) : confirmare.status === "expired" ? (
-            <div className="ldv-alerta ldv-alerta-info" style={{ marginTop: 4 }}>
+            <div className="ldv-alerta ldv-alerta-info ldv-alerta-confirmare">
               Confirmarea a venit prea târziu și camerele s-au eliberat.
               Nu s-a reținut nimic — caută din nou perioada dorită sau
               sună-ne și îți facem rezervarea pe loc.
             </div>
           ) : (
-            <div className="ldv-alerta ldv-alerta-info" style={{ marginTop: 4 }}>
+            <div className="ldv-alerta ldv-alerta-info ldv-alerta-confirmare">
               Te contactăm telefonic pentru confirmare. Plata se face la sosire.
             </div>
           )}
@@ -767,9 +767,9 @@ export default function App({ valoriInitiale }) {
           {/* Pasul de confirmare al anulării. Butonul din email duce aici,
               nu direct la anulare — vezi comentariul de la `cereAnulare`. */}
           {cereAnulare && confirmare.status !== "cancelled" && (
-            <div className="ldv-alerta ldv-alerta-eroare" style={{ marginTop: 4 }}>
+            <div className="ldv-alerta ldv-alerta-eroare ldv-alerta-confirmare">
               <strong>Sigur anulezi rezervarea?</strong>
-              <p style={{ margin: "6px 0 0" }}>
+              <p className="ldv-alerta-detalii">
                 Camerele se eliberează imediat și s-ar putea să nu mai fie
                 disponibile dacă te răzgândești. Conform{" "}
                 <a href="/anulare/" target="_blank" rel="noopener noreferrer">politicii de anulare</a>,

@@ -163,7 +163,7 @@ export function SectiuneAcces({ res, core }) {
     return (
       <div className="field">
         <label>Acces cameră</label>
-        <div className="ldv-mic" style={{ color: "var(--muted)" }}>
+        <div className="ldv-mic acces-nota">
           Camera {camera?.name || res.roomId} nu are o yală asociată.
           Se configurează în Setări → Camere.
         </div>
@@ -197,7 +197,7 @@ export function SectiuneAcces({ res, core }) {
       </div>
 
       {cod && cod.provider === "simulare" && (
-        <div className="error-text" role="alert" style={{ marginBottom: 6 }}>
+        <div className="error-text mb-6" role="alert">
           COD SIMULAT — nu deschide nicio ușă. Serviciul de acces e în modul de
           probă. Nu-l trimite oaspetelui.
         </div>
@@ -205,23 +205,23 @@ export function SectiuneAcces({ res, core }) {
 
       {cod && (
         <div className="sumar-acces">
-          <div className="mono" style={{ fontSize: 26, fontWeight: 700, letterSpacing: ".12em" }}>
+          <div className="mono acces-cod-mare">
             {cod.code}
           </div>
-          <div className="ldv-mic" style={{ color: "var(--muted)" }}>
+          <div className="ldv-mic acces-nota">
             Valabil de la <strong>{fmtDateTime(cod.valid_from)}</strong> · până la <strong>{fmtDateTime(cod.valid_until)}</strong>
           </div>
         </div>
       )}
 
       {eroare && (
-        <div className="error-text" role="alert" style={{ marginTop: 8 }}>
+        <div className="error-text" role="alert">
           {eroare}
         </div>
       )}
 
       {cod && trimiteri.length > 0 && (
-        <div className="ldv-mic" style={{ marginTop: 8 }}>
+        <div className="ldv-mic mt-8">
           {trimiteri.slice(0, 4).map((t) => (
             <div key={t.id}>
               {t.channel === "email" ? "Email" : "WhatsApp"}:{" "}
@@ -234,7 +234,7 @@ export function SectiuneAcces({ res, core }) {
       )}
 
       {(facutCheckIn || cod) && !dupaCheckout && (
-        <div className="quick-actions acces-actions" style={{ marginTop: 8 }}>
+        <div className="quick-actions acces-actions mt-8">
           <button className="btn btn-ghost" onClick={genereaza} disabled={lucrez}>
             <RefreshCw size={14} color="var(--accent)" />
             {lucrez ? "Lucrez…" : cod ? "Regenerează" : "Generează"}
@@ -269,7 +269,7 @@ export function SectiuneAcces({ res, core }) {
             const catre = destinatarWhatsapp(res, oaspete);
             const cifre = catre.cifre;
             if (!cifre) {
-              return <span className="ldv-mic" style={{ alignSelf: "center" }}>
+              return <span className="ldv-mic acces-nota-centrata">
                 Numărul de WhatsApp nu este disponibil.
               </span>;
             }

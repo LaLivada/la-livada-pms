@@ -2,15 +2,20 @@
  * `style={{ ... }}`, asa ca plafonul e un test: numara aparitiile in toate
  * fisierele .jsx din src (fara teste) si cade daca sunt mai multe decat
  * PLAFON. Cand scoti stiluri inline dintr-un ecran, cobori PLAFON la noul
- * numar — asa numarul merge doar in jos. Exceptiile (pozitiile calculate din
- * calendar: left/width ale barelor, --zi-w) raman stiluri inline si sunt in
- * plafon: un stil calculat n-are cum sa fie clasa.
+ * numar — asa numarul merge doar in jos.
+ *
+ * Din 16 septembrie 2026 migrarea e terminata: din 366 au ramas 12, si toate
+ * sunt CALCULATE la rulare — pozitiile barelor din calendar (left, width,
+ * --zi-w, --days), scalarea colilor A4 (factura, rooming list), procentele
+ * din rapoarte si glisorul de usa. Un stil calculat n-are cum sa fie clasa,
+ * deci plafonul asta nu mai are unde sa coboare: daca scrii un `style={{ }}`
+ * nou cu valori constante, testul cade, si asta e treaba lui.
  */
 import { describe, it, expect } from "vitest";
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 
-const PLAFON = 366;
+const PLAFON = 12;
 
 function fisiereJsx(d, acc = []) {
   for (const n of readdirSync(d)) {

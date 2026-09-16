@@ -202,7 +202,7 @@ export function AccountingExportView({ core }) {
 
   return (
     <div>
-      <div className="note" style={{ marginBottom: 14 }}>
+      <div className="note mb-14">
         Exportă facturile ca XML generic (denumire, sume, TVA pe fiecare linie, plăți) — de importat manual sau
         printr-un adaptor dedicat, odată ce alegi programul de contabilitate. Nimic de aici nu trimite date către
         e-Factura.
@@ -214,9 +214,9 @@ export function AccountingExportView({ core }) {
       <label className="field"><span className="fl">Serie (gol = toate seriile)</span><input value={seriesFilter} onChange={(e) => setSeriesFilter(e.target.value)} placeholder="LIV" /></label>
       <div className="field">
         <span className="fl">Statusuri incluse</span>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: "6px 16px", marginTop: 6 }}>
+        <div className="fact-bife-lista mt-6">
           {Object.keys(INVOICE_STATUS_LABEL).map((s) => (
-            <label key={s} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 14 }}>
+            <label key={s} className="fact-rand-bifa">
               <input type="checkbox" checked={statusFilter.has(s)} onChange={() => toggleStatus(s)} />
               {INVOICE_STATUS_LABEL[s]}
             </label>
@@ -224,15 +224,15 @@ export function AccountingExportView({ core }) {
         </div>
       </div>
 
-      <div className="toolbar" style={{ marginTop: 14 }}>
+      <div className="toolbar mt-14">
         <span className="badge-count">{selectedInvoices.length} din {invoices.length} facturi selectate</span>
         <div className="grow" />
-        <button className="btn btn-primary" style={{ width: "auto" }} onClick={runExport} disabled={exporting || !selectedInvoices.length}>
+        <button className="btn btn-primary btn-lat" onClick={runExport} disabled={exporting || !selectedInvoices.length}>
           <FileDown size={15} /> {exporting ? "Se exportă…" : "Export XML"}
         </button>
       </div>
       {hasReexport && (
-        <div className="note" style={{ color: "var(--warning)" }}>
+        <div className="note export-nota-avertisment">
           Unele facturi selectate au mai fost exportate anterior — vor apărea marcate ca reexport în istoric.
         </div>
       )}
@@ -242,28 +242,28 @@ export function AccountingExportView({ core }) {
       ) : invoices.length === 0 ? (
         <div className="section-empty">Nicio factură nu se potrivește filtrelor.</div>
       ) : (
-        <div className="panel" style={{ marginTop: 10 }}>
+        <div className="panel mt-10">
           {invoices.map((inv) => (
             <div className="list-row" key={inv.id}>
-              <label style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", flex: 1, minWidth: 0 }}>
+              <label className="export-linie-bifa">
                 <input type="checkbox" checked={selected.has(inv.id)} onChange={() => toggleSelect(inv.id)} />
-                <div style={{ minWidth: 0 }}>
+                <div className="min-w-0">
                   <div className="primary">
                     {inv.series} {inv.number}
-                    <span className={"role-tag " + INVOICE_STATUS_CLASS[inv.status]} style={{ marginLeft: 8 }}>{INVOICE_STATUS_LABEL[inv.status]}</span>
-                    {alreadyExported[inv.id] && <span className="role-tag role-admin" style={{ marginLeft: 8 }}>exportată</span>}
+                    <span className={"role-tag ml-8 " + INVOICE_STATUS_CLASS[inv.status]}>{INVOICE_STATUS_LABEL[inv.status]}</span>
+                    {alreadyExported[inv.id] && <span className="role-tag role-admin ml-8">exportată</span>}
                   </div>
                   <div className="secondary">{inv.issue_date ? fmtDateFull(inv.issue_date) : "—"}</div>
                 </div>
               </label>
-              <span className="mono" style={{ fontWeight: 650 }}>{fmtMoney(inv.total_amount)}</span>
+              <span className="mono fact-suma">{fmtMoney(inv.total_amount)}</span>
             </div>
           ))}
         </div>
       )}
 
-      <div className="toolbar" style={{ marginTop: 24 }}>
-        <span className="fl" style={{ margin: 0 }}>Istoric exporturi</span>
+      <div className="toolbar mt-24">
+        <span className="fl m-0">Istoric exporturi</span>
       </div>
       {history === null ? (
         <div className="note">Se încarcă…</div>

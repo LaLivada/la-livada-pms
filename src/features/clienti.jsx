@@ -136,11 +136,11 @@ export function ClientsView({ core, updateCore, groups, updateGroups, reservatio
         guestCount={totalOaspeti ?? "…"} firmCount={firmCount} />
       <div className="tabs-actions">
         {tab === "groups" ? (
-          <button className="btn btn-primary" style={{ width: "auto" }} onClick={onNewGroup}>
+          <button className="btn btn-primary btn-lat" onClick={onNewGroup}>
             <UsersRound size={15} /> Grup nou
           </button>
         ) : tab === "firms" ? (
-          <button className="btn btn-primary" style={{ width: "auto" }} onClick={() => setFirmModal({ customer: null })}>
+          <button className="btn btn-primary btn-lat" onClick={() => setFirmModal({ customer: null })}>
             <Plus size={15} /> Firmă nouă
           </button>
         /* Nimic pe „Fișe": o fișă nu se deschide de la zero, ci pe o
@@ -148,7 +148,7 @@ export function ClientsView({ core, updateCore, groups, updateGroups, reservatio
            deja oaspetele și camera. Un buton „Fișă nouă" aici ar fi cerut
            întâi „a cui?", adică drumul înapoi în rezervări. */
         ) : tab === "fise" ? null : (
-          <button className="btn btn-primary" style={{ width: "auto" }} onClick={() => setModal({ guest: null })}>
+          <button className="btn btn-primary btn-lat" onClick={() => setModal({ guest: null })}>
             <Plus size={15} /> Client nou
           </button>
         )}
@@ -217,7 +217,7 @@ export function ClientsView({ core, updateCore, groups, updateGroups, reservatio
           return (
           <div className="list-row" key={g.id}>
             <div
-              role="button" tabIndex={0} style={{ cursor: "pointer" }}
+              role="button" tabIndex={0} className="cursor-pointer"
               onClick={() => setHistoryGuest(g)}
               onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setHistoryGuest(g); } }}
             >
@@ -227,7 +227,7 @@ export function ClientsView({ core, updateCore, groups, updateGroups, reservatio
                   .filter(Boolean).join(" · ")}
               </div>
               {s && s.sejururi > 0 && (
-                <div className="secondary" style={{ marginTop: 3 }}>
+                <div className="secondary clienti-linie-sumar">
                   <strong>{s.sejururi}</strong> sejururi · {s.nopti} nopți · {fmtMoney(s.incasat)} încasați
                 </div>
               )}
@@ -357,7 +357,7 @@ export function FirmsView({ core, updateCore, reservations, modalExtern, inchide
           return (
             <div className="list-row" key={c.id}>
               <div
-                role="button" tabIndex={0} style={{ cursor: "pointer", minWidth: 0 }}
+                role="button" tabIndex={0} className="cursor-pointer min-w-0"
                 onClick={() => setIstoric(c)}
                 onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setIstoric(c); } }}
               >
@@ -371,7 +371,7 @@ export function FirmsView({ core, updateCore, reservations, modalExtern, inchide
                     lista ramane pe ce identifica firma: denumire, CUI,
                     oras. */}
                 {rezervari.length > 0 && (
-                  <div className="secondary" style={{ marginTop: 3 }}>
+                  <div className="secondary clienti-linie-sumar">
                     <strong>{rezervari.length}</strong> {rezervari.length === 1 ? "rezervare" : "rezervări"} facturate către firmă
                   </div>
                 )}
@@ -443,14 +443,14 @@ export function FirmHistory({ firma, core, reservations, onClose }) {
 
   return (
     <Dialog onClose={onClose} title={firma.companyName}>
-      <div className="note" style={{ marginBottom: 14 }}>
+      <div className="note mb-14">
         {[firma.cui ? `CUI ${firma.cui}` : null, firma.regCom,
           [firma.address, firma.city, firma.county, firma.country].filter(Boolean).join(", ")]
           .filter(Boolean).join(" · ")}
       </div>
 
       {facturi !== null && facturi.length > 0 && (
-        <div className="stat-row" style={{ marginBottom: 14 }}>
+        <div className="stat-row mb-14">
           <Stat label="Facturi" value={facturi.length} />
           <Stat label="Total facturat" value={fmtMoney(totalFacturat)} />
           <Stat label="Încasat" value={fmtMoney(totalIncasat)} />
@@ -461,18 +461,18 @@ export function FirmHistory({ firma, core, reservations, onClose }) {
       {rezervari.length === 0 ? (
         <div className="note">Nicio rezervare facturată către această firmă.</div>
       ) : (
-        <div className="panel" style={{ marginBottom: 16 }}>
+        <div className="panel mb-16">
           {rezervari.map((r) => {
             const camera = core.rooms.find((x) => x.id === r.roomId);
             return (
               <div className="list-row" key={r.id}>
-                <div style={{ minWidth: 0 }}>
+                <div className="min-w-0">
                   <div className="primary">{occupantName(r, core, []) || guestFullName(core.guests.find((g) => g.id === r.guestId)) || "Fără nume"}</div>
                   <div className="secondary">
                     <span className="mono">{camera?.name || r.roomId}</span> · {fmtDate(r.checkin)} → {fmtDate(r.checkout)}
                   </div>
                 </div>
-                <span className="mono" style={{ fontWeight: 650 }}>{fmtMoney(reservationTotal(r, core))}</span>
+                <span className="mono clienti-suma">{fmtMoney(reservationTotal(r, core))}</span>
               </div>
             );
           })}
@@ -481,7 +481,7 @@ export function FirmHistory({ firma, core, reservations, onClose }) {
 
       <label className="field"><span className="fl">Facturi emise</span></label>
       {eroare ? (
-        <div className="note" style={{ color: "var(--danger)" }}>{eroare}</div>
+        <div className="note clienti-text-eroare">{eroare}</div>
       ) : facturi === null ? (
         <div className="note">Se încarcă…</div>
       ) : facturi.length === 0 ? (
@@ -490,16 +490,16 @@ export function FirmHistory({ firma, core, reservations, onClose }) {
         <div className="panel">
           {facturi.map((f) => (
             <div className="list-row" key={f.id}>
-              <div style={{ minWidth: 0 }}>
+              <div className="min-w-0">
                 <div className="primary">
                   {f.series ? `${f.series} ${f.number}` : "Draft"}
-                  <span className={"role-tag " + INVOICE_STATUS_CLASS[f.status]} style={{ marginLeft: 8 }}>
+                  <span className={"role-tag " + INVOICE_STATUS_CLASS[f.status] + " ml-8"}>
                     {INVOICE_STATUS_LABEL[f.status]}
                   </span>
                 </div>
                 <div className="secondary">{f.issue_date ? fmtDateFull(f.issue_date) : "neemisă"}</div>
               </div>
-              <span className="mono" style={{ fontWeight: 650 }}>{fmtMoney(f.total_amount)}</span>
+              <span className="mono clienti-suma">{fmtMoney(f.total_amount)}</span>
             </div>
           ))}
         </div>
@@ -672,10 +672,10 @@ export const GuestFields = React.memo(function GuestFields({ value, onChange, in
         </label>
       </div>
       {local && !phoneCheck.ok && (
-        <div className="note" style={{ marginTop: -6, marginBottom: 14 }}>{phoneCheck.message}</div>
+        <div className="note mt-neg6 mb-14">{phoneCheck.message}</div>
       )}
       {value.email && !emailCheck.ok && (
-        <div className="note" style={{ marginTop: -6, marginBottom: 14 }}>{emailCheck.message}</div>
+        <div className="note mt-neg6 mb-14">{emailCheck.message}</div>
       )}
       <div className="field-row field-row-2col">
         <label className="field"><span className="fl">Adresă</span><input value={value.address} onChange={set("address")} placeholder="Str. Exemplu nr. 10" /></label>
@@ -744,7 +744,7 @@ export function GuestHistory({ guest, core, onClose }) {
         <div className="guest-contact-info">
           {contactLine && <div>{contactLine}{guest.country && guest.country !== "România" ? ` · ${guest.country}` : ""}</div>}
           {guest.phone && (
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <div className="clienti-telefon-rand">
               {guest.phone}
               <ContactQuickActions guest={guest} />
             </div>
@@ -752,7 +752,7 @@ export function GuestHistory({ guest, core, onClose }) {
           {guest.email && <div><a href={`mailto:${guest.email}`}>{guest.email}</a></div>}
         </div>
 
-        <div className="stat-row" style={{ marginBottom: 14 }}>
+        <div className="stat-row mb-14">
           <Stat label="Sejururi" value={sumar ? sumar.sejururi : "…"} sub="valide" />
           <Stat label="Nopți" value={sumar ? sumar.nopti : "…"} sub="total" />
           <Stat label="Valoare" value={sumar ? fmtMoney(sumar.incasat) : "…"} sub="cumulat" />
@@ -760,7 +760,7 @@ export function GuestHistory({ guest, core, onClose }) {
         </div>
 
         {eroare ? (
-          <div className="section-empty" style={{ color: "var(--danger)" }}>{eroare}</div>
+          <div className="section-empty clienti-text-eroare">{eroare}</div>
         ) : istoric === null ? (
           <div className="section-empty">Se încarcă…</div>
         ) : istoric.total === 0 ? (
@@ -785,12 +785,12 @@ export function GuestHistory({ guest, core, onClose }) {
             </div>
             {pageCount > 1 && (
               <div className="pager">
-                <button className="btn btn-ghost" style={{ width: "auto" }} disabled={pagina <= 1}
+                <button className="btn btn-ghost btn-lat" disabled={pagina <= 1}
                   onClick={() => setPagina((p) => Math.max(1, p - 1))}>
                   <ChevronLeft size={15} /> Anterior
                 </button>
                 <span className="pager-info">Pagina {pagina} din {pageCount}</span>
-                <button className="btn btn-ghost" style={{ width: "auto" }} disabled={pagina >= pageCount}
+                <button className="btn btn-ghost btn-lat" disabled={pagina >= pageCount}
                   onClick={() => setPagina((p) => Math.min(pageCount, p + 1))}>
                   Următor <ChevronRight size={15} />
                 </button>
@@ -887,11 +887,11 @@ export function GuestModal({ guest, onSave, onClose }) {
     <Dialog onClose={onClose} title={guest?.id ? "Editează client" : "Client nou"}>
         <GuestFields value={g} invalid={invalid} onChange={(v) => { setG(v); setError(""); setInvalid(null); }} />
         <label className="field"><span className="fl">Note</span><textarea rows={2} maxLength={2000} value={g.notes} onChange={(e) => setG({ ...g, notes: e.target.value })} /></label>
-        {error && <div className="error-text" role="alert" style={{ marginBottom: 10 }}>{error}</div>}
+        {error && <div className="error-text mb-10" role="alert">{error}</div>}
         <div className="modal-actions">
           <div className="grow" />
           <button className="btn btn-ghost" onClick={onClose} disabled={saving}>Anulează</button>
-          <button className="btn btn-primary" style={{ width: "auto" }} onClick={submit} disabled={saving}>
+          <button className="btn btn-primary btn-lat" onClick={submit} disabled={saving}>
             <Check size={15} /> {saving ? "Se salvează…" : "Salvează"}
           </button>
         </div>

@@ -27,14 +27,14 @@ export function PdfPreview({ blob, filename, onClose }) {
         {url && <iframe src={url} title={filename} className="pdf-frame" />}
       </div>
       <div className="modal-actions">
-        <span className="ldv-mic" style={{ alignSelf: "center" }}>{marime}</span>
+        <span className="ldv-mic ui-nota-centrata">{marime}</span>
         <div className="grow" />
         {url && (
           <a className="btn btn-ghost" href={url} target="_blank" rel="noopener noreferrer">
             <Eye size={15} /> Deschide în filă nouă
           </a>
         )}
-        <button className="btn btn-primary" style={{ width: "auto" }} onClick={onClose}>Închide</button>
+        <button className="btn btn-primary btn-lat" onClick={onClose}>Închide</button>
       </div>
     </Dialog>
   );
@@ -228,7 +228,7 @@ export function Paginare({ stare, eticheta = "rezultate" }) {
   const ultimul = Math.min(pagina * pePagina, totalItems);
   return (
     <div className="paginare">
-      <button className="btn btn-ghost" style={{ width: "auto" }}
+      <button className="btn btn-ghost btn-lat"
         onClick={() => setPagina(pagina - 1)} disabled={pagina <= 1}
         aria-label="Pagina anterioară">
         <ChevronLeft size={15} />
@@ -236,7 +236,7 @@ export function Paginare({ stare, eticheta = "rezultate" }) {
       <span className="paginare-info">
         {primul}–{ultimul} din {totalItems} {eticheta}
       </span>
-      <button className="btn btn-ghost" style={{ width: "auto" }}
+      <button className="btn btn-ghost btn-lat"
         onClick={() => setPagina(pagina + 1)} disabled={pagina >= totalPagini}
         aria-label="Pagina următoare">
         <ChevronRight size={15} />
@@ -381,12 +381,12 @@ export const Section = React.memo(function Section({ title, items, renderItem, e
       {pageItems.length ? pageItems.map(renderItem) : <div className="section-empty">{empty}</div>}
       {pageCount > 1 && (
         <div className="pager">
-          <button className="btn btn-ghost" style={{ width: "auto" }} disabled={safePage === 0}
+          <button className="btn btn-ghost btn-lat" disabled={safePage === 0}
             onClick={() => setPage((p) => Math.max(0, p - 1))}>
             <ChevronLeft size={15} />
           </button>
           <span className="pager-info">Pagina {safePage + 1} din {pageCount}</span>
-          <button className="btn btn-ghost" style={{ width: "auto" }} disabled={safePage >= pageCount - 1}
+          <button className="btn btn-ghost btn-lat" disabled={safePage >= pageCount - 1}
             onClick={() => setPage((p) => Math.min(pageCount - 1, p + 1))}>
             <ChevronRight size={15} />
           </button>

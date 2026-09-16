@@ -51,17 +51,17 @@ export function ReservationViewModal({ reservation, core, updateCore, groups, up
       {/* `flexDirection: row` explicit: .action-head trece pe coloană sub
           640px, iar aici vrem butonul chiar în dreapta rândurilor, și pe
           telefon. Rândurile din stânga stau strânse (margin-top mic). */}
-      <div className="action-head" style={{ flexDirection: "row", alignItems: "flex-start", flexWrap: "nowrap", gap: 10 }}>
-        <div style={{ minWidth: 0, flex: 1 }}>
+      <div className="action-head vizual-head">
+        <div className="min-w-0 grow">
           <div className="action-guest">{occupantName(reservation, core, groups) || "Fără nume"}</div>
           {guestFullName(guest) && guestFullName(guest) !== occupantName(reservation, core, groups) && (
-            <div className="action-meta" style={{ marginTop: 1 }}>Rezervat de {guestFullName(guest)}</div>
+            <div className="action-meta mt-1">Rezervat de {guestFullName(guest)}</div>
           )}
-          <div className="action-meta" style={{ marginTop: 1 }}>
+          <div className="action-meta mt-1">
             <span className="mono">{room?.name}</span> · {fmtDate(reservation.checkin)} → {fmtDate(reservation.checkout)}
             {" · "}{nightsBetween(reservation.checkin, reservation.checkout)} nopți
           </div>
-          <div className="action-meta" style={{ marginTop: 1 }}>
+          <div className="action-meta mt-1">
             {reservation.adults ?? 2} adulți{reservation.children ? ` + ${reservation.children} copii` : ""} · {sourceLabel(reservation.source)} · {fmtMoney(reservationTotal(reservation, core))}{esteProtocol(reservation) && reservation.status !== "protocol" ? " · Protocol" : ""}
           </div>
           {/* Starea, „noua" si etichetele pe acelasi rand (cerut pe 15
@@ -74,7 +74,7 @@ export function ReservationViewModal({ reservation, core, updateCore, groups, up
             {reservation.tags?.map((t) => <span className="tag-mini" key={t}>{t}</span>)}
           </div>
         </div>
-        <button className="btn btn-ghost" style={{ width: "auto", padding: "8px 12px", flexShrink: 0 }} onClick={() => setShowArrival(true)}>
+        <button className="btn btn-ghost btn-lat btn-mic no-shrink" onClick={() => setShowArrival(true)}>
           <Printer size={14} /> Fișa de sosire
         </button>
       </div>
@@ -110,7 +110,7 @@ export function ReservationViewModal({ reservation, core, updateCore, groups, up
       {reservation.messages?.length > 0 && (
         <div className="field">
           <label>Mesaje ({reservation.messages.length})</label>
-          <div className="msg-list" style={{ marginTop: 0 }}>
+          <div className="msg-list mt-0">
             {[...reservation.messages].reverse().map((m) => (
               <div className="msg-item" key={m.id}>
                 <div className="msg-text">{m.text}</div>
@@ -131,7 +131,7 @@ export function ReservationViewModal({ reservation, core, updateCore, groups, up
       <div className="modal-actions">
         <div className="grow" />
         <button className="btn btn-ghost" onClick={onClose}>Închide</button>
-        <button className="btn btn-primary" style={{ width: "auto" }} onClick={onEdit}>
+        <button className="btn btn-primary btn-lat" onClick={onEdit}>
           <Pencil size={14} /> Editează rezervarea
         </button>
       </div>

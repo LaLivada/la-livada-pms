@@ -75,7 +75,7 @@ export function SectiuneFisa({ res, core }) {
       )}
 
       {fisa !== undefined && (
-        <div className="quick-actions" style={{ marginTop: 8 }}>
+        <div className="quick-actions mt-8">
           {fisa ? (
             <>
               <button className="btn btn-ghost" onClick={() => setVizualizare(true)}>
@@ -156,7 +156,7 @@ export function FiseView({ core, reservations }) {
     catch (e) { toaster.show(mesajEroare(e, "Fișa nu a putut fi deschisă"), { tone: "danger" }); }
   };
 
-  if (fise === null) return <div className="ldv-mic" style={{ padding: 18 }}>Se încarcă…</div>;
+  if (fise === null) return <div className="ldv-mic p-18">Se încarcă…</div>;
 
   return (
     <div>
@@ -182,33 +182,33 @@ export function FiseView({ core, reservations }) {
           const camera = numeCamera(rez?.roomId);
           return (
             <div className="list-row" key={f.id}>
-              <div style={{ minWidth: 0 }}>
+              <div className="min-w-0">
                 <div className="primary">
                   {f.nume} {f.prenume}
-                  {f.anulata_la && <span className="badge-count" style={{ marginLeft: 8 }}>anulată</span>}
+                  {f.anulata_la && <span className="badge-count ml-8">anulată</span>}
                 </div>
                 <div className="secondary">
                   {[camera, rez && `${fmtDateFull(rez.checkin)} → ${fmtDateFull(rez.checkout)}`]
                     .filter(Boolean).join(" · ") || "rezervare care nu mai e pe ecran"}
                 </div>
-                <div className="secondary" style={{ marginTop: 3 }}>
+                <div className="secondary fise-linie-sumar">
                   Completată {fmtDateTime(f.semnat_la)}
                   {f.completata_de ? ` · de ${f.completata_de}` : " · de oaspete"}
                 </div>
                 {!f.are_semnatura && (
-                  <div className="secondary" style={{ color: "var(--danger)" }}>
+                  <div className="secondary fise-linie-eroare">
                     Fără semnătură — {f.fara_semnatura_motiv}
                   </div>
                 )}
                 {f.anulata_la && (
-                  <div className="secondary" style={{ color: "var(--danger)" }}>
+                  <div className="secondary fise-linie-eroare">
                     Anulată {fmtDateTime(f.anulata_la)}
                     {f.anulata_de ? ` de ${f.anulata_de}` : ""}
                     {f.anulata_motiv ? ` — ${f.anulata_motiv}` : ""}
                   </div>
                 )}
               </div>
-              <div className="quick-actions" style={{ flexShrink: 0 }}>
+              <div className="quick-actions no-shrink">
                 <button className="btn btn-ghost" onClick={() => deschide(f)}>
                   <FileText size={14} color="var(--accent)" /> Vezi fișa
                 </button>
@@ -262,7 +262,7 @@ function VizualizareFisa({ fisa, onClose }) {
 
       {fisa.semnatura_svg ? (
         <>
-          <div className="ldv-mic" style={{ marginTop: 12 }}>Semnătura oaspetelui</div>
+          <div className="ldv-mic mt-12">Semnătura oaspetelui</div>
           {/* Acelasi viewBox ca panza pe care s-a desenat. Alt raport ar
               deforma semnatura, iar o semnatura deformata nu mai e a
               nimanui — de aceea numerele se IAU din lib/semnatura.js, nu se
@@ -276,7 +276,7 @@ function VizualizareFisa({ fisa, onClose }) {
           </svg>
         </>
       ) : (
-        <div className="error-text" style={{ marginTop: 12 }}>
+        <div className="error-text mt-12">
           Fără semnătură — {fisa.fara_semnatura_motiv}
         </div>
       )}
@@ -412,14 +412,14 @@ function FormularFisa({ res, core, onGata, onClose }) {
 
   return (
     <Dialog title="Completează fișa de cazare" onClose={onClose}>
-      <p className="ldv-mic" style={{ marginBottom: 12 }}>
+      <p className="ldv-mic mb-12">
         Pentru oaspeții care nu pot completa singuri. Cine poate o face din
         linkul lui, unde semnează el.
       </p>
       {/* Spus pe fata, fiindca un camp deja scris nu se mai citeste: numele si
           adresa vin din rezervare si pot fi vechi, iar actul nu se
           precompleteaza niciodata — se citeste de pe documentul din mana. */}
-      <p className="ldv-mic" style={{ marginBottom: 12, color: "var(--muted)" }}>
+      <p className="ldv-mic fise-nota-info">
         Datele oaspetelui sunt luate din rezervare. Verifică-le pe actul de
         identitate și corectează unde e cazul.
       </p>
@@ -492,11 +492,11 @@ function AnuleazaFisa({ fisa, onGata, onClose }) {
           deschis pentru scriere, fiindca cheia lui e „nu exista deja o fisa
           activa". Corect cand vrem sa fie refacuta, dar receptionerul trebuie
           sa stie ca a redeschis ceva. */}
-      <div className="error-text" style={{ marginTop: 8 }}>
+      <div className="error-text mt-8">
         După anulare, oaspetele poate completa din nou din linkul lui.
       </div>
 
-      <div className="field" style={{ marginTop: 12 }}>
+      <div className="field mt-12">
         <label>Motivul anulării</label>
         <input value={motiv} onChange={(e) => setMotiv(e.target.value)}
           placeholder="ex. serie de buletin greșită" />

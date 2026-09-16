@@ -152,7 +152,7 @@ function GlisorDeschidere({ room, blocat, motivBlocare }) {
             : <Unlock size={15} />}
         </button>
       </div>
-      {eroare && <div className="error-text" role="alert" style={{ marginTop: 6 }}>{eroare}</div>}
+      {eroare && <div className="error-text mt-6" role="alert">{eroare}</div>}
     </div>
   );
 }
@@ -192,7 +192,7 @@ export function HousekeepingView({ core, reservations, housekeeping, updateHouse
   return (
     <div>
       {groups.map((g) => (
-        <div key={g.type} style={{ marginBottom: 22 }}>
+        <div key={g.type} className="mb-22">
           <div className="group-head">
             {ROOM_TYPE[g.type].label}
             <span className="badge-count">{g.rooms.length}</span>
@@ -339,11 +339,11 @@ export function RoomsView({ core, updateCore, reservations, updateReservations, 
             buton care oricum ar refuza serverul e o eroare confuza in loc
             de una clara. */}
         {isAdmin() && (
-          <button className="btn btn-ghost" style={{ width: "auto" }} onClick={() => setModPasajDeschis(true)}>
+          <button className="btn btn-ghost btn-lat" onClick={() => setModPasajDeschis(true)}>
             <Unlock size={15} /> Mod trecere liberă
           </button>
         )}
-        <button className="btn btn-primary" style={{ width: "auto" }} onClick={() => setModal({ room: null })}>
+        <button className="btn btn-primary btn-lat" onClick={() => setModal({ room: null })}>
           <Plus size={15} /> Cameră nouă
         </button>
       </div>
@@ -357,7 +357,7 @@ export function RoomsView({ core, updateCore, reservations, updateReservations, 
         {core.rooms.map((r) => (
           <div className="list-row" key={r.id}>
             <div>
-              <div className="primary">{r.name} <span style={{ color: "var(--text-muted)", fontWeight: 500 }}>· {ROOM_TYPE[r.type]?.label || ""}</span></div>
+              <div className="primary">{r.name} <span className="camere-tip">· {ROOM_TYPE[r.type]?.label || ""}</span></div>
               <div className="secondary">
                 {r.accessLockName || r.accessLockId
                   ? <>Yală: {r.accessLockName || r.accessLockId}</>
@@ -368,7 +368,7 @@ export function RoomsView({ core, updateCore, reservations, updateReservations, 
               <button className="icon-btn" onClick={() => setModal({ room: r })} aria-label={`Editează camera ${r.name}`}><Pencil size={14} /></button>
               {confirmRoomId === r.id ? (
                 <>
-                  <span style={{ fontSize: 12, color: "var(--danger)", fontWeight: 600 }}>
+                  <span className="camere-sterge-avert">
                     {(() => {
                       const nR = reservations.filter((x) => x.roomId === r.id).length;
                       const nB = (blocks || []).filter((x) => x.roomId === r.id).length;
@@ -378,11 +378,11 @@ export function RoomsView({ core, updateCore, reservations, updateReservations, 
                       return parts.length ? `Se șterg și ${parts.join(" și ")}` : "Camera nu are rezervări";
                     })()}
                   </span>
-                  <button className="btn btn-danger" style={{ padding: "8px 12px" }}
+                  <button className="btn btn-danger btn-mic"
                     onClick={() => { remove(r.id); setConfirmRoomId(null); }}>
                     Șterge tot
                   </button>
-                  <button className="btn btn-ghost" style={{ padding: "8px 12px" }}
+                  <button className="btn btn-ghost btn-mic"
                     onClick={() => setConfirmRoomId(null)}>
                     Renunță
                   </button>
@@ -439,7 +439,7 @@ export function RoomModal({ room, onSave, onClose }) {
 
   return (
     <Dialog onClose={onClose} title={room ? "Editează cameră" : "Cameră nouă"}>
-        <div className="sub-tabs" style={{ marginBottom: 16 }}>
+        <div className="sub-tabs mb-16">
           <button className={tab === "info" ? "on" : ""} onClick={() => setTab("info")}>
             <Info size={14} /> Informații cameră
           </button>
@@ -461,9 +461,9 @@ export function RoomModal({ room, onSave, onClose }) {
             </div>
             <label className="field">
               <span className="fl">Link iCal</span>
-              <div style={{ display: "flex", gap: 8 }}>
-                <input className="mono" readOnly value={icalUrl || "Disponibil după prima salvare"}
-                  style={{ color: icalUrl ? undefined : "var(--text-muted)" }} />
+              <div className="camere-ical-rand">
+                <input className={"mono" + (icalUrl ? "" : " camere-ical-gol")} readOnly
+                  value={icalUrl || "Disponibil după prima salvare"} />
                 <button type="button" className="icon-btn" onClick={copyIcal} disabled={!icalUrl}
                   aria-label="Copiază linkul iCal" title="Copiază linkul iCal">
                   <Copy size={14} />
@@ -493,7 +493,7 @@ export function RoomModal({ room, onSave, onClose }) {
                 placeholder="cum apare yala în TTLock" />
             </label>
 
-            <div className="modal-actions" style={{ marginTop: 4 }}>
+            <div className="modal-actions camere-yale-actiuni">
               <button type="button" className="btn btn-ghost" disabled={yaleStare === "caut"}
                 onClick={async () => {
                   setYaleStare("caut");
@@ -524,11 +524,11 @@ export function RoomModal({ room, onSave, onClose }) {
             </div>
 
             {typeof yaleStare === "string" && yaleStare !== "caut" && (
-              <div className="error-text" role="alert" style={{ marginTop: 8 }}>{yaleStare}</div>
+              <div className="error-text mt-8" role="alert">{yaleStare}</div>
             )}
 
             {yale && yale.length === 0 && (
-              <div className="ldv-mic" style={{ marginTop: 8 }}>
+              <div className="ldv-mic mt-8">
                 Contul nu are nicio yală în lista TTLock. Se întâmplă când yalele
                 sunt administrate din TTHOTEL. Scrie Lock ID-ul manual (îl vezi
                 în TTHOTEL, după MAC) și apasă „Testează yala" — dacă răspunde,
@@ -537,7 +537,7 @@ export function RoomModal({ room, onSave, onClose }) {
             )}
 
             {yale && yale.length > 0 && (
-              <label className="field" style={{ marginTop: 8 }}>
+              <label className="field mt-8">
                 <span className="fl">Alege yala ({yale.length} găsite)</span>
                 <select value={accessLockId}
                   onChange={(e) => {
@@ -559,15 +559,15 @@ export function RoomModal({ room, onSave, onClose }) {
                 pentru uz curent de receptie. De-aia cere confirmare explicita:
                 o usa deschisa din greseala nu se poate anula. */}
             {accessLockId.trim() && (
-              <div className="field" style={{ marginTop: 18 }}>
+              <div className="field mt-18">
                 <span className="fl">Deschidere la distanță</span>
                 {confirmUnlock ? (
                   <div className="action-confirm">
                     <span>Deschizi ușa acum?</span>
-                    <div style={{ display: "flex", gap: 8 }}>
-                      <button className="btn btn-ghost" style={{ padding: "8px 12px" }}
+                    <div className="camere-confirm-btns">
+                      <button className="btn btn-ghost btn-mic"
                         onClick={() => setConfirmUnlock(false)} disabled={unlockStare === "deschid"}>Nu</button>
-                      <button className="btn btn-danger" style={{ padding: "8px 12px" }}
+                      <button className="btn btn-danger btn-mic"
                         disabled={unlockStare === "deschid"}
                         onClick={async () => {
                           setUnlockStare("deschid");
@@ -586,8 +586,8 @@ export function RoomModal({ room, onSave, onClose }) {
                   </button>
                 )}
                 {typeof unlockStare === "string" && unlockStare !== "deschid" && (
-                  <div className={unlockStare === "Ușa a fost deschisă." ? "ldv-mic" : "error-text"}
-                    role={unlockStare === "Ușa a fost deschisă." ? undefined : "alert"} style={{ marginTop: 8 }}>
+                  <div className={(unlockStare === "Ușa a fost deschisă." ? "ldv-mic" : "error-text") + " mt-8"}
+                    role={unlockStare === "Ușa a fost deschisă." ? undefined : "alert"}>
                     {unlockStare}
                   </div>
                 )}
@@ -595,11 +595,11 @@ export function RoomModal({ room, onSave, onClose }) {
             )}
           </>
         ) : null}
-        {error && <div className="error-text" role="alert" style={{ marginBottom: 10 }}>{error}</div>}
+        {error && <div className="error-text mb-10" role="alert">{error}</div>}
         <div className="modal-actions">
           <div className="grow" />
           <button className="btn btn-ghost" onClick={onClose}>Anulează</button>
-          <button className="btn btn-primary" style={{ width: "auto" }} onClick={submit}><Check size={15} /> Salvează</button>
+          <button className="btn btn-primary btn-lat" onClick={submit}><Check size={15} /> Salvează</button>
         </div>
     </Dialog>
   );
@@ -655,7 +655,7 @@ export function PassageModePanel({ rooms, onClose }) {
 
   return (
     <Dialog onClose={onClose} title="Mod trecere liberă">
-      <div className="note" style={{ marginBottom: 14 }}>
+      <div className="note mb-14">
         Cât timp e activ pe o yală, ușa rămâne descuiată — oricine intră, fără
         cod și fără nicio urmă a cui a fost. Gândit pentru spații comune (hol,
         recepție) în orele de funcționare — nu pentru camere de oaspeți
@@ -669,7 +669,7 @@ export function PassageModePanel({ rooms, onClose }) {
         </div>
       ) : (
         <>
-          <div style={{ marginBottom: 12 }}>
+          <div className="mb-12">
             {confirmBulk ? (
               <div className="action-confirm">
                 <span>
@@ -677,30 +677,30 @@ export function PassageModePanel({ rooms, onClose }) {
                     ? `Activezi trecerea liberă pe toate cele ${rooms.length} yale?`
                     : `Dezactivezi trecerea liberă pe toate cele ${rooms.length} yale?`}
                 </span>
-                <div style={{ display: "flex", gap: 8 }}>
-                  <button className="btn btn-ghost" style={{ padding: "8px 12px" }}
+                <div className="camere-confirm-btns">
+                  <button className="btn btn-ghost btn-mic"
                     onClick={() => setConfirmBulk(null)} disabled={bulkInCurs}>Nu</button>
-                  <button className={confirmBulk === "activeaza" ? "btn btn-danger" : "btn btn-primary"}
-                    style={{ padding: "8px 12px", width: "auto" }} disabled={bulkInCurs}
+                  <button className={(confirmBulk === "activeaza" ? "btn btn-danger" : "btn btn-primary") + " btn-mic btn-lat"}
+                    disabled={bulkInCurs}
                     onClick={() => seteazaToate(confirmBulk === "activeaza")}>
                     Da, {confirmBulk === "activeaza" ? "activează" : "dezactivează"} pe toate
                   </button>
                 </div>
               </div>
             ) : (
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                <button className="btn btn-danger" style={{ width: "auto" }} disabled={bulkInCurs}
+              <div className="camere-pasaj-bulk">
+                <button className="btn btn-danger btn-lat" disabled={bulkInCurs}
                   onClick={() => setConfirmBulk("activeaza")}>
                   <Unlock size={15} /> Activează pe toate
                 </button>
-                <button className="btn btn-ghost" style={{ width: "auto" }} disabled={bulkInCurs}
+                <button className="btn btn-ghost btn-lat" disabled={bulkInCurs}
                   onClick={() => setConfirmBulk("dezactiveaza")}>
                   Dezactivează pe toate
                 </button>
               </div>
             )}
-            {bulkInCurs && <div className="ldv-mic" style={{ marginTop: 8 }}>Se aplică pe rând, ca să nu suprasolicităm yalele…</div>}
-            {bulkRezultat && !bulkInCurs && <div className="ldv-mic" style={{ marginTop: 8 }}>{bulkRezultat}</div>}
+            {bulkInCurs && <div className="ldv-mic mt-8">Se aplică pe rând, ca să nu suprasolicităm yalele…</div>}
+            {bulkRezultat && !bulkInCurs && <div className="ldv-mic mt-8">{bulkRezultat}</div>}
           </div>
 
           <div className="panel">
@@ -711,23 +711,23 @@ export function PassageModePanel({ rooms, onClose }) {
                   <div>
                     <div className="primary">{r.name}</div>
                     <div className="secondary mono">{r.accessLockName || r.accessLockId}</div>
-                    {s.eroare && <div className="error-text" style={{ marginTop: 4 }}>{s.eroare}</div>}
+                    {s.eroare && <div className="error-text mt-4">{s.eroare}</div>}
                   </div>
-                  <div className="row-actions" style={{ alignItems: "center", gap: 8 }}>
+                  <div className="row-actions camere-pasaj-actiuni">
                     {s.activ === true && (
-                      <span className="role-tag" style={{ background: "var(--danger-soft)", color: "var(--danger)" }}>Activ</span>
+                      <span className="role-tag camere-pasaj-activ">Activ</span>
                     )}
                     {s.activ === false && <span className="secondary">Inactiv</span>}
-                    <button className="btn btn-ghost" style={{ padding: "6px 10px" }}
+                    <button className="btn btn-ghost camere-pasaj-btn"
                       disabled={s.verificare === "verific" || !!s.actiune}
                       onClick={() => verifica(r.accessLockId)}>
                       {s.verificare === "verific" ? "Verific…" : "Verifică"}
                     </button>
-                    <button className="btn btn-ghost" style={{ padding: "6px 10px" }}
+                    <button className="btn btn-ghost camere-pasaj-btn"
                       disabled={!!s.actiune} onClick={() => seteaza(r.accessLockId, false)}>
                       {s.actiune === "opresc" ? "…" : "Dezactivează"}
                     </button>
-                    <button className="btn btn-danger" style={{ padding: "6px 10px" }}
+                    <button className="btn btn-danger camere-pasaj-btn"
                       disabled={!!s.actiune} onClick={() => seteaza(r.accessLockId, true)}>
                       {s.actiune === "pornesc" ? "…" : "Activează"}
                     </button>
@@ -739,7 +739,7 @@ export function PassageModePanel({ rooms, onClose }) {
         </>
       )}
 
-      <div className="modal-actions" style={{ marginTop: 14 }}>
+      <div className="modal-actions camere-pasaj-final">
         <div className="grow" />
         <button className="btn btn-ghost" onClick={onClose}>Închide</button>
       </div>
@@ -801,7 +801,7 @@ export function TagsView({ core, updateCore }) {
       </div>
 
       <div className="toolbar">
-        <div className="search-box" style={{ maxWidth: 320 }}>
+        <div className="search-box camere-eticheta-cauta">
           <TagIcon size={15} color="var(--text-muted)" />
           <input
             value={draft}
@@ -810,12 +810,12 @@ export function TagsView({ core, updateCore }) {
             onKeyDown={(e) => e.key === "Enter" && add()}
           />
         </div>
-        <button className="btn btn-primary" style={{ width: "auto" }} onClick={add} disabled={!draft.trim()}>
+        <button className="btn btn-primary btn-lat" onClick={add} disabled={!draft.trim()}>
           <Plus size={15} /> Adaugă
         </button>
       </div>
 
-      {error && <div className="drag-error" role="alert" style={{ marginBottom: 10 }}>{error}</div>}
+      {error && <div className="drag-error mb-10" role="alert">{error}</div>}
 
       <div className="panel">
         {tags.length === 0 ? (
@@ -832,11 +832,7 @@ export function TagsView({ core, updateCore }) {
                   if (e.key === "Escape") setEditIdx(null);
                 }}
                 onBlur={() => commitEdit(i)}
-                style={{
-                  flex: 1, padding: "9px 11px", border: "1px solid var(--accent)",
-                  borderRadius: "var(--r-sm)", fontSize: "var(--fs-base)",
-                  background: "var(--surface)", color: "var(--text)",
-                }}
+                className="camere-eticheta-edit"
               />
             ) : (
               <div className="primary">{t}</div>
@@ -918,23 +914,23 @@ export function OnlinePricingView({ core, updateCore }) {
         procentual peste prețul standard calculat din tarife/sezoane.
       </div>
 
-      <div className="panel" style={{ padding: 18 }}>
+      <div className="panel p-18">
         {draft.length === 0 ? (
           <div className="section-empty">Niciun prag definit — rezervările directe folosesc tariful standard.</div>
         ) : draft.map((t) => {
           const sign = t.adjustmentPct > 0 ? "up" : t.adjustmentPct < 0 ? "down" : null;
           return (
             <div key={t.id} className="tier-row">
-              <label className="field" style={{ margin: 0 }}>
+              <label className="field m-0">
                 <span className="fl">Ocupare de la (%)</span>
                 <input type="number" min="0" max="100" value={t.min} onChange={(e) => setTier(t.id, { min: e.target.value })} />
               </label>
               <span className="tier-sep">–</span>
-              <label className="field" style={{ margin: 0 }}>
+              <label className="field m-0">
                 <span className="fl">până la (%)</span>
                 <input type="number" min="0" max="100" value={t.max} onChange={(e) => setTier(t.id, { max: e.target.value })} />
               </label>
-              <label className="field tier-adj" style={{ margin: 0 }}>
+              <label className="field tier-adj m-0">
                 <span className="fl">Ajustare preț</span>
                 <div className="tier-adj-input">
                   <input type="number" step="1" value={t.adjustmentPct} onChange={(e) => setTier(t.id, { adjustmentPct: e.target.value })} />
@@ -949,17 +945,17 @@ export function OnlinePricingView({ core, updateCore }) {
             </div>
           );
         })}
-        <button className="btn btn-ghost" style={{ marginTop: draft.length ? 12 : 0 }} onClick={addTier}>
+        <button className={"btn btn-ghost " + (draft.length ? "mt-12" : "mt-0")} onClick={addTier}>
           <Plus size={15} /> Prag nou
         </button>
       </div>
 
-      <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 14 }}>
-        <button className="btn btn-primary" style={{ width: "auto" }} onClick={save} disabled={!dirty || saving}>
+      <div className="camere-salvare-rand mt-14">
+        <button className="btn btn-primary btn-lat" onClick={save} disabled={!dirty || saving}>
           <Check size={15} /> {saving ? "Se salvează…" : "Salvează"}
         </button>
-        {saved && !dirty && <span style={{ color: "var(--success)", fontSize: 13, fontWeight: 600 }}>Salvat</span>}
-        {dirty && <span style={{ color: "var(--text-muted)", fontSize: 13 }}>Modificări nesalvate</span>}
+        {saved && !dirty && <span className="camere-salvat">Salvat</span>}
+        {dirty && <span className="camere-nesalvat">Modificări nesalvate</span>}
       </div>
     </div>
   );
@@ -1028,8 +1024,8 @@ export function RatesView({ core, updateCore }) {
         fiecare copil. Modificările se salvează doar la apăsarea butonului de mai jos.
       </div>
 
-      <div className="panel" style={{ padding: 18, marginBottom: 16 }}>
-        <div className="section-head" style={{ padding: 0, border: "none", marginBottom: 14 }}>Tarif de bază</div>
+      <div className="panel p-18 mb-16">
+        <div className="section-head camere-tarife-cap">Tarif de bază</div>
         <div className="field-row field-row-2col">
           <label className="field">
             <span className="fl">Tiny house (lei/noapte)</span>
@@ -1060,45 +1056,45 @@ export function RatesView({ core, updateCore }) {
             <input type="number" min="0" value={draft.base.loftSingle ?? ""} onChange={(e) => setBase("loftSingle", e.target.value)} placeholder="ex: 420" />
           </label>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <button className="btn btn-primary" style={{ width: "auto" }} onClick={save} disabled={!dirty || saving}>
+        <div className="camere-salvare-rand">
+          <button className="btn btn-primary btn-lat" onClick={save} disabled={!dirty || saving}>
             <Check size={15} /> {saving ? "Se salvează…" : "Salvează tarifele"}
           </button>
-          {saved && !dirty && <span style={{ color: "var(--success)", fontSize: 13, fontWeight: 600 }}>Salvat</span>}
-          {dirty && <span style={{ color: "var(--text-muted)", fontSize: 13 }}>Modificări nesalvate</span>}
+          {saved && !dirty && <span className="camere-salvat">Salvat</span>}
+          {dirty && <span className="camere-nesalvat">Modificări nesalvate</span>}
         </div>
       </div>
 
       <div className="toolbar">
         <span className="badge-count">{draft.seasons.length} sezoane</span>
         <div className="grow" />
-        <button className="btn btn-primary" style={{ width: "auto" }} onClick={addSeason}><Plus size={15} /> Sezon nou</button>
+        <button className="btn btn-primary btn-lat" onClick={addSeason}><Plus size={15} /> Sezon nou</button>
       </div>
 
       <div className="panel">
         {draft.seasons.length === 0 ? (
           <div className="section-empty">Niciun sezon — se aplică tariful de bază tot anul.</div>
         ) : draft.seasons.map((sn) => (
-          <div key={sn.id} style={{ padding: 16, borderBottom: "1px solid var(--border-soft)" }}>
-            <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
-              <input value={sn.name} onChange={(e) => setSeason(sn.id, { name: e.target.value })}
-                style={{ flex: 1, padding: "9px 12px", border: "1px solid var(--border)", borderRadius: 10, fontSize: 13.5 }} />
+          <div key={sn.id} className="camere-sezon">
+            <div className="camere-sezon-cap">
+              <input className="camere-sezon-nume" value={sn.name}
+                onChange={(e) => setSeason(sn.id, { name: e.target.value })} />
               <button className="icon-btn" onClick={() => removeSeason(sn.id)} aria-label={`Șterge sezonul ${sn.name}`}><Trash2 size={14} /></button>
             </div>
             <div className="season-grid">
-              <label className="field" style={{ margin: 0 }}>
+              <label className="field m-0">
                 <span className="fl">De la (LL-ZZ)</span>
                 <input className="mono" value={sn.start} placeholder="06-15" onChange={(e) => setSeason(sn.id, { start: e.target.value })} />
               </label>
-              <label className="field" style={{ margin: 0 }}>
+              <label className="field m-0">
                 <span className="fl">Până la</span>
                 <input className="mono" value={sn.end} placeholder="09-15" onChange={(e) => setSeason(sn.id, { end: e.target.value })} />
               </label>
-              <label className="field" style={{ margin: 0 }}>
+              <label className="field m-0">
                 <span className="fl">Tiny</span>
                 <input type="number" min="0" value={sn.tiny} onChange={(e) => setSeason(sn.id, { tiny: Number(e.target.value) || 0 })} />
               </label>
-              <label className="field" style={{ margin: 0 }}>
+              <label className="field m-0">
                 <span className="fl">Loft</span>
                 <input type="number" min="0" value={sn.loft} onChange={(e) => setSeason(sn.id, { loft: Number(e.target.value) || 0 })} />
               </label>

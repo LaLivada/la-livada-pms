@@ -282,6 +282,10 @@ export const STILURI = `
 .ldv-btn:focus-visible{ outline:2px solid var(--ldv-accent); outline-offset:2px; }
 .ldv-actiuni{ display:flex; gap:10px; flex-wrap:wrap; margin-top:18px; }
 .ldv-creste{ flex:1; }
+/* Nota de sub acțiuni la pasul „Datele tale” (D2, faza 4). Scopul cu .ldv
+   în plus e ca să bată .ldv p de mai sus — aceeași specificitate ar fi
+   lăsat rezultatul la mâna ordinii din fișier, nu a regulii potrivite. */
+.ldv .ldv-nota-plata{ margin-top:12px; }
 
 /* ---------- rezultate ---------- */
 .ldv-tip{
@@ -333,6 +337,14 @@ export const STILURI = `
 .ldv-alerta-info{
   background:var(--ldv-accent-soft); border-color:#c9e0d6; color:#245240;
 }
+/* Alertele din pasul de confirmare se înlănțuie după sumar sau una după
+   alta (starea rezervării, apoi eventual promptul de anulare) — au nevoie
+   de puțin aer deasupra, cât .ldv-alerta singur nu prevede (D2, faza 4). */
+.ldv-alerta-confirmare{ margin-top:4px; }
+/* Paragraful de detaliu de sub rândul îngroșat, în aceleași alerte.
+   Scopul cu .ldv-alerta în plus e ca să bată .ldv p de mai sus, care are
+   aceeași specificitate dacă folosim doar o clasă simplă. */
+.ldv-alerta .ldv-alerta-detalii{ margin:6px 0 0; }
 .ldv-gol{ text-align:center; padding:26px 10px; color:var(--ldv-muted); }
 
 .ldv-sumar{
@@ -344,6 +356,10 @@ export const STILURI = `
   border-top:1px solid var(--ldv-line); margin-top:8px; padding-top:9px;
   font-weight:670; font-size:1.06em;
 }
+/* Sumarul care urmează după altceva în card (galeria pozelor la rezultate,
+   antetul de confirmare), nu chiar sub un titlu — are nevoie de aer
+   deasupra, cât .ldv-sumar singur nu prevede (D2, faza 4). */
+.ldv-sumar-optiune, .ldv-sumar-rezervare{ margin-top:16px; }
 
 .ldv-pasi{
   display:flex; gap:6px; margin-bottom:18px; font-size:.8em;

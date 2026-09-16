@@ -47,7 +47,7 @@ export function CardOnline({ rezervari, numeOaspete, numeCamera, core, onDeschid
       </div>
       {ultimele.length ? ultimele.map((r) => (
         <div className="list-row" key={r.id}>
-          <div style={{ minWidth: 0, cursor: "pointer" }}
+          <div className="min-w-0 cursor-pointer"
             role="button" tabIndex={0}
             onClick={() => onDeschide(r)}
             onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onDeschide(r); } }}
@@ -224,7 +224,7 @@ export function TodayView({ core, updateCore, reservations, updateReservations, 
         <Section title="Sosiri" items={arrivals} empty="Nicio sosire astăzi."
           renderItem={(r) => (
             <div className="list-row" key={r.id}>
-              <div style={{ minWidth: 0, cursor: "pointer" }}
+              <div className="min-w-0 cursor-pointer"
                 role="button" tabIndex={0}
                 onClick={() => setViewRes(r)}
                 onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setViewRes(r); } }}
@@ -243,7 +243,7 @@ export function TodayView({ core, updateCore, reservations, updateReservations, 
                 ) : r.status === "checkedout" ? (
                   <span className={"role-tag " + (noua ? "st-checkedout" : "role-receptionist")}>Plecat</span>
                 ) : canCheckIn(r) ? (
-                  <button className="btn btn-primary" style={{ width: "auto", padding: "8px 12px" }}
+                  <button className="btn btn-primary btn-lat btn-mic"
                     disabled={busyId === r.id}
                     onClick={async () => {
                       if (busyId) return;
@@ -268,7 +268,7 @@ export function TodayView({ core, updateCore, reservations, updateReservations, 
         <Section title="Plecări" items={departures} empty="Nicio plecare astăzi."
           renderItem={(r) => (
             <div className="list-row" key={r.id}>
-              <div style={{ minWidth: 0, cursor: "pointer" }}
+              <div className="min-w-0 cursor-pointer"
                 role="button" tabIndex={0}
                 onClick={() => setViewRes(r)}
                 onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setViewRes(r); } }}
@@ -282,7 +282,7 @@ export function TodayView({ core, updateCore, reservations, updateReservations, 
                 {r.status === "checkedout" ? (
                   <span className={"role-tag " + (noua ? "st-checkedout" : "role-receptionist")}>Plecat</span>
                 ) : canCheckOut(r) ? (
-                  <button className="btn btn-ghost" style={{ padding: "8px 12px" }}
+                  <button className="btn btn-ghost btn-mic"
                     disabled={busyId === r.id}
                     onClick={async () => {
                       if (busyId) return;
@@ -306,7 +306,7 @@ export function TodayView({ core, updateCore, reservations, updateReservations, 
         <Section title="In house" items={inHouse} empty="Nicio cameră ocupată."
           renderItem={(r) => (
             <div className="list-row" key={r.id}>
-              <div style={{ cursor: "pointer" }}
+              <div className="cursor-pointer"
                 role="button" tabIndex={0}
                 onClick={() => setViewRes(r)}
                 onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setViewRes(r); } }}
@@ -327,7 +327,7 @@ export function TodayView({ core, updateCore, reservations, updateReservations, 
                 <div className="primary mono">{room.name}</div>
                 <div className="secondary">{ROOM_TYPE[room.type]?.label}</div>
               </div>
-              <button className="btn btn-ghost" style={{ padding: "8px 12px" }} onClick={() => setView("housekeeping")}>
+              <button className="btn btn-ghost btn-mic" onClick={() => setView("housekeeping")}>
                 Vezi <ArrowRight size={14} />
               </button>
             </div>

@@ -94,7 +94,7 @@ export function UsersView({ user, onLogout }) {
       <div className="toolbar">
         <span className="badge-count">{list.length} useri</span>
         <div className="grow" />
-        <button className="btn btn-primary" style={{ width: "auto" }} onClick={() => setModal({ user: null })}>
+        <button className="btn btn-primary btn-lat" onClick={() => setModal({ user: null })}>
           <Plus size={15} /> User nou
         </button>
       </div>
@@ -103,9 +103,9 @@ export function UsersView({ user, onLogout }) {
           <div className="list-row" key={u.user_id}>
             <div>
               <div className="primary">{u.name}</div>
-              <div className="secondary mono" style={{ fontSize: 11 }}>{u.user_id}</div>
+              <div className="secondary mono setari-id-mic">{u.user_id}</div>
             </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <div className="setari-user-dreapta">
               <span className={"role-tag role-" + u.role}>{ROLE_LABEL[u.role]}</span>
               <div className="row-actions">
                 <button className="icon-btn" onClick={() => setModal({ user: u })} aria-label={`Editează ${u.name}`}><Pencil size={14} /></button>
@@ -178,11 +178,11 @@ export function UserModal({ user, list, onSave, onClose }) {
             <option value="housekeeping">Cameristă — doar status camere</option>
           </select>
         </label>
-        {error && <div className="error-text" role="alert" style={{ marginBottom: 10 }}>{error}</div>}
+        {error && <div className="error-text mb-10" role="alert">{error}</div>}
         <div className="modal-actions">
           <div className="grow" />
           <button className="btn btn-ghost" onClick={onClose}>Anulează</button>
-          <button className="btn btn-primary" style={{ width: "auto" }} onClick={submit} disabled={busy}><Check size={15} /> Salvează</button>
+          <button className="btn btn-primary btn-lat" onClick={submit} disabled={busy}><Check size={15} /> Salvează</button>
         </div>
     </Dialog>
   );
@@ -400,8 +400,8 @@ function OcupareZilnicaModal({ perDay, monthStart, totalCamere, onClose }) {
     <Dialog onClose={onClose} className="arrival-modal" overlayClassName="arrival-overlay" title={undefined}>
       <div className="modal-head no-print">
         <h3>Raport zilnic</h3>
-        <div style={{ display: "flex", gap: 8 }}>
-          <button className="btn btn-primary" style={{ width: "auto" }} onClick={descarca} disabled={genereaza}>
+        <div className="setari-ocupare-modal-actiuni">
+          <button className="btn btn-primary btn-lat" onClick={descarca} disabled={genereaza}>
             <Printer size={15} /> {genereaza ? "Se generează…" : "Vezi PDF"}
           </button>
           <button className="icon-btn" onClick={onClose} aria-label="Închide fereastra"><X size={16} /></button>
@@ -421,7 +421,7 @@ function OcupareZilnicaModal({ perDay, monthStart, totalCamere, onClose }) {
       <div className="raport-cadru">
         <div className="arrival-sheet raport-sheet" ref={foaie}>
           <div className="fisa">
-            <h2 style={{ marginTop: 0 }}>Raport zilnic · {luna}</h2>
+            <h2 className="mt-0">Raport zilnic · {luna}</h2>
 
             {/* O singura coloana: toate zilele lunii una sub alta, 31 de
                 randuri. */}
@@ -429,35 +429,35 @@ function OcupareZilnicaModal({ perDay, monthStart, totalCamere, onClose }) {
               <thead>
                 <tr>
                   <th>Ziua</th>
-                  <th style={{ textAlign: "right" }}>Camere</th>
-                  <th style={{ textAlign: "right" }}>Grad</th>
-                  <th style={{ textAlign: "right" }}>Încasat</th>
+                  <th className="setari-ocupare-num">Camere</th>
+                  <th className="setari-ocupare-num">Grad</th>
+                  <th className="setari-ocupare-num">Încasat</th>
                 </tr>
               </thead>
               <tbody>
                 {perDay.map((p) => (
                   <tr key={p.day} className={p.occ === 0 ? "zi-goala" : undefined}>
                     <td>{String(p.day).padStart(2, "0")} <span className="zi-nume">{numeZi(p.day)}</span></td>
-                    <td style={{ textAlign: "right" }}>{p.occ}{totalCamere ? ` / ${totalCamere}` : ""}</td>
-                    <td style={{ textAlign: "right" }}>{totalCamere ? Math.round((p.occ / totalCamere) * 100) : 0}%</td>
-                    <td style={{ textAlign: "right" }}>{fmtMoney(p.rev)}</td>
+                    <td className="text-right">{p.occ}{totalCamere ? ` / ${totalCamere}` : ""}</td>
+                    <td className="text-right">{totalCamere ? Math.round((p.occ / totalCamere) * 100) : 0}%</td>
+                    <td className="text-right">{fmtMoney(p.rev)}</td>
                   </tr>
                 ))}
               </tbody>
               <tfoot>
                 <tr>
                   <th>Total lună</th>
-                  <th style={{ textAlign: "right" }}>{totalCamereNopti} nopți</th>
-                  <th style={{ textAlign: "right" }}>
+                  <th className="setari-ocupare-num">{totalCamereNopti} nopți</th>
+                  <th className="setari-ocupare-num">
                     {totalCamere && perDay.length
                       ? Math.round((totalCamereNopti / (totalCamere * perDay.length)) * 100) : 0}%
                   </th>
-                  <th style={{ textAlign: "right" }}>{fmtMoney(totalVenit)}</th>
+                  <th className="setari-ocupare-num">{fmtMoney(totalVenit)}</th>
                 </tr>
               </tfoot>
             </table>
 
-            <p className="ldv-mic" style={{ marginTop: 10 }}>
+            <p className="ldv-mic mt-10">
               Ziua plecării nu se numără ca noapte vândută, deci o zi cu schimb de
               oaspeți apare o singură dată. Rezervările de protocol sunt excluse.
             </p>
@@ -530,7 +530,7 @@ export function ReportsView({ core }) {
           <button onClick={() => setMonthOffset((m) => m + 1)}><ChevronRight size={15} /></button>
         </div>
         <div className="grow" />
-        <button type="button" className="btn btn-ghost" style={{ width: "auto" }} onClick={exportaCsv} disabled={seIncarca}
+        <button type="button" className="btn btn-ghost btn-lat" onClick={exportaCsv} disabled={seIncarca}
           title="Zilele, totalul, sursele și tipurile de cameră ale lunii, în CSV (Excel)">
           <Download size={14} /> Export CSV
         </button>
@@ -538,7 +538,7 @@ export function ReportsView({ core }) {
 
       {raport.eroare && <div className="drag-error" role="alert">{raport.eroare}</div>}
 
-      <div style={{ opacity: seIncarca ? 0.55 : 1, transition: "opacity .15s" }} aria-busy={seIncarca}>
+      <div className={"setari-raport-continut" + (seIncarca ? " setari-raport-incarca" : "")} aria-busy={seIncarca}>
       <div className="stat-row">
         <Stat label="Ocupare" value={`${occupancy}%`} sub={`${roomNights} din ${capacity} camere-nopți`} delta={cuDelta(delta?.ocupare)} />
         <Stat label="Venit" value={fmtMoney(revenue)} sub="prețuri reale, pe nopți din lună" delta={cuDelta(delta?.venit)} />
@@ -553,13 +553,12 @@ export function ReportsView({ core }) {
 
       {/* Tot blocul e apasabil, nu doar un link intr-un colt: graficul e
           deja lucrul la care te uiti cand vrei cifra unei zile anume. */}
-      <button type="button" className="panel panel-clickabil"
-        style={{ padding: 18, marginBottom: 14, width: "100%", textAlign: "left" }}
+      <button type="button" className="panel panel-clickabil setari-raport-buton"
         onClick={() => setDetaliuZilnic(true)}
         aria-label={`Raportul zilnic pe ${FMT_MONTH_YEAR.format(monthStart)}: camere ocupate și total încasat pe zi`}>
-        <div className="section-head" style={{ padding: 0, border: "none", marginBottom: 14, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <div className="section-head setari-raport-cap">
           <span>Ocupare zilnică</span>
-          <span className="ldv-mic" style={{ fontWeight: 500 }}>Vezi pe zile <ArrowRight size={13} /></span>
+          <span className="ldv-mic setari-raport-vezi-zile">Vezi pe zile <ArrowRight size={13} /></span>
         </div>
         <div className="bar-chart">
           {perDay.map((p) => (
@@ -578,7 +577,7 @@ export function ReportsView({ core }) {
         />
       )}
 
-      <div className="panel" style={{ marginBottom: 14 }}>
+      <div className="panel mb-14">
         <div className="section-head">Rezervări pe sursă</div>
         {bySource.length === 0 ? (
           <div className="section-empty">Nicio rezervare în această lună.</div>
@@ -588,9 +587,9 @@ export function ReportsView({ core }) {
               <div className="primary">{r.label}</div>
               <div className="secondary">{r.count} rezervări · {fmtMoney(r.rev)}</div>
             </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 160 }}>
+            <div className="setari-raport-meter-rand">
               <div className="meter"><div className="meter-fill" style={{ width: `${r.pct}%` }} /></div>
-              <span className="mono" style={{ fontSize: 13, fontWeight: 600 }}>{r.pct}%</span>
+              <span className="mono setari-raport-meter-pct">{r.pct}%</span>
             </div>
           </div>
         ))}
@@ -604,21 +603,21 @@ export function ReportsView({ core }) {
               <div className="primary">{ROOM_TYPE[t.type].label}</div>
               <div className="secondary">{t.nights} din {t.cap} camere-nopți</div>
             </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 160 }}>
+            <div className="setari-raport-meter-rand">
               <div className="meter"><div className="meter-fill" style={{ width: `${t.pct}%` }} /></div>
-              <span className="mono" style={{ fontSize: 13, fontWeight: 600 }}>{t.pct}%</span>
+              <span className="mono setari-raport-meter-pct">{t.pct}%</span>
             </div>
           </div>
         ))}
       </div>
 
       {protocolStats.count > 0 && (
-        <div className="panel" style={{ marginTop: 14 }}>
+        <div className="panel mt-14">
           <div className="section-head">
-            <span className={"role-tag " + STATUS_CLASS.protocol} style={{ marginRight: 8 }}>Protocol</span>
+            <span className={"role-tag " + STATUS_CLASS.protocol + " mr-8"}>Protocol</span>
             Statistică separată — necontorizată în venit
           </div>
-          <div className="stat-row" style={{ padding: 16 }}>
+          <div className="stat-row p-16">
             <Stat label="Sejururi" value={protocolStats.count} sub="protocol" />
             <Stat label="Nopți" value={protocolStats.nights} sub="în lună" />
             <Stat label="Valoare" value={fmtMoney(protocolStats.value)} sub="neîncasată" />
@@ -696,14 +695,14 @@ export function LogView({ entries, core }) {
   return (
     <div>
       <div className="toolbar">
-        <label className="field" style={{ marginBottom: 0, flex: "1 1 160px" }}>
+        <label className="field setari-jrn-camp">
           <span className="fl">Cameră</span>
           <select value={cameraId} onChange={(e) => alegeCamera(e.target.value)}>
             <option value="">Toate camerele</option>
             {camere.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
           </select>
         </label>
-        <label className="field" style={{ marginBottom: 0, flex: "1 1 160px" }}>
+        <label className="field setari-jrn-camp">
           <span className="fl">Zi</span>
           <select value={zi} onChange={(e) => setZi(e.target.value)} disabled={!ziiOptiuni.length}>
             <option value="">Toate zilele</option>
@@ -725,19 +724,19 @@ export function LogView({ entries, core }) {
               const cameraRand = numeDupaId.get(e.roomId) || cameraDinDetaliu(e.detail, numeCamere);
               return (
                 <div className={"list-row" + (e.action === ACTIUNE_EROARE ? " list-row-eroare" : "")} key={e.id}>
-                  <div style={{ minWidth: 0 }}>
+                  <div className="min-w-0">
                     <div className="primary">{e.action}</div>
                     <div className="secondary">{e.detail}</div>
                   </div>
-                  <div style={{ textAlign: "right", flexShrink: 0 }}>
-                    <div style={{ fontSize: 12, fontWeight: 600 }}>
+                  <div className="text-right no-shrink">
+                    <div className="setari-jrn-user">
                       {e.userName}
                       {/* Camera apare aici doar cand vezi TOATE camerele —
                           selectand una, e deja titlul filtrului, deci a o
                           repeta pe fiecare rand ar fi zgomot. */}
                       {!camera && cameraRand ? ` · ${cameraRand}` : ""}
                     </div>
-                    <div className="secondary mono" style={{ fontSize: 11 }}>{FMT_TIME.format(new Date(e.ts))}</div>
+                    <div className="secondary mono setari-id-mic">{FMT_TIME.format(new Date(e.ts))}</div>
                   </div>
                 </div>
               );
@@ -760,8 +759,8 @@ export function SettingsView({ setView, items }) {
         <button className="settings-card" key={it.key} onClick={() => setView(it.key)}>
           <span className="ico"><it.icon size={18} /></span>
           <span>
-            <span className="t" style={{ display: "block" }}>{it.label}</span>
-            <span className="d" style={{ display: "block" }}>{it.desc}</span>
+            <span className="t">{it.label}</span>
+            <span className="d">{it.desc}</span>
           </span>
         </button>
       ))}

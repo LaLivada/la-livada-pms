@@ -129,7 +129,7 @@ export function FolioPanel({ reservation, core, updateCore, billingCustomerId, s
       {loading ? (
         <div className="note">Se încarcă…</div>
       ) : loadError ? (
-        <div className="note" style={{ color: "var(--danger)" }}>{loadError}</div>
+        <div className="note folio-eroare">{loadError}</div>
       ) : (
         <div className="panel">
           {items.map((i) => (
@@ -138,15 +138,15 @@ export function FolioPanel({ reservation, core, updateCore, billingCustomerId, s
                 <div className="primary">
                   {i.name}
                   {i.invoiced_status === "invoiced" && (
-                    <span className="role-tag role-admin" style={{ marginLeft: 8 }}>facturat</span>
+                    <span className="role-tag role-admin ml-8">facturat</span>
                   )}
                 </div>
                 <div className="secondary">
                   {i.quantity} {i.category === "cazare" ? "nopți" : "buc"} × {fmtMoney(i.unit_price)} · TVA {i.vat_rate}% · {fmtDate(i.occurred_at)}
                 </div>
               </div>
-              <div className="row-actions" style={{ gap: 10 }}>
-                <span className="mono" style={{ fontWeight: 650 }}>{fmtMoney(i.total_amount)}</span>
+              <div className="row-actions folio-pozitie-actiuni">
+                <span className="mono folio-suma">{fmtMoney(i.total_amount)}</span>
                 {i.category !== "cazare" && i.invoiced_status !== "invoiced" && (
                   <button className="icon-btn" onClick={() => removeExtra(i)} aria-label={`Șterge ${i.name}`}>
                     <Trash2 size={14} />
@@ -155,10 +155,10 @@ export function FolioPanel({ reservation, core, updateCore, billingCustomerId, s
               </div>
             </div>
           ))}
-          <div className="list-row" style={{ background: "var(--surface-2)" }}>
+          <div className="list-row folio-total-rand">
             <div className="primary">Total folio</div>
-            <div style={{ textAlign: "right" }}>
-              <div className="mono" style={{ fontWeight: 700 }}>{fmtMoney(total)}</div>
+            <div className="text-right">
+              <div className="mono folio-total-suma">{fmtMoney(total)}</div>
               {uninvoicedTotal !== total && (
                 <div className="secondary">{fmtMoney(uninvoicedTotal)} nefacturat</div>
               )}
@@ -171,20 +171,20 @@ export function FolioPanel({ reservation, core, updateCore, billingCustomerId, s
         adding ? (
           <AddExtraForm products={activeProducts} onSave={addExtra} onCancel={() => setAdding(false)} />
         ) : (
-          <button type="button" className="btn btn-ghost" style={{ marginTop: 10 }}
+          <button type="button" className="btn btn-ghost mt-10"
             onClick={() => setAdding(true)} disabled={!activeProducts.length}>
             <Plus size={15} /> Adaugă serviciu
           </button>
         )
       )}
       {!loading && !activeProducts.length && (
-        <div className="note" style={{ marginTop: 8 }}>
+        <div className="note mt-8">
           Niciun produs/serviciu activ — adaugă din Setări → Financiar → Produse & TVA.
         </div>
       )}
 
       {!loading && (
-        <div className="field" style={{ marginTop: 18 }}>
+        <div className="field mt-18">
           <span className="fl">Facturare către</span>
           <BillingCustomerPicker
             value={billingCustomerId}
@@ -193,7 +193,7 @@ export function FolioPanel({ reservation, core, updateCore, billingCustomerId, s
             onChange={setBillingCustomerId}
             onNewBillingCustomer={onNewBillingCustomer}
           />
-          <div className="note" style={{ marginTop: 6 }}>
+          <div className="note mt-6">
             Dacă nu alegi nimic, factura se emite pe datele oaspetelui de mai sus.
           </div>
         </div>
@@ -201,11 +201,11 @@ export function FolioPanel({ reservation, core, updateCore, billingCustomerId, s
 
       {!loading && !loadError && (
         <>
-          <div className="toolbar" style={{ marginTop: 18 }}>
-            <span className="fl" style={{ margin: 0 }}>Facturi</span>
+          <div className="toolbar mt-18">
+            <span className="fl m-0">Facturi</span>
             <div className="grow" />
             {canBilling("create_invoice") && (
-              <button type="button" className="btn btn-primary" style={{ width: "auto" }}
+              <button type="button" className="btn btn-primary btn-lat"
                 onClick={() => setBuilderOpen(true)} disabled={!uninvoicedItems.length}>
                 <Receipt size={15} /> Generează factură
               </button>
@@ -220,7 +220,7 @@ export function FolioPanel({ reservation, core, updateCore, billingCustomerId, s
                   <div>
                     <div className="primary">
                       {inv.series ? `${inv.series} ${inv.number}` : "Draft"}
-                      <span className={"role-tag " + INVOICE_STATUS_CLASS[inv.status]} style={{ marginLeft: 8 }}>
+                      <span className={"role-tag " + INVOICE_STATUS_CLASS[inv.status] + " ml-8"}>
                         {INVOICE_STATUS_LABEL[inv.status]}
                       </span>
                     </div>
@@ -230,7 +230,7 @@ export function FolioPanel({ reservation, core, updateCore, billingCustomerId, s
                   </div>
                   <div className="row-actions">
                     {inv.status === "draft" && canBilling("issue_invoice") && (
-                      <button className="btn btn-ghost" style={{ width: "auto", padding: "8px 12px" }} onClick={() => issueInvoice(inv)}>
+                      <button className="btn btn-ghost btn-lat btn-mic" onClick={() => issueInvoice(inv)}>
                         Emite
                       </button>
                     )}
@@ -272,7 +272,7 @@ export function AddExtraForm({ products, onSave, onCancel }) {
   const [date, setDate] = useState(toDateInput(new Date()));
 
   return (
-    <div className="subform" style={{ marginTop: 10 }}>
+    <div className="subform mt-10">
       <div className="field-row field-row-2col">
         <label className="field">
           <span className="fl">Produs</span>
@@ -296,10 +296,10 @@ export function AddExtraForm({ products, onSave, onCancel }) {
           <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
         </label>
       </div>
-      <div className="modal-actions" style={{ marginTop: 0 }}>
+      <div className="modal-actions mt-0">
         <div className="grow" />
         <button type="button" className="btn btn-ghost" onClick={onCancel}>Renunță</button>
-        <button type="button" className="btn btn-primary" style={{ width: "auto" }}
+        <button type="button" className="btn btn-primary btn-lat"
           disabled={!product} onClick={() => product && onSave(product, quantity, price, date)}>
           <Check size={15} /> Salvează
         </button>
@@ -423,25 +423,25 @@ export function InvoiceBuilderModal({ reservation, folio, items, core, updateCor
         />
       </div>
 
-      <div className="panel" style={{ marginBottom: 14 }}>
+      <div className="panel mb-14">
         {items.map((i) => (
           <div className="list-row" key={i.id}>
-            <label style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", flex: 1, minWidth: 0 }}>
-              <input type="checkbox" checked={selected.has(i.id)} onChange={() => toggle(i.id)} style={{ flexShrink: 0 }} />
-              <div style={{ minWidth: 0 }}>
+            <label className="folio-selectie-rand">
+              <input type="checkbox" checked={selected.has(i.id)} onChange={() => toggle(i.id)} className="no-shrink" />
+              <div className="min-w-0">
                 <div className="primary">{i.name}</div>
                 <div className="secondary">{i.quantity} × {fmtMoney(i.unit_price)} · TVA {i.vat_rate}%</div>
               </div>
             </label>
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <div className="folio-selectie-meta">
               {i.category !== "cazare" && cazareItem && selected.has(cazareItem.id) && (
-                <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--text-muted)" }}>
+                <label className="folio-agregare-eticheta">
                   <input type="checkbox" checked={!!aggregate[i.id]}
                     onChange={(e) => setAggregate({ ...aggregate, [i.id]: e.target.checked })} />
                   agregă în cazare
                 </label>
               )}
-              <span className="mono" style={{ fontWeight: 650 }}>{fmtMoney(i.total_amount)}</span>
+              <span className="mono folio-suma">{fmtMoney(i.total_amount)}</span>
             </div>
           </div>
         ))}
@@ -454,11 +454,11 @@ export function InvoiceBuilderModal({ reservation, folio, items, core, updateCor
         </div>
       </div>
 
-      {error && <div className="error-text" role="alert" style={{ marginTop: 10 }}>{error}</div>}
+      {error && <div className="error-text mt-10" role="alert">{error}</div>}
       <div className="modal-actions">
         <div className="grow" />
         <button className="btn btn-ghost" onClick={onClose}>Anulează</button>
-        <button className="btn btn-primary" style={{ width: "auto" }} onClick={submit} disabled={saving}>
+        <button className="btn btn-primary btn-lat" onClick={submit} disabled={saving}>
           <Check size={15} /> {saving ? "Se salvează…" : "Salvează draft"}
         </button>
       </div>

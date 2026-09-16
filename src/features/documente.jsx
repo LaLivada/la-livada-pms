@@ -166,8 +166,8 @@ export function ArrivalForm({ res, core, groups, onClose }) {
     <Dialog onClose={onClose} className="arrival-modal" overlayClassName="arrival-overlay" title={undefined}>
         <div className="modal-head no-print">
           <h3 id="arrival-title">Fișă de anunțare</h3>
-          <div style={{ display: "flex", gap: 8 }}>
-            <button className="btn btn-primary" style={{ width: "auto" }} onClick={() => window.print()}>
+          <div className="docum-modal-actions">
+            <button className="btn btn-primary btn-lat" onClick={() => window.print()}>
               <Printer size={15} /> Printează
             </button>
             <button className="icon-btn" onClick={onClose} aria-label="Închide fereastra"><X size={16} /></button>
@@ -175,8 +175,8 @@ export function ArrivalForm({ res, core, groups, onClose }) {
         </div>
 
         <div className="arrival-sheet-wrap" ref={scaleWrapRef} style={{ height: 1123 * scale }}>
-          <div className="arrival-scaler"
-            style={{ transform: `scale(${scale})`, transformOrigin: "top left" }}>
+          <div className="arrival-scaler docum-scaler"
+            style={{ transform: `scale(${scale})` }}>
             <div className="arrival-sheet fisa-duo">
               <ArrivalSheet res={res} core={core} groups={groups} fisa={fisa} />
               <div className="fisa-sep" />

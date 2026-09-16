@@ -30,20 +30,20 @@ export function PaymentMethodsEditor({ core, updateCore }) {
   };
 
   return (
-    <div style={{ marginBottom: 20 }}>
+    <div className="mb-20">
       <div className="toolbar">
         <span className="badge-count">{methods.length} metode de plată</span>
         <div className="grow" />
-        <button className="btn btn-ghost" style={{ width: "auto" }} onClick={addMethod}><Plus size={15} /> Metodă nouă</button>
+        <button className="btn btn-ghost btn-lat" onClick={addMethod}><Plus size={15} /> Metodă nouă</button>
       </div>
       <div className="panel">
         {methods.length === 0 ? (
           <div className="section-empty">Nicio metodă de plată definită.</div>
         ) : methods.map((m) => (
           <div className="list-row" key={m.id}>
-            <div className="field-row" style={{ gridTemplateColumns: "1fr auto auto", alignItems: "center", gap: 10, width: "100%" }}>
+            <div className="field-row incasari-metoda-rand">
               <input value={m.label} onChange={(e) => patchMethod(m.id, { label: e.target.value })} />
-              <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 14, whiteSpace: "nowrap" }}>
+              <label className="fact-rand-bifa incasari-metoda-nowrap">
                 <input type="checkbox" checked={m.active} onChange={(e) => patchMethod(m.id, { active: e.target.checked })} /> activă
               </label>
               <button className="icon-btn" onClick={() => removeMethod(m.id)} aria-label={`Șterge ${m.label}`}><Trash2 size={14} /></button>
@@ -91,12 +91,12 @@ export function ReceiptSeriesEditor() {
 
   if (!row) return null;
   return (
-    <div className="toolbar" style={{ marginBottom: 14 }}>
-      <label className="field" style={{ maxWidth: 200, margin: 0 }}>
+    <div className="toolbar mb-14">
+      <label className="field incasari-serie-camp">
         <span className="fl">Serie chitanțe (numerar)</span>
         <input value={value} onChange={(e) => setValue(e.target.value)} />
       </label>
-      <button className="btn btn-ghost" style={{ width: "auto" }} onClick={save} disabled={saving}>Salvează</button>
+      <button className="btn btn-ghost btn-lat" onClick={save} disabled={saving}>Salvează</button>
       <div className="grow" />
       <span className="badge-count">Următorul număr: {row.series} {row.next_number}</span>
     </div>
@@ -142,7 +142,7 @@ export function PaymentsListView({ core, updateCore }) {
         <span className="badge-count">{(payments || []).length} plăți · {fmtMoney(total)} încasat</span>
       </div>
       {loadError ? (
-        <div className="note" style={{ color: "var(--danger)" }}>{loadError}</div>
+        <div className="note fact-nota-eroare">{loadError}</div>
       ) : payments === null ? (
         <div className="note">Se încarcă…</div>
       ) : payments.length === 0 ? (
@@ -162,7 +162,7 @@ export function PaymentsListView({ core, updateCore }) {
                     {receiptLabel(p) ? ` · ${receiptLabel(p)}` : ""}
                   </div>
                 </div>
-                <span className="mono" style={{ fontWeight: 650 }}>{fmtMoney(p.amount)}</span>
+                <span className="mono fact-suma">{fmtMoney(p.amount)}</span>
               </div>
             );
           })}

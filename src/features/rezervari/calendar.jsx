@@ -419,7 +419,7 @@ export function CalendarView({ core, updateCore, reservations, updateReservation
         <div className="move-banner" role="status">
           <MoveRight size={15} />
           <span>Atinge celula unde muți rezervarea — camera și ziua de sosire.</span>
-          <button className="btn btn-ghost" style={{ padding: "6px 12px" }} onClick={() => setMoveId(null)}>Renunță</button>
+          <button className="btn btn-ghost cal-move-btn" onClick={() => setMoveId(null)}>Renunță</button>
         </div>
       ) : null}
 
@@ -429,7 +429,7 @@ export function CalendarView({ core, updateCore, reservations, updateReservation
         onTouchEnd={laAtingereSfarsit} onTouchCancel={laAtingereSfarsit}>
         <div className="cal-grid" style={{ "--days": DAYS }}>
           <div className="cal-row cal-head">
-            <div className="cal-roomcell"><div className="cal-roomcell-inner" style={{ fontWeight: 700, fontSize: 12 }}>Cameră</div></div>
+            <div className="cal-roomcell"><div className="cal-roomcell-inner cal-head-camera">Cameră</div></div>
             {days.map((d, i) => {
               const wk = esteWeekend(d);
               return (
@@ -549,14 +549,14 @@ export function CalendarView({ core, updateCore, reservations, updateReservation
                             {!doarCitire && <InsignaSursa sursa={span.res.source} />}
                             <span className="bar-glyph" aria-hidden="true">{STATUS_GLYPH[span.res.status]}</span>
                             {!doarCitire && <EtichetaNou res={span.res} noutati={noutati} />}
-                            {!doarCitire && span.res.groupId && <UsersRound size={11} style={{ flexShrink: 0, opacity: .8 }} />}
+                            {!doarCitire && span.res.groupId && <UsersRound size={11} className="cal-bar-icon-grup" />}
                             <span className="bar-name">
                               {doarCitire
                                 ? STATUS_LABEL[span.res.status]
                                 : (occupantName(span.res, core, groups) || "Fără nume")}
                             </span>
                             {!doarCitire && span.res.tags?.includes("VIP") && <span className="bar-vip">VIP</span>}
-                            {!doarCitire && span.res.messages?.length > 0 && <MessageSquare size={10} style={{ flexShrink: 0, opacity: .75 }} />}
+                            {!doarCitire && span.res.messages?.length > 0 && <MessageSquare size={10} className="cal-bar-icon-mesaj" />}
                             {span.nights > 2 && <span className="bar-nights">{span.nights}n</span>}
                           </div>
                         );
@@ -572,7 +572,7 @@ export function CalendarView({ core, updateCore, reservations, updateReservation
           <div className="cal-row cal-foot">
             <div className="cal-roomcell">
               <div className="cal-roomcell-inner">
-                <div className="rname" style={{ fontSize: 11, fontFamily: "inherit", fontWeight: 700 }}>Ocupare</div>
+                <div className="rname cal-foot-rname">Ocupare</div>
               </div>
             </div>
             {days.map((d, i) => {
@@ -617,7 +617,7 @@ export function CalendarView({ core, updateCore, reservations, updateReservation
                     jumpTo(momentLocal(e.target.value));
                   }}
                 />
-                <button className="btn btn-ghost" style={{ width: "100%" }} onClick={() => { setOffset(0); setPickerOpen(false); }}>
+                <button className="btn btn-ghost w-full" onClick={() => { setOffset(0); setPickerOpen(false); }}>
                   Înapoi la azi
                 </button>
               </div>
@@ -648,7 +648,7 @@ export function CalendarView({ core, updateCore, reservations, updateReservation
           {latime === "ingust" ? <Columns3 size={16} /> : latime === "saptamana" ? <CalendarRange size={16} /> : <Columns2 size={16} />}
         </button>
         {!doarCitire && (
-          <button className="btn btn-primary" style={{ width: "auto" }} onClick={() => setModal({ reservation: null })}>
+          <button className="btn btn-primary btn-lat" onClick={() => setModal({ reservation: null })}>
             <Plus size={15} />
             <span className="lbl-long">Rezervare nouă</span>
             <span className="lbl-short">Rezervare</span>
@@ -688,7 +688,7 @@ export function CalendarView({ core, updateCore, reservations, updateReservation
                     : "Camera redevine disponibilă"}</span></span>
               </button>
             </div>
-            <button className="btn btn-ghost" style={{ width: "100%", marginTop: 6 }} onClick={() => setBlockInfo(null)}>Închide</button>
+            <button className="btn btn-ghost w-full mt-6" onClick={() => setBlockInfo(null)}>Închide</button>
           </Dialog>
       )}
 
