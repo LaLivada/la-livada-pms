@@ -177,7 +177,12 @@ Deno.serve(async (req) => {
         const payload = facturaOblio({ ...factura, oblio_cheie: blocata.oblio_cheie }, client, linii, s, await cote(s.cif), aziBucuresti());
         rezultat = raspunsEmitere(await oblio("POST", "/docs/invoice", payload));
       } catch (e) {
-        await rpc("oblio_marcheaza_eroare", { p_id: invoiceId, p_mesaj: (e as Error).message });
+        // Eroarea originală trebuie să ajungă la om chiar dacă marcarea eșuează.
+        try {
+          await rpc("oblio_marcheaza_eroare", { p_id: invoiceId, p_mesaj: (e as Error).message });
+        } catch (markErr) {
+          console.error("oblio_marcheaza_eroare", (markErr as Error).message);
+        }
         throw e;
       }
       let factura;
