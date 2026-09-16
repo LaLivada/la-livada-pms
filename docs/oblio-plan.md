@@ -2126,4 +2126,4 @@ Dacă pasul 3 dă un mesaj de la Oblio despre `products` sau `referenceDocument`
 - **Nume consecvente între sarcini:** `oblio_incepe_emiterea / oblio_marcheaza_eroare / oblio_finalizeaza_emiterea / oblio_finalizeaza_stornarea / oblio_finalizeaza_anularea / oblio_actualizeaza_efactura` (T1 ↔ T3); `cheamaOblio / setariOblio / salveazaSetariOblio / oblioActiv` (T4 ↔ T5, T6); acțiunile `verifica / emite / storneaza / anuleaza / efactura-trimite` (T2 `PERMISIUNI` ↔ T3 ↔ T5, T6); răspunsurile `{ok, factura}`, `{ok, stornare, original}`, `{ok, factura, cod}` (T3 ↔ T6); `OBLIO_EFACTURA_LABEL / CLASS` cu chei-șir (T6 ↔ T7); clasele `btn-lat`, `oblio-*` (T5 ↔ T6, T7).
 - **Fără locuri goale:** fiecare pas are codul, comanda și rezultatul așteptat; singurul text „de completat" e `[data]` din rândul de index (data livrării, necunoscută la scriere) și proza din `docs/oblio.md`, cu conținutul dat.
 
-**Stare:** plan scris pe 16 septembrie 2026; neimplementat.
+**Stare:** plan scris și implementat pe 16 septembrie 2026 (commit-urile „Oblio: …” de pe main).

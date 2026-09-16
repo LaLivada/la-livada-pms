@@ -91,7 +91,8 @@ build-uri — la fiecare push și PR pe `main`. `backup.yml` face zilnic, la
 `TURNSTILE_SECRET_KEY` (rezervări și email); `TTLOCK_CLIENT_ID`,
 `TTLOCK_CLIENT_SECRET`, `TTLOCK_USERNAME`, `TTLOCK_PASSWORD_MD5`,
 `TTLOCK_API_BASE`, `TTLOCK_WEBHOOK_TOKEN` (yale); `SHELLY_AUTH_KEY`,
-`SHELLY_SERVER_URI` (relee).
+`SHELLY_SERVER_URI` (relee); `OBLIO_CLIENT_ID`, `OBLIO_CLIENT_SECRET`
+(facturarea prin Oblio, `docs/oblio.md`).
 
 **Backup** (GitHub Actions): secretul `DATABASE_URL`, plus două fișiere în
 repo: `scripts/prod-ca-2021.crt` (certificatul CA al bazei) și
