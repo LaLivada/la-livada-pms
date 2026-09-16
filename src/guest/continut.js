@@ -14,6 +14,10 @@
 export const TELEFON = "+40722899899";
 export const TELEFON_SCRIS = "+40 722 899 899";
 
+/* Firma care operează complexul, sub numele lui, în subsol. Aceeași linie
+   ca în subsolul de pe lalivada.ro și de pe site-ul de rezervări. */
+export const FIRMA = "S.C. OVISER S.R.L. · CUI RO33918057";
+
 /* ASISTENTA — omul pe care il suna oaspetele cand ceva nu merge ACUM.
  *
  * Alt numar decat cel de mai sus, si deliberat: la subsol sta numarul

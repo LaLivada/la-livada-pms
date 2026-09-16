@@ -853,6 +853,8 @@ body{
 }
 .g-subsol{ text-align:center; font-size:13px; color:var(--g-faint); margin:2px 0 0; }
 .g-subsol a{ color:var(--g-muted); }
+/* Firma și CUI-ul, pe rândul lor sub „Complex La Livada · telefon”. */
+.g-subsol-firma{ display:block; margin-top:2px; }
 
 @media (prefers-color-scheme: dark){
   :root{

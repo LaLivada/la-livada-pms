@@ -20,7 +20,7 @@ import Fisa from "./Fisa.jsx";
 import Fereastra from "./Fereastra.jsx";
 import { Schelet, useIncet } from "../ui/schelet.jsx";
 import {
-  TELEFON, TELEFON_SCRIS, ASISTENTA, ACASA, BUN_VENIT, IMPORTANT,
+  TELEFON, TELEFON_SCRIS, FIRMA, ASISTENTA, ACASA, BUN_VENIT, IMPORTANT,
   ATRACTII, ATRACTII_PE_PAGINA, linkHarta,
   LINK_MAPS, LINK_WAZE, ACCES_CAMERE, HARTA_INCORPORATA, WIFI, REGULAMENT,
 } from "./continut.js";
@@ -655,7 +655,10 @@ export function Refuz({ motiv, onReincearca }) {
           <a className="g-buton" href={`tel:${TELEFON}`}>Sună recepția</a>
         </div>
       </div>
-      <p className="g-subsol">Complex La Livada · {TELEFON_SCRIS}</p>
+      <p className="g-subsol">
+        Complex La Livada · {TELEFON_SCRIS}
+        <span className="g-subsol-firma">{FIRMA}</span>
+      </p>
     </div>
   );
 }
@@ -1227,6 +1230,7 @@ export default function App() {
 
       <p className="g-subsol">
         Complex La Livada · <a href={`tel:${TELEFON}`}>{TELEFON_SCRIS}</a>
+        <span className="g-subsol-firma">{FIRMA}</span>
       </p>
 
       {aratAcces && (
