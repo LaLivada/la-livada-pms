@@ -800,6 +800,20 @@ body {
   flex-wrap: wrap;
   gap: 0 0.45rem;
 }
+/* Telefonul și emailul: `display:contents` pe desktop, ca span-ul să nu
+   schimbe nimic din grila coloanei Contact — cele două linkuri rămân, ca
+   înainte, câte unul pe rând. Doar pe telefon devin un rând comun. */
+.ldv-ftr-tel-mail {
+  display: contents;
+}
+@media (max-width: 719px) {
+  .ldv-ftr-tel-mail {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.35rem 1rem;
+  }
+}
 /* Sigla NETOPIA Payments. Scriptul lor pune un <div> cu `width:100%` și
    `max-width:250px` înaintea lui, deci lățimea siglei o dă cutia asta. */
 .ldv-ftr-plati {
