@@ -251,7 +251,32 @@ inclusiv acolo unde regula nouă trebuia să bată `.ldv p`.
   jetonul **nu e definit nicăieri** în proiect (textele acelea moștenesc
   culoarea în loc să fie gri). E o eroare mai veche, nu una adusă de D2:
   reparat-o ar fi însemnat o schimbare vizuală, exact ce D2 promite că nu
-  face. De reparat separat, cu `--text-muted`.
+  face. S-a reparat separat — vezi 5.6.
+
+### 5.6 Jetonul `--muted`, reparat separat (16 septembrie 2026)
+
+`.fise-nota-info` și `.acces-nota` cereau `var(--muted)`, un jeton pe care
+nu-l definește nimeni. Un `var()` nerezolvat nu strică regula zgomotos: o
+face „invalidă la calcul", iar `color` se întoarce la valoarea moștenită.
+Cele două note arătau deci ca textul din jur, nu stinse. Amândouă cer acum
+`var(--text-muted)`, singurul jeton gri al proiectului.
+
+Ca să nu se mai strecoare una la fel, `src/jetoane-css.test.js` citește cele
+patru foi de stil, aruncă comentariile și cere ca fiecare `var(--x)` **fără
+rezervă** să fie definit în aceeași foaie. Scrierea cu rezervă
+(`var(--beige, #e7dfd1)` din motorul de rezervări) rămâne permisă: motorul e
+gândit să se lipească într-un site care-i dă jetoanele lui și să arate corect
+și fără ele. Singura excepție trecută pe listă e `--days`, scris la rulare din
+`calendar.jsx`, iar lista își are propriul test ca să nu crească pe furiș.
+
+Testul a fost verificat în ambele sensuri: cu `var(--muted)` pus la loc cade
+și numește jetonul, cu corectura pusă trece.
+
+Rămâne neatins un lucru înrudit, găsit tot acum: clasa `.ldv-mic`, folosită
+în șapte ecrane ale PMS-ului, e definită doar în foaia motorului de rezervări
+(`src/booking/styles.js`) și, în PMS, doar înăuntrul lui `.panel-clickabil`.
+În rest nu face nimic — nici mărimea mai mică, nici culoarea. E o discuție de
+design, nu o corectură evidentă, așa că nu s-a atins aici.
 
 ---
 

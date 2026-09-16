@@ -2672,9 +2672,10 @@ label.field input, label.field select, label.field textarea{ cursor:auto; }
    stau tot într-un .list-row, deci `.secondary.fise-…` (nu o clasă simplă). */
 .secondary.fise-linie-sumar{ margin-top:3px; }
 .secondary.fise-linie-eroare{ color:var(--danger); }
-/* var(--muted) e exact ce scria stilul inline — jetonul nu există în :root
-   (doar --text-muted), dar nu era treaba mea să-l corectez pe drum. */
-.fise-nota-info{ margin-bottom:12px; color:var(--muted); }
+/* Stilul inline de aici cerea var(--muted), un jeton care nu e definit
+   nicăieri în proiect; declarația pica, iar nota moștenea culoarea din jur
+   în loc să fie stinsă. Corectat în --text-muted pe 16 septembrie 2026. */
+.fise-nota-info{ margin-bottom:12px; color:var(--text-muted); }
 
 /* ---------- Grupuri (features/grupuri.jsx) ---------- */
 .grupuri-print-actions{ display:flex; gap:8px; }
@@ -2778,9 +2779,10 @@ label.field input, label.field select, label.field textarea{ cursor:auto; }
    duplicat exact, fara efect vizual propriu. Niciun stil calculat aici. */
 
 /* Notă mică, stinsă, sub un câmp — „fără yală asociată" și intervalul de
-   valabilitate al codului. var(--muted) e chiar tokenul din stilul inline
-   original (nu var(--text-muted)); copiat identic, ca sa nu schimbe nimic. */
-.acces-nota{ color:var(--muted); }
+   valabilitate al codului. Stilul inline cerea var(--muted), jeton care nu
+   e definit nicăieri: declarația pica și nota moștenea culoarea din jur.
+   Corectat în --text-muted pe 16 septembrie 2026. */
+.acces-nota{ color:var(--text-muted); }
 /* Codul de acces, cifrele mari de deasupra butoanelor de trimitere. 26px nu
    e in scara de fonturi (…21, 25…), deci ramane in px, ca in stilul original. */
 .acces-cod-mare{ font-size:26px; font-weight:700; letter-spacing:.12em; }
