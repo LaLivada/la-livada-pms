@@ -160,12 +160,15 @@ Deno.serve(async (req) => {
     }
 
     const s = await setari();
-    if (!s.activ) throw new EroareCerere("Facturarea prin Oblio nu e pornită (Financiar → Oblio).", 409);
     if (!s.cif || !s.serie) throw new EroareCerere("Setările Oblio sunt incomplete: CIF-ul și seria.", 409);
     const invoiceId = String(corp.invoiceId || "");
     if (!invoiceId) throw new EroareCerere("Lipsește invoiceId.");
 
     if (action === "emite") {
+      // Comutatorul oprește doar emiterea de facturi noi — un document deja
+      // în Oblio (stornare, anulare, trimiterea în SPV) se rezolvă tot
+      // acolo, indiferent de poziția lui (docs/oblio.md).
+      if (!s.activ) throw new EroareCerere("Facturarea prin Oblio nu e pornită (Financiar → Oblio).", 409);
       // (a) blochează draftul și îi dă cheia; (b) cere Oblio; (c) scrie ce a
       // răspuns. Un eșec la (b) lasă draftul cu oblio_stare = 'eroare' și
       // mesajul lor — omul îl vede și reîncearcă, cu aceeași cheie, deci
