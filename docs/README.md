@@ -19,3 +19,4 @@ fiecare. Un document nou se adaugă aici în același commit.
 | [`fisa-cazare-plan.md`](fisa-cazare-plan.md) | Planul de implementare al fișei (pașii 1–3), cu casete de urmărire (nebifate pe parcurs); implementat. |
 | [`shelly-integration.md`](shelly-integration.md) | Releele Shelly comandate din PMS, fără Home Assistant sau MQTT. Arhitectură verificată în documentația Shelly pe 20 august 2026; implementată pe 9 septembrie 2026 (`device-provider`). |
 | [`philips-htng-plan.md`](philips-htng-plan.md) | Televizoarele Philips și HTNG, 11 septembrie 2026. Concluzia: Philips nu vorbește HTNG; planul spune ce se poate în loc. Doar plan, neimplementat. |
+| [`oblio-plan.md`](oblio-plan.md) | Planul de implementare al facturării prin Oblio.eu (Oblio dă seria, numărul, PDF-ul și e-Factura; PMS-ul păstrează copia): 8 sarcini cu teste și commit-uri, scris pe 16 septembrie 2026. Doar plan, neimplementat. |
