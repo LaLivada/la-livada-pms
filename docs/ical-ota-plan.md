@@ -1,5 +1,11 @@
 # Sincronizare iCal cu Airbnb și Booking.com — plan de implementare
 
+> **Actualizare (16 septembrie 2026):** a apărut o a șasea variantă,
+> Aiosell, cu API documentat și webhook real, posibil sub buget (10 $/lună,
+> de confirmat) — vezi [`aiosell-plan.md`](aiosell-plan.md). Dacă prețul se
+> confirmă, acela devine planul principal; documentul de față rămâne
+> varianta sigură, gratuită, de rezervă.
+
 ## De ce asta, și nu un channel manager
 
 Ideea inițială a fost un channel manager „adevărat" (Channex.io), care ar fi
