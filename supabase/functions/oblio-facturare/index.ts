@@ -17,7 +17,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import {
   obtineToken, tokenValabil, cereOblio, aziBucuresti, facturaOblio, stornoOblio, anulareOblio,
-  raspunsEmitere, EroareOblio, PERMISIUNI, type Token, type SetariOblio, type CotaTva,
+  raspunsEmitere, formeazaLinie, EroareOblio, PERMISIUNI, type Token, type SetariOblio, type CotaTva,
 } from "./oblio.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -81,14 +81,20 @@ async function cote(cif: string): Promise<CotaTva[]> {
 
 /* Factura + clientul + liniile, cu unitatea și categoria produsului, cum le
    vrea oblio.ts. Citirea e cu service_role: permisiunea s-a verificat deja
-   pe JWT-ul omului, mai jos. */
+   pe JWT-ul omului, mai jos.
+   Produsul se caută și prin poziția de folio legată (invoice_item_links →
+   folio_items → products): liniile scrise înainte ca `product_id` să ajungă
+   în `invoice_items` n-au produs propriu, și tot trebuie să plece corect
+   (forma exactă a liniei: formeazaLinie din oblio.ts). */
 async function citesteFactura(id: string) {
   const { data: factura, error } = await admin.from("invoices").select("*").eq("id", id).maybeSingle();
   if (error) throw new Error(error.message);
   if (!factura) throw new EroareCerere("Factura nu există.", 404);
   const [client, linii] = await Promise.all([
     admin.from("billing_customers").select("*").eq("id", factura.billing_customer_id).maybeSingle(),
-    admin.from("invoice_items").select("*, products(unit, category)").eq("invoice_id", id).order("sort_order"),
+    admin.from("invoice_items")
+      .select("*, products(unit, category), invoice_item_links(folio_items(category, product_id, products(unit, category)))")
+      .eq("invoice_id", id).order("sort_order"),
   ]);
   if (client.error) throw new Error(client.error.message);
   if (linii.error) throw new Error(linii.error.message);
@@ -96,7 +102,7 @@ async function citesteFactura(id: string) {
   return {
     factura,
     client: client.data,
-    linii: (linii.data || []).map((l: any) => ({ ...l, unit: l.products?.unit || "buc", category: l.products?.category || "" })),
+    linii: (linii.data || []).map(formeazaLinie),
   };
 }
 
@@ -181,11 +187,12 @@ Deno.serve(async (req) => {
         rezultat = raspunsEmitere(await oblio("POST", "/docs/invoice", payload));
       } catch (e) {
         // Eroarea originală trebuie să ajungă la om chiar dacă marcarea eșuează.
-        try {
-          await rpc("oblio_marcheaza_eroare", { p_id: invoiceId, p_mesaj: (e as Error).message });
-        } catch (markErr) {
-          console.error("oblio_marcheaza_eroare", (markErr as Error).message);
-        }
+        // Sigur neemisă: cererea n-a plecat (date lipsă, cotă lipsă) sau Oblio a
+        // refuzat explicit (4xx). Necunoscut: rețea (TypeError) sau 5xx — Oblio
+        // poate să fi emis; amprenta draftului rămâne (oblio_incepe_emiterea).
+        const necunoscut = e instanceof TypeError || (e instanceof EroareOblio && typeof e.status === "number" && e.status >= 500);
+        try { await rpc("oblio_marcheaza_eroare", { p_id: invoiceId, p_mesaj: (e as Error).message, p_neemisa: !necunoscut }); }
+        catch (markErr) { console.error("oblio_marcheaza_eroare", (markErr as Error).message); }
         throw e;
       }
       let factura;
@@ -195,7 +202,14 @@ Deno.serve(async (req) => {
         });
       } catch (e) {
         // Oblio a emis, noi n-am putut scrie: nu se ascunde și nu se repetă.
-        throw new EroareCerere(`Oblio a emis ${rezultat.serie} ${rezultat.numar}, dar PMS-ul n-a putut-o înregistra: ${(e as Error).message}. Verifică în Oblio înainte de a reîncerca.`, 500);
+        // Se și SCRIE pe draft: altfel starea asta (cea mai periculoasă) ar
+        // dispărea la reîncărcarea paginii, iar draftul ar rămâne 'in_curs'
+        // fără niciun mesaj. `p_neemisa: false` ține amprenta — reîncercarea
+        // cu aceeași cheie regăsește documentul deja emis la Oblio.
+        const mesaj = `Oblio a emis ${rezultat.serie} ${rezultat.numar}, dar PMS-ul n-a putut-o înregistra: ${(e as Error).message}. Verifică în Oblio înainte de a reîncerca.`;
+        try { await rpc("oblio_marcheaza_eroare", { p_id: invoiceId, p_mesaj: mesaj, p_neemisa: false }); }
+        catch (markErr) { console.error("oblio_marcheaza_eroare", (markErr as Error).message); }
+        throw new EroareCerere(mesaj, 500);
       }
       if (s.trimiteEFactura) {
         try {
