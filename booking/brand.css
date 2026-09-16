@@ -785,6 +785,12 @@ body {
 .ldv-ftr-social a {
   color: inherit;
 }
+/* Firma și CUI-ul, lângă copyright. Pe desktop stau pe același rând, despărțite
+   de un punct; pe telefon coboară sub „© 2026 Complex La Livada”, pe rândul
+   lor, ca să nu împingă rețelele din dreapta. */
+.ldv-ftr-firma::before {
+  content: " · ";
+}
 @media (max-width: 719px) {
   .ldv-ftr-btm {
     display: grid;
@@ -797,6 +803,13 @@ body {
   }
   .ldv-ftr-btm > span {
     white-space: nowrap;
+  }
+  .ldv-ftr-firma {
+    display: block;
+    white-space: normal;
+  }
+  .ldv-ftr-firma::before {
+    content: none;
   }
   .ldv-ftr-btm > span:first-of-type {
     grid-column: 1;
