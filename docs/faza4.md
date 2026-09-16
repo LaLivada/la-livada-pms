@@ -11,7 +11,7 @@ punct și **starea** implementării.
 | 2 | D4 — index pentru `docs/` | **făcut**, 14 septembrie 2026 (§2) |
 | 3 | D6 — `@ts-check` + JSDoc pe `src/lib/` și `src/data/` | **făcut**, 14 septembrie 2026 (§3) |
 | 4 | D1 — spargerea fișierelor mari (`rezervari.jsx`, `facturare.jsx`) | **făcut**, 14 septembrie 2026 (§4) |
-| 5 | D2 — stilurile inline → clase | **început**: plafon în test, 14 septembrie 2026 (§5); migrarea treptat |
+| 5 | D2 — stilurile inline → clase | **făcut**, 16 septembrie 2026 (§5): plafon în test pe 14 septembrie, migrarea încheiată pe 16 — din 366 au rămas 12, toate calculate |
 
 D5 (comentariile lungi) nu e o sarcină, e o regulă de păstrat; e scrisă acum
 și în README, la „Convenții".
@@ -192,14 +192,66 @@ regulă de lint cu excepții pentru valorile calculate.
   repetițiile (`marginTop`, `display: flex` cu `gap`) care au deja clase în
   `pms.css`.
 
-### 5.3 Verificare
+### 5.3 Migrarea, încheiată pe 16 septembrie 2026
 
-Testul trece la numărul de azi; o linie nouă cu `style={{` peste plafon îl
-face să cadă în CI.
+Din 366 au rămas **12**, toate calculate la rulare: pozițiile barelor din
+calendar (`left`, `width:calc(…)`, `--zi-w`, `--days`), scalarea colilor A4
+(factura, rooming list), procentele din rapoarte și glisorul de ușă. Un stil
+calculat n-are cum să fie clasă, deci plafonul nu mai are unde să coboare:
+de acum, un `style={{ }}` nou cu valori constante face testul să cadă, și
+asta e treaba lui.
 
-### 5.4 Ce NU s-a schimbat
+Regula de aur a fost **nicio schimbare vizuală**: fiecare stil inline a
+devenit CSS cu exact aceleași declarații. De aici trei alegeri care par
+mărunte, dar au contat:
 
-- Niciun stil n-a fost mutat încă; nimic vizual.
+- **Mărimile de font au rămas în px, nu în jetoanele `--fs-*`**, deși
+  valorile par egale. Blocul „DESKTOP LAT" (§ de la finalul `pms.css`)
+  redefinește jetoanele peste 1400px: `--fs-sm` devine 14px. Un `fontSize:
+  12` scris inline nu crește azi pe monitor lat; tradus în jeton, ar fi
+  crescut cu ~15%. (Că textele acelea ar merita să intre în scară e o
+  discuție separată, nu o decizie de luat pe furiș într-o mutare de stiluri.)
+- **Clasele noi stau la capătul fișierului**, după interogările media. Un
+  stil inline bate orice clasă; ca înlocuitorul lui să se comporte la fel,
+  regula trebuie să fie ultima dintre cele de aceeași specificitate. Unde
+  elementul avea deja o regulă mai specifică (`.field input`,
+  `.ui-noua .modal .modal-actions`, `.cal-scroll.dense .cal-roomcell .rname`),
+  clasa nouă a primit un selector la fel de specific — sunt opt astfel de
+  locuri, fiecare cu comentariul lui.
+- **Ce are un rol a primit un nume** (`.camere-pasaj-activ`,
+  `.naudit-header`, `.folio-total-rand`): 129 de clase, cu prefixul
+  ecranului. Doar ajustările dintr-o singură proprietate — o margine, o
+  aliniere — au intrat în blocul „Utilitare (D2)" de la final, care e
+  **închis**: nu e începutul unui sistem de utilitare.
+
+Un ternar între două valori constante (`marginTop: restante.length ? 10 : 4`)
+nu e un stil calculat: a devenit două clase și un `className` condiționat.
+
+### 5.4 Verificare
+
+Testul plafonului trece la 12; o linie nouă cu `style={{` îl face să cadă în
+CI. Peste el, la migrare s-au mai rulat două verificări scrise pentru asta:
+
+- fiecare clasă folosită în JSX are o regulă în CSS (altfel elementul rămâne
+  nestilat, iar nici testele, nici build-ul n-ar spune nimic — jsdom nu
+  încarcă foaia de stil);
+- fiecare declarație scoasă dintr-un stil inline se regăsește în CSS (512 de
+  perechi proprietate-valoare, toate găsite).
+
+Plus suita întreagă (902 de teste), lint, typecheck și cele trei build-uri.
+Partea publică — motorul de rezervări — s-a verificat și în browser, cu
+`getComputedStyle` pe elementele atinse: aceleași valori ca înainte,
+inclusiv acolo unde regula nouă trebuia să bată `.ldv p`.
+
+### 5.5 Ce NU s-a schimbat
+
+- Nimic la vedere: aceleași valori, alt loc unde sunt scrise.
+- Pagina oaspetelui (`src/guest/`) n-avea stiluri inline; n-a fost atinsă.
+- `var(--muted)` din `fise.jsx` și `acces.jsx` a fost copiat identic, deși
+  jetonul **nu e definit nicăieri** în proiect (textele acelea moștenesc
+  culoarea în loc să fie gri). E o eroare mai veche, nu una adusă de D2:
+  reparat-o ar fi însemnat o schimbare vizuală, exact ce D2 promite că nu
+  face. De reparat separat, cu `--text-muted`.
 
 ---
 
