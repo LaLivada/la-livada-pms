@@ -762,18 +762,29 @@ body {
 .ldv-ftr-col a:hover {
   color: var(--ivory);
 }
+/* Rândul de jos: copyrightul cu firma, sub ele linkurile legale, iar în
+   dreapta, pe același rând cu amândouă, sigla NETOPIA. Grilă cu două coloane
+   și trei zone, nu flex: flex n-ar putea ține sigla lângă două rânduri
+   deodată. */
 .ldv-ftr-btm {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    "copy plati"
+    "legal plati";
+  align-items: center;
   gap: 0.75rem 1.5rem;
-  justify-content: space-between;
   margin-top: clamp(2.5rem, 6vw, 4.5rem);
   padding-top: 1.4rem;
   border-top: 1px solid rgba(245, 241, 232, 0.14);
   font-size: 0.9rem;
   color: rgba(245, 241, 232, 0.5);
 }
+.ldv-ftr-btm > span:first-of-type {
+  grid-area: copy;
+}
 .ldv-ftr-legal {
+  grid-area: legal;
   display: flex;
   flex-wrap: wrap;
   gap: 0.4rem 1.25rem;
@@ -789,52 +800,47 @@ body {
   flex-wrap: wrap;
   gap: 0 0.45rem;
 }
-/* Sigla NETOPIA Payments, sub rândul legal. Scriptul lor pune un <div> cu
-   `width:100%` și `max-width:250px` înaintea lui, deci lățimea siglei o dă
-   cutia asta. */
+/* Sigla NETOPIA Payments. Scriptul lor pune un <div> cu `width:100%` și
+   `max-width:250px` înaintea lui, deci lățimea siglei o dă cutia asta. */
 .ldv-ftr-plati {
+  grid-area: plati;
   width: 150px;
-  margin-top: clamp(1.5rem, 3vw, 2rem);
+  justify-self: end;
 }
 .ldv-ftr-plati img {
   display: block;
 }
-/* Firma și CUI-ul, lângă copyright. Pe desktop stau pe același rând, despărțite
-   de un punct; pe telefon coboară sub „© 2026 Complex La Livada”, pe rândul
-   lor, ca să nu împingă rețelele din dreapta. */
+/* Firma și CUI-ul, după copyright, despărțite de un punct — pe același rând
+   la orice lățime; pe telefon rândul se micșorează ca să încapă întreg. */
 .ldv-ftr-firma::before {
   content: " · ";
 }
 @media (max-width: 719px) {
   .ldv-ftr-btm {
-    display: grid;
-    grid-template-columns: auto auto;
-    justify-content: space-between;
-    align-items: center;
-    row-gap: 0.15rem;
-    column-gap: 0.75rem;
-    font-size: clamp(0.68rem, 3.05vw, 0.9rem);
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      "copy"
+      "legal"
+      "plati";
+    row-gap: 0.5rem;
+    font-size: clamp(0.6rem, 2.75vw, 0.9rem);
   }
-  .ldv-ftr-btm > span {
-    white-space: nowrap;
-  }
-  .ldv-ftr-firma {
-    display: block;
-    white-space: normal;
-  }
-  .ldv-ftr-firma::before {
-    content: none;
-  }
-  /* Rețelele au trecut în coloana Contact, deci copyrightul are primul
-     rând întreg; grupul legal, cu opt linkuri, îl are pe al doilea. */
+  /* „© 2026 Complex La Livada · S.C. OVISER S.R.L. · CUI RO33918057” are
+     62 de semne. La 2,6vw încape pe un rând de la 320px în sus, fără să se
+     rupă; regula stă aici, nu pe tot rândul, ca linkurile să nu coboare
+     sub ce se mai poate citi. */
   .ldv-ftr-btm > span:first-of-type {
-    grid-column: 1 / -1;
-    grid-row: 1;
+    white-space: nowrap;
+    font-size: clamp(0.56rem, 2.6vw, 0.9rem);
   }
+  /* Opt linkuri pe două rânduri, nu pe trei: spațiile dintre ele sunt
+     jumătate din cele de pe desktop. */
   .ldv-ftr-legal {
-    grid-column: 1 / -1;
-    grid-row: 2;
-    gap: 0.35rem 1rem;
+    gap: 0.3rem 0.6rem;
+  }
+  .ldv-ftr-plati {
+    justify-self: start;
+    margin-top: 0.5rem;
   }
 }
 
