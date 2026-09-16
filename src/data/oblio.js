@@ -23,6 +23,19 @@ export async function setariOblio() {
   return { ...SETARI_OBLIO_GOALE, ...s };
 }
 
+/* Aceleasi setari, dar cu eroarea aruncata mai departe. `loadShared` inghite
+   orice esec de citire si intoarce fallback-ul — pentru un ecran e bine (se
+   vede „oprit" si omul reincarca), pentru emitere e periculos: `activ` s-ar
+   citi `false` dintr-o pana de retea, iar factura ar primi un numar LOCAL
+   fara pereche in Oblio. La o operatie fiscala, directia sigura e refuzul.
+   Lipsa randului NU e o eroare: inseamna setarile goale, adica oprit. */
+export async function setariOblioStrict() {
+  const { data, error } = await supabase
+    .from("app_state").select("value").eq("key", CHEIE_OBLIO).maybeSingle();
+  if (error) throw error;
+  return { ...SETARI_OBLIO_GOALE, ...(data?.value || {}) };
+}
+
 export function salveazaSetariOblio(setari) {
   return saveShared(CHEIE_OBLIO, {
     ...SETARI_OBLIO_GOALE,

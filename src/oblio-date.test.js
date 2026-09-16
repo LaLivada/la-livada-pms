@@ -6,14 +6,22 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 const invoke = vi.fn();
 const stare = new Map();
-vi.mock("./supabase.js", () => ({ supabase: { functions: { invoke: (...a) => invoke(...a) } } }));
+/* Citirea stricta merge direct la tabela, nu prin loadShared: mimam lantul
+   from().select().eq().maybeSingle() cu raspunsul pe care-l cere testul. */
+let raspunsAppState = { data: null, error: null };
+vi.mock("./supabase.js", () => ({
+  supabase: {
+    functions: { invoke: (...a) => invoke(...a) },
+    from: () => ({ select: () => ({ eq: () => ({ maybeSingle: async () => raspunsAppState }) }) }),
+  },
+}));
 vi.mock("./data/stare-partajata.js", () => ({
   loadShared: vi.fn(async (k, f) => (stare.has(k) ? stare.get(k) : f)),
   saveShared: vi.fn(async (k, v) => { stare.set(k, v); return true; }),
 }));
-const { setariOblio, salveazaSetariOblio, oblioActiv, cheamaOblio, CHEIE_OBLIO, SETARI_OBLIO_GOALE } = await import("./data/oblio.js");
+const { setariOblio, setariOblioStrict, salveazaSetariOblio, oblioActiv, cheamaOblio, CHEIE_OBLIO, SETARI_OBLIO_GOALE } = await import("./data/oblio.js");
 
-beforeEach(() => { invoke.mockReset(); stare.clear(); });
+beforeEach(() => { invoke.mockReset(); stare.clear(); raspunsAppState = { data: null, error: null }; });
 
 describe("setarile Oblio", () => {
   it("lipsa = oprit, cu campurile goale", async () => {
@@ -27,6 +35,24 @@ describe("setarile Oblio", () => {
     stare.set(CHEIE_OBLIO, { activ: true, cif: "RO1" });
     expect(await setariOblio()).toEqual({ activ: true, cif: "RO1", serie: "", punctLucru: "Sediu", trimiteEFactura: false });
     expect(oblioActiv(await setariOblio())).toBe(true);
+  });
+});
+
+/* De ce stricta: la emitere, o citire esuata care intoarce „oprit" ar trimite
+ * factura pe drumul local, cu un numar fara pereche in Oblio. */
+describe("setariOblioStrict", () => {
+  it("arunca eroarea de citire in loc s-o inghita", async () => {
+    raspunsAppState = { data: null, error: { message: "network" } };
+    await expect(setariOblioStrict()).rejects.toMatchObject({ message: "network" });
+  });
+  it("randul lipsa nu e eroare: setarile goale, adica oprit", async () => {
+    raspunsAppState = { data: null, error: null };
+    expect(await setariOblioStrict()).toEqual({ ...SETARI_OBLIO_GOALE });
+    expect(oblioActiv(await setariOblioStrict())).toBe(false);
+  });
+  it("completeaza campurile lipsa peste randul citit", async () => {
+    raspunsAppState = { data: { value: { activ: true, cif: "RO1", serie: "LL" } }, error: null };
+    expect(await setariOblioStrict()).toEqual({ activ: true, cif: "RO1", serie: "LL", punctLucru: "Sediu", trimiteEFactura: false });
   });
 });
 

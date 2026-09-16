@@ -162,9 +162,11 @@ export function InvoicePrint({ invoiceId, core, onClose, onChanged }) {
     <Dialog onClose={onClose} title={invoice.series ? `Factură ${invoice.series} ${invoice.number}` : "Factură (draft)"} className="arrival-modal invoice-modal" overlayClassName="arrival-overlay">
       <div className="no-print" style={{ display: "flex", gap: 8, marginBottom: 14, flexWrap: "wrap" }}>
         <span className={"role-tag " + INVOICE_STATUS_CLASS[invoice.status]}>{INVOICE_STATUS_LABEL[invoice.status]}</span>
+        {/* `?? …`: un cod nou de la Oblio n-are voie sa dea
+            class="… undefined" si o eticheta goala. */}
         {invoice.oblio_efactura_cod != null && (
-          <span className={"role-tag oblio-chip " + OBLIO_EFACTURA_CLASS[String(invoice.oblio_efactura_cod)]}>
-            {OBLIO_EFACTURA_LABEL[String(invoice.oblio_efactura_cod)]}
+          <span className={"role-tag oblio-chip " + (OBLIO_EFACTURA_CLASS[String(invoice.oblio_efactura_cod)] ?? "")}>
+            {OBLIO_EFACTURA_LABEL[String(invoice.oblio_efactura_cod)] ?? `SPV: cod ${invoice.oblio_efactura_cod}`}
           </span>
         )}
         <div className="grow" />
@@ -182,7 +184,10 @@ export function InvoicePrint({ invoiceId, core, onClose, onChanged }) {
             <ExternalLink size={15} /> PDF din Oblio
           </a>
         )}
-        {invoice.oblio_stare === "emisa" && dateOblio.oblioActiv(oblio) && canBilling("issue_invoice")
+        {/* Fara `oblioActiv`: pentru o factura deja in Oblio, trimiterea in
+            SPV nu depinde de comutator — nici backend-ul nu-l mai cere (la
+            fel ca anularea si stornarea, docs/oblio.md). */}
+        {invoice.oblio_stare === "emisa" && canBilling("issue_invoice")
           && invoice.oblio_efactura_cod !== 0 && invoice.oblio_efactura_cod !== 1 && (
           <button className="btn btn-ghost btn-lat" onClick={trimiteSpv} disabled={spv}>
             <Send size={15} /> {spv ? "Se trimite…" : "Trimite în SPV"}
@@ -199,9 +204,12 @@ export function InvoicePrint({ invoiceId, core, onClose, onChanged }) {
             : "La emitere se alocă serie și număr, iar factura nu mai poate fi modificată — orice corecție ulterioară se face doar prin stornare."}
         </div>
       )}
+      {/* Nota e neutra fiindca acopera doua cazuri diferite: Oblio a refuzat
+          (draftul se corecteaza) SI raspunsul s-a pierdut ori PMS-ul n-a
+          putut scrie (documentul poate exista deja la Oblio). */}
       {invoice.status === "draft" && invoice.oblio_stare === "eroare" && (
         <div className="note no-print oblio-eroare">
-          Oblio a refuzat emiterea: {invoice.oblio_eroare}. Corectează și apasă din nou „Emite prin Oblio”.
+          Emiterea prin Oblio nu s-a încheiat: {invoice.oblio_eroare} Corectează dacă e cazul și apasă din nou „Emite prin Oblio” — aceeași cerere, Oblio nu emite de două ori.
         </div>
       )}
 

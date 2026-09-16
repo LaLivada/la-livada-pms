@@ -109,9 +109,11 @@ export function InvoicesListView({ core }) {
                   <span className={"role-tag " + INVOICE_STATUS_CLASS[inv.status]} style={{ marginLeft: 8 }}>
                     {INVOICE_STATUS_LABEL[inv.status]}
                   </span>
+                  {/* `?? …`: un cod nou de la Oblio n-are voie sa dea
+                      class="… undefined" si o eticheta goala. */}
                   {inv.oblio_efactura_cod != null && (
-                    <span className={"role-tag oblio-chip " + OBLIO_EFACTURA_CLASS[String(inv.oblio_efactura_cod)]}>
-                      {OBLIO_EFACTURA_LABEL[String(inv.oblio_efactura_cod)]}
+                    <span className={"role-tag oblio-chip " + (OBLIO_EFACTURA_CLASS[String(inv.oblio_efactura_cod)] ?? "")}>
+                      {OBLIO_EFACTURA_LABEL[String(inv.oblio_efactura_cod)] ?? `SPV: cod ${inv.oblio_efactura_cod}`}
                     </span>
                   )}
                 </div>

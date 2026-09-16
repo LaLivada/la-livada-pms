@@ -358,11 +358,15 @@ export function InvoiceBuilderModal({ reservation, folio, items, core, updateCor
       // neagregate devin linii proprii. invoice_item_links tine minte,
       // pentru fiecare linie, din ce pozitii de folio provine — inclusiv
       // cand sunt mai multe (agregare) — ca sa nu poata fi refacturate.
-      const lines = []; // { name, category, quantity, unit_price, vat_rate, sourceIds: [] }
+      // `productId` merge pana in invoice_items: Oblio ia unitatea („noapte")
+      // si tipul liniei (Serviciu / Marfa) din produs, iar fara el fiecare
+      // linie ar pleca drept „Marfa" / „buc", inclusiv cazarea.
+      const lines = []; // { name, category, productId, quantity, unit_price, vat_rate, sourceIds: [] }
       let cazareLine = null;
       if (cazareItem && selected.has(cazareItem.id)) {
         cazareLine = {
-          name: cazareItem.name, category: "cazare", quantity: cazareItem.quantity,
+          name: cazareItem.name, category: "cazare", productId: cazareItem.product_id || null,
+          quantity: cazareItem.quantity,
           unitPrice: Number(cazareItem.unit_price), vatRate: Number(cazareItem.vat_rate),
           netAmount: Number(cazareItem.net_amount), vatAmount: Number(cazareItem.vat_amount),
           totalAmount: Number(cazareItem.total_amount), sourceIds: [cazareItem.id],
@@ -383,7 +387,8 @@ export function InvoiceBuilderModal({ reservation, folio, items, core, updateCor
           cazareLine.sourceIds.push(item.id);
         } else {
           lines.push({
-            name: item.name, category: item.category, quantity: Number(item.quantity),
+            name: item.name, category: item.category, productId: item.product_id || null,
+            quantity: Number(item.quantity),
             unitPrice: Number(item.unit_price), vatRate: Number(item.vat_rate),
             netAmount: Number(item.net_amount), vatAmount: Number(item.vat_amount),
             totalAmount: Number(item.total_amount), sourceIds: [item.id],

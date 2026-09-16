@@ -1996,7 +1996,10 @@ label.field input, label.field select, label.field textarea{ cursor:auto; }
 .oblio-actiuni{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-top:4px; }
 .oblio-nesalvat{ color:var(--text-muted); font-size:13px; }
 .oblio-rezultat{ margin-top:12px; margin-bottom:0; }
-.oblio-rezultat[data-ok="0"], .oblio-eroare{ color:#B91C1C; }
+/* var(--danger), nu un rosu fix: pe tema intunecata #B91C1C ajungea la
+   ~2.3:1 fata de fundal, adica text greu de citit exact cand spune ce s-a
+   stricat. Variabila are perechea ei pentru fiecare tema. */
+.oblio-rezultat[data-ok="0"], .oblio-eroare{ color:var(--danger); }
 .oblio-chip{ margin-left:6px; }
 
 /* ---------- Responsive overrides (must stay last: same-specificity rules earlier

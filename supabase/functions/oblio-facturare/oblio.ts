@@ -113,6 +113,19 @@ export interface LiniePms {
   name: string; quantity: number | string; unit_price: number | string; vat_rate: number | string;
   unit?: string | null; category?: string | null;
 }
+/* Unitatea și categoria liniei: din produsul liniei; dacă lipsește, din
+   poziția de folio legată (invoice_item_links → folio_items → products);
+   altfel „buc" și categorie goală. Contează pentru că `liniiOblio` alege din
+   ele `measuringUnit` și `productType`: o linie fără produs pleca la Oblio
+   drept „Marfa" / „buc", inclusiv cazarea. */
+export function formeazaLinie(l: any) {
+  const prod = l?.products;
+  const legaturi = Array.isArray(l?.invoice_item_links) ? l.invoice_item_links : [];
+  const dinFolio = legaturi.map((x: any) => x?.folio_items).find(Boolean);
+  const prodFolio = dinFolio?.products;
+  return { ...l, unit: prod?.unit || prodFolio?.unit || "buc", category: prod?.category || dinFolio?.category || "" };
+}
+
 export interface FacturaPms {
   id: string; series?: string | null; number?: number | null; oblio_numar?: string | null;
   oblio_cheie?: string | null; notes?: string | null;

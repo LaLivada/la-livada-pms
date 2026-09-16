@@ -19,9 +19,18 @@ import { audit } from "../../lib/audit.js";
 
 export async function emiteFactura(invoice) {
   /* Cu Oblio pornit (Financiar → Oblio), seria si numarul le da Oblio, prin
-     functia edge; altfel drumul vechi: seria locala + emite_factura. */
-  let setari = null;
-  try { setari = await dateOblio.setariOblio(); } catch { setari = null; }
+     functia edge; altfel drumul vechi: seria locala + emite_factura.
+     Citirea e cea STRICTA: daca setarile nu se pot citi, nu stim pe unde
+     trebuie sa iasa factura, iar varianta blanda ar raspunde „oprit" si ar
+     aloca un numar local fara pereche in Oblio — un document fiscal gresit,
+     tacut. Ne oprim si spunem de ce. */
+  let setari;
+  try {
+    setari = await dateOblio.setariOblioStrict();
+  } catch {
+    toaster.show("Nu am putut citi setările Oblio — emiterea s-a oprit, ca să nu iasă un număr local greșit. Încearcă din nou.", { tone: "danger" });
+    return null;
+  }
   if (dateOblio.oblioActiv(setari)) return emiteFacturaOblio(invoice);
 
   let serie;

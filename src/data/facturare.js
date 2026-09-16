@@ -113,8 +113,12 @@ export async function creeazaFacturaDinFolio({ idFolio, idClient, deLa, panaLa, 
   }).select().maybeSingle();
   if (eFactura) throw eFactura;
 
+  /* `product_id` nu e decor: functia edge citeste prin el unitatea si
+     categoria produsului, iar Oblio le foloseste ca sa stie ca o noapte de
+     cazare e „Serviciu" / „noapte", nu „Marfa" / „buc". */
   const randuriLinii = linii.map((l, i) => ({
-    id: uid(), invoice_id: factura.id, name: l.name, quantity: l.quantity,
+    id: uid(), invoice_id: factura.id, product_id: l.productId || null,
+    name: l.name, quantity: l.quantity,
     unit_price: l.unitPrice, vat_rate: l.vatRate, net_amount: l.netAmount,
     vat_amount: l.vatAmount, total_amount: l.totalAmount, sort_order: i,
   }));

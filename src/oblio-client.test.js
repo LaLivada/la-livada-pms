@@ -6,7 +6,7 @@
 import { describe, it, expect } from "vitest";
 import {
   obtineToken, tokenValabil, cereOblio, alegeCota, aziBucuresti, ziRo, clientOblio, liniiOblio,
-  facturaOblio, stornoOblio, anulareOblio, raspunsEmitere, EroareOblio, PERMISIUNI,
+  facturaOblio, stornoOblio, anulareOblio, raspunsEmitere, formeazaLinie, EroareOblio, PERMISIUNI,
 } from "../supabase/functions/oblio-facturare/oblio.ts";
 
 const raspuns = (corp, status = 200) => ({ ok: status < 400, status, json: async () => corp, text: async () => JSON.stringify(corp) });
@@ -150,5 +150,32 @@ describe("factura", () => {
       verifica: "admin", emite: "issue_invoice", storneaza: "create_credit_note",
       anuleaza: "cancel_invoice", "efactura-trimite": "issue_invoice",
     });
+  });
+});
+
+/* Ce s-ar strica tacut fara asta: o noapte de cazare plecata la Oblio drept
+ * „Marfa" / „buc" fiindca linia n-are produs propriu (liniile scrise inainte
+ * ca invoice_items.product_id sa fie completat). */
+describe("formeazaLinie", () => {
+  it("produsul liniei da unitatea si categoria", () => {
+    expect(formeazaLinie({ name: "Cazare", products: { unit: "noapte", category: "cazare" } }))
+      .toEqual({ name: "Cazare", products: { unit: "noapte", category: "cazare" }, unit: "noapte", category: "cazare" });
+  });
+  it("fara produs pe linie, le ia din pozitia de folio legata", () => {
+    const l = {
+      name: "Cazare", products: null,
+      invoice_item_links: [
+        { folio_items: null },
+        { folio_items: { category: "cazare", product_id: "prod-cazare", products: { unit: "noapte", category: "cazare" } } },
+      ],
+    };
+    expect(formeazaLinie(l)).toMatchObject({ unit: "noapte", category: "cazare" });
+  });
+  it("fara produs nicaieri: buc si categorie goala", () => {
+    expect(formeazaLinie({ name: "Diverse" })).toMatchObject({ unit: "buc", category: "" });
+    expect(formeazaLinie({ name: "Diverse", products: null, invoice_item_links: [] })).toMatchObject({ unit: "buc", category: "" });
+    // Pozitie de folio fara produs, dar cu categorie: categoria ei conteaza.
+    expect(formeazaLinie({ name: "Cazare", invoice_item_links: [{ folio_items: { category: "cazare", product_id: null, products: null } }] }))
+      .toMatchObject({ unit: "buc", category: "cazare" });
   });
 });

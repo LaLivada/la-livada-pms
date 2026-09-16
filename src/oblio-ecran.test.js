@@ -72,6 +72,10 @@ beforeEach(() => {
   setari = { activ: false, cif: "", serie: "", punctLucru: "Sediu", trimiteEFactura: false };
   salveazaSetariOblio.mockClear();
   cheamaOblio.mockClear();
+  // Si drumul vechi: altfel `.not.toHaveBeenCalled()` dintr-un test ar
+  // depinde de ordinea in care ruleaza testele, nu de ce face codul.
+  anuleazaFactura.mockClear();
+  storneazaFactura.mockClear();
 });
 afterEach(() => {
   for (const { root, host } of montate.splice(0)) { act(() => root.unmount()); host.remove(); }
