@@ -782,8 +782,22 @@ body {
   color: inherit;
   font-size: inherit;
 }
-.ldv-ftr-social a {
-  color: inherit;
+/* WhatsApp · Instagram · Facebook, pe un rând în coloana Contact. Punctele
+   dintre ele sunt text în span-ul părinte, deci iau culoarea lui. */
+.ldv-ftr-retele {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 0.45rem;
+}
+/* Sigla NETOPIA Payments, sub rândul legal. Scriptul lor pune un <div> cu
+   `width:100%` și `max-width:250px` înaintea lui, deci lățimea siglei o dă
+   cutia asta. */
+.ldv-ftr-plati {
+  width: 150px;
+  margin-top: clamp(1.5rem, 3vw, 2rem);
+}
+.ldv-ftr-plati img {
+  display: block;
 }
 /* Firma și CUI-ul, lângă copyright. Pe desktop stau pe același rând, despărțite
    de un punct; pe telefon coboară sub „© 2026 Complex La Livada”, pe rândul
@@ -811,14 +825,11 @@ body {
   .ldv-ftr-firma::before {
     content: none;
   }
+  /* Rețelele au trecut în coloana Contact, deci copyrightul are primul
+     rând întreg; grupul legal, cu opt linkuri, îl are pe al doilea. */
   .ldv-ftr-btm > span:first-of-type {
-    grid-column: 1;
+    grid-column: 1 / -1;
     grid-row: 1;
-  }
-  .ldv-ftr-social {
-    grid-column: 2;
-    grid-row: 1;
-    justify-self: end;
   }
   .ldv-ftr-legal {
     grid-column: 1 / -1;
@@ -845,4 +856,190 @@ body {
   -webkit-mask-repeat: no-repeat;
   -webkit-mask-size: contain;
   -webkit-mask-position: center;
+}
+
+/* ── Paginile de text ──────────────────────────────────────────────────
+   Termeni, politici, confidențialitate, cookies, retragere. Portate din
+   `.legal-in` de pe lalivada.ro: un singur bloc de text cu mai multe
+   capitole, o coloană de ~68 de semne, distanța dintre capitole cât un pas
+   de citire. Bara de sus e fixă, deci secțiunea începe sub ea. */
+.ldv-legal {
+  padding: calc(var(--hdr-h) + clamp(2.5rem, 6vw, 4.5rem)) 0 clamp(4rem, 9vw, 7rem);
+}
+.ldv-legal-in {
+  max-width: 68ch;
+  display: grid;
+  gap: 1.05rem;
+}
+.ldv-legal h1,
+.ldv-legal h2 {
+  font-family: var(--role-editorial);
+  font-weight: 400;
+  line-height: 1.06;
+  letter-spacing: -0.014em;
+  margin: 0;
+}
+.ldv-legal h1 {
+  font-size: clamp(2.3rem, 1.55rem + 3.4vw, 4.5rem);
+}
+.ldv-legal h2 {
+  margin-top: clamp(1.5rem, 3.5vw, 2.5rem);
+  font-size: clamp(1.5rem, 1.28rem + 1vw, 2.1rem);
+}
+.ldv-legal p,
+.ldv-legal ul {
+  margin: 0;
+}
+.ldv-legal .label {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+  margin: 0;
+  font-size: 0.7rem;
+  font-weight: 400;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--olive);
+}
+.ldv-legal .label::before {
+  content: "";
+  flex: 0 0 auto;
+  width: 1.6rem;
+  height: 1px;
+  background: currentColor;
+  transform: translateY(-0.32em);
+}
+.ldv-legal .lede {
+  font-size: clamp(1.1rem, 1.03rem + 0.32vw, 1.28rem);
+  line-height: 1.5;
+  color: rgba(34, 34, 31, 0.68);
+  max-width: 44ch;
+  margin-bottom: clamp(0.5rem, 1.5vw, 1rem);
+}
+.ldv-legal a {
+  color: var(--olive);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.18em;
+}
+.ldv-fapte {
+  list-style: none;
+  padding: 0;
+  display: grid;
+  gap: 0.45rem;
+}
+.ldv-fapte li {
+  position: relative;
+  padding-left: 1.2rem;
+  color: rgba(34, 34, 31, 0.68);
+  line-height: 1.5;
+}
+.ldv-fapte li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.74em;
+  width: 0.5rem;
+  height: 1px;
+  background: var(--olive);
+}
+.ldv-legal code {
+  font-family: var(--role-ui);
+  font-size: 0.92em;
+  letter-spacing: 0.02em;
+  padding: 0.1em 0.35em;
+  border-radius: 2px;
+  background: rgba(34, 34, 31, 0.07);
+}
+.ldv-legal-meta {
+  margin-top: clamp(1.5rem, 3.5vw, 2.5rem);
+  font-size: 0.85rem;
+  color: rgba(34, 34, 31, 0.55);
+}
+
+/* Formularul de retragere. Aceleași câmpuri simple ca la rezervare, fără
+   React: e o pagină de text cu un formular la capăt. */
+.ldv-cerere {
+  display: grid;
+  gap: 1rem;
+  margin-top: 0.5rem;
+}
+.ldv-cerere-2 {
+  display: grid;
+  gap: 1rem;
+}
+@media (min-width: 600px) {
+  .ldv-cerere-2 {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+.ldv-cerere label {
+  display: grid;
+  gap: 0.35rem;
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(34, 34, 31, 0.68);
+}
+.ldv-cerere input,
+.ldv-cerere textarea {
+  font: inherit;
+  font-size: 1rem;
+  letter-spacing: 0;
+  text-transform: none;
+  padding: 0.7rem 0.85rem;
+  border: 1px solid rgba(63, 74, 61, 0.35);
+  border-radius: 3px;
+  background: #fff;
+  color: var(--charcoal);
+  width: 100%;
+}
+.ldv-cerere textarea {
+  min-height: 7.5rem;
+  resize: vertical;
+}
+.ldv-cerere input:focus-visible,
+.ldv-cerere textarea:focus-visible {
+  outline: 2px solid var(--olive);
+  outline-offset: 1px;
+}
+.ldv-cerere [aria-invalid="true"] {
+  border-color: #a33a2f;
+}
+.ldv-cerere-eroare {
+  font-size: 0.85rem;
+  letter-spacing: 0;
+  text-transform: none;
+  color: #a33a2f;
+}
+.ldv-cerere-eroare:empty {
+  display: none;
+}
+/* Câmpul-capcană pentru roboți: în afara ecranului, nu `display:none`, ca
+   un script care sare peste câmpurile ascunse să-l vadă totuși. */
+.ldv-cerere-hp {
+  position: absolute;
+  left: -9999px;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+.ldv-cerere-stare {
+  padding: 0.9rem 1rem;
+  border-radius: 3px;
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+.ldv-cerere-stare:empty {
+  display: none;
+}
+.ldv-cerere-stare[data-tip="ok"] {
+  background: rgba(63, 74, 61, 0.1);
+  color: var(--olive-deep);
+}
+.ldv-cerere-stare[data-tip="eroare"] {
+  background: rgba(163, 58, 47, 0.08);
+  color: #7d2c23;
+}
+.ldv-cerere .ldv-btn {
+  justify-self: start;
 }

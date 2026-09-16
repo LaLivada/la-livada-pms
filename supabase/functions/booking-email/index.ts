@@ -108,8 +108,10 @@ function sablon(d: any): string {
                 border:1px solid #e6c4bf;border-radius:8px;">
         Anulează rezervarea</a>
       <p style="margin:10px 0 0;font-size:12.5px;color:#8a938f;text-align:center;">
-        Anularea e gratuită până în ziua sosirii. Butonul deschide o pagină
-        unde confirmi — nu se anulează nimic din greșeală.</p>
+        La anulare se încasează integral prima noapte de cazare (vezi
+        <a href="${URL_REZERVARI}/anulare/" style="color:#8a938f;">politica de anulare</a>).
+        Butonul deschide o pagină unde confirmi — nu se anulează nimic din
+        greșeală.</p>
     </td></tr>
 
     <tr><td style="padding:0 26px 26px;border-top:1px solid #eef1f0;">
@@ -138,7 +140,7 @@ function textSimplu(d: any): string {
     `Vezi rezervarea:  ${URL_REZERVARI}/?token=${d.publicToken}`,
     `Anulează:         ${URL_REZERVARI}/?token=${d.publicToken}&anulare=1`,
     ``,
-    `Anularea e gratuită până în ziua sosirii.`,
+    `La anulare se încasează integral prima noapte de cazare: ${URL_REZERVARI}/anulare/`,
     TELEFON ? `Întrebări? Sună-ne la ${TELEFON}.` : ``,
   ].join("\n");
 }

@@ -1,0 +1,93 @@
+<!-- Subsolul comun al tuturor paginilor de pe rezervari.lalivada.ro.
+     Intră în fiecare pagină prin marcajul <!- - @subsol - -> (fără spații),
+     înlocuit la build și în dev de plugin-ul din vite.booking.config.js. -->
+    <footer class="ldv-ftr">
+      <div class="wrap ldv-ftr-in">
+        <p class="ldv-ftr-seo">
+          Cazare în Vaslui, în curtea Complexului La Livadă: 16 unități — două loft-uri și
+          paisprezece camere în case tip tiny house, fiecare cu baie proprie, aer condiționat
+          și terasă. Suntem pe DN24, în Muntenii de Jos, la câțiva metri de intrarea în
+          Vaslui — cazare deopotrivă pentru invitații la evenimente, cât și pentru o oprire
+          de weekend ori o deplasare de lucru în județul Vaslui. Rezervarea se face direct
+          aici, fără intermediari.
+        </p>
+
+        <div class="ldv-ftr-top">
+          <div class="ldv-ftr-col">
+            <p class="label">Sălile</p>
+            <a href="https://lalivada.ro/sera/">Sera</a>
+            <a href="https://lalivada.ro/magnifique/">Magnifique</a>
+            <a href="https://lalivada.ro/grandor/">Grand'Or Ballroom</a>
+            <a href="https://lalivada.ro/prive/">PRIVÉ</a>
+            <a href="https://lalivada.ro/spatii/">Toate spațiile</a>
+          </div>
+
+          <div class="ldv-ftr-col">
+            <p class="label">Evenimente</p>
+            <a href="https://lalivada.ro/nunti/">Nunți</a>
+            <a href="https://lalivada.ro/botezuri/">Botezuri</a>
+            <a href="https://lalivada.ro/cununii/">Cununii în aer liber</a>
+            <a href="https://lalivada.ro/evenimente-corporate/">Evenimente corporate</a>
+          </div>
+
+          <div class="ldv-ftr-col">
+            <p class="label">Detalii</p>
+            <a href="https://lalivada.ro/meniu/">Meniu și oferta</a>
+            <a href="https://lalivada.ro/cazare/">Cazare</a>
+            <a href="https://lalivada.ro/nunta-de-proba/">Nunta de Probă</a>
+            <a href="https://lalivada.ro/galerie/">Galerie</a>
+          </div>
+
+          <div class="ldv-ftr-col">
+            <p class="label">Contact</p>
+            <a href="tel:+40722899899">+40 722 899 899</a>
+            <a href="mailto:office@lalivada.com">office@lalivada.com</a>
+            <span class="ldv-ftr-retele">
+              <a href="https://wa.me/40722899899" target="_blank" rel="noopener noreferrer">WhatsApp</a>
+              ·
+              <a href="https://www.instagram.com/la.livada/" target="_blank" rel="noopener noreferrer">Instagram</a>
+              ·
+              <a href="https://www.facebook.com/LaLivada/" target="_blank" rel="noopener noreferrer">Facebook</a>
+            </span>
+            <span>DN24, nr. 743, Muntenii de Jos, jud. Vaslui</span>
+          </div>
+        </div>
+
+        <div class="ldv-ftr-btm">
+          <span>
+            © <span id="an-curent">2026</span> Complex La Livada
+            <span class="ldv-ftr-firma">S.C. OVISER S.R.L. · CUI RO33918057</span>
+          </span>
+          <nav class="ldv-ftr-legal" aria-label="Informații legale">
+            <a href="/termeni/">Termeni și condiții</a>
+            <a href="/livrare/">Politica de livrare</a>
+            <a href="/anulare/">Politica de anulare</a>
+            <a href="/retragere/">Retragere din contract</a>
+            <a href="/confidentialitate/">Confidențialitate</a>
+            <a href="/cookies/">Cookies</a>
+            <a href="https://anpc.ro/" target="_blank" rel="noopener noreferrer">ANPC</a>
+            <a href="https://ec.europa.eu/consumers/odr/" target="_blank" rel="noopener noreferrer">SOL</a>
+          </nav>
+        </div>
+
+        <!-- Sigla NETOPIA Payments, din mediakit-ul comerciantului (id 169004):
+             scriptul lor pune singur imaginea înaintea lui, alegând varianta
+             albă sau neagră după culoarea de fundal primită — aici cărbunele
+             subsolului (--charcoal). -->
+        <div class="ldv-ftr-plati">
+          <script src="https://mny.ro/npId.js?p=169004" type="text/javascript"
+            data-version="orizontal" data-contrast-color="#22221f"></script>
+        </div>
+      </div>
+
+      <div class="ldv-ftr-sign" aria-hidden="true">
+        <span class="ldv-ftr-mark"></span>
+      </div>
+    </footer>
+    <script>
+      (function () {
+        var e = document.getElementById("an-curent");
+        var a = String(new Date().getFullYear());
+        if (e && e.textContent !== a) e.textContent = a;
+      })();
+    </script>

@@ -771,7 +771,9 @@ export default function App({ valoriInitiale }) {
               <strong>Sigur anulezi rezervarea?</strong>
               <p style={{ margin: "6px 0 0" }}>
                 Camerele se eliberează imediat și s-ar putea să nu mai fie
-                disponibile dacă te răzgândești. Anularea e gratuită.
+                disponibile dacă te răzgândești. Conform{" "}
+                <a href="/anulare/" target="_blank" rel="noopener noreferrer">politicii de anulare</a>,
+                contravaloarea primei nopți de cazare se încasează integral.
               </p>
               <div className="ldv-actiuni">
                 <button className="ldv-btn ldv-btn-simplu"
