@@ -25,5 +25,6 @@ export { ProductModal, InvoiceIssuerCard, ProductsView } from "./facturare/produ
 export { InvoicesListView } from "./facturare/facturi-lista.jsx";
 export { PaymentMethodsEditor, ReceiptSeriesEditor, PaymentsListView } from "./facturare/incasari.jsx";
 export { BillingPermissionsView } from "./facturare/permisiuni.jsx";
+export { OblioView } from "./facturare/oblio.jsx";
 export { xmlEscape, buildAccountingExportModel, genericXmlAdapter, downloadTextFile, AccountingExportView } from "./facturare/export-contabil.jsx";
 export { FinancialView } from "./facturare/financiar.jsx";

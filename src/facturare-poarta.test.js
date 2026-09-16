@@ -16,6 +16,7 @@ const NUMELE = [
   "billingCustomerLabel", "BillingCustomerPicker", "BillingCustomerModal",
   "ProductModal", "InvoiceIssuerCard", "ProductsView", "InvoicesListView",
   "PaymentMethodsEditor", "ReceiptSeriesEditor", "PaymentsListView", "BillingPermissionsView",
+  "OblioView",
   "xmlEscape", "buildAccountingExportModel", "genericXmlAdapter", "downloadTextFile",
   "AccountingExportView", "FinancialView",
 ];

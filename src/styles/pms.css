@@ -1986,6 +1986,19 @@ label.field input, label.field select, label.field textarea{ cursor:auto; }
   line-height:1.5;
 }
 
+/* ---------- Oblio (features/facturare/oblio.jsx, factura.jsx) ---------- */
+.btn-lat{ width:auto; }
+.oblio-panel{ padding:18px; margin-bottom:20px; }
+.oblio-head{ padding:0; border:none; margin-bottom:14px; }
+.oblio-check{ display:flex; align-items:center; gap:8px; font-size:var(--fs-sm); }
+.oblio-check input{ width:auto; margin:0; }
+.oblio-activ{ font-weight:600; }
+.oblio-actiuni{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-top:4px; }
+.oblio-nesalvat{ color:var(--text-muted); font-size:13px; }
+.oblio-rezultat{ margin-top:12px; margin-bottom:0; }
+.oblio-rezultat[data-ok="0"], .oblio-eroare{ color:#B91C1C; }
+.oblio-chip{ margin-left:6px; }
+
 /* ---------- Responsive overrides (must stay last: same-specificity rules earlier
    in this stylesheet would otherwise win by source order and silently defeat these) ---------- */
 @media (max-width:600px){
