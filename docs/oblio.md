@@ -28,9 +28,18 @@ listă ca „PDF din Oblio”), `status = 'issued'` și `oblio_stare = 'emisa'`.
 Dacă Oblio refuză — cotă lipsă, serie greșită, token expirat —
 `oblio_marcheaza_eroare` lasă draftul neatins, cu `oblio_stare = 'eroare'`
 și mesajul lor exact, sub butoanele ferestrei; omul corectează și apasă din
-nou „Emite prin Oblio”, cu aceeași cheie. Celelalte cazuri de eșec (rețeaua
-cade după ce Oblio a emis deja, două taburi apasă deodată) sunt în tabelul
-de mai jos.
+nou „Emite prin Oblio”, cu aceeași cheie. Aceeași funcție primește și un
+`p_neemisa`, care spune cât de sigur e că Oblio n-a emis nimic: `true` la un
+refuz explicit al lor sau când cererea nici n-a plecat, `false` (implicit)
+când răspunsul s-a pierdut — rețea căzută, 5xx, sau Oblio a emis dar PMS-ul
+n-a putut scrie. De el atârnă amprenta draftului: `oblio_incepe_emiterea`
+calculează `oblio_amprenta` (md5 peste client, total și linii) la fiecare
+încercare; `p_neemisa = true` o șterge, deci draftul se poate corecta liber,
+iar `false` o păstrează, și atunci o reîncercare pe un draft schimbat între
+timp e refuzată — altfel documentul pe care Oblio poate să-l fi emis deja ar
+ajunge legat de o factură cu alt conținut, sub același număr. Celelalte
+cazuri de eșec (rețeaua cade după ce Oblio a emis deja, două taburi apasă
+deodată) sunt în tabelul de mai jos.
 
 Anularea și stornarea trec tot întâi prin Oblio, niciodată doar prin PMS.
 Anularea cheamă `PUT /api/docs/invoice/cancel`, apoi
@@ -47,8 +56,9 @@ setarea de azi, ca să nu rămână la Oblio un document „viu” pe care PMS-u
 
 e-Factura e opțională și separată de emitere: fie automat, imediat după ce
 Oblio a emis, dacă „Trimite în SPV (e-Factura) imediat după emitere” e
-bifat în setări, fie manual, oricând, din butonul „Trimite în SPV” al
-ferestrei (`POST /api/docs/einvoice`). Codul întors de Oblio stă în
+bifat în setări, fie manual, din butonul „Trimite în SPV” al ferestrei
+facturii, câtă vreme nu e deja trimisă sau în procesare
+(`POST /api/docs/einvoice`). Codul întors de Oblio stă în
 `oblio_efactura_cod` (-1 netrimisă, 0 în procesare, 1 trimisă, 2 cu erori)
 și se vede ca eticheta „SPV: …” pe factură și pe rândul ei din listă.
 Comutatorul `activ`, CIF-ul, seria, punctul de lucru și bifa de e-Factura
@@ -69,7 +79,8 @@ TTLock.
 |---|---|---|
 | Oblio refuză (cotă lipsă, serie greșită, token expirat) | draftul, cu `oblio_stare = eroare` și mesajul lor sub butoane | corectează, apasă din nou (aceeași cheie de idempotență) |
 | Rețeaua cade după ce Oblio a emis | Oblio are documentul; PMS-ul are draftul | apasă din nou: aceeași cheie, Oblio nu emite a doua oară |
-| Oblio a emis, PMS-ul n-a putut scrie | mesaj explicit cu seria și numărul din Oblio | verifică în Oblio, apoi reîncearcă (vezi mai jos) |
+| Oblio a emis, PMS-ul n-a putut scrie | draftul, cu `oblio_stare = eroare` și mesajul care spune seria și numărul din Oblio — se vede și după reîncărcare | verifică în Oblio, apoi apasă din nou: aceeași cheie regăsește documentul emis |
+| Draftul s-a schimbat după un răspuns necunoscut | refuzul lui `oblio_incepe_emiterea`: amprenta de acum nu e cea de la încercarea trecută | verifică în Oblio (clientul și ziua facturii); dacă nu e emis, șterge draftul și fă altul |
 | Două taburi apasă deodată | a doua cerere: „Emiterea e deja în curs” | nimic |
 
 ## Configurarea (o singură dată, de Ovidiu)
@@ -87,7 +98,7 @@ TTLock.
 | Ce | Unde |
 |---|---|
 | coloanele `oblio_*` | `invoices`, schema.sql |
-| `oblio_incepe_emiterea`, `oblio_marcheaza_eroare`, `oblio_finalizeaza_emiterea`, `oblio_finalizeaza_stornarea`, `oblio_finalizeaza_anularea`, `oblio_actualizeaza_efactura` | schema.sql; doar `service_role` |
+| `oblio_amprenta_factura`, `oblio_incepe_emiterea`, `oblio_marcheaza_eroare`, `oblio_finalizeaza_emiterea`, `oblio_finalizeaza_stornarea`, `oblio_finalizeaza_anularea`, `oblio_actualizeaza_efactura` | schema.sql; doar `service_role` |
 | clientul API | `supabase/functions/oblio-facturare/oblio.ts` (+ `src/oblio-client.test.js`) |
 | funcția edge | `supabase/functions/oblio-facturare/index.ts` |
 | setările și apelul din browser | `src/data/oblio.js` (+ `src/oblio-date.test.js`) |
@@ -97,6 +108,11 @@ TTLock.
 ## Ce NU s-a schimbat
 
 Drumul vechi (`emite_factura`, `storneaza_factura`, seria locală) rămâne
-întreg și e cel folosit cât `activ` e oprit. Coala tipăribilă din PMS
+întreg și e cel folosit cât `activ` e oprit — cu o singură grijă în plus:
+dacă seria locală se numește ca cea din Oblio (`LL` în amândouă, cum e azi),
+`oblio_finalizeaza_emiterea` și `oblio_finalizeaza_stornarea` îi împing
+`next_number` peste numărul dat de Oblio, ca prima factură emisă local după
+oprirea comutatorului să nu ceară un număr deja folosit și să cadă pe
+`unique (series, number)`. Coala tipăribilă din PMS
 rămâne. Încasările și chitanțele rămân în PMS (sincronizarea lor în Oblio
 e un plan separat).
