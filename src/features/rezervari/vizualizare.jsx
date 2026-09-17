@@ -38,11 +38,30 @@ export function ReservationViewModal({ reservation, core, updateCore, groups, up
   // "edit" deschide grupul, "print" lista de cazare — acelasi tipar ca in GroupsView.
   const [groupModal, setGroupModal] = useState(null);
 
+  /* În „Vezi rezervarea" nu există buton de salvare: ce apeși aici se scrie
+     pe loc, ca statutul sau mesajele. Clientul de facturare făcea excepție
+     fără s-o spună — îl alegeai, fereastra de confirmare se închidea, și
+     alegerea se pierdea la închiderea rezervării, fiindcă trăia doar în
+     starea locală a ferestrei. Formularul de editare își are butonul lui de
+     salvare și rămâne cum era. */
+  const schimbaClientFacturare = async (id, clientNou = null) => {
+    setBillingCustomerId(id);
+    if ((reservation.billingCustomerId || "") === (id || "")) return;
+    await updateReservations(reservations.map((r) =>
+      (r.id === reservation.id ? { ...r, billingCustomerId: id || null } : r)));
+    /* Clientul proaspăt creat nu e încă în `core`-ul din închiderea asta,
+       de-aia vine ca argument. */
+    const client = clientNou || (core.billingCustomers || []).find((c) => c.id === id);
+    await audit.push("Client de facturare schimbat",
+      `${guestFullName(guest) || "Fără nume"} · ${room?.name} → ${billingCustomerLabel(client) || "oaspetele rezervării"}`,
+      { roomId: reservation.roomId, reservationId: reservation.id });
+  };
+
   const saveNewBillingCustomer = async (customer) => {
-    if ((core.billingCustomers || []).some((c) => c.id === customer.id)) { setBillingCustomerId(customer.id); setBillingModalOpen(false); return; }
+    if ((core.billingCustomers || []).some((c) => c.id === customer.id)) { await schimbaClientFacturare(customer.id, customer); setBillingModalOpen(false); return; }
     await updateCore({ ...core, billingCustomers: [...(core.billingCustomers || []), customer] });
     await audit.push("Client de facturare adăugat", billingCustomerLabel(customer));
-    setBillingCustomerId(customer.id);
+    await schimbaClientFacturare(customer.id, customer);
     setBillingModalOpen(false);
   };
 
@@ -125,7 +144,7 @@ export function ReservationViewModal({ reservation, core, updateCore, groups, up
       <SectiuneFisa res={reservation} core={core} />
 
       <FolioPanel reservation={reservation} core={core} updateCore={updateCore}
-        billingCustomerId={billingCustomerId} setBillingCustomerId={setBillingCustomerId}
+        billingCustomerId={billingCustomerId} setBillingCustomerId={schimbaClientFacturare}
         onNewBillingCustomer={() => setBillingModalOpen(true)} />
 
       <div className="modal-actions">
