@@ -21,6 +21,8 @@ import { ROOM_TYPE, STATUS_LABEL, TARI } from "../lib/constante.js";
 import { Dialog, toaster, useModalLock, PdfPreview, OccupantStepper, Paginare, usePaginare } from "../ui/primitive.jsx";
 import { generatePdfBlob, pregatesteFila, arataInFila, inchideFila } from "../lib/pdf.js";
 import { reconciliazaAcces } from "./acces.jsx";
+import { canBilling } from "../lib/permisiuni.js";
+import { GroupInvoiceModal, GroupInvoiceButton, InvoicePrint } from "./facturare.jsx";
 
 export function GroupPrint({ group, core, reservations, onClose }) {
   const sheetRef = useRef(null);
@@ -213,9 +215,12 @@ export function GroupPrint({ group, core, reservations, onClose }) {
    room — all reservations of the group stay in step.
 ----------------------------------------------------------------*/
 
-export function GroupEditor({ group, core, groups, updateGroups, reservations, updateReservations, stergeRezervari, stergeGrupuri, blocks, onClose, onPrint }) {
+export function GroupEditor({ group, core, updateCore, groups, updateGroups, reservations, updateReservations, stergeRezervari, stergeGrupuri, blocks, onClose, onPrint }) {
   const [error, setError] = useState("");
   const [addOpen, setAddOpen] = useState(false);
+  /* Facturarea grupului: fereastra de compunere, apoi factura creata. */
+  const [facturareDeschisa, setFacturareDeschisa] = useState(false);
+  const [facturaNoua, setFacturaNoua] = useState(null);
 
   if (!group) return null;
 
@@ -721,6 +726,9 @@ export function GroupEditor({ group, core, groups, updateGroups, reservations, u
       )}
 
       <div className="grupuri-editor-footer">
+        {canBilling("create_invoice") && (
+          <GroupInvoiceButton onClick={() => setFacturareDeschisa(true)} />
+        )}
         <button className="btn btn-ghost grow" onClick={onPrint}>
           <Printer size={15} /> Listă cazare
         </button>
@@ -729,11 +737,26 @@ export function GroupEditor({ group, core, groups, updateGroups, reservations, u
         </button>
       </div>
 
+      {facturareDeschisa && (
+        <div onClick={(e) => e.stopPropagation()}>
+          <GroupInvoiceModal
+            group={group} reservations={reservations} core={core} updateCore={updateCore}
+            onClose={() => setFacturareDeschisa(false)}
+            onCreated={(factura) => { setFacturareDeschisa(false); setFacturaNoua(factura.id); }}
+          />
+        </div>
+      )}
+      {facturaNoua && (
+        <div onClick={(e) => e.stopPropagation()}>
+          <InvoicePrint invoiceId={facturaNoua} core={core} onClose={() => setFacturaNoua(null)} />
+        </div>
+      )}
+
     </Dialog>
   );
 }
 
-export function GroupsView({ core, groups, updateGroups, reservations, updateReservations, stergeRezervari, stergeGrupuri, blocks }) {
+export function GroupsView({ core, updateCore, groups, updateGroups, reservations, updateReservations, stergeRezervari, stergeGrupuri, blocks }) {
   const [confirmId, setConfirmId] = useState(null);
   const [editId, setEditId] = useState(null);
   const [printId, setPrintId] = useState(null);
@@ -915,6 +938,7 @@ export function GroupsView({ core, groups, updateGroups, reservations, updateRes
         <GroupEditor
           group={sorted.find((g) => g.id === editId)}
           core={core}
+          updateCore={updateCore}
           groups={groups}
           updateGroups={updateGroups}
           reservations={reservations}

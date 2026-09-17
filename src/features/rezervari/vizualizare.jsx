@@ -177,6 +177,7 @@ export function ReservationViewModal({ reservation, core, updateCore, groups, up
           <GroupEditor
             group={editingGroup}
             core={core}
+            updateCore={updateCore}
             groups={groups}
             updateGroups={updateGroups}
             reservations={reservations}

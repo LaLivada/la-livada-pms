@@ -33,10 +33,13 @@ vi.mock("./data/fise.js", () => ({
   scrieFisa: vi.fn(), anuleaza: vi.fn(),
 }));
 vi.mock("./data/folio.js", () => ({
-  salveazaLinieCazare: vi.fn(), adaugaPozitie: vi.fn(), stergePozitie: vi.fn(),
+  folioPentruRezervare: vi.fn(async () => ({ id: "f1", reservation_id: "res1" })),
+  pozitiiFolio: vi.fn(async () => []),
+  salveazaLinieCazare: vi.fn(async (rand) => rand), adaugaPozitie: vi.fn(), stergePozitie: vi.fn(),
 }));
 vi.mock("./data/facturare.js", () => ({
   listeazaFacturi: vi.fn(async () => []), facturiAleClientului: vi.fn(async () => []),
+  facturilePentruFolio: vi.fn(async () => []),
   detaliiFactura: vi.fn(async () => null), salveazaLinieFactura: vi.fn(),
   actualizeazaTotaluri: vi.fn(), schimbaClientFactura: vi.fn(),
   creeazaClientFacturare: vi.fn(), creeazaFacturaDinFolio: vi.fn(),

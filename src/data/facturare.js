@@ -34,6 +34,46 @@ export async function facturiAleClientului(idClient) {
   return data || [];
 }
 
+/* Facturile care privesc un folio. Doua drumuri, nu unul:
+
+   - ancora: `invoices.folio_id`, cum a fost dintotdeauna;
+   - legaturi: `invoice_item_links`, care nu are nicio restrictie de folio.
+
+   Al doilea drum a devenit necesar cand a aparut factura pe grup: ea se
+   ancoreaza pe folio-ul unei singure camere, dar poarta pozitii din toate,
+   si trebuie sa se vada din panoul fiecareia. `idPozitii` vin de la apelant
+   (le-a citit deja cu `pozitiiFolio`), ca sa nu recitim tabela aici. */
+export async function facturilePentruFolio(idFolio, idPozitii) {
+  const [peAncora, legaturi] = await Promise.all([
+    supabase.from("invoices").select("*").eq("folio_id", idFolio),
+    idPozitii.length
+      ? supabase.from("invoice_item_links").select("invoice_items(invoice_id)").in("folio_item_id", idPozitii)
+      : Promise.resolve({ data: [], error: null }),
+  ]);
+  if (peAncora.error) throw peAncora.error;
+  if (legaturi.error) throw legaturi.error;
+
+  /* O legatura numeste o singura linie de factura, dar PostgREST tipizeaza
+     incorporarea ca lista; acceptam ambele forme. */
+  const idLinie = (l) => {
+    const li = l?.invoice_items;
+    const unul = Array.isArray(li) ? li[0] : li;
+    return unul?.invoice_id || null;
+  };
+  const gasite = peAncora.data || [];
+  const lipsa = [...new Set((legaturi.data || []).map(idLinie).filter(Boolean))]
+    .filter((id) => !gasite.some((f) => f.id === id));
+
+  let straine = [];
+  if (lipsa.length) {
+    const { data, error } = await supabase.from("invoices").select("*").in("id", lipsa);
+    if (error) throw error;
+    straine = data || [];
+  }
+  return [...gasite, ...straine]
+    .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
+}
+
 /* Tot ce trebuie ca sa se afiseze o factura: antetul, liniile, platile si
    clientul. Patru cereri care merg mereu impreuna. */
 export async function detaliiFactura(idFactura) {

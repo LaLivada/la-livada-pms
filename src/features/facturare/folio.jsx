@@ -38,36 +38,15 @@ export function FolioPanel({ reservation, core, updateCore, billingCustomerId, s
     setLoading(true);
     setLoadError("");
     try {
-      let { data: f, error: fErr } = await supabase
-        .from("folios").select("*").eq("reservation_id", reservation.id).maybeSingle();
-      if (fErr) throw fErr;
-      if (!f) {
-        const { data: created, error: cErr } = await supabase
-          .from("folios").insert({ id: uid(), reservation_id: reservation.id }).select().maybeSingle();
-        if (cErr) {
-          // Cursa la montarea panoului (ex. dublu-efect în dev) poate face ca alt
-          // apel să fi creat deja folio-ul chiar acum — recuperăm în loc să eșuăm.
-          if (cErr.code !== "23505") throw cErr;
-          const { data: existing, error: reErr } = await supabase
-            .from("folios").select("*").eq("reservation_id", reservation.id).maybeSingle();
-          if (reErr) throw reErr;
-          f = existing;
-        } else {
-          f = created;
-        }
-      }
-      const { data: fi, error: iErr } = await supabase
-        .from("folio_items").select("*").eq("folio_id", f.id).order("occurred_at");
-      if (iErr) throw iErr;
-      const cazare = await ensureCazareLine(f, fi || [], reservation, core);
-      const rest = (fi || []).filter((i) => i.category !== "cazare");
+      const f = await dateFolio.folioPentruRezervare(reservation.id);
+      const fi = await dateFolio.pozitiiFolio(f.id);
+      const cazare = await ensureCazareLine(f, fi, reservation, core);
+      const rest = fi.filter((i) => i.category !== "cazare");
       setFolio(f);
       setItems(cazare ? [cazare, ...rest] : rest);
 
-      const { data: inv, error: invErr } = await supabase
-        .from("invoices").select("*").eq("folio_id", f.id).order("created_at", { ascending: false });
-      if (invErr) throw invErr;
-      setInvoices(inv || []);
+      /* Si facturile de grup, care stau pe folio-ul altei camere. */
+      setInvoices(await dateFacturare.facturilePentruFolio(f.id, fi.map((i) => i.id)));
     } catch (e) {
       setLoadError(mesajEroare(e, "Nu am putut încărca folio-ul"));
     } finally {

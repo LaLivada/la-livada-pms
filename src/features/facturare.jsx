@@ -23,6 +23,7 @@ export { RecordPaymentInline, InvoiceCancelCreditActions, InvoiceLineEditRow, In
 export { billingCustomerLabel, BillingCustomerPicker, BillingCustomerModal } from "./facturare/clienti-facturare.jsx";
 export { ProductModal, InvoiceIssuerCard, ProductsView } from "./facturare/produse.jsx";
 export { InvoicesListView } from "./facturare/facturi-lista.jsx";
+export { GroupInvoiceModal, GroupInvoiceButton } from "./facturare/grup.jsx";
 export { PaymentMethodsEditor, ReceiptSeriesEditor, PaymentsListView } from "./facturare/incasari.jsx";
 export { BillingPermissionsView } from "./facturare/permisiuni.jsx";
 export { OblioView } from "./facturare/oblio.jsx";

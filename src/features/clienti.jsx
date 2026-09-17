@@ -160,7 +160,7 @@ export function ClientsView({ core, updateCore, groups, updateGroups, reservatio
     return (
       <div>
         {header}
-        <GroupsView core={core} groups={groups} updateGroups={updateGroups}
+        <GroupsView core={core} updateCore={updateCore} groups={groups} updateGroups={updateGroups}
           reservations={reservations} updateReservations={updateReservations}
           stergeRezervari={stergeRezervari} stergeGrupuri={stergeGrupuri} blocks={blocks} />
       </div>

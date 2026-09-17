@@ -15,6 +15,7 @@ const NUMELE = [
   "RecordPaymentInline", "InvoiceCancelCreditActions", "InvoiceLineEditRow", "InvoicePrint",
   "billingCustomerLabel", "BillingCustomerPicker", "BillingCustomerModal",
   "ProductModal", "InvoiceIssuerCard", "ProductsView", "InvoicesListView",
+  "GroupInvoiceModal", "GroupInvoiceButton",
   "PaymentMethodsEditor", "ReceiptSeriesEditor", "PaymentsListView", "BillingPermissionsView",
   "OblioView",
   "xmlEscape", "buildAccountingExportModel", "genericXmlAdapter", "downloadTextFile",
