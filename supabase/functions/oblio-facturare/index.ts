@@ -25,7 +25,7 @@ const CLIENT_ID = (Deno.env.get("OBLIO_CLIENT_ID") || "").trim();
 const CLIENT_SECRET = (Deno.env.get("OBLIO_CLIENT_SECRET") || "").trim();
 const CHEIE_SETARI = "pms:oblio:v1";
 
-// CORS ca la anaf-lookup: doar aplicația și originile de dezvoltare.
+// Cine are voie să cheme: doar aplicația și originile de dezvoltare.
 const ORIGINI_PERMISE = [
   "https://pms.lalivada.ro", "http://localhost:5173", "http://127.0.0.1:5173",
   ...(Deno.env.get("ALLOWED_ORIGINS") || "").split(",").map((o) => o.trim()).filter(Boolean),
@@ -33,9 +33,22 @@ const ORIGINI_PERMISE = [
 function corsHeaders(req: Request): Record<string, string> {
   const origin = req.headers.get("Origin") || "";
   const h: Record<string, string> = {
-    "Access-Control-Allow-Headers": "authorization, apikey, content-type",
+    /* Oglindim anteturile cerute, ca la access-provider și device-provider.
+       O listă scrisă de mână rămâne în urmă fără să se vadă: clientul
+       Supabase trimite și `x-client-info`, iar dacă preflight-ul nu-l
+       permite, browserul nu mai trimite POST-ul deloc. Funcția pornește,
+       răspunde 204 la OPTIONS, se oprește, și nu scrie nicio eroare nicăieri
+       — omul vede doar „nu am putut contacta serviciul". Exact asta s-a
+       întâmplat pe 17 septembrie 2026, la prima încercare de pe telefon.
+       Oglindirea nu slăbește nimic: spune doar ce anteturi are voie
+       browserul să trimită, nu cine are voie să cheme. Cine — asta rămâne la
+       lista de origini de mai jos și la JWT-ul verificat înăuntru. */
+    "Access-Control-Allow-Headers":
+      req.headers.get("Access-Control-Request-Headers") ||
+      "authorization, apikey, content-type, x-client-info, x-region",
     "Access-Control-Allow-Methods": "POST, OPTIONS",
-    "Vary": "Origin",
+    "Access-Control-Max-Age": "86400",
+    "Vary": "Origin, Access-Control-Request-Headers",
   };
   if (origin && ORIGINI_PERMISE.includes(origin)) h["Access-Control-Allow-Origin"] = origin;
   return h;
