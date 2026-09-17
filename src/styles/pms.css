@@ -1316,8 +1316,19 @@ label.field input, label.field select, label.field textarea{ cursor:auto; }
 .inv-nums-row .k{ color:#8a8a86; margin-right:8px; }
 .inv-nums-row .v{ font-weight:700; color:#141412; }
 .inv-body{ padding:22px 40px 0; flex:1; display:flex; flex-direction:column; }
-.inv-table{ width:100%; border-collapse:collapse; }
+/* Lățimi fixe, nu „cât cere conținutul": în modul draft celulele conțin
+   <input>-uri, iar un input își cere singur ~180px, așa că „Cant." fura
+   lățimea coloanelor de bani și „1.050,00 lei" se rupea pe două rânduri —
+   pe ecran și în PDF deopotrivă. Cu `table-layout:fixed` coloanele stau
+   unde le punem, iar „Denumire" ia ce rămâne. */
+.inv-table{ width:100%; border-collapse:collapse; table-layout:fixed; }
 .inv-table .c-no{ width:34px; }
+.inv-table .c-cant{ width:64px; }
+.inv-table .c-pret{ width:104px; }
+.inv-table .c-tva{ width:52px; }
+.inv-table .c-total{ width:116px; }
+/* Sumele și cotele nu se rup niciodată; numele produsului da, dacă e lung. */
+.inv-table th.r, .inv-table td.r{ white-space:nowrap; }
 .inv-table thead th{ text-align:left; font-size:10.5px; text-transform:uppercase; letter-spacing:.06em; color:#fff; font-weight:700; padding:11px 10px; background:#1c1c1c; }
 .inv-table thead th.r{ text-align:right; }
 .inv-table thead th:first-child{ border-radius:4px 0 0 4px; }
@@ -1345,7 +1356,7 @@ label.field input, label.field select, label.field textarea{ cursor:auto; }
 .inv-sign{ text-align:center; }
 .inv-sign-line{ width:150px; border-top:1px solid #333; margin-bottom:6px; }
 .inv-sign-lab{ font-size:10.5px; color:#5a5650; }
-.inv-edit-input{ width:100%; border:1px solid #ddd2b3; border-radius:4px; padding:5px 6px; font:inherit; font-size:12.5px; color:#2b2b28; background:#fffdf8; }
+.inv-edit-input{ width:100%; min-width:0; border:1px solid #ddd2b3; border-radius:4px; padding:5px 6px; font:inherit; font-size:12.5px; color:#2b2b28; background:#fffdf8; }
 .inv-edit-input.r{ text-align:right; }
 .inv-client-select{ margin-top:8px; font-size:12px; padding:6px 8px; border:1px solid #ddd2b3; border-radius:4px; width:100%; background:#fffdf8; }
 

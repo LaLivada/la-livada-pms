@@ -725,10 +725,14 @@ export function GroupEditor({ group, core, updateCore, groups, updateGroups, res
         </button>
       )}
 
+      {/* Rand propriu, sub adaugarea de camere: e o actiune asupra intregului
+          grup, nu una din perechea „Lista cazare / Gata", si pe telefon trei
+          butoane pe acelasi rand ii strangeau textul pana se rupea. */}
+      {canBilling("create_invoice") && (
+        <GroupInvoiceButton onClick={() => setFacturareDeschisa(true)} />
+      )}
+
       <div className="grupuri-editor-footer">
-        {canBilling("create_invoice") && (
-          <GroupInvoiceButton onClick={() => setFacturareDeschisa(true)} />
-        )}
         <button className="btn btn-ghost grow" onClick={onPrint}>
           <Printer size={15} /> Listă cazare
         </button>

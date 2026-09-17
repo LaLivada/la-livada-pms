@@ -229,10 +229,11 @@ export function GroupInvoiceModal({ group, reservations, core, updateCore, onClo
 }
 
 /* Butonul din editorul de grup. Stă aici, nu în grupuri.jsx, ca tot ce ține
-   de facturare să rămână într-un singur loc. */
+   de facturare să rămână într-un singur loc. Pe tot rândul, ca „Adaugă cameră
+   în grup", sub care stă. */
 export function GroupInvoiceButton({ onClick, disabled }) {
   return (
-    <button type="button" className="btn btn-ghost btn-lat" onClick={onClick} disabled={disabled}>
+    <button type="button" className="btn btn-ghost w-full mt-4" onClick={onClick} disabled={disabled}>
       <Receipt size={15} /> Facturează grupul
     </button>
   );

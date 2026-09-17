@@ -36,6 +36,10 @@ export function InvoicePrint({ invoiceId, core, onClose, onChanged }) {
   const [payments, setPayments] = useState([]);
   const [loading, setLoading] = useState(true);
   const fisaRef = useRef(null);
+  const [coala, setCoala] = useState(null);
+  /* Un singur ref de tip funcție hrănește și `fisaRef` (îl citește captura PDF)
+     și starea de mai sus (o citește efectul de scalare). */
+  const legaColala = useCallback((nod) => { fisaRef.current = nod; setCoala(nod); }, []);
   const [emitere, setEmitere] = useState(false);
   const [oblio, setOblio] = useState(null);
   const [spv, setSpv] = useState(false);
@@ -96,32 +100,38 @@ export function InvoicePrint({ invoiceId, core, onClose, onChanged }) {
   // modal/telefon, deci o scalam vizual cu transform pe un wrapper din
   // JURUL .fisa. La print, regulile din STYLES (.inv-scaler, .inv-sheet-wrap,
   // .inv-sheet) reseteaza scalarea si lasa coala sa curga la marimea A4.
-  const scaleWrapRef = useRef(null);
+  const [cadruColii, setCadruColii] = useState(null);
   const [scale, setScale] = useState(1);
   const [sheetH, setSheetH] = useState(1123);
+  /* De ce `useState` pentru noduri și nu `useRef`: efectul trebuie să pornească
+     atunci când coala INTRĂ în pagină, iar un ref nu declanșează nimic.
+     Înainte depindea de `[invoice, lines]` și de-aia rămânea nemăsurată:
+     `load()` scrie factura și liniile ÎNAINTE de `await setariOblio()`, deci
+     dependențele se schimbau cât timp fereastra era încă pe „Se încarcă…",
+     unde coala nu există; când `loading` trecea pe false, o secundă mai
+     târziu, dependențele erau deja neschimbate și efectul nu mai rula
+     niciodată. Scara rămânea 1, coala de 794px stătea întreagă într-un modal
+     de telefon de 343px, tăiată de `overflow:hidden` și fără nicio cale de
+     derulare: factura „apărea mare" și nu se putea nici citi, nici edita.
+     Cu ref-uri de tip funcție efectul rulează exact când există nodurile,
+     indiferent în ce ordine se așază starea. */
   useEffect(() => {
-    const wrap = scaleWrapRef.current;
-    const sheet = fisaRef.current;
-    if (!wrap || !sheet) return;
-    /* O latime de 0 inseamna "inca nemasurabil", nu "incape". Inainte cadea
-       pe scale = 1, iar coala de 794px ramanea la marime intreaga intr-un
-       modal de telefon, taiata de overflow:hidden si fara nicio cale de
-       derulare: factura "aparea mare" si nu se putea nici citi, nici edita.
-       Acum incercam din nou la urmatorul cadru si pastram scara de dinainte
-       pana cand chiar avem o masuratoare. */
+    if (!cadruColii || !coala) return;
+    /* O lățime de 0 înseamnă „încă nemăsurabil", nu „încape": mai încercăm
+       la cadrul următor și păstrăm scara de dinainte până avem o cifră. */
     let cadru = 0;
     const update = () => {
-      const w = wrap.clientWidth;
+      const w = cadruColii.clientWidth;
       if (w <= 0) { cadru = requestAnimationFrame(update); return; }
       setScale(Math.min(1, w / LATIME_COALA));
-      setSheetH(sheet.offsetHeight);
+      setSheetH(coala.offsetHeight);
     };
     update();
     const ro = new ResizeObserver(update);
-    ro.observe(wrap);
-    ro.observe(sheet);
+    ro.observe(cadruColii);
+    ro.observe(coala);
     return () => { cancelAnimationFrame(cadru); ro.disconnect(); };
-  }, [invoice, lines]);
+  }, [cadruColii, coala, lines]);
 
   const load = useCallback(async () => {
     /* Inainte, orice esec de citire era inghitit tacit (se destructura doar
@@ -250,9 +260,9 @@ export function InvoicePrint({ invoiceId, core, onClose, onChanged }) {
         </div>
       )}
 
-      <div className="inv-sheet-wrap" ref={scaleWrapRef} style={{ height: sheetH * scale }}>
+      <div className="inv-sheet-wrap" ref={setCadruColii} style={{ height: sheetH * scale }}>
       <div className="inv-scaler" style={{ transform: `scale(${scale})`, transformOrigin: "top left" }}>
-      <div className="fisa inv-sheet" ref={fisaRef}>
+      <div className="fisa inv-sheet" ref={legaColala}>
         {/* Filigran. Primul copil, ca elementele de continut (pozitionate
             prin regula din STYLES) sa se picteze peste el. Daca fisierul
             lipseste, se ascunde singur — o factura fara filigran e mult mai
@@ -312,10 +322,10 @@ export function InvoicePrint({ invoiceId, core, onClose, onChanged }) {
               <tr>
                 <th className="r c-no">Nr.</th>
                 <th>Denumire</th>
-                <th className="r">Cant.</th>
-                <th className="r">Preț unitar</th>
-                <th className="r">TVA</th>
-                <th className="r">Total</th>
+                <th className="r c-cant">Cant.</th>
+                <th className="r c-pret">Preț unitar</th>
+                <th className="r c-tva">TVA</th>
+                <th className="r c-total">Total</th>
               </tr>
             </thead>
             <tbody>
