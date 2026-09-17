@@ -11,6 +11,7 @@ import { uid } from "../../lib/uid.js";
 import { fmtMoney } from "../../lib/format.js";
 import { Dialog, toaster, useModalLock } from "../../ui/primitive.jsx";
 import { audit } from "../../lib/audit.js";
+import { dinAntet } from "../../lib/emitent.js";
 
 const emptyInvoiceIssuer = () => ({
   name: "", cui: "", regCom: "", address: "", city: "", county: "",
@@ -130,6 +131,12 @@ export function InvoiceIssuerCard({ core, updateCore }) {
       <div className="field-row field-row-2col">
         <label className="field"><span className="fl">Email</span><input type="email" value={draft.email} onChange={set("email")} /></label>
         <label className="field"><span className="fl">Telefon</span><input value={draft.phone} onChange={set("phone")} /></label>
+      </div>
+      {/* `dinAntet`: cât timp câmpul n-a fost scris niciodată, formularul arată
+          aceeași valoare de pornire pe care o tipărește și factura. */}
+      <div className="field-row field-row-2col">
+        <label className="field"><span className="fl">Capital social</span><input value={dinAntet(draft, "capitalSocial")} onChange={set("capitalSocial")} placeholder="5000 RON" /></label>
+        <label className="field"><span className="fl">Site</span><input value={dinAntet(draft, "website")} onChange={set("website")} placeholder="www.lalivada.ro" /></label>
       </div>
       <div className="produse-emitent-actiuni">
         <button className="btn btn-primary btn-lat" onClick={save} disabled={!dirty || saving}>

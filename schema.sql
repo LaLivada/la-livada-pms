@@ -716,6 +716,12 @@ create table invoice_items (
   invoice_id     text not null references invoices(id) on delete cascade,
   product_id     text references products(id),
   name           text not null,
+  -- Unitatea de masura, ca instantaneu: se scrie la crearea liniei si nu se
+  -- mai schimba cand cineva editeaza produsul. Nullable — liniile fara ea
+  -- cad pe unitatea produsului (formeazaLinie in functia edge, unitateLinie
+  -- in client). Linia „Doar totalul" a unei facturi de grup are nevoie de ea
+  -- in mod special: n-are un produs al ei si ar mosteni „noapte" de la cazare.
+  unit           text,
   quantity       numeric not null,
   unit_price     numeric not null,
   vat_rate       numeric not null,
@@ -1049,9 +1055,9 @@ begin
           -v_orig.subtotal_net, -v_orig.subtotal_vat, -v_orig.total_amount,
           v_orig.id, auth.uid(), auth.uid())
   returning * into v_noua;
-  insert into invoice_items (id, invoice_id, product_id, name, quantity, unit_price, vat_rate,
+  insert into invoice_items (id, invoice_id, product_id, name, unit, quantity, unit_price, vat_rate,
                              net_amount, vat_amount, total_amount, sort_order)
-  select 'nci-' || encode(gen_random_bytes(6), 'hex'), v_noua.id, product_id, name, -quantity,
+  select 'nci-' || encode(gen_random_bytes(6), 'hex'), v_noua.id, product_id, name, unit, -quantity,
          unit_price, vat_rate, -net_amount, -vat_amount, -total_amount, sort_order
     from invoice_items
    where invoice_id = v_orig.id;
@@ -1183,9 +1189,9 @@ begin
           v_orig.id, p_de, p_de,
           'emisa', 'pms-storno-' || v_orig.id, p_numar, p_link, now())
   returning * into v_noua;
-  insert into invoice_items (id, invoice_id, product_id, name, quantity, unit_price, vat_rate,
+  insert into invoice_items (id, invoice_id, product_id, name, unit, quantity, unit_price, vat_rate,
                              net_amount, vat_amount, total_amount, sort_order)
-  select 'nci-' || encode(gen_random_bytes(6), 'hex'), v_noua.id, product_id, name, -quantity,
+  select 'nci-' || encode(gen_random_bytes(6), 'hex'), v_noua.id, product_id, name, unit, -quantity,
          unit_price, vat_rate, -net_amount, -vat_amount, -total_amount, sort_order
     from invoice_items
    where invoice_id = v_orig.id;

@@ -40,6 +40,14 @@ describe("liniiDinCamere — detaliat pe camere", () => {
     expect(prima.productId).toBe("p1");
   });
 
+  it("pune pe fiecare linie unitatea produsului ei", () => {
+    const produse = [{ id: "p1", unit: "noapte" }];
+    const linii = liniiDinCamere(CAMERE, "camere", "G", produse);
+    expect(linii.map((l) => l.unit)).toEqual(["noapte", "noapte", "noapte"]);
+    /* Fără nomenclator nu ghicește: „buc", ca în funcția edge. */
+    expect(liniiDinCamere(CAMERE, "camere", "G").map((l) => l.unit)).toEqual(["buc", "buc", "buc"]);
+  });
+
   it("sare peste camerele fără poziții de facturat", () => {
     const cu = [...CAMERE, { camera: { name: "1003" }, pozitii: [] }];
     expect(liniiDinCamere(cu, "camere", "G").length).toBe(3);
@@ -53,6 +61,10 @@ describe("liniiDinCamere — doar totalul", () => {
     expect(linii[0].name).toBe("Servicii de cazare · grupul Excursie Cluj");
     expect(linii[0].totalAmount).toBe(660);
     expect(linii[0].quantity).toBe(1);
+    /* „1 noapte" pentru tot sejurul a două camere ar fi fals: linia de total
+       își are unitatea ei, chiar dacă produsul e cazarea. */
+    expect(linii[0].unit).toBe("serv");
+    expect(liniiDinCamere(CAMERE, "total", "G", [{ id: "p1", unit: "noapte" }])[0].unit).toBe("serv");
     expect(linii[0].sourceIds).toEqual(["a", "b", "c"]);
   });
 

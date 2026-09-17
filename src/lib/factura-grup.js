@@ -6,6 +6,7 @@
  * folosește e `features/facturare/grup.jsx`.
  */
 import { calcAmounts, round2 } from "./money.js";
+import { unitateProdus, UM_TOTAL_GRUP } from "./unitate.js";
 
 /**
  * @typedef {{ id: string, name: string, category: string, product_id?: string|null,
@@ -18,8 +19,9 @@ import { calcAmounts, round2 } from "./money.js";
  * @param {CameraDeFacturat[]} camere
  * @param {"camere"|"total"} mod
  * @param {string} numeGrup
+ * @param {{ id: string, unit?: string|null }[]} [produse] nomenclatorul, pentru unitatea de măsură
  */
-export function liniiDinCamere(camere, mod, numeGrup) {
+export function liniiDinCamere(camere, mod, numeGrup, produse = []) {
   const alese = camere.filter((c) => c.pozitii.length);
 
   /* „Detaliat pe camere": fiecare poziție rămâne o linie, cu numărul camerei
@@ -30,6 +32,7 @@ export function liniiDinCamere(camere, mod, numeGrup) {
       name: `${p.name} · camera ${c.camera?.name || "?"}`,
       category: p.category,
       productId: p.product_id || null,
+      unit: unitateProdus(produse, p.product_id),
       quantity: Number(p.quantity),
       unitPrice: Number(p.unit_price),
       vatRate: Number(p.vat_rate),
@@ -63,6 +66,9 @@ export function liniiDinCamere(camere, mod, numeGrup) {
       name: `Servicii de cazare · grupul ${numeGrup}${maiMulteCote ? ` · TVA ${cota}%` : ""}`,
       category: g.category,
       productId: g.productId,
+      /* Nu unitatea produsului: linia adună nopți din mai multe camere într-o
+         singură poziție, iar „1 noapte" pentru tot sejurul ar fi fals. */
+      unit: UM_TOTAL_GRUP,
       quantity: 1,
       unitPrice: g.total,
       vatRate: cota,

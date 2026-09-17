@@ -175,6 +175,11 @@ describe("factura", () => {
  * „Marfa" / „buc" fiindca linia n-are produs propriu (liniile scrise inainte
  * ca invoice_items.product_id sa fie completat). */
 describe("formeazaLinie", () => {
+  it("unitatea scrisă pe linie trece înaintea produsului", () => {
+    expect(formeazaLinie({ name: "Servicii de cazare · grupul X", unit: "serv", products: { unit: "noapte", category: "cazare" } }))
+      .toMatchObject({ unit: "serv", category: "cazare" });
+  });
+
   it("produsul liniei da unitatea si categoria", () => {
     expect(formeazaLinie({ name: "Cazare", products: { unit: "noapte", category: "cazare" } }))
       .toEqual({ name: "Cazare", products: { unit: "noapte", category: "cazare" }, unit: "noapte", category: "cazare" });

@@ -1301,6 +1301,10 @@ label.field input, label.field select, label.field textarea{ cursor:auto; }
 }
 .inv-top{ display:flex; align-items:flex-start; justify-content:space-between; gap:24px; padding:32px 40px 0; }
 .inv-top .fisa-logo-img{ height:44px; }
+/* Sub logo: site-ul și emailul, fiecare cu iconița lui. `inline-flex` pe
+   rând ține iconița pe mijlocul textului și în captura pentru PDF. */
+.inv-top-contact{ margin-top:8px; font-size:10px; color:#5a5650; line-height:1.7; }
+.inv-top-contact > div{ display:flex; align-items:center; gap:5px; }
 .inv-top-issuer{ font-size:10px; color:#5a5650; line-height:1.6; text-align:right; }
 .inv-top-issuer strong{ display:block; color:#141412; font-size:11.5px; margin-bottom:2px; }
 .inv-banner{ display:flex; align-items:center; gap:16px; margin:22px 40px 0; }
@@ -1323,6 +1327,7 @@ label.field input, label.field select, label.field textarea{ cursor:auto; }
    unde le punem, iar „Denumire" ia ce rămâne. */
 .inv-table{ width:100%; border-collapse:collapse; table-layout:fixed; }
 .inv-table .c-no{ width:34px; }
+.inv-table .c-um{ width:58px; }
 .inv-table .c-cant{ width:64px; }
 .inv-table .c-pret{ width:104px; }
 .inv-table .c-tva{ width:52px; }

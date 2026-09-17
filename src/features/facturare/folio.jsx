@@ -20,6 +20,7 @@ import { Dialog, toaster, useModalLock } from "../../ui/primitive.jsx";
 import { audit } from "../../lib/audit.js";
 import { canBilling } from "../../lib/permisiuni.js";
 import { guestFullName } from "../../lib/nume.js";
+import { unitateProdus } from "../../lib/unitate.js";
 import { emiteFactura, ensureCazareLine } from "./emitere.jsx";
 import { InvoicePrint } from "./factura.jsx";
 import { BillingCustomerPicker } from "./clienti-facturare.jsx";
@@ -337,14 +338,16 @@ export function InvoiceBuilderModal({ reservation, folio, items, core, updateCor
       // neagregate devin linii proprii. invoice_item_links tine minte,
       // pentru fiecare linie, din ce pozitii de folio provine — inclusiv
       // cand sunt mai multe (agregare) — ca sa nu poata fi refacturate.
-      // `productId` merge pana in invoice_items: Oblio ia unitatea („noapte")
-      // si tipul liniei (Serviciu / Marfa) din produs, iar fara el fiecare
-      // linie ar pleca drept „Marfa" / „buc", inclusiv cazarea.
-      const lines = []; // { name, category, productId, quantity, unit_price, vat_rate, sourceIds: [] }
+      // `productId` merge pana in invoice_items: Oblio ia tipul liniei
+      // (Serviciu / Marfa) din produs, iar fara el fiecare linie ar pleca drept
+      // „Marfa", inclusiv cazarea. `unit` e unitatea de masura, scrisa pe linie
+      // ca instantaneu — coloana „UM" de pe coala si `measuringUnit` in Oblio.
+      const lines = []; // { name, category, productId, unit, quantity, unit_price, vat_rate, sourceIds: [] }
       let cazareLine = null;
       if (cazareItem && selected.has(cazareItem.id)) {
         cazareLine = {
           name: cazareItem.name, category: "cazare", productId: cazareItem.product_id || null,
+          unit: unitateProdus(core.products, cazareItem.product_id),
           quantity: cazareItem.quantity,
           unitPrice: Number(cazareItem.unit_price), vatRate: Number(cazareItem.vat_rate),
           netAmount: Number(cazareItem.net_amount), vatAmount: Number(cazareItem.vat_amount),
@@ -367,6 +370,7 @@ export function InvoiceBuilderModal({ reservation, folio, items, core, updateCor
         } else {
           lines.push({
             name: item.name, category: item.category, productId: item.product_id || null,
+            unit: unitateProdus(core.products, item.product_id),
             quantity: Number(item.quantity),
             unitPrice: Number(item.unit_price), vatRate: Number(item.vat_rate),
             netAmount: Number(item.net_amount), vatAmount: Number(item.vat_amount),

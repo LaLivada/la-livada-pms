@@ -7,12 +7,14 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { createPortal, flushSync } from "react-dom";
-import { Check, Receipt, CreditCard, Download, Undo2, XCircle, ExternalLink, Send } from "lucide-react";
+import { Check, Receipt, CreditCard, Download, Undo2, XCircle, ExternalLink, Send, Globe, Mail } from "lucide-react";
 import * as dateFacturare from "../../data/facturare.js";
 import * as dateOblio from "../../data/oblio.js";
 import * as datePlati from "../../data/plati.js";
 import { mesajEroare } from "../../lib/errors.js";
 import { calcAmounts } from "../../lib/money.js";
+import { unitateLinie } from "../../lib/unitate.js";
+import { dinAntet } from "../../lib/emitent.js";
 import { fmtMoney, fmtDateFull } from "../../lib/format.js";
 import { dataLocala } from "../../lib/timp.js";
 import { INVOICE_STATUS_LABEL, INVOICE_STATUS_CLASS, PAYMENT_METHOD_LABEL, OBLIO_EFACTURA_LABEL, OBLIO_EFACTURA_CLASS } from "../../lib/constante.js";
@@ -27,6 +29,10 @@ import { billingCustomerLabel } from "./clienti-facturare.jsx";
    din pms.css. La captura pentru PDF coala e fortata la ea, ca proportia sa
    iasa A4 chiar daca fereastra e mai ingusta. */
 const LATIME_COALA = 794;
+
+/* Culoarea iconițelor din antet, dată explicit: html2canvas nu rezolvă
+   `currentColor` dintr-un SVG, iar în PDF iconițele ar ieși negre. */
+const CULOARE_ICONITA = "#a8842f";
 
 export function InvoicePrint({ invoiceId, core, onClose, onChanged }) {
   useModalLock();
@@ -280,11 +286,22 @@ export function InvoicePrint({ invoiceId, core, onClose, onChanged }) {
         <div className="inv-top">
           <div>
             <img src="/logo.png" alt="La Livadă" className="fisa-logo-img" />
+            {/* Sub logo: unde găsești pensiunea. Telefonul stă cu datele firmei. */}
+            <div className="inv-top-contact">
+              {dinAntet(issuer, "website") && (
+                <div><Globe size={11} color={CULOARE_ICONITA} aria-hidden="true" /> {dinAntet(issuer, "website")}</div>
+              )}
+              {dinAntet(issuer, "email") && (
+                <div><Mail size={11} color={CULOARE_ICONITA} aria-hidden="true" /> {dinAntet(issuer, "email")}</div>
+              )}
+            </div>
           </div>
           <div className="inv-top-issuer">
             <strong>{issuer.name || "—"}</strong>
             {issuer.cui && <div>CUI: {issuer.cui}{issuer.regCom ? ` · ${issuer.regCom}` : ""}</div>}
+            {dinAntet(issuer, "capitalSocial") && <div>Capital social: {dinAntet(issuer, "capitalSocial")}</div>}
             {issuer.address && <div>{issuer.address}{issuer.city ? `, ${issuer.city}` : ""}{issuer.county ? `, ${issuer.county}` : ""}</div>}
+            {issuer.phone && <div>Tel: {issuer.phone}</div>}
           </div>
         </div>
 
@@ -329,6 +346,7 @@ export function InvoicePrint({ invoiceId, core, onClose, onChanged }) {
               <tr>
                 <th className="r c-no">Nr.</th>
                 <th>Denumire</th>
+                <th className="c-um">UM</th>
                 <th className="r c-cant">Cant.</th>
                 <th className="r c-pret">Preț unitar</th>
                 <th className="r c-tva">TVA</th>
@@ -338,11 +356,12 @@ export function InvoicePrint({ invoiceId, core, onClose, onChanged }) {
             <tbody>
               {lines.map((l, i) => (
                 invoice.status === "draft" && canBilling("create_invoice") && !capturaPdf
-                  ? <InvoiceLineEditRow key={l.id} line={l} index={i} onSave={saveLine} />
+                  ? <InvoiceLineEditRow key={l.id} line={l} index={i} onSave={saveLine} unitate={unitateLinie(l, core.products)} />
                   : (
                     <tr key={l.id}>
                       <td className="r c-no">{i + 1}</td>
                       <td>{l.name}</td>
+                      <td>{unitateLinie(l, core.products)}</td>
                       <td className="r">{l.quantity}</td>
                       <td className="r">{fmtMoney(l.unit_price)}</td>
                       <td className="r">{l.vat_rate}%</td>
@@ -422,14 +441,6 @@ export function InvoicePrint({ invoiceId, core, onClose, onChanged }) {
                 {issuer.bank && <div>Bancă: {issuer.bank}</div>}
                 {issuer.iban && <div>IBAN: {issuer.iban}</div>}
                 {!issuer.bank && !issuer.iban && <div>—</div>}
-              </div>
-            </div>
-            <div>
-              <div className="inv-foot-lab">Contact</div>
-              <div className="inv-foot-line">
-                {issuer.phone && <div>{issuer.phone}</div>}
-                {issuer.email && <div>{issuer.email}</div>}
-                {!issuer.phone && !issuer.email && <div>—</div>}
               </div>
             </div>
             <div className="inv-sign">
@@ -663,7 +674,7 @@ export function InvoiceCancelCreditActions({ invoice, onChanged }) {
 // Rand editabil pentru o linie de factura draft — stare locala pana la
 // blur, ca sa nu trimitem un update la fiecare tasta apasata.
 
-export function InvoiceLineEditRow({ line, index, onSave }) {
+export function InvoiceLineEditRow({ line, index, onSave, unitate }) {
   const [name, setName] = useState(line.name);
   const [quantity, setQuantity] = useState(line.quantity);
   const [unitPrice, setUnitPrice] = useState(line.unit_price);
@@ -682,6 +693,7 @@ export function InvoiceLineEditRow({ line, index, onSave }) {
     <tr>
       <td className="r c-no">{index + 1}</td>
       <td><input className="inv-edit-input" value={name} onChange={(e) => setName(e.target.value)} onBlur={commit} /></td>
+      <td>{unitate}</td>
       <td className="r"><input className="inv-edit-input r" type="number" min="0" step="1" value={quantity} onChange={(e) => setQuantity(e.target.value)} onBlur={commit} /></td>
       <td className="r"><input className="inv-edit-input r" type="number" min="0" step="0.01" value={unitPrice} onChange={(e) => setUnitPrice(e.target.value)} onBlur={commit} /></td>
       <td className="r">{line.vat_rate}%</td>

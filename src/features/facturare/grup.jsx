@@ -105,7 +105,7 @@ export function GroupInvoiceModal({ group, reservations, core, updateCore, onClo
 
   const camereAlese = (camere || []).filter((c) => alese.has(c.rezervare.id) && c.pozitii.length);
   const total = camereAlese.reduce((s, c) => s + c.total, 0);
-  const linii = camere ? liniiDinCamere(camereAlese, mod, group.name) : [];
+  const linii = camere ? liniiDinCamere(camereAlese, mod, group.name, core.products) : [];
   const guestPrincipal = core.guests.find((g) => g.id === group.mainGuestId) || null;
 
   const salveaza = async () => {

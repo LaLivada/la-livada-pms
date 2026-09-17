@@ -153,12 +153,14 @@ export async function creeazaFacturaDinFolio({ idFolio, idClient, deLa, panaLa, 
   }).select().maybeSingle();
   if (eFactura) throw eFactura;
 
-  /* `product_id` nu e decor: functia edge citeste prin el unitatea si
-     categoria produsului, iar Oblio le foloseste ca sa stie ca o noapte de
-     cazare e „Serviciu" / „noapte", nu „Marfa" / „buc". */
+  /* `product_id` nu e decor: functia edge citeste prin el categoria
+     produsului, iar Oblio o foloseste ca sa stie ca o noapte de cazare e
+     „Serviciu", nu „Marfa". `unit` e unitatea de masura ca instantaneu: ce
+     scrie in coloana „UM" de pe coala si ce pleaca in Oblio drept
+     `measuringUnit`; o linie fara ea cade pe unitatea produsului. */
   const randuriLinii = linii.map((l, i) => ({
     id: uid(), invoice_id: factura.id, product_id: l.productId || null,
-    name: l.name, quantity: l.quantity,
+    name: l.name, unit: l.unit || null, quantity: l.quantity,
     unit_price: l.unitPrice, vat_rate: l.vatRate, net_amount: l.netAmount,
     vat_amount: l.vatAmount, total_amount: l.totalAmount, sort_order: i,
   }));

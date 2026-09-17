@@ -135,13 +135,19 @@ export interface LiniePms {
    poziția de folio legată (invoice_item_links → folio_items → products);
    altfel „buc" și categorie goală. Contează pentru că `liniiOblio` alege din
    ele `measuringUnit` și `productType`: o linie fără produs pleca la Oblio
-   drept „Marfa" / „buc", inclusiv cazarea. */
+   drept „Marfa" / „buc", inclusiv cazarea.
+
+   Unitatea scrisă PE LINIE (`invoice_items.unit`, din 17 septembrie 2026)
+   trece înaintea tuturor: e instantaneul de la crearea facturii și e ce vede
+   omul pe coala din PMS, în coloana „UM". Documentul din Oblio trebuie să
+   spună același lucru — aceeași regulă stă în `src/lib/unitate.js`, iar
+   `src/unitate-paritate.test.js` le ține laolaltă. */
 export function formeazaLinie(l: any) {
   const prod = l?.products;
   const legaturi = Array.isArray(l?.invoice_item_links) ? l.invoice_item_links : [];
   const dinFolio = legaturi.map((x: any) => x?.folio_items).find(Boolean);
   const prodFolio = dinFolio?.products;
-  return { ...l, unit: prod?.unit || prodFolio?.unit || "buc", category: prod?.category || dinFolio?.category || "" };
+  return { ...l, unit: l?.unit || prod?.unit || prodFolio?.unit || "buc", category: prod?.category || dinFolio?.category || "" };
 }
 
 export interface FacturaPms {

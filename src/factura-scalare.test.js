@@ -45,7 +45,7 @@ const FACTURA = {
   oblio_stare: null, oblio_eroare: null, created_at: "2026-09-17T00:00:00Z",
 };
 const LINII = [{
-  id: "l1", invoice_id: "inv1", name: "Cazare · camera 1001", quantity: 3, unit_price: 350,
+  id: "l1", invoice_id: "inv1", name: "Cazare · camera 1001", unit: "noapte", quantity: 3, unit_price: 350,
   vat_rate: 9, net_amount: 963.3, vat_amount: 86.7, total_amount: 1050, sort_order: 0,
 }];
 
@@ -155,7 +155,7 @@ describe("previzualizarea facturii", () => {
        chenare în jurul fiecărei valori, iar html2canvas taie coada literelor
        din ele. */
     expect(laCaptura.campuri).toBe(0);
-    expect(laCaptura.randuri).toEqual(["1|Cazare · camera 1001|3|350 lei|9%|1.050 lei"]);
+    expect(laCaptura.randuri).toEqual(["1|Cazare · camera 1001|noapte|3|350 lei|9%|1.050 lei"]);
 
     /* Iar după captură se poate edita mai departe. */
     expect(document.querySelectorAll(".inv-edit-input").length).toBe(3);
