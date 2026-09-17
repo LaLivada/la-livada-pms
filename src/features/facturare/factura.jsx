@@ -7,7 +7,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
-import { Check, Receipt, CreditCard, Printer, Undo2, XCircle, ExternalLink, Send } from "lucide-react";
+import { Check, Receipt, CreditCard, Download, Undo2, XCircle, ExternalLink, Send } from "lucide-react";
 import * as dateFacturare from "../../data/facturare.js";
 import * as dateOblio from "../../data/oblio.js";
 import * as datePlati from "../../data/plati.js";
@@ -16,11 +16,17 @@ import { calcAmounts } from "../../lib/money.js";
 import { fmtMoney, fmtDateFull } from "../../lib/format.js";
 import { dataLocala } from "../../lib/timp.js";
 import { INVOICE_STATUS_LABEL, INVOICE_STATUS_CLASS, PAYMENT_METHOD_LABEL, OBLIO_EFACTURA_LABEL, OBLIO_EFACTURA_CLASS } from "../../lib/constante.js";
-import { Dialog, toaster, useModalLock } from "../../ui/primitive.jsx";
+import { Dialog, toaster, useModalLock, PdfPreview } from "../../ui/primitive.jsx";
+import { generatePdfBlob, pregatesteFila, arataInFila, inchideFila } from "../../lib/pdf.js";
 import { audit } from "../../lib/audit.js";
 import { canBilling } from "../../lib/permisiuni.js";
 import { emiteFactura } from "./emitere.jsx";
 import { billingCustomerLabel } from "./clienti-facturare.jsx";
+
+/* Latimea colii de factura, in px, la 96dpi — aceeasi valoare ca `.inv-sheet`
+   din pms.css. La captura pentru PDF coala e fortata la ea, ca proportia sa
+   iasa A4 chiar daca fereastra e mai ingusta. */
+const LATIME_COALA = 794;
 
 export function InvoicePrint({ invoiceId, core, onClose, onChanged }) {
   useModalLock();
@@ -33,6 +39,29 @@ export function InvoicePrint({ invoiceId, core, onClose, onChanged }) {
   const [emitere, setEmitere] = useState(false);
   const [oblio, setOblio] = useState(null);
   const [spv, setSpv] = useState(false);
+  const [pdf, setPdf] = useState(null);
+  const [genereazaPdf, setGenereazaPdf] = useState(false);
+
+  /* PDF, nu window.print(). Aceeasi cale ca la lista de cazare a grupului si
+     la raportul lunar (lib/pdf.js): pe telefon window.print() nu deschide
+     nimic cand aplicatia e pornita de pe ecranul de start, iar pe desktop
+     tiparea prindea si interfata din jurul colii. `singlePage` tine factura
+     pe o singura pagina, iar `latimeFixa` e chiar latimea colii A4 la 96dpi
+     (.inv-sheet in pms.css) — se aplica doar pe durata capturii. */
+  const descarcaPdf = async () => {
+    if (genereazaPdf) return;
+    setGenereazaPdf(true);
+    /* Fila se cere in gestul de click, altfel browserul o blocheaza. */
+    const fila = pregatesteFila();
+    try {
+      const blob = await generatePdfBlob(fisaRef.current, { singlePage: true, latimeFixa: LATIME_COALA });
+      const nume = invoice.series ? `Factura-${invoice.series}-${invoice.number}.pdf` : `Factura-draft-${invoice.id}.pdf`;
+      if (!arataInFila(fila, blob)) setPdf({ blob, filename: nume });
+    } catch (e) {
+      inchideFila(fila);
+      toaster.show(mesajEroare(e, "PDF-ul nu a putut fi generat"), { tone: "danger" });
+    } finally { setGenereazaPdf(false); }
+  };
 
   const emite = async () => {
     if (emitere) return;
@@ -74,16 +103,24 @@ export function InvoicePrint({ invoiceId, core, onClose, onChanged }) {
     const wrap = scaleWrapRef.current;
     const sheet = fisaRef.current;
     if (!wrap || !sheet) return;
+    /* O latime de 0 inseamna "inca nemasurabil", nu "incape". Inainte cadea
+       pe scale = 1, iar coala de 794px ramanea la marime intreaga intr-un
+       modal de telefon, taiata de overflow:hidden si fara nicio cale de
+       derulare: factura "aparea mare" si nu se putea nici citi, nici edita.
+       Acum incercam din nou la urmatorul cadru si pastram scara de dinainte
+       pana cand chiar avem o masuratoare. */
+    let cadru = 0;
     const update = () => {
       const w = wrap.clientWidth;
-      setScale(w > 0 ? Math.min(1, w / 794) : 1);
+      if (w <= 0) { cadru = requestAnimationFrame(update); return; }
+      setScale(Math.min(1, w / LATIME_COALA));
       setSheetH(sheet.offsetHeight);
     };
     update();
     const ro = new ResizeObserver(update);
     ro.observe(wrap);
     ro.observe(sheet);
-    return () => ro.disconnect();
+    return () => { cancelAnimationFrame(cadru); ro.disconnect(); };
   }, [invoice, lines]);
 
   const load = useCallback(async () => {
@@ -193,8 +230,8 @@ export function InvoicePrint({ invoiceId, core, onClose, onChanged }) {
             <Send size={15} /> {spv ? "Se trimite…" : "Trimite în SPV"}
           </button>
         )}
-        <button className="btn btn-ghost btn-lat" onClick={() => window.print()}>
-          <Printer size={15} /> Printează
+        <button className="btn btn-ghost btn-lat" onClick={descarcaPdf} disabled={genereazaPdf}>
+          <Download size={15} /> {genereazaPdf ? "Se generează…" : "Descarcă PDF"}
         </button>
       </div>
       {invoice.status === "draft" && canBilling("issue_invoice") && (
@@ -387,6 +424,9 @@ export function InvoicePrint({ invoiceId, core, onClose, onChanged }) {
       </div>
       </div>
       </div>
+
+      {/* În afara colii: `.inv-sheet-wrap` e scalat și taie ce iese din el. */}
+      {pdf && <PdfPreview blob={pdf.blob} filename={pdf.filename} onClose={() => setPdf(null)} />}
 
       {invoice.status === "issued" && canBilling("record_payment") && (
         <RecordPaymentInline invoice={invoice} core={core} onChanged={(updated) => { setInvoice(updated); onChanged?.(updated); }} />
