@@ -19,9 +19,9 @@ import { INVOICE_STATUS_LABEL, INVOICE_STATUS_CLASS } from "../../lib/constante.
 import { Dialog, toaster, useModalLock } from "../../ui/primitive.jsx";
 import { audit } from "../../lib/audit.js";
 import { canBilling } from "../../lib/permisiuni.js";
-import { guestFullName } from "../../lib/nume.js";
+import { guestFullName, numeDelegat } from "../../lib/nume.js";
 import { unitateProdus } from "../../lib/unitate.js";
-import { emiteFactura, ensureCazareLine, delegatDinFisa } from "./emitere.jsx";
+import { emiteFactura, ensureCazareLine, delegatPentruFactura } from "./emitere.jsx";
 import { InvoicePrint } from "./factura.jsx";
 import { BillingCustomerPicker } from "./clienti-facturare.jsx";
 
@@ -383,7 +383,7 @@ export function InvoiceBuilderModal({ reservation, folio, items, core, updateCor
         idFolio: folio.id, idClient: custId,
         deLa: reservation.checkin, panaLa: reservation.checkout,
         linii: lines, creatDe: audit.user?.id || null,
-        delegat: await delegatDinFisa(reservation.id, guestFullName(guest)),
+        delegat: await delegatPentruFactura(reservation.id, numeDelegat(reservation, core)),
       });
 
       await audit.push("Factură creată (draft)", `${fmtMoney(total)} · ${nrLinii} poziții`, { roomId: reservation.roomId, reservationId: reservation.id });

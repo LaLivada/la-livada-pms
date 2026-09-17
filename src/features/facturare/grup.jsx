@@ -29,10 +29,10 @@ import { mesajEroare } from "../../lib/errors.js";
 import { fmtMoney, fmtDate } from "../../lib/format.js";
 import { isLive } from "../../lib/availability.js";
 import { liniiDinCamere } from "../../lib/factura-grup.js";
-import { guestFullName } from "../../lib/nume.js";
+import { guestFullName, numeDelegat } from "../../lib/nume.js";
 import { Dialog, useModalLock } from "../../ui/primitive.jsx";
 import { audit } from "../../lib/audit.js";
-import { ensureCazareLine, delegatDinFisa } from "./emitere.jsx";
+import { ensureCazareLine, delegatPentruFactura } from "./emitere.jsx";
 import { BillingCustomerPicker } from "./clienti-facturare.jsx";
 
 /* Camerele grupului, cu folio-ul și pozițiile nefacturate ale fiecăreia.
@@ -135,13 +135,15 @@ export function GroupInvoiceModal({ group, reservations, core, updateCore, onClo
       const deLa = camereAlese.map((c) => c.rezervare.checkin).sort()[0];
       const panaLa = camereAlese.map((c) => c.rezervare.checkout).sort().slice(-1)[0];
 
-      /* Delegatul grupului: oaspetele principal, daca e printre camerele
-         alese; altfel cel al primei camere. */
+      /* Delegatul grupului: ocupantul camerei oaspetelui principal, daca e
+         printre camerele alese; altfel al primei camere. La un grup, camera
+         are aproape mereu un ocupant scris — el e cel care primeste factura,
+         nu firma care a rezervat. */
       const camPrincipal = camereAlese.find((c) => c.rezervare.guestId === group.mainGuestId) || ancora;
       const { factura, total: totalFactura, nrLinii } = await dateFacturare.creeazaFacturaDinFolio({
         idFolio: ancora.folio.id, idClient, deLa, panaLa,
         linii, creatDe: audit.user?.id || null,
-        delegat: await delegatDinFisa(camPrincipal.rezervare.id, guestFullName(guestPrincipal)),
+        delegat: await delegatPentruFactura(camPrincipal.rezervare.id, numeDelegat(camPrincipal.rezervare, core) || guestFullName(guestPrincipal)),
       });
 
       await audit.push("Factură de grup creată (draft)",

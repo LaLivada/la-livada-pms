@@ -76,24 +76,28 @@ async function emiteFacturaOblio(invoice) {
   return updated;
 }
 
-/* Delegatul propus pentru o factură nouă: cel cazat, cu actul lui de
-   identitate, luat din fișa de cazare a rezervării.
+/* Delegatul propus pentru o factură nouă.
 
-   Numai pentru buletin: fișa ține și pașaport sau permis (`act_tip`), iar
-   rubrica de pe factură scrie „CI seria … nr. …" — un număr de pașaport
-   trecut acolo ar fi o afirmație falsă pe un document fiscal. Fără fișă, sau
-   cu alt act, rămâne doar numele, iar recepția completează pe draft.
+   NUMELE vine de la apelant (`numeDelegat` din lib/nume.js): cel care stă în
+   cameră — ocupantul, la o cameră de grup, altfel clientul pe care s-a făcut
+   rezervarea. Nu se ia din fișa de cazare, deși fișa are și ea un nume:
+   fișa e a titularului actului, iar pe factură trebuie să scrie cine a
+   primit-o. ACTUL vine din fișă, singurul loc unde e.
+
+   Numai buletinul: fișa ține și pașaport sau permis (`act_tip`), iar rubrica
+   de pe factură scrie „CI seria … nr. …" — un număr de pașaport trecut acolo
+   ar fi o afirmație falsă pe un document fiscal. Cu alt act rămâne doar
+   numele, iar recepția completează pe draft.
 
    Un eșec de citire nu oprește facturarea: delegatul e o rubrică ce se poate
    completa oricând înainte de emitere, spre deosebire de linii sau client. */
-export async function delegatDinFisa(idRezervare, numeImplicit = "") {
+export async function delegatPentruFactura(idRezervare, nume = "") {
   let fisa = null;
   try { fisa = await dateFise.fisaActiva(idRezervare); }
   catch (e) { console.error("Fișa de cazare nu s-a putut citi pentru delegat", e); }
-  const nume = [fisa?.nume, fisa?.prenume].filter(Boolean).join(" ").trim();
   const buletin = fisa?.act_tip === "ci";
   return {
-    nume: nume || numeImplicit || "",
+    nume: (nume || "").trim(),
     serie: buletin ? (fisa?.act_seria || "") : "",
     numar: buletin ? (fisa?.act_numarul || "") : "",
   };
