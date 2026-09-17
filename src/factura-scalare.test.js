@@ -22,8 +22,19 @@ import { act } from "react";
 
 vi.mock("./supabase.js", () => ({ supabase: {} }));
 vi.mock("./lib/audit.js", () => ({ audit: { push: vi.fn(async () => {}), user: { id: "u1", name: "Test" } } }));
+/* `generatePdfBlob` ține minte ce era în pagină ÎN CLIPA capturii — asta
+   verifică al doilea test. */
+const laCaptura = { campuri: null, randuri: null };
 vi.mock("./lib/pdf.js", () => ({
-  generatePdfBlob: vi.fn(), pregatesteFila: vi.fn(), arataInFila: vi.fn(), inchideFila: vi.fn(),
+  generatePdfBlob: vi.fn(async () => {
+    laCaptura.campuri = document.querySelectorAll(".inv-edit-input").length;
+    laCaptura.randuri = [...document.querySelectorAll(".inv-table tbody tr")]
+      .map((tr) => [...tr.children].map((td) => td.textContent).join("|"));
+    return new Blob(["x"], { type: "application/pdf" });
+  }),
+  pregatesteFila: vi.fn(() => ({ closed: false })),
+  arataInFila: vi.fn(() => true),
+  inchideFila: vi.fn(),
 }));
 
 const FACTURA = {
@@ -120,6 +131,34 @@ describe("previzualizarea facturii", () => {
        de două treimi de pagină. */
     const rama = document.querySelector(".inv-sheet-wrap");
     expect(Math.round(parseFloat(rama.style.height))).toBe(Math.round(INALTIME_COALA * asteptat));
+
+    await act(async () => { root.unmount(); });
+  });
+
+  it("captura pentru PDF prinde liniile ca text, nu câmpurile de editare", async () => {
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    const root = createRoot(container);
+    await act(async () => {
+      root.render(React.createElement(InvoicePrint, { invoiceId: "inv1", core: CORE, onClose: () => {} }));
+    });
+    await act(async () => { await new Promise((gata) => setTimeout(gata, 5)); });
+
+    /* Draftul se editează în tabel: câmpurile sunt acolo înainte de click. */
+    expect(document.querySelectorAll(".inv-edit-input").length).toBe(3);
+
+    const buton = [...document.querySelectorAll("button")].find((b) => b.textContent.includes("Descarcă PDF"));
+    expect(buton, "butonul de PDF lipsește").toBeTruthy();
+    await act(async () => { buton.click(); });
+
+    /* În clipa capturii nu mai există niciun input: altfel PDF-ul iese cu
+       chenare în jurul fiecărei valori, iar html2canvas taie coada literelor
+       din ele. */
+    expect(laCaptura.campuri).toBe(0);
+    expect(laCaptura.randuri).toEqual(["1|Cazare · camera 1001|3|350 lei|9%|1.050 lei"]);
+
+    /* Iar după captură se poate edita mai departe. */
+    expect(document.querySelectorAll(".inv-edit-input").length).toBe(3);
 
     await act(async () => { root.unmount(); });
   });

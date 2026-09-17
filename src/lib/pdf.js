@@ -11,6 +11,32 @@
 
 import { mesajEroare } from "./errors.js";
 
+/* Oprește transformările de pe strămoșii unui element și întoarce funcția
+   care le pune la loc.
+
+   De ce: pe ecran coala facturii e micșorată cu `transform: scale(...)` ca să
+   încapă în fereastră, iar html2canvas ia dimensiunea VIZUALĂ a elementului,
+   nu pe cea din așezare. Pe 17 septembrie 2026 factura a ieșit într-un canvas
+   de 343px în loc de 794 — conținutul unei coli A4 înghesuit pe o treime din
+   lățime, cu literele călcate una peste alta. Se vedea doar în PDF, fiindcă pe
+   ecran scalarea e tocmai ce trebuie.
+
+   Elementul capturat NU e atins: dacă are el însuși o transformare, aia face
+   parte din cum arată documentul. Se opresc doar strămoșii, care țin de cum e
+   așezat el în pagină.
+   @param {HTMLElement} el
+   @returns {() => void} */
+export function opresteTransformarile(el) {
+  const oprite = [];
+  for (let nod = el?.parentElement; nod; nod = nod.parentElement) {
+    if (getComputedStyle(nod).transform !== "none") {
+      oprite.push([nod, nod.style.transform]);
+      nod.style.transform = "none";
+    }
+  }
+  return () => { for (const [nod, valoare] of oprite) nod.style.transform = valoare; };
+}
+
 export async function generatePdfBlob(el, opts = {}) {
   if (!el) return null;
   const { singlePage = false, latimeFixa = 0 } = opts;
@@ -47,6 +73,8 @@ export async function generatePdfBlob(el, opts = {}) {
      s-ar aseza altfel in clona decat in pagina reala. */
   const latimeInitiala = el.style.width;
   if (latimeFixa) el.style.width = `${latimeFixa}px`;
+  // Vezi `opresteTransformarile`: si ea doar cat tine captura.
+  const reporneste = opresteTransformarile(el);
   let canvas;
   try {
     canvas = await html2canvas(el, {
@@ -64,6 +92,7 @@ export async function generatePdfBlob(el, opts = {}) {
     /* `finally`, nu dupa apel: daca html2canvas arunca, documentul ar
        ramane inghetat la latimea de tiparire pe ecranul utilizatorului. */
     if (latimeFixa) el.style.width = latimeInitiala;
+    reporneste();
   }
   const imgData = canvas.toDataURL("image/png");
 

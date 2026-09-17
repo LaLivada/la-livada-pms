@@ -6,7 +6,7 @@
  */
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { createPortal } from "react-dom";
+import { createPortal, flushSync } from "react-dom";
 import { Check, Receipt, CreditCard, Download, Undo2, XCircle, ExternalLink, Send } from "lucide-react";
 import * as dateFacturare from "../../data/facturare.js";
 import * as dateOblio from "../../data/oblio.js";
@@ -45,6 +45,10 @@ export function InvoicePrint({ invoiceId, core, onClose, onChanged }) {
   const [spv, setSpv] = useState(false);
   const [pdf, setPdf] = useState(null);
   const [genereazaPdf, setGenereazaPdf] = useState(false);
+  /* Cat tine captura, liniile se arata ca pe o factura emisa: fara campuri
+     de editare. Altfel PDF-ul unui draft iese cu chenare de input in jurul
+     fiecarei valori, iar html2canvas taie coada literelor din ele. */
+  const [capturaPdf, setCapturaPdf] = useState(false);
 
   /* PDF, nu window.print(). Aceeasi cale ca la lista de cazare a grupului si
      la raportul lunar (lib/pdf.js): pe telefon window.print() nu deschide
@@ -57,6 +61,9 @@ export function InvoicePrint({ invoiceId, core, onClose, onChanged }) {
     setGenereazaPdf(true);
     /* Fila se cere in gestul de click, altfel browserul o blocheaza. */
     const fila = pregatesteFila();
+    /* `flushSync`, nu un simplu `setState`: randarea fara campuri trebuie
+       sa fie deja in pagina cand incepe captura. */
+    flushSync(() => setCapturaPdf(true));
     try {
       const blob = await generatePdfBlob(fisaRef.current, { singlePage: true, latimeFixa: LATIME_COALA });
       const nume = invoice.series ? `Factura-${invoice.series}-${invoice.number}.pdf` : `Factura-draft-${invoice.id}.pdf`;
@@ -64,7 +71,7 @@ export function InvoicePrint({ invoiceId, core, onClose, onChanged }) {
     } catch (e) {
       inchideFila(fila);
       toaster.show(mesajEroare(e, "PDF-ul nu a putut fi generat"), { tone: "danger" });
-    } finally { setGenereazaPdf(false); }
+    } finally { setCapturaPdf(false); setGenereazaPdf(false); }
   };
 
   const emite = async () => {
@@ -330,7 +337,7 @@ export function InvoicePrint({ invoiceId, core, onClose, onChanged }) {
             </thead>
             <tbody>
               {lines.map((l, i) => (
-                invoice.status === "draft" && canBilling("create_invoice")
+                invoice.status === "draft" && canBilling("create_invoice") && !capturaPdf
                   ? <InvoiceLineEditRow key={l.id} line={l} index={i} onSave={saveLine} />
                   : (
                     <tr key={l.id}>
