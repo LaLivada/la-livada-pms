@@ -376,6 +376,16 @@ end; $$;
 -- confirm_card_payment — chemată doar de netopia-ipn (service_role), la
 -- succesul plății. Face ce face confirm_public_booking, plus scrie
 -- datele plății. Idempotentă: un IPN dublu nu strică nimic.
+--
+-- CURSA cancel/IPN. Oaspetele poate anula ținerea (cancel_public_booking)
+-- SAU camera poate expira (expira_rezervari_neconfirmate) chiar în
+-- fereastra dintre „a plătit pe pagina NETOPIA” și „IPN-ul a ajuns la noi”.
+-- Cardul a fost totuși taxat — banii sunt reali, chiar dacă rezervarea nu
+-- mai există. De-asta scriem `plata_status='platit'` ȘI în aceste două
+-- cazuri (fără să reînviem rezervarea): altfel booking_refund_payload n-ar
+-- găsi niciodată nimic de rambursat, iar plata ar rămâne needetectată.
+-- netopia-ipn răspunde la `already_paid_but` din răspuns trimițând avizul
+-- de rambursare mai departe — vezi Task 4.
 -- =====================================================================
 create or replace function confirm_card_payment(p_token text, p_ntp_id text, p_amount numeric)
 returns jsonb language plpgsql security definer set search_path = public as $$
@@ -390,15 +400,17 @@ begin
     return jsonb_build_object('success', true, 'repeat', true, 'status', 'confirmed',
       'confirmationNumber', v_b.confirmation_number);
   end if;
-  if v_b.status = 'cancelled' then
-    -- Plata a venit după ce oaspetele (sau timpul) a anulat deja ținerea.
-    -- Nu forțăm nimic peste — rămâne pe seama omului, la netopia-refund-notice.
-    return jsonb_build_object('success', false, 'status', 'cancelled',
-      'confirmationNumber', v_b.confirmation_number);
-  end if;
-  if v_b.status = 'expired' then
-    return jsonb_build_object('success', false, 'status', 'expired',
-      'confirmationNumber', v_b.confirmation_number);
+  if v_b.status in ('cancelled', 'expired') then
+    -- Rezervarea nu mai există, dar plata a reușit — consemnăm suma, ca să
+    -- poată fi găsită de booking_refund_payload. Nu atingem reservations:
+    -- camera rămâne eliberată, exact ce s-a întâmplat deja.
+    if v_b.plata_status is distinct from 'platit' then
+      update public_bookings
+         set plata_status = 'platit', netopia_ntp_id = p_ntp_id, suma_platita = p_amount
+       where id = v_b.id;
+    end if;
+    return jsonb_build_object('success', false, 'status', v_b.status,
+      'confirmationNumber', v_b.confirmation_number, 'platitDupaAnulare', true);
   end if;
 
   update reservations set status = 'confirmed', hold_expires_at = null
@@ -438,15 +450,28 @@ end; $$;
 -- conține adresa clientului.
 -- Întoarce NULL dacă rezervarea nu e într-o stare cu ceva de rambursat —
 -- funcția care o cheamă tratează asta ca „nimic de făcut”, nu ca eroare.
+--
+-- SUMA DE RAMBURSAT depinde de CINE a pierdut camera:
+--   · 'cancelled' — anulare cerută (de oaspete sau de recepție): se aplică
+--     politica publicată, prima noapte se reține integral;
+--   · 'expired' — plata a reușit DUPĂ ce holdul expirase deja (cursa
+--     descrisă la confirm_card_payment); oaspetele nu a ales nimic, a
+--     plătit o cameră care s-a eliberat singură fără vina lui — se
+--     rambursează tot.
 -- =====================================================================
 create or replace function booking_refund_payload(p_token text)
 returns jsonb language plpgsql stable security definer set search_path = public as $$
-declare v_b public_bookings; v_email text; v_nume text;
+declare v_b public_bookings; v_email text; v_nume text; v_refund numeric;
 begin
   select * into v_b from public_bookings where public_token = p_token;
-  if not found or v_b.status <> 'cancelled' or v_b.plata_status <> 'platit' then
+  if not found or v_b.status not in ('cancelled', 'expired') or v_b.plata_status <> 'platit' then
     return null;
   end if;
+
+  v_refund := case
+    when v_b.status = 'expired' then v_b.total_amount
+    else greatest(v_b.total_amount - public_booking_first_night(v_b.id), 0)
+  end;
 
   select g.email, trim(coalesce(g.first_name,'') || ' ' || coalesce(g.last_name,''))
     into v_email, v_nume
@@ -454,10 +479,9 @@ begin
 
   return jsonb_build_object(
     'email', v_email, 'guestName', v_nume,
-    'confirmationNumber', v_b.confirmation_number,
+    'confirmationNumber', v_b.confirmation_number, 'status', v_b.status,
     'netopiaNtpId', v_b.netopia_ntp_id, 'sumaPlatita', v_b.suma_platita,
-    'refundSuggerat', greatest(v_b.total_amount - public_booking_first_night(v_b.id), 0),
-    'cancelledAt', v_b.cancelled_at);
+    'refundSuggerat', v_refund, 'cancelledAt', v_b.cancelled_at);
 end; $$;
 
 -- =====================================================================
@@ -941,8 +965,8 @@ git commit -m "Functia edge netopia-start: porneste plata cu cardul"
 - Create: `supabase/functions/netopia-ipn/index.ts`
 
 **Interfaces:**
-- Consumes: `decripteazaDeLaNetopia`, `interpreteazaRaspunsIpn`, `raspunsAckXml` din `../../../src/lib/netopia.js`; RPC-urile `confirm_card_payment`, `mark_card_payment_failed` (Task 1).
-- Produces: `POST /functions/v1/netopia-ipn` — primește `application/x-www-form-urlencoded` cu `env_key`/`data`/`cipher`/`iv` de la NETOPIA, întoarce XML (`Content-Type: application/xml`), status 200 mereu.
+- Consumes: `decripteazaDeLaNetopia`, `interpreteazaRaspunsIpn`, `raspunsAckXml` din `../../../src/lib/netopia.js`; RPC-urile `confirm_card_payment`, `mark_card_payment_failed` (Task 1); apelează prin `fetch` funcțiile edge `booking-email` (existentă) și `netopia-refund-notice` (Task 5, doar URL — nu există încă la momentul acestui task, dar apelul e „fire and forget", cu `.catch()`; funcționează din clipa în care Task 5 e livrat, nu blochează acest task).
+- Produces: `POST /functions/v1/netopia-ipn` — primește `application/x-www-form-urlencoded` cu `env_key`/`data`/`cipher`/`iv` de la NETOPIA, întoarce XML (`Content-Type: application/xml`), status 200 mereu. `confirm_card_payment` poate întoarce `platitDupaAnulare: true` (rezervarea a fost anulată/expirată chiar înainte ca plata să fie confirmată) — în acest caz se cheamă `netopia-refund-notice` direct din server, fără să depindă de browserul oaspetelui.
 
 - [ ] **Step 1: Scrie funcția**
 
@@ -1050,6 +1074,18 @@ Deno.serve(async (req) => {
           body: JSON.stringify({ token: rasp.orderId }),
         }).catch((e) => console.warn("netopia-ipn: emailul de confirmare nu a putut fi trimis", e));
       }
+      if (rez?.platitDupaAnulare) {
+        // Cursa descrisă la confirm_card_payment: plata a reușit după ce
+        // rezervarea dispăruse deja (anulată sau expirată). Browserul
+        // oaspetelui nu mai e pe pagina de anulare ca să declanșeze
+        // avizul — îl trimitem noi, direct, ca Ovidiu să nu piardă banii
+        // din vedere.
+        fetch(`${SUPABASE_URL}/functions/v1/netopia-refund-notice`, {
+          method: "POST",
+          headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ token: rasp.orderId }),
+        }).catch((e) => console.warn("netopia-ipn: avizul de rambursare nu a putut fi trimis", e));
+      }
       await incheie("ok", `Plată confirmată. Acțiune: ${rasp.actiune}.`, rasp.orderId);
     } else if (esuat) {
       await admin.rpc("mark_card_payment_failed", { p_token: rasp.orderId });
@@ -1083,7 +1119,7 @@ git commit -m "Functia edge netopia-ipn: proceseaza notificarea de plata"
 - Create: `supabase/functions/netopia-refund-notice/index.ts`
 
 **Interfaces:**
-- Consumes: RPC `booking_refund_payload` (Task 1).
+- Consumes: RPC `booking_refund_payload` (Task 1). Chemată fie de frontend (după o anulare din interfață), fie de `netopia-ipn` însuși (Task 4, când plata a reușit după ce rezervarea era deja anulată/expirată) — nu presupune un anumit apelant.
 - Produces: `POST /functions/v1/netopia-refund-notice { token }` → `{ ok: true, notice: boolean }`.
 
 - [ ] **Step 1: Scrie funcția**
