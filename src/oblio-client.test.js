@@ -5,7 +5,7 @@
  * tacut: o factura cu alta cota, alt client sau alt total decat in PMS. */
 import { describe, it, expect } from "vitest";
 import {
-  obtineToken, tokenValabil, cereOblio, alegeCota, aziBucuresti, ziRo, clientOblio, liniiOblio,
+  obtineToken, tokenValabil, cereOblio, alegeCota, normalizeazaCote, aziBucuresti, ziRo, clientOblio, liniiOblio,
   facturaOblio, stornoOblio, anulareOblio, raspunsEmitere, formeazaLinie, EroareOblio, PERMISIUNI,
 } from "../supabase/functions/oblio-facturare/oblio.ts";
 
@@ -71,6 +71,24 @@ describe("cereOblio", () => {
 });
 
 describe("cote si date", () => {
+  /* Nomenclatorul lor scrie procentul in `percent`; `percentage` e campul de
+     la produse. Citit gresit, Number(undefined) da NaN, NaN nu e egal cu
+     nimic, deci alegeCota n-ar gasi nicio cota si nicio factura n-ar pleca. */
+  it("citeste procentul din percent, cum il trimite Oblio", () => {
+    const brut = [{ name: "Normala", percent: 21, default: true }, { name: "Redusa", percent: 11 }];
+    expect(normalizeazaCote(brut)).toEqual([
+      { name: "Normala", percentage: 21, default: true },
+      { name: "Redusa", percentage: 11, default: false },
+    ]);
+    // Si cota normalizata chiar se potriveste — legatura care era rupta.
+    expect(alegeCota(normalizeazaCote(brut), 21).name).toBe("Normala");
+  });
+  it("accepta si percentage, si arunca ce n-are procent citibil", () => {
+    expect(normalizeazaCote([{ name: "Veche", percentage: "9" }])).toEqual([{ name: "Veche", percentage: 9, default: false }]);
+    expect(normalizeazaCote([{ name: "Fara" }, { percent: 5 }])).toEqual([]);
+    expect(normalizeazaCote(null)).toEqual([]);
+    expect(normalizeazaCote({ data: [] })).toEqual([]);
+  });
   it("alege cota dupa procent, preferand-o pe cea implicita", () => {
     expect(alegeCota(COTE, 11).name).toBe("Redusa");
     expect(alegeCota([{ name: "A", percentage: 21 }, { name: "B", percentage: 21, default: true }], 21).name).toBe("B");

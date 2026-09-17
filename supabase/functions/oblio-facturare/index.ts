@@ -17,7 +17,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import {
   obtineToken, tokenValabil, cereOblio, aziBucuresti, facturaOblio, stornoOblio, anulareOblio,
-  raspunsEmitere, formeazaLinie, EroareOblio, PERMISIUNI, type Token, type SetariOblio, type CotaTva,
+  raspunsEmitere, formeazaLinie, normalizeazaCote, EroareOblio, PERMISIUNI, type Token, type SetariOblio, type CotaTva,
 } from "./oblio.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -88,8 +88,7 @@ async function setari(): Promise<SetariOblio & { activ: boolean }> {
 }
 
 async function cote(cif: string): Promise<CotaTva[]> {
-  const d = await oblio("GET", `/nomenclature/vat_rates?cif=${encodeURIComponent(cif)}`);
-  return (Array.isArray(d) ? d : []).map((c: any) => ({ name: String(c.name), percentage: Number(c.percentage), default: !!c.default }));
+  return normalizeazaCote(await oblio("GET", `/nomenclature/vat_rates?cif=${encodeURIComponent(cif)}`));
 }
 
 /* Factura + clientul + liniile, cu unitatea și categoria produsului, cum le

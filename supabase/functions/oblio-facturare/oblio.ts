@@ -82,6 +82,24 @@ export async function cereOblio(
   return json?.data ?? json;
 }
 
+/* Nomenclatorul de cote al lor scrie procentul în `percent`. `percentage`
+   apare la produse, și de acolo a fost luat din greșeală la prima scriere:
+   `Number(undefined)` dă NaN, iar NaN nu e egal cu nimic, deci `alegeCota`
+   n-ar mai fi găsit nicio cotă și nicio factură n-ar mai fi plecat. S-a
+   văzut pe 17 septembrie 2026, la „Verifică legătura": ecranul arăta cotele
+   fără procent. Citim amândouă numele, ca o redenumire la ei să nu ne mai
+   coste o zi. O intrare fără procent citibil se aruncă: nepotrivindu-se
+   niciodată, ar fi doar o cotă fantomă în listă. */
+export function normalizeazaCote(date: unknown): CotaTva[] {
+  return (Array.isArray(date) ? date : [])
+    .map((c: any) => ({
+      name: String(c?.name ?? ""),
+      percentage: Number(c?.percent ?? c?.percentage),
+      default: !!c?.default,
+    }))
+    .filter((c) => c.name !== "" && Number.isFinite(c.percentage));
+}
+
 /* Cota PMS (21 / 11 / 0) → intrarea din nomenclatorul Oblio cu același
    procent; la egalitate, cea marcată implicită. Lipsă = oprim emiterea. */
 export function alegeCota(cote: CotaTva[], procent: number): CotaTva {
