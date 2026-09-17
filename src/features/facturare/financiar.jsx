@@ -48,5 +48,5 @@ export function FinancialView({ core, updateCore }) {
   if (tab === "permissions") return <div>{tabs}<BillingPermissionsView /></div>;
   if (tab === "oblio") return <div>{tabs}<OblioView core={core} /></div>;
   if (tab === "export") return <div>{tabs}<AccountingExportView core={core} /></div>;
-  return <div>{tabs}<InvoicesListView core={core} /></div>;
+  return <div>{tabs}<InvoicesListView core={core} updateCore={updateCore} /></div>;
 }

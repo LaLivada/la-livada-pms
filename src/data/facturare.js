@@ -146,10 +146,15 @@ export async function creeazaClientFacturare(client) {
  * totaluri. Invers, pozitiile ar deveni nefacturabile fara sa existe documentul
  * care le-a consumat — adica bani pierduti tacut.
  */
-export async function creeazaFacturaDinFolio({ idFolio, idClient, deLa, panaLa, linii, creatDe }) {
+export async function creeazaFacturaDinFolio({ idFolio, idClient, deLa, panaLa, linii, creatDe, delegat }) {
   const { data: factura, error: eFactura } = await supabase.from("invoices").insert({
     id: uid(), folio_id: idFolio, billing_customer_id: idClient, status: "draft",
     service_date_start: deLa, service_date_end: panaLa,
+    /* Delegatul vine precompletat din fisa de cazare, cand exista una; pe
+       draft se poate corecta din fereastra facturii. */
+    delegat_nume: delegat?.nume || null,
+    delegat_ci_serie: delegat?.serie || null,
+    delegat_ci_numar: delegat?.numar || null,
   }).select().maybeSingle();
   if (eFactura) throw eFactura;
 
@@ -193,6 +198,17 @@ export async function creeazaFacturaDinFolio({ idFolio, idClient, deLa, panaLa, 
   }).eq("id", factura.id).select().maybeSingle();
   if (eFinala) throw eFinala;
   return { factura: finala, total, nrLinii: linii.length };
+}
+
+/* Delegatul unui draft. Trei campuri, scrise impreuna: e o rubrica, nu trei
+   setari. Pe o factura emisa scrierea e refuzata de guard_invoice_update —
+   delegatul face parte din documentul tiparit. */
+export async function salveazaDelegat(idFactura, { nume, serie, numar }) {
+  const { data, error } = await supabase.from("invoices").update({
+    delegat_nume: nume || null, delegat_ci_serie: serie || null, delegat_ci_numar: numar || null,
+  }).eq("id", idFactura).select().maybeSingle();
+  if (error) throw error;
+  return data;
 }
 
 /* Seria activa de facturare. Intoarce null daca nu e configurata niciuna —

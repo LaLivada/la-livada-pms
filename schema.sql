@@ -681,6 +681,14 @@ create table invoices (
   total_amount         numeric not null default 0,
   paid_amount          numeric not null default 0,
   notes                text,
+  -- Delegatul: cine a ridicat factura si cu ce act. Rubrica de pe orice
+  -- factura tiparita din Romania. Trei coloane, nu un text liber, ca sa se
+  -- poata precompleta din fisa de cazare si sa plece structurat mai departe.
+  -- Nullable: o factura fara delegat e legala. Odata emisa, se ingheata cu
+  -- restul documentului (guard_invoice_update).
+  delegat_nume         text,
+  delegat_ci_serie     text,
+  delegat_ci_numar     text,
   credit_note_of       text references invoices(id),
   created_by           uuid references staff(user_id),
   issued_by            uuid references staff(user_id),
@@ -709,6 +717,11 @@ create index invoices_status on invoices(status);
 create index invoices_issue_date on invoices(issue_date);
 alter table invoices add constraint invoices_lungimi_text check (
   length(coalesce(notes, '')) <= 2000
+);
+alter table invoices add constraint invoices_lungimi_delegat check (
+  length(coalesce(delegat_nume, '')) <= 200
+  and length(coalesce(delegat_ci_serie, '')) <= 20
+  and length(coalesce(delegat_ci_numar, '')) <= 40
 );
 
 create table invoice_items (
@@ -895,6 +908,12 @@ begin
     or new.number is distinct from old.number
     or new.folio_id is distinct from old.folio_id
     or new.billing_customer_id is distinct from old.billing_customer_id
+    -- Delegatul e parte din documentul tiparit: cine a ridicat factura si cu
+    -- ce act. Dupa emitere nu se mai schimba, ca si clientul sau sumele; daca
+    -- a ramas necompletat, corectia trece tot prin stornare.
+    or new.delegat_nume is distinct from old.delegat_nume
+    or new.delegat_ci_serie is distinct from old.delegat_ci_serie
+    or new.delegat_ci_numar is distinct from old.delegat_ci_numar
     or new.subtotal_net is distinct from old.subtotal_net
     or new.subtotal_vat is distinct from old.subtotal_vat
     or new.total_amount is distinct from old.total_amount
@@ -1070,6 +1089,8 @@ $$;
 create or replace function oblio_amprenta_factura(p_id text)
 returns text language sql stable set search_path = public as $$
   select md5(f.billing_customer_id || '|' || f.total_amount::text || '|' ||
+             coalesce(f.delegat_nume, '') || '~' || coalesce(f.delegat_ci_serie, '') || '~' ||
+             coalesce(f.delegat_ci_numar, '') || '|' ||
              coalesce((select string_agg(i.name || '~' || i.quantity::text || '~' || i.unit_price::text || '~' || i.vat_rate::text,
                                          '|' order by i.sort_order, i.id)
                          from invoice_items i where i.invoice_id = f.id), ''))

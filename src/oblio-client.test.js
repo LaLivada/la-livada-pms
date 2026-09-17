@@ -6,7 +6,7 @@
 import { describe, it, expect } from "vitest";
 import {
   obtineToken, tokenValabil, cereOblio, alegeCota, normalizeazaCote, aziBucuresti, ziRo, clientOblio, liniiOblio,
-  facturaOblio, stornoOblio, anulareOblio, raspunsEmitere, formeazaLinie, EroareOblio, PERMISIUNI,
+  facturaOblio, stornoOblio, anulareOblio, raspunsEmitere, formeazaLinie, delegatMentiune, EroareOblio, PERMISIUNI,
 } from "../supabase/functions/oblio-facturare/oblio.ts";
 
 const raspuns = (corp, status = 200) => ({ ok: status < 400, status, json: async () => corp, text: async () => JSON.stringify(corp) });
@@ -174,6 +174,30 @@ describe("factura", () => {
 /* Ce s-ar strica tacut fara asta: o noapte de cazare plecata la Oblio drept
  * „Marfa" / „buc" fiindca linia n-are produs propriu (liniile scrise inainte
  * ca invoice_items.product_id sa fie completat). */
+describe("delegatMentiune", () => {
+  it("scrie numele si actul, cand sunt amandoua", () => {
+    expect(delegatMentiune({ delegat_nume: "Popescu Ion", delegat_ci_serie: "VS", delegat_ci_numar: "123456" }))
+      .toBe("Delegat: Popescu Ion, CI seria VS nr. 123456");
+  });
+  it("merge si numai cu numele, si numai cu actul", () => {
+    expect(delegatMentiune({ delegat_nume: "Popescu Ion" })).toBe("Delegat: Popescu Ion");
+    expect(delegatMentiune({ delegat_ci_numar: "123456" })).toBe("Delegat: CI nr. 123456");
+  });
+  it("fara delegat nu scrie nimic — altfel ar iesi „Delegat: ” pe document", () => {
+    expect(delegatMentiune({})).toBe("");
+    expect(delegatMentiune({ delegat_nume: "", delegat_ci_serie: null, delegat_ci_numar: undefined })).toBe("");
+  });
+  it("ajunge in mentiunile facturii trimise la Oblio", () => {
+    const cote = [{ name: "Normala", percentage: 11 }];
+    const p = facturaOblio(
+      { id: "inv1", delegat_nume: "Popescu Ion", delegat_ci_serie: "VS", delegat_ci_numar: "123456" },
+      { kind: "person", last_name: "Popescu", first_name: "Ion" },
+      [{ name: "Cazare", quantity: 1, unit_price: 100, vat_rate: 11, unit: "noapte", category: "cazare" }],
+      { cif: "RO1", serie: "LL" }, cote, "2026-09-17");
+    expect(p.mentions).toContain("Delegat: Popescu Ion, CI seria VS nr. 123456");
+  });
+});
+
 describe("formeazaLinie", () => {
   it("unitatea scrisă pe linie trece înaintea produsului", () => {
     expect(formeazaLinie({ name: "Servicii de cazare · grupul X", unit: "serv", products: { unit: "noapte", category: "cazare" } }))

@@ -46,7 +46,11 @@ export function billingCustomerLabel(c) {
 
 /* href pentru apel direct — tel: vrea doar cifre si "+", fara spatii. */
 
-export function BillingCustomerPicker({ value, customers, defaultLabel, onChange, onNewBillingCustomer }) {
+/* `prefixImplicit`: ce scrie inaintea clientului propus cat timp nu s-a
+   cautat nimic. Implicit „Implicit" (facturarea unei camere propune
+   oaspetele); fereastra de schimbare a clientului de pe o factura spune
+   „Clientul de acum", fiindca acolo exista deja unul. */
+export function BillingCustomerPicker({ value, customers, defaultLabel, onChange, onNewBillingCustomer, prefixImplicit = "Implicit" }) {
   const [query, setQuery] = useState("");
   const [pending, setPending] = useState(null);
   /* Ca la cautarea de oaspete: cu tastatura deschisa, rezultatele cadeau
@@ -120,7 +124,7 @@ export function BillingCustomerPicker({ value, customers, defaultLabel, onChange
               </div>
             )
           ) : (
-            <div className="note m-0">Implicit: {defaultLabel}</div>
+            <div className="note m-0">{prefixImplicit}: {defaultLabel}</div>
           )}
         </>
       )}

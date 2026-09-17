@@ -8,6 +8,7 @@
 import * as dateFacturare from "../../data/facturare.js";
 import * as dateOblio from "../../data/oblio.js";
 import * as dateFolio from "../../data/folio.js";
+import * as dateFise from "../../data/fise.js";
 import { uid } from "../../lib/uid.js";
 import { mesajEroare } from "../../lib/errors.js";
 import { calcAmounts, round2 } from "../../lib/money.js";
@@ -73,6 +74,29 @@ async function emiteFacturaOblio(invoice) {
   await audit.push("Factură emisă (Oblio)", `${updated.series} ${numar} · ${fmtMoney(invoice.total_amount)}`);
   toaster.show(`Factura ${updated.series} ${numar} a fost emisă în Oblio`, { tone: "ok" });
   return updated;
+}
+
+/* Delegatul propus pentru o factură nouă: cel cazat, cu actul lui de
+   identitate, luat din fișa de cazare a rezervării.
+
+   Numai pentru buletin: fișa ține și pașaport sau permis (`act_tip`), iar
+   rubrica de pe factură scrie „CI seria … nr. …" — un număr de pașaport
+   trecut acolo ar fi o afirmație falsă pe un document fiscal. Fără fișă, sau
+   cu alt act, rămâne doar numele, iar recepția completează pe draft.
+
+   Un eșec de citire nu oprește facturarea: delegatul e o rubrică ce se poate
+   completa oricând înainte de emitere, spre deosebire de linii sau client. */
+export async function delegatDinFisa(idRezervare, numeImplicit = "") {
+  let fisa = null;
+  try { fisa = await dateFise.fisaActiva(idRezervare); }
+  catch (e) { console.error("Fișa de cazare nu s-a putut citi pentru delegat", e); }
+  const nume = [fisa?.nume, fisa?.prenume].filter(Boolean).join(" ").trim();
+  const buletin = fisa?.act_tip === "ci";
+  return {
+    nume: nume || numeImplicit || "",
+    serie: buletin ? (fisa?.act_seria || "") : "",
+    numar: buletin ? (fisa?.act_numarul || "") : "",
+  };
 }
 
 export async function ensureCazareLine(folio, items, reservation, core) {

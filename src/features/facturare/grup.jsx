@@ -32,7 +32,7 @@ import { liniiDinCamere } from "../../lib/factura-grup.js";
 import { guestFullName } from "../../lib/nume.js";
 import { Dialog, useModalLock } from "../../ui/primitive.jsx";
 import { audit } from "../../lib/audit.js";
-import { ensureCazareLine } from "./emitere.jsx";
+import { ensureCazareLine, delegatDinFisa } from "./emitere.jsx";
 import { BillingCustomerPicker } from "./clienti-facturare.jsx";
 
 /* Camerele grupului, cu folio-ul și pozițiile nefacturate ale fiecăreia.
@@ -135,9 +135,13 @@ export function GroupInvoiceModal({ group, reservations, core, updateCore, onClo
       const deLa = camereAlese.map((c) => c.rezervare.checkin).sort()[0];
       const panaLa = camereAlese.map((c) => c.rezervare.checkout).sort().slice(-1)[0];
 
+      /* Delegatul grupului: oaspetele principal, daca e printre camerele
+         alese; altfel cel al primei camere. */
+      const camPrincipal = camereAlese.find((c) => c.rezervare.guestId === group.mainGuestId) || ancora;
       const { factura, total: totalFactura, nrLinii } = await dateFacturare.creeazaFacturaDinFolio({
         idFolio: ancora.folio.id, idClient, deLa, panaLa,
         linii, creatDe: audit.user?.id || null,
+        delegat: await delegatDinFisa(camPrincipal.rezervare.id, guestFullName(guestPrincipal)),
       });
 
       await audit.push("Factură de grup creată (draft)",

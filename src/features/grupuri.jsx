@@ -752,7 +752,7 @@ export function GroupEditor({ group, core, updateCore, groups, updateGroups, res
       )}
       {facturaNoua && (
         <div onClick={(e) => e.stopPropagation()}>
-          <InvoicePrint invoiceId={facturaNoua} core={core} onClose={() => setFacturaNoua(null)} />
+          <InvoicePrint invoiceId={facturaNoua} core={core} updateCore={updateCore} onClose={() => setFacturaNoua(null)} />
         </div>
       )}
 

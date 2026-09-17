@@ -21,7 +21,7 @@ import { audit } from "../../lib/audit.js";
 import { canBilling } from "../../lib/permisiuni.js";
 import { guestFullName } from "../../lib/nume.js";
 import { unitateProdus } from "../../lib/unitate.js";
-import { emiteFactura, ensureCazareLine } from "./emitere.jsx";
+import { emiteFactura, ensureCazareLine, delegatDinFisa } from "./emitere.jsx";
 import { InvoicePrint } from "./factura.jsx";
 import { BillingCustomerPicker } from "./clienti-facturare.jsx";
 
@@ -236,7 +236,7 @@ export function FolioPanel({ reservation, core, updateCore, billingCustomerId, s
       )}
       {printInvoiceId && (
         <div onClick={(e) => e.stopPropagation()}>
-          <InvoicePrint invoiceId={printInvoiceId} core={core} onClose={() => setPrintInvoiceId(null)}
+          <InvoicePrint invoiceId={printInvoiceId} core={core} updateCore={updateCore} onClose={() => setPrintInvoiceId(null)}
             onChanged={(updated) => setInvoices((prev) => prev.map((x) => (x.id === updated.id ? updated : x)))} />
         </div>
       )}
@@ -383,6 +383,7 @@ export function InvoiceBuilderModal({ reservation, folio, items, core, updateCor
         idFolio: folio.id, idClient: custId,
         deLa: reservation.checkin, panaLa: reservation.checkout,
         linii: lines, creatDe: audit.user?.id || null,
+        delegat: await delegatDinFisa(reservation.id, guestFullName(guest)),
       });
 
       await audit.push("Factură creată (draft)", `${fmtMoney(total)} · ${nrLinii} poziții`, { roomId: reservation.roomId, reservationId: reservation.id });

@@ -144,8 +144,10 @@ describe("previzualizarea facturii", () => {
     });
     await act(async () => { await new Promise((gata) => setTimeout(gata, 5)); });
 
-    /* Draftul se editează în tabel: câmpurile sunt acolo înainte de click. */
-    expect(document.querySelectorAll(".inv-edit-input").length).toBe(3);
+    /* Draftul se editează pe coală: trei câmpuri pe linia de factură și trei
+       în rubrica de delegat din subsol. */
+    expect(document.querySelectorAll(".inv-table .inv-edit-input").length).toBe(3);
+    expect(document.querySelectorAll(".inv-foot-delegat .inv-edit-input").length).toBe(3);
 
     const buton = [...document.querySelectorAll("button")].find((b) => b.textContent.includes("Descarcă PDF"));
     expect(buton, "butonul de PDF lipsește").toBeTruthy();
@@ -158,7 +160,7 @@ describe("previzualizarea facturii", () => {
     expect(laCaptura.randuri).toEqual(["1|Cazare · camera 1001|noapte|3|350 lei|9%|1.050 lei"]);
 
     /* Iar după captură se poate edita mai departe. */
-    expect(document.querySelectorAll(".inv-edit-input").length).toBe(3);
+    expect(document.querySelectorAll(".inv-edit-input").length).toBe(6);
 
     await act(async () => { root.unmount(); });
   });

@@ -7,7 +7,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { createPortal, flushSync } from "react-dom";
-import { Check, Receipt, CreditCard, Download, Undo2, XCircle, ExternalLink, Send, Globe, Mail } from "lucide-react";
+import { Check, Receipt, CreditCard, Download, Undo2, XCircle, ExternalLink, Send, Globe, Mail, Search } from "lucide-react";
 import * as dateFacturare from "../../data/facturare.js";
 import * as dateOblio from "../../data/oblio.js";
 import * as datePlati from "../../data/plati.js";
@@ -23,7 +23,7 @@ import { generatePdfBlob, pregatesteFila, arataInFila, inchideFila } from "../..
 import { audit } from "../../lib/audit.js";
 import { canBilling } from "../../lib/permisiuni.js";
 import { emiteFactura } from "./emitere.jsx";
-import { billingCustomerLabel } from "./clienti-facturare.jsx";
+import { billingCustomerLabel, BillingCustomerPicker, BillingCustomerModal } from "./clienti-facturare.jsx";
 
 /* Latimea colii de factura, in px, la 96dpi — aceeasi valoare ca `.inv-sheet`
    din pms.css. La captura pentru PDF coala e fortata la ea, ca proportia sa
@@ -34,7 +34,7 @@ const LATIME_COALA = 794;
    `currentColor` dintr-un SVG, iar în PDF iconițele ar ieși negre. */
 const CULOARE_ICONITA = "#a8842f";
 
-export function InvoicePrint({ invoiceId, core, onClose, onChanged }) {
+export function InvoicePrint({ invoiceId, core, updateCore, onClose, onChanged }) {
   useModalLock();
   const [invoice, setInvoice] = useState(null);
   const [lines, setLines] = useState([]);
@@ -55,6 +55,9 @@ export function InvoicePrint({ invoiceId, core, onClose, onChanged }) {
      de editare. Altfel PDF-ul unui draft iese cu chenare de input in jurul
      fiecarei valori, iar html2canvas taie coada literelor din ele. */
   const [capturaPdf, setCapturaPdf] = useState(false);
+  /* Schimbarea clientului si adaugarea unuia nou, amandoua in ferestre
+     proprii — vezi ClientFacturaDialog. */
+  const [clientDeschis, setClientDeschis] = useState(false);
 
   /* PDF, nu window.print(). Aceeasi cale ca la lista de cazare a grupului si
      la raportul lunar (lib/pdf.js): pe telefon window.print() nu deschide
@@ -188,18 +191,45 @@ export function InvoicePrint({ invoiceId, core, onClose, onChanged }) {
     await audit.push("Linie factură modificată", `${next.name} · ${fmtMoney(totalAmount)}`);
   };
 
-  const changeBillingCustomer = async (customerId) => {
+  const changeBillingCustomer = async (customerId, clientNou = null) => {
     let updatedInvoice;
     try { updatedInvoice = await dateFacturare.schimbaClientFactura(invoice.id, customerId); }
     catch (e) { toaster.show(mesajEroare(e, "Nu am putut schimba clientul"), { tone: "danger" }); return; }
-    const cust = (core.billingCustomers || []).find((c) => c.id === customerId) || null;
+    /* Clientul proaspat creat nu e inca in `core`-ul acestei randari. */
+    const cust = clientNou || (core.billingCustomers || []).find((c) => c.id === customerId) || null;
     setInvoice(updatedInvoice);
     setCustomer(cust);
     onChanged?.(updatedInvoice);
     await audit.push("Client de facturare schimbat", cust ? billingCustomerLabel(cust) : "—");
   };
 
+  const salveazaDelegat = async (delegat) => {
+    let actualizata;
+    try { actualizata = await dateFacturare.salveazaDelegat(invoice.id, delegat); }
+    catch (e) { toaster.show(mesajEroare(e, "Nu am putut salva datele delegatului"), { tone: "danger" }); return; }
+    setInvoice(actualizata);
+    onChanged?.(actualizata);
+    await audit.push("Delegat factură completat",
+      [delegat.nume, delegat.serie && `CI seria ${delegat.serie}`, delegat.numar && `nr. ${delegat.numar}`]
+        .filter(Boolean).join(" · ") || "—");
+  };
+
+  /* Clientul nou se scrie in `core` (updateCore il duce in billing_customers)
+     si se pune pe loc pe factura — altfel omul l-ar adauga si tot n-ar vedea
+     nicio schimbare pe coala. */
+  const adaugaClient = async (client) => {
+    if (!(core.billingCustomers || []).some((c) => c.id === client.id)) {
+      await updateCore?.({ ...core, billingCustomers: [...(core.billingCustomers || []), client] });
+      await audit.push("Client de facturare adăugat", billingCustomerLabel(client));
+    }
+    await changeBillingCustomer(client.id, client);
+  };
+
   const issuer = core.invoiceIssuer || {};
+  /* Ce se poate atinge pe coală ACUM: un draft, cu permisiune, în afara
+     capturii pentru PDF (acolo coala trebuie să arate ca un document, nu ca
+     un formular). */
+  const editabilAcum = invoice?.status === "draft" && canBilling("create_invoice") && !capturaPdf;
   const vatGroups = {};
   lines.forEach((l) => {
     const k = Number(l.vat_rate);
@@ -286,7 +316,8 @@ export function InvoicePrint({ invoiceId, core, onClose, onChanged }) {
         <div className="inv-top">
           <div>
             <img src="/logo.png" alt="La Livadă" className="fisa-logo-img" />
-            {/* Sub logo: unde găsești pensiunea. Telefonul stă cu datele firmei. */}
+            {/* Sub logo, pe același rând: unde găsești pensiunea. Telefonul stă
+                cu datele firmei, în dreapta. */}
             <div className="inv-top-contact">
               {dinAntet(issuer, "website") && (
                 <div><Globe size={11} color={CULOARE_ICONITA} aria-hidden="true" /> {dinAntet(issuer, "website")}</div>
@@ -323,12 +354,10 @@ export function InvoicePrint({ invoiceId, core, onClose, onChanged }) {
               </>
             ) : <div className="inv-party-line">—</div>}
             {invoice.status === "draft" && canBilling("create_invoice") && (
-              <select className="inv-client-select no-print" value={invoice.billing_customer_id || ""} onChange={(e) => changeBillingCustomer(e.target.value)}>
-                <option value="" disabled>Schimbă clientul…</option>
-                {(core.billingCustomers || []).map((c) => (
-                  <option key={c.id} value={c.id}>{billingCustomerLabel(c)}{c.kind === "company" ? " · firmă" : ""}</option>
-                ))}
-              </select>
+              <button type="button" className="btn btn-ghost btn-mic no-print inv-client-btn"
+                onClick={() => setClientDeschis(true)}>
+                <Search size={13} /> Schimbă clientul
+              </button>
             )}
           </div>
           <div className="inv-nums">
@@ -345,8 +374,8 @@ export function InvoicePrint({ invoiceId, core, onClose, onChanged }) {
             <thead>
               <tr>
                 <th className="r c-no">Nr.</th>
-                <th>Denumire</th>
-                <th className="c-um">UM</th>
+                <th>Denumire produs/serviciu</th>
+                <th className="c-um">U.M.</th>
                 <th className="r c-cant">Cant.</th>
                 <th className="r c-pret">Preț unitar</th>
                 <th className="r c-tva">TVA</th>
@@ -355,7 +384,7 @@ export function InvoicePrint({ invoiceId, core, onClose, onChanged }) {
             </thead>
             <tbody>
               {lines.map((l, i) => (
-                invoice.status === "draft" && canBilling("create_invoice") && !capturaPdf
+                editabilAcum
                   ? <InvoiceLineEditRow key={l.id} line={l} index={i} onSave={saveLine} unitate={unitateLinie(l, core.products)} />
                   : (
                     <tr key={l.id}>
@@ -373,7 +402,7 @@ export function InvoicePrint({ invoiceId, core, onClose, onChanged }) {
           </table>
           {invoice.status === "draft" && canBilling("create_invoice") && (
             <div className="note no-print mt-6">
-              Editează denumirea, cantitatea sau prețul direct în tabel — totalul facturii se recalculează automat. O factură emisă nu se mai poate edita (doar stornare).
+              Editează denumirea, cantitatea sau prețul direct în tabel, iar datele delegatului în subsol — totalul facturii se recalculează automat. O factură emisă nu se mai poate edita (doar stornare).
             </div>
           )}
 
@@ -443,6 +472,7 @@ export function InvoicePrint({ invoiceId, core, onClose, onChanged }) {
                 {!issuer.bank && !issuer.iban && <div>—</div>}
               </div>
             </div>
+            <DelegatFactura invoice={invoice} editabil={editabilAcum} onSave={salveazaDelegat} />
             <div className="inv-sign">
               <div className="inv-sign-line" />
               <div className="inv-sign-lab">Semnătură client</div>
@@ -455,6 +485,16 @@ export function InvoicePrint({ invoiceId, core, onClose, onChanged }) {
 
       {/* În afara colii: `.inv-sheet-wrap` e scalat și taie ce iese din el. */}
       {pdf && <PdfPreview blob={pdf.blob} filename={pdf.filename} onClose={() => setPdf(null)} />}
+
+      {clientDeschis && (
+        <ClientFacturaDialog
+          core={core}
+          clientAcum={customer}
+          onAlege={async (id) => { await changeBillingCustomer(id); setClientDeschis(false); }}
+          onAdauga={async (client) => { await adaugaClient(client); setClientDeschis(false); }}
+          onClose={() => setClientDeschis(false)}
+        />
+      )}
 
       {invoice.status === "issued" && canBilling("record_payment") && (
         <RecordPaymentInline invoice={invoice} core={core} onChanged={(updated) => { setInvoice(updated); onChanged?.(updated); }} />
@@ -666,6 +706,94 @@ export function InvoiceCancelCreditActions({ invoice, onChanged }) {
             </button>
           )}
         </>
+      )}
+    </div>
+  );
+}
+
+/* Rubrica de delegat din subsolul facturii: cine a ridicat documentul si cu
+   ce act de identitate. Pe draft se completeaza direct pe coala si se salveaza
+   la iesirea din camp, ca liniile; pe o factura emisa e text, fiindca baza
+   refuza oricum scrierea (guard_invoice_update). */
+function DelegatFactura({ invoice, editabil, onSave }) {
+  const [nume, setNume] = useState(invoice.delegat_nume || "");
+  const [serie, setSerie] = useState(invoice.delegat_ci_serie || "");
+  const [numar, setNumar] = useState(invoice.delegat_ci_numar || "");
+  useEffect(() => {
+    setNume(invoice.delegat_nume || "");
+    setSerie(invoice.delegat_ci_serie || "");
+    setNumar(invoice.delegat_ci_numar || "");
+  }, [invoice.delegat_nume, invoice.delegat_ci_serie, invoice.delegat_ci_numar]);
+
+  const commit = () => {
+    const curat = { nume: nume.trim(), serie: serie.trim(), numar: numar.trim() };
+    if (curat.nume === (invoice.delegat_nume || "")
+      && curat.serie === (invoice.delegat_ci_serie || "")
+      && curat.numar === (invoice.delegat_ci_numar || "")) return;
+    onSave(curat);
+  };
+
+  if (editabil) {
+    return (
+      <div className="inv-foot-delegat">
+        <div className="inv-foot-lab">Date delegat</div>
+        <div className="inv-delegat-campuri">
+          <input className="inv-edit-input" value={nume} placeholder="Nume cazat" aria-label="Numele delegatului"
+            onChange={(e) => setNume(e.target.value)} onBlur={commit} />
+          <div className="inv-delegat-act">
+            <input className="inv-edit-input" value={serie} placeholder="Seria CI" aria-label="Seria actului de identitate"
+              onChange={(e) => setSerie(e.target.value)} onBlur={commit} />
+            <input className="inv-edit-input" value={numar} placeholder="Nr. CI" aria-label="Numărul actului de identitate"
+              onChange={(e) => setNumar(e.target.value)} onBlur={commit} />
+          </div>
+        </div>
+      </div>
+    );
+  }
+  const act = [serie && `seria ${serie}`, numar && `nr. ${numar}`].filter(Boolean).join(" ");
+  return (
+    <div className="inv-foot-delegat">
+      <div className="inv-foot-lab">Date delegat</div>
+      <div className="inv-foot-line">
+        <div>{nume || "—"}</div>
+        {act && <div>CI {act}</div>}
+      </div>
+    </div>
+  );
+}
+
+/* Schimbarea clientului de pe un draft. Sta intr-o fereastra proprie, nu pe
+   coala: coala e micsorata cu `transform` ca sa incapa in ecran, iar un camp
+   de cautare la 43% e de necitit pe telefon. Aici cautarea e la marimea ei,
+   iar daca nu gaseste pe nimeni, clientul se adauga pe loc — persoana fizica
+   sau firma, din acelasi formular ca peste tot. */
+function ClientFacturaDialog({ core, clientAcum, onAlege, onAdauga, onClose }) {
+  const [adaugare, setAdaugare] = useState(false);
+  return (
+    <div onClick={(e) => e.stopPropagation()}>
+      <Dialog onClose={onClose} title="Client de facturare">
+        {/* `value=""` dinadins: aici omul vine ca sa SCHIMBE clientul, deci
+            campul de cautare trebuie sa fie deschis din prima, nu dupa ce
+            sterge fisa celui de acum. */}
+        <BillingCustomerPicker
+          value=""
+          customers={core.billingCustomers || []}
+          defaultLabel={billingCustomerLabel(clientAcum) || "—"}
+          prefixImplicit="Clientul de acum"
+          onChange={(id) => { if (id) onAlege(id); }}
+          onNewBillingCustomer={() => setAdaugare(true)}
+        />
+        <div className="modal-actions">
+          <div className="grow" />
+          <button type="button" className="btn btn-ghost" onClick={onClose}>Închide</button>
+        </div>
+      </Dialog>
+      {adaugare && (
+        <BillingCustomerModal
+          existingCustomers={core.billingCustomers || []}
+          onSave={async (client) => { setAdaugare(false); await onAdauga(client); }}
+          onClose={() => setAdaugare(false)}
+        />
       )}
     </div>
   );

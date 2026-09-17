@@ -154,6 +154,20 @@ export interface FacturaPms {
   id: string; series?: string | null; number?: number | null; oblio_numar?: string | null;
   oblio_cheie?: string | null; notes?: string | null;
   service_date_start?: string | null; service_date_end?: string | null;
+  delegat_nume?: string | null; delegat_ci_serie?: string | null; delegat_ci_numar?: string | null;
+}
+
+/* Delegatul, ca rand de mentiuni: Oblio n-are camp propriu pentru el, dar
+   `mentions` se tipareste pe document. Asa documentul lor spune acelasi lucru
+   ca rubrica din subsolul colii din PMS. Fara delegat completat, rand gol —
+   nu scriem „Delegat: " degeaba. */
+export function delegatMentiune(f: FacturaPms): string {
+  const act = [
+    f.delegat_ci_serie ? `seria ${f.delegat_ci_serie}` : "",
+    f.delegat_ci_numar ? `nr. ${f.delegat_ci_numar}` : "",
+  ].filter(Boolean).join(" ");
+  const parti = [f.delegat_nume || "", act ? `CI ${act}` : ""].filter(Boolean);
+  return parti.length ? `Delegat: ${parti.join(", ")}` : "";
 }
 
 /* Clientul vine din billing_customers, nu din nomenclatorul lor (save: 0).
@@ -213,7 +227,7 @@ export function facturaOblio(factura: FacturaPms, client: ClientPms, linii: Lini
     : "";
   return {
     ...antet(setari, azi),
-    mentions: [perioada, factura.notes || ""].filter(Boolean).join("\n"),
+    mentions: [perioada, delegatMentiune(factura), factura.notes || ""].filter(Boolean).join("\n"),
     idempotencyKey: factura.oblio_cheie || `pms-${factura.id}`,
     client: clientOblio(client),
     products: liniiOblio(linii, cote),

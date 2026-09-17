@@ -14,7 +14,7 @@ import { INVOICE_STATUS_LABEL, INVOICE_STATUS_CLASS, OBLIO_EFACTURA_LABEL, OBLIO
 import { InvoicePrint } from "./factura.jsx";
 import { billingCustomerLabel } from "./clienti-facturare.jsx";
 
-export function InvoicesListView({ core }) {
+export function InvoicesListView({ core, updateCore }) {
   const [invoices, setInvoices] = useState(null);
   const [loadError, setLoadError] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -141,7 +141,7 @@ export function InvoicesListView({ core }) {
         </div>
       )}
       {printInvoiceId && (
-        <InvoicePrint invoiceId={printInvoiceId} core={core} onClose={() => setPrintInvoiceId(null)} onChanged={dupaModificare} />
+        <InvoicePrint invoiceId={printInvoiceId} core={core} updateCore={updateCore} onClose={() => setPrintInvoiceId(null)} onChanged={dupaModificare} />
       )}
     </div>
   );
