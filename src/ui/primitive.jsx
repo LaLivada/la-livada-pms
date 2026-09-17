@@ -27,7 +27,7 @@ export function PdfPreview({ blob, filename, onClose }) {
         {url && <iframe src={url} title={filename} className="pdf-frame" />}
       </div>
       <div className="modal-actions">
-        <span className="ldv-mic ui-nota-centrata">{marime}</span>
+        <span className="text-secundar ui-nota-centrata">{marime}</span>
         <div className="grow" />
         {url && (
           <a className="btn btn-ghost" href={url} target="_blank" rel="noopener noreferrer">

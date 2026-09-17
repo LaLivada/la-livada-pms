@@ -457,7 +457,7 @@ function OcupareZilnicaModal({ perDay, monthStart, totalCamere, onClose }) {
               </tfoot>
             </table>
 
-            <p className="ldv-mic mt-10">
+            <p className="text-secundar mt-10">
               Ziua plecării nu se numără ca noapte vândută, deci o zi cu schimb de
               oaspeți apare o singură dată. Rezervările de protocol sunt excluse.
             </p>
@@ -545,7 +545,7 @@ export function ReportsView({ core }) {
         <Stat label="ADR" value={fmtMoney(adr)} sub="tarif mediu pe noapte" delta={cuDelta(delta?.adr)} />
         <Stat label="RevPAR" value={fmtMoney(revpar)} sub="venit pe cameră disponibilă" delta={cuDelta(delta?.revpar)} />
       </div>
-      <div className="ldv-mic raport-comparatie">
+      <div className="text-secundar raport-comparatie">
         {delta
           ? `Deltele sunt față de ${etichetaAnTrecut}: ocuparea în puncte procentuale, restul în procente.`
           : `Fără cifre pentru ${etichetaAnTrecut}, deci fără comparație.`}
@@ -558,7 +558,7 @@ export function ReportsView({ core }) {
         aria-label={`Raportul zilnic pe ${FMT_MONTH_YEAR.format(monthStart)}: camere ocupate și total încasat pe zi`}>
         <div className="section-head setari-raport-cap">
           <span>Ocupare zilnică</span>
-          <span className="ldv-mic setari-raport-vezi-zile">Vezi pe zile <ArrowRight size={13} /></span>
+          <span className="setari-raport-vezi-zile">Vezi pe zile <ArrowRight size={13} /></span>
         </div>
         <div className="bar-chart">
           {perDay.map((p) => (

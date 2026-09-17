@@ -528,7 +528,7 @@ export function RoomModal({ room, onSave, onClose }) {
             )}
 
             {yale && yale.length === 0 && (
-              <div className="ldv-mic mt-8">
+              <div className="text-secundar mt-8">
                 Contul nu are nicio yală în lista TTLock. Se întâmplă când yalele
                 sunt administrate din TTHOTEL. Scrie Lock ID-ul manual (îl vezi
                 în TTHOTEL, după MAC) și apasă „Testează yala" — dacă răspunde,
@@ -586,7 +586,7 @@ export function RoomModal({ room, onSave, onClose }) {
                   </button>
                 )}
                 {typeof unlockStare === "string" && unlockStare !== "deschid" && (
-                  <div className={(unlockStare === "Ușa a fost deschisă." ? "ldv-mic" : "error-text") + " mt-8"}
+                  <div className={(unlockStare === "Ușa a fost deschisă." ? "text-secundar" : "error-text") + " mt-8"}
                     role={unlockStare === "Ușa a fost deschisă." ? undefined : "alert"}>
                     {unlockStare}
                   </div>
@@ -664,7 +664,7 @@ export function PassageModePanel({ rooms, onClose }) {
       </div>
 
       {rooms.length === 0 ? (
-        <div className="ldv-mic">
+        <div className="text-secundar">
           Nicio cameră nu are o yală asociată — configureaz-o din Editează cameră → Yală.
         </div>
       ) : (
@@ -699,8 +699,8 @@ export function PassageModePanel({ rooms, onClose }) {
                 </button>
               </div>
             )}
-            {bulkInCurs && <div className="ldv-mic mt-8">Se aplică pe rând, ca să nu suprasolicităm yalele…</div>}
-            {bulkRezultat && !bulkInCurs && <div className="ldv-mic mt-8">{bulkRezultat}</div>}
+            {bulkInCurs && <div className="text-secundar mt-8">Se aplică pe rând, ca să nu suprasolicităm yalele…</div>}
+            {bulkRezultat && !bulkInCurs && <div className="text-secundar mt-8">{bulkRezultat}</div>}
           </div>
 
           <div className="panel">

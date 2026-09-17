@@ -72,7 +72,7 @@ function OreCazareModal({ checkin, checkout, onClose, onSave }) {
         </label>
       </div>
 
-      <p className="ldv-mic mt-10">
+      <p className="text-secundar mt-10">
         Codul de acces urmează exact aceste ore: merge de la ora de sosire
         până la cea de plecare, plus minutele de grație din Setări.
         {schimbat && " Codul curent se reface automat la salvare."}
@@ -743,7 +743,7 @@ export function ReservationModal({ data, core, updateCore, reservations, updateR
               <Clock size={14} /> Orele cazării · {checkin.slice(11, 16)} → {checkout.slice(11, 16)}
             </button>
             {editing && (oraDin(checkin) !== ORA_SOSIRE_IMPLICITA || oraDin(checkout) !== ORA_PLECARE_IMPLICITA) && (
-              <div className="ldv-mic mt-6">
+              <div className="text-secundar mt-6">
                 Ore diferite de cele obișnuite ({ORA_SOSIRE_IMPLICITA}:00 → {ORA_PLECARE_IMPLICITA}:00).
                 Codul de acces urmează orele de aici.
               </div>
@@ -865,7 +865,7 @@ export function ReservationModal({ data, core, updateCore, reservations, updateR
                 onChange={(e) => setOccupantPhone(e.target.value)}
               />
             </div>
-            <div className="ldv-mic mt-6">
+            <div className="text-secundar mt-6">
               Completează doar dacă în cameră stă altcineva decât clientul.
               Codul de acces pleacă pe WhatsApp la acest număr.
             </div>

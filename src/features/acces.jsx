@@ -163,7 +163,7 @@ export function SectiuneAcces({ res, core }) {
     return (
       <div className="field">
         <label>Acces cameră</label>
-        <div className="ldv-mic acces-nota">
+        <div className="text-secundar">
           Camera {camera?.name || res.roomId} nu are o yală asociată.
           Se configurează în Setări → Camere.
         </div>
@@ -208,7 +208,7 @@ export function SectiuneAcces({ res, core }) {
           <div className="mono acces-cod-mare">
             {cod.code}
           </div>
-          <div className="ldv-mic acces-nota">
+          <div className="text-secundar">
             Valabil de la <strong>{fmtDateTime(cod.valid_from)}</strong> · până la <strong>{fmtDateTime(cod.valid_until)}</strong>
           </div>
         </div>
@@ -221,7 +221,7 @@ export function SectiuneAcces({ res, core }) {
       )}
 
       {cod && trimiteri.length > 0 && (
-        <div className="ldv-mic mt-8">
+        <div className="text-secundar mt-8">
           {trimiteri.slice(0, 4).map((t) => (
             <div key={t.id}>
               {t.channel === "email" ? "Email" : "WhatsApp"}:{" "}
@@ -269,7 +269,7 @@ export function SectiuneAcces({ res, core }) {
             const catre = destinatarWhatsapp(res, oaspete);
             const cifre = catre.cifre;
             if (!cifre) {
-              return <span className="ldv-mic acces-nota-centrata">
+              return <span className="text-secundar acces-nota-centrata">
                 Numărul de WhatsApp nu este disponibil.
               </span>;
             }

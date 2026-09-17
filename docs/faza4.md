@@ -272,11 +272,46 @@ gândit să se lipească într-un site care-i dă jetoanele lui și să arate co
 Testul a fost verificat în ambele sensuri: cu `var(--muted)` pus la loc cade
 și numește jetonul, cu corectura pusă trece.
 
-Rămâne neatins un lucru înrudit, găsit tot acum: clasa `.ldv-mic`, folosită
-în șapte ecrane ale PMS-ului, e definită doar în foaia motorului de rezervări
-(`src/booking/styles.js`) și, în PMS, doar înăuntrul lui `.panel-clickabil`.
-În rest nu face nimic — nici mărimea mai mică, nici culoarea. E o discuție de
-design, nu o corectură evidentă, așa că nu s-a atins aici.
+A ieșit la iveală atunci și un lucru înrudit, rezolvat separat: clasa
+`.ldv-mic`. Vezi 5.7.
+
+### 5.7 `.ldv-mic` devine `.text-secundar` (17 septembrie 2026)
+
+`.ldv-mic` e o clasă a motorului de rezervări, unde chiar înseamnă text mic
+și stins. Istoricul arată cum a ajuns în PMS: apare prima dată în commit-ul
+motorului public, iar două commit-uri mai târziu e copiată în PMS, fără ca
+foaia lui de stil s-o urmeze. Mai târziu cineva a definit
+`.panel-clickabil .ldv-mic` pentru rândul „Vezi pe zile" din rapoarte,
+dându-i un al doilea înțeles, de link colorat. Deci un nume, două înțelesuri
+și un gol.
+
+Cum stăteau cele 22 de folosiri din PMS înainte:
+
+| | |
+|---|---|
+| chiar stilate (rândul din rapoarte) | 1 |
+| luau doar culoarea, de la o clasă vecină | 3 |
+| nu luau nimic: mărime întreagă, culoare moștenită | 18 |
+| luau mărimea mai mică | 0 |
+
+Acum există `.text-secundar` (`--fs-sm` + `--text-muted`), scrisă o dată în
+`pms.css`, în propria ei secțiune de la începutul foii. Mărimea vine din
+jeton, nu din px ca la D2: acolo se muta un stil existent și orice jeton ar
+fi schimbat imaginea, aici se scrie unul nou, iar textul secundar al
+PMS-ului e peste tot `--fs-sm`.
+
+Restul:
+
+- 20 de locuri poartă acum `.text-secundar` și devin mai mici și stinse. Asta
+  **se vede**, și e tot rostul schimbării.
+- Rândul din rapoarte ține de-acum regula pe numele lui,
+  `.panel-clickabil .setari-raport-vezi-zile`. Nimic schimbat la vedere.
+- Notele rezervării (`vizualizare.jsx`) au rămas **nestilate**, adică exact
+  cum arătau. Acolo clasa fusese pusă greșit de la început: sub eticheta
+  „Note" stă conținutul pe care recepția trebuie să-l citească, nu un text de
+  sprijin, deci n-are ce căuta mic și stins.
+- `.acces-nota` a dispărut: nu mai spunea decât „stins", iar asta o spune
+  acum clasa nouă. `.fise-nota-info` a rămas doar cu spațiul de sub notă.
 
 ---
 

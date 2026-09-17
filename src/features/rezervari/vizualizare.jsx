@@ -103,7 +103,7 @@ export function ReservationViewModal({ reservation, core, updateCore, groups, up
       {reservation.notes && (
         <div className="field">
           <label>Note</label>
-          <div className="ldv-mic">{reservation.notes}</div>
+          <div>{reservation.notes}</div>
         </div>
       )}
 

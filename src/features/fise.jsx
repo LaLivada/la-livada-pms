@@ -156,7 +156,7 @@ export function FiseView({ core, reservations }) {
     catch (e) { toaster.show(mesajEroare(e, "Fișa nu a putut fi deschisă"), { tone: "danger" }); }
   };
 
-  if (fise === null) return <div className="ldv-mic p-18">Se încarcă…</div>;
+  if (fise === null) return <div className="text-secundar p-18">Se încarcă…</div>;
 
   return (
     <div>
@@ -262,7 +262,7 @@ function VizualizareFisa({ fisa, onClose }) {
 
       {fisa.semnatura_svg ? (
         <>
-          <div className="ldv-mic mt-12">Semnătura oaspetelui</div>
+          <div className="text-secundar mt-12">Semnătura oaspetelui</div>
           {/* Acelasi viewBox ca panza pe care s-a desenat. Alt raport ar
               deforma semnatura, iar o semnatura deformata nu mai e a
               nimanui — de aceea numerele se IAU din lib/semnatura.js, nu se
@@ -412,14 +412,14 @@ function FormularFisa({ res, core, onGata, onClose }) {
 
   return (
     <Dialog title="Completează fișa de cazare" onClose={onClose}>
-      <p className="ldv-mic mb-12">
+      <p className="text-secundar mb-12">
         Pentru oaspeții care nu pot completa singuri. Cine poate o face din
         linkul lui, unde semnează el.
       </p>
       {/* Spus pe fata, fiindca un camp deja scris nu se mai citeste: numele si
           adresa vin din rezervare si pot fi vechi, iar actul nu se
           precompleteaza niciodata — se citeste de pe documentul din mana. */}
-      <p className="ldv-mic fise-nota-info">
+      <p className="text-secundar fise-nota-info">
         Datele oaspetelui sunt luate din rezervare. Verifică-le pe actul de
         identitate și corectează unde e cazul.
       </p>
@@ -485,7 +485,7 @@ function AnuleazaFisa({ fisa, onGata, onClose }) {
 
   return (
     <Dialog title="Anulează fișa de cazare" onClose={onClose}>
-      <p className="ldv-mic">
+      <p className="text-secundar">
         Fișa nu se șterge — rămâne, marcată anulată, cu motivul de mai jos.
       </p>
       {/* Avertismentul nu e podoaba: dupa anulare linkul oaspetelui redevine

@@ -345,6 +345,21 @@
   .brand-name{ font-size:var(--fs-lg); }
 }
 
+/* ---------- Text secundar ----------
+   Textul de sprijin: explicația de sub un câmp, o stare („Se încarcă…"),
+   un subtitlu, mărimea unui fișier. Mai mic și mai stins decât informația
+   de lângă el, ca să nu-i fure atenția.
+
+   Până pe 17 septembrie 2026 locurile astea purtau `.ldv-mic`, o clasă
+   împrumutată din motorul de rezervări, unde chiar înseamnă asta. În PMS
+   n-a fost niciodată definită, deci nu făcea nimic, iar textele arătau ca
+   restul paginii. Vezi `docs/faza4.md` §5.7.
+
+   Mărimea vine din jeton, nu din px: aici nu se mută un stil existent, ci se
+   scrie unul nou, iar textul secundar al PMS-ului e peste tot `--fs-sm` (12px,
+   14px peste 1400px, din blocul „DESKTOP LAT"). */
+.text-secundar{ font-size:var(--fs-sm); color:var(--text-muted); }
+
 /* ---------- Cards / generic ---------- */
 .panel{ background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); box-shadow:var(--shadow-sm); overflow:hidden; }
 /* Un panou care chiar se apasa. `font:inherit` si `color:inherit` fiindca
@@ -354,7 +369,11 @@
   transition:box-shadow .15s, border-color .15s;
 }
 .panel-clickabil:hover{ box-shadow:var(--shadow); border-color:var(--text-muted); }
-.panel-clickabil .ldv-mic{ display:inline-flex; align-items:center; gap:4px; color:var(--accent); }
+/* Rândul „Vezi pe zile →" din piciorul unui panou apăsabil: e indiciul că
+   panoul duce undeva, deci are culoarea de accent, nu pe cea de text
+   secundar. Purta tot `.ldv-mic`, ceea ce dădea aceluiași nume două
+   înțelesuri opuse în aceeași foaie. */
+.panel-clickabil .setari-raport-vezi-zile{ display:inline-flex; align-items:center; gap:4px; color:var(--accent); }
 
 /* Tabelul de ocupare zilnica — si pe ecran, si in PDF, deci culorile sunt
    scrise direct, nu prin jetoane: foaia tiparita nu are tema intunecata. */
@@ -2672,10 +2691,10 @@ label.field input, label.field select, label.field textarea{ cursor:auto; }
    stau tot într-un .list-row, deci `.secondary.fise-…` (nu o clasă simplă). */
 .secondary.fise-linie-sumar{ margin-top:3px; }
 .secondary.fise-linie-eroare{ color:var(--danger); }
-/* Stilul inline de aici cerea var(--muted), un jeton care nu e definit
-   nicăieri în proiect; declarația pica, iar nota moștenea culoarea din jur
-   în loc să fie stinsă. Corectat în --text-muted pe 16 septembrie 2026. */
-.fise-nota-info{ margin-bottom:12px; color:var(--text-muted); }
+/* Doar spațiul de sub notă: culoarea și mărimea vin din `.text-secundar`,
+   pe care o poartă același element. Aici a stat până pe 16 septembrie 2026
+   un var(--muted) nedefinit; istoria e în docs/faza4.md §5.6. */
+.fise-nota-info{ margin-bottom:12px; }
 
 /* ---------- Grupuri (features/grupuri.jsx) ---------- */
 .grupuri-print-actions{ display:flex; gap:8px; }
@@ -2778,11 +2797,9 @@ label.field input, label.field select, label.field textarea{ cursor:auto; }
    margin-top:8px (pms.css, langa .error-text), deci inline-ul era un
    duplicat exact, fara efect vizual propriu. Niciun stil calculat aici. */
 
-/* Notă mică, stinsă, sub un câmp — „fără yală asociată" și intervalul de
-   valabilitate al codului. Stilul inline cerea var(--muted), jeton care nu
-   e definit nicăieri: declarația pica și nota moștenea culoarea din jur.
-   Corectat în --text-muted pe 16 septembrie 2026. */
-.acces-nota{ color:var(--text-muted); }
+/* `.acces-nota` a dispărut pe 17 septembrie 2026: nu mai spunea decât
+   „stins", iar asta o spune acum `.text-secundar`, pe care o poartă aceleași
+   două note. */
 /* Codul de acces, cifrele mari de deasupra butoanelor de trimitere. 26px nu
    e in scara de fonturi (…21, 25…), deci ramane in px, ca in stilul original. */
 .acces-cod-mare{ font-size:26px; font-weight:700; letter-spacing:.12em; }
