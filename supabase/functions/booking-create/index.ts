@@ -187,6 +187,7 @@ Deno.serve(async (req) => {
 
   const admin = createClient(SUPABASE_URL, SERVICE_KEY);
   const g = c?.guest || {};
+  const metodaPlata = c?.metodaPlata === "transfer" ? "transfer" : "cash";
   const { data, error } = await admin.rpc("create_public_booking", {
     p_idempotency_key: c?.idempotencyKey,
     p_checkin: c?.checkin,
@@ -202,6 +203,7 @@ Deno.serve(async (req) => {
     p_notes: c?.notes || null,
     p_hold_minutes: cuConfirmare ? MINUTE_HOLD : 0,
     p_client_ip: ip,
+    p_metoda_plata: metodaPlata,
   });
 
   if (error) {
