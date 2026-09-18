@@ -14,7 +14,7 @@
 
 import {
   randomBytes, publicEncrypt, privateDecrypt,
-  createCipheriv, createDecipheriv, constants,
+  createCipheriv, createDecipheriv, constants, X509Certificate,
 } from "node:crypto";
 import { Buffer } from "node:buffer";
 
@@ -59,21 +59,30 @@ export function construiesteXmlPlata({
    deloc acest padding pentru criptare, de-asta tot fluxul trăiește pe
    server (node:crypto), niciodată în browser.
 
-   `certificatPem` e certificatul X.509 dat de NETOPIA, nu o cheie publică
-   separată — `publicEncrypt` îl acceptă direct (OpenSSL extrage singur
-   cheia din certificat), verificat în Node. `X509Certificate(...).publicKey`
-   ar fi echivalent în Node, dar KeyObject-ul întors de Deno pentru el
-   nu e acceptat de `publicEncrypt` acolo („TypeError: Invalid key type",
-   găsit direct pe rezervari.lalivada.ro) — de-asta trecem PEM-ul mai
-   departe neschimbat, în loc să-l extragem noi. */
+   `certificatPem` e certificatul X.509 dat de NETOPIA (etichetă
+   „CERTIFICATE"), nu o cheie publică („PUBLIC KEY") — trebuie extrasă
+   explicit, altfel `publicEncrypt` refuză PEM-ul. Trei încercări reale,
+   direct pe rezervari.lalivada.ro, ca să ajungem aici:
+     1. certificatul dat neschimbat la `publicEncrypt` — Node îl acceptă
+        (OpenSSL extrage singur cheia), Deno nu: „ASN.1 error: ... expecting
+        \"PUBLIC KEY\"";
+     2. `new X509Certificate(certificatPem).publicKey` dat neschimbat la
+        `publicEncrypt` — Node îl acceptă ca KeyObject, Deno nu:
+        „TypeError: Invalid key type";
+     3. (cea de-aici) acelaşi KeyObject, dar EXPORTAT explicit ca PEM
+        („PUBLIC KEY") înainte de a-l da la `publicEncrypt` — singura formă
+        pe care ambele rulaje o accept la fel. */
 export function cripteazaPentruNetopia(xml, certificatPem) {
   const cheieAes = randomBytes(32);
   const iv = randomBytes(16);
   const cifru = createCipheriv("aes-256-cbc", cheieAes, iv);
   const data = Buffer.concat([cifru.update(xml, "utf8"), cifru.final()]);
 
+  const cheiePublica = certificatPem.includes("BEGIN CERTIFICATE")
+    ? new X509Certificate(certificatPem).publicKey.export({ type: "spki", format: "pem" })
+    : certificatPem;
   const envKey = publicEncrypt(
-    { key: certificatPem, padding: constants.RSA_PKCS1_PADDING },
+    { key: cheiePublica, padding: constants.RSA_PKCS1_PADDING },
     cheieAes,
   );
 

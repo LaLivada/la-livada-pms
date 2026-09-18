@@ -13,4 +13,8 @@ declare module "node:crypto" {
   export function createCipheriv(algorithm: string, key: any, iv: any): any;
   export function createDecipheriv(algorithm: string, key: any, iv: any): any;
   export const constants: { RSA_PKCS1_PADDING: number };
+  export class X509Certificate {
+    constructor(cert: string | any);
+    publicKey: { export(options: { type: string; format: string }): string };
+  }
 }
