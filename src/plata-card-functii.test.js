@@ -26,6 +26,7 @@ const ipn = sursa("supabase", "functions", "netopia-ipn", "index.ts");
 const email = sursa("supabase", "functions", "booking-email", "index.ts");
 const aviz = sursa("supabase", "functions", "netopia-refund-notice", "index.ts");
 const schema = sursa("schema.sql");
+const app = sursa("src", "booking", "App.jsx");
 
 describe("netopia-ipn", () => {
   it("nu confirmă pe `paid` — aia e doar o pre-autorizare", () => {
@@ -91,6 +92,20 @@ describe("netopia-refund-notice", () => {
     expect(aviz).toMatch(/d\.status === "expired"/);
     expect(aviz).toContain("De rambursat (integral");
     expect(aviz).toContain("De rambursat (minus prima noapte");
+  });
+});
+
+describe("App.jsx (ecranul de confirmare)", () => {
+  it("nu-i spune „plata la sosire” cuiva a cărui plată cu cardul s-a confirmat", () => {
+    /* Găsit pe viu, la primul test complet în sandbox: rezervarea ajunsese
+       "confirmed" prin card, dar ecranul cădea pe ramura implicită, scrisă
+       pentru cash/transfer, și spunea unui oaspete care tocmai plătise că
+       "plata se face la sosire". */
+    const i = app.indexOf("Plata se face la sosire");
+    expect(i, "textul a dispărut de tot").toBeGreaterThan(-1);
+    const vecinatate = app.slice(Math.max(0, i - 900), i);
+    expect(vecinatate, "textul nu mai stă pe o ramură după metoda de plată")
+      .toContain('confirmare.metodaPlata === "card"');
   });
 });
 

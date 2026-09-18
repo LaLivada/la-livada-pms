@@ -972,6 +972,17 @@ export default function App({ valoriInitiale }) {
               Nu s-a reținut nimic — caută din nou perioada dorită sau
               sună-ne și îți facem rezervarea pe loc.
             </div>
+          ) : confirmare.metodaPlata === "card" ? (
+            /* Singura ramură care ajunge la status "confirmed" cu cardul —
+               fără ea, orice plată reușită cădea pe ramura implicită de mai
+               jos, scrisă pentru cash/transfer, și spunea unui oaspete care
+               tocmai a plătit că "plata se face la sosire". */
+            <div className="ldv-alerta ldv-alerta-info ldv-alerta-confirmare">
+              <strong>Am primit plata — rezervarea e confirmată.</strong>
+              <p className="ldv-alerta-detalii">
+                Ți-am trimis și un email de confirmare. Te așteptăm!
+              </p>
+            </div>
           ) : (
             <div className="ldv-alerta ldv-alerta-info ldv-alerta-confirmare">
               Te contactăm telefonic pentru confirmare. Plata se face la sosire.
