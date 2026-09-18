@@ -121,6 +121,24 @@ export function ReservationModal({ data, core, updateCore, reservations, updateR
     toLocalInputValue(laOraLocala(adaugaZile(data.defaultDate ? new Date(data.defaultDate) : new Date(), 1), ORA_PLECARE_IMPLICITA, 0))
   );
   const [oreModal, setOreModal] = useState(false);
+  /* "Salvează orele" din popup-ul mic scria pana acum DOAR starea locala
+     (checkin/checkout) — omul credea ca a salvat (butonul chiar zice
+     "Salveaza"), inchidea fisa fara sa mai apese si marele "Salveaza" de
+     jos, si ora noua nu ajungea niciodata in baza. Confirmat direct: nicio
+     scriere pe reservations in jurnalul serverului cat timp raportul spunea
+     "tot nu se modifica" — cererea nu pleca deloc din browser.
+     Acum, la o rezervare EXISTENTA, popup-ul chiar salveaza: seteaza ora,
+     apoi cere un salveaza() real la urmatorul randare, cand `checkin`/
+     `checkout` chiar reflecta valoarea noua — un setState nu se vede in
+     aceeasi inchidere (acelasi motiv pentru care butoanele de check-in/out
+     dau `statusNou` explicit lui saveInner, mai jos). */
+  const salveazaOreleRef = useRef(false);
+  useEffect(() => {
+    if (!salveazaOreleRef.current) return;
+    salveazaOreleRef.current = false;
+    save();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [checkin, checkout]);
   const [grupModal, setGrupModal] = useState(false);
   const [status, setStatus] = useState(editing?.status || "confirmed");
   /* La creare: doar Cerere/Confirmata/Protocol. La editare: starile
@@ -1007,7 +1025,14 @@ export function ReservationModal({ data, core, updateCore, reservations, updateR
           <OreCazareModal
             checkin={checkin} checkout={checkout}
             onClose={() => setOreModal(false)}
-            onSave={(ci, co) => { setCheckin(ci); setCheckout(co); setOreModal(false); }}
+            onSave={(ci, co) => {
+              setCheckin(ci); setCheckout(co); setOreModal(false);
+              /* Doar la o rezervare existenta: la creare, "Salveaza orele"
+                 tot n-are ce sa trimita inca (nu exista client/camera
+                 confirmate), formularul intreg se trimite abia la
+                 "Salveaza" de jos, ca pana acum. */
+              if (editing) salveazaOreleRef.current = true;
+            }}
           />
         )}
 
