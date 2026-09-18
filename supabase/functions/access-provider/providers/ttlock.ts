@@ -18,12 +18,13 @@
 // care întoarce keyboardPwdId. `add` cere gateway (addType=2) — pensiunea
 // are, altfel această alegere ar fi fost greșită.
 //
-// Pentru schimbarea perioadei există și /v3/keyboardPwd/change, cu
-// changeType=2 prin gateway — confirmat de ghidul oficial. Deocamdată tot
-// ștergem și creăm din nou, fiindcă parametrii lui exacți nu sunt verificați;
-// efectul secundar e că oaspetele primește alt cod când i se schimbă
-// perioada. Trecerea la `change` ar păstra codul și merită făcută, dar
-// numai după ce îi citim semnătura, nu ghicind-o.
+// Pentru schimbarea DOAR a perioadei (fără cameră schimbată) se folosește
+// /v3/keyboardPwd/change, cu changeType=2 prin gateway — vezi schimbaPerioada
+// mai jos. Semnătura verificată în documentația oficială (parametrii
+// startDate/endDate sunt opționali; cei omiși — newKeyboardPwd,
+// keyboardPwdName — rămân neschimbați pe yală, exact ce trebuie aici).
+// Ștergerea și crearea din nou rămân calea pentru celelalte cazuri: cameră
+// schimbată (altă yală) sau regenerare cerută explicit de recepție.
 
 /* Regiunea contului. EU pentru pensiunea asta; documentația arată și
    api.sciener.com pentru contul global. Configurabil, ca mutarea între
@@ -279,6 +280,39 @@ export async function creeazaCod(
   const id = d?.keyboardPwdId;
   if (!id) throw new EroareTTLock("TTLock nu a întors identificatorul codului.");
   return { code: cod, externalId: String(id) };
+}
+
+/* Schimbă DOAR valabilitatea unui cod deja creat — nu cifrele lui.
+ *
+ * Cazul „Orele cazării": recepția mută sosirea sau plecarea unui sejur pe
+ * care oaspetele are deja codul, trimis pe WhatsApp sau email. Un cod nou
+ * l-ar lăsa cu mesajul greșit în mână, în fața ușii — de aceea PIN-ul rămâne
+ * neatins, doar fereastra lui pe yală se mută.
+ *
+ * `newKeyboardPwd` și `keyboardPwdName` NU se trimit: documentația spune
+ * explicit că sunt opționale și că un câmp omis rămâne neschimbat. Trimiterea
+ * unui `newKeyboardPwd` gol, de exemplu, ar fi un risc inutil — mai bine
+ * lipsă din cerere decât o valoare care s-ar putea interpreta ca „șterge
+ * codul".
+ *
+ * `apelantul` decide CÂND se cheamă asta (aceeași yală, alt interval, fără
+ * regenerare forțată — vezi actiuneCodExistent din src/lib/acces.js); aici
+ * doar se execută. */
+export async function schimbaPerioada(
+  lockId: string, keyboardPwdId: string, de: Date, pana: Date,
+): Promise<void> {
+  const accessToken = await acces();
+  await cere("/v3/keyboardPwd/change", {
+    clientId: CLIENT_ID, accessToken,
+    lockId,
+    keyboardPwdId,
+    startDate: de.getTime(),
+    endDate: pana.getTime(),
+    // 2 = prin gateway, la fel ca add/delete — apelul vine de pe server,
+    // nu de pe telefonul cu Bluetooth lângă yală (asta ar fi changeType=1).
+    changeType: 2,
+    date: Date.now(),
+  });
 }
 
 /* Șterge codul de pe yală. Fără asta, un cod ar rămâne valabil după ce

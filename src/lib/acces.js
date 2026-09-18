@@ -13,8 +13,8 @@
 /* Fusul si conversiile de ora s-au mutat in src/lib/timp.js (faza 2, B6:
    o singura definitie a „zilei" pentru tot PMS-ul). Raman exportate de aici
    pentru access-provider si pentru testele vechi. La deploy-ul functiei
-   edge, src/lib/timp.js trebuie inclus alaturi de acces.js, tranzitii.js si
-   availability.js — importurile relative merg si prin el. */
+   edge, src/lib/timp.js trebuie inclus alaturi de acces.js si tranzitii.js
+   — importurile relative merg si prin el. */
 import { FUS_HOTEL, decalajFus, laOraLocala } from "./timp.js";
 export { FUS_HOTEL, decalajFus, laOraLocala };
 
@@ -246,6 +246,41 @@ export function decideActiuneAcces(inainte, dupa) {
     new Date(inainte.checkout).getTime() !== new Date(dupa.checkout).getTime();
 
   return (altaCamera || altaPerioada) ? "reissue" : null;
+}
+
+/* Ce se întâmplă cu un cod DEJA EMIS, când `decideActiuneAcces` de mai sus a
+ * cerut un "reissue" (sau receptia a apăsat explicit „Regenerează").
+ *
+ * Trei răspunsuri, în ordinea în care se pierde din codul vechi:
+ *   "reuse"   — nimic nu s-a schimbat cu adevărat (interval ȘI yală identice
+ *               cu ce e deja pe cod): se întoarce codul existent, fără
+ *               niciun apel către yală.
+ *   "resync"  — aceeași yală, alt interval: codul (PIN-ul oaspetelui) rămâne
+ *               NESCHIMBAT, doar fereastra lui de valabilitate se mută pe
+ *               yală (`keyboardPwd/change`). Cazul „Orele cazării".
+ *   "replace" — yală diferită (camera s-a schimbat) sau regenerare cerută
+ *               explicit: codul vechi se șterge, se creează altul.
+ *
+ * De ce contează să nu se schimbe PIN-ul la o simplă mutare de oră: oaspetele
+ * a primit deja codul pe WhatsApp sau email înainte ca recepția să mute ora
+ * de plecare cu 30 de minute — un cod nou l-ar lăsa cu mesajul greșit în
+ * mână, în fața ușii.
+ *
+ * `existent` e rândul din `access_codes` AȘA CUM STĂ ÎN BAZĂ (snake_case:
+ * `lock_id`, `valid_from`, `valid_until`), nu un obiect de ecran — funcția
+ * asta rulează doar în funcția edge, care citește direct din Postgres.
+ * `fortat` vine din butonul „Regenerează codul": cere un cod nou explicit,
+ * chiar dacă intervalul n-a fost atins (vezi „Cerută explicit" în
+ * access-provider/index.ts). */
+export function actiuneCodExistent(existent, lockId, de, pana, fortat = false) {
+  if (!existent) return "replace";
+  const acelasiInterval =
+    Math.abs(new Date(existent.valid_from).getTime() - de.getTime()) < 60_000 &&
+    Math.abs(new Date(existent.valid_until).getTime() - pana.getTime()) < 60_000;
+  const acelasiLock = existent.lock_id === lockId;
+  if (!fortat && acelasiInterval && acelasiLock) return "reuse";
+  if (!fortat && acelasiLock) return "resync";
+  return "replace";
 }
 
 /* Genereaza un cod PIN.

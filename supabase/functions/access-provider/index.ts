@@ -28,12 +28,15 @@ import * as simulare from "./providers/simulare.ts";
 /* Logica pura (fus orar, sablon) sta in src/lib/acces.js, ca sa aiba o
    singura copie si sa fie testata cu vitest — vezi src/acces.test.js.
    Aici nu se rescrie, se importa. La deploy intra si dependintele lui:
-   src/lib/timp.js (fusul si conversiile de ora, din 14 septembrie 2026),
-   src/lib/tranzitii.js si src/lib/availability.js. */
+   src/lib/timp.js (fusul si conversiile de ora, din 14 septembrie 2026) si
+   src/lib/tranzitii.js (pentru cazatAcum, importat mai jos). Nu si
+   src/lib/availability.js — tranzitii.js nu mai trece prin el de cand
+   foloseste timp.js (18 septembrie 2026: deploy-ul de dinainte il bundla
+   inca, ramas dintr-o versiune veche care nu mai era cea din depozit). */
 import {
   laOraLocala, expirareCod, inceputCod, randeazaSablon, genereazaCodPin, lungimeCod, FUS_HOTEL,
   SABLON_IMPLICIT, linkOaspete, dataMesaj, numeInMesaj, NUME_HOTEL_IMPLICIT,
-  TELEFON_ASISTENTA,
+  TELEFON_ASISTENTA, actiuneCodExistent,
 } from "../../../src/lib/acces.js";
 import { cazatAcum } from "../../../src/lib/tranzitii.js";
 
@@ -437,14 +440,50 @@ Deno.serve(async (req) => {
       const pana = expirareCod(rez.checkout, s);
 
       if (existent) {
-        const acelasiInterval =
-          Math.abs(new Date(existent.valid_from).getTime() - de.getTime()) < 60_000 &&
-          Math.abs(new Date(existent.valid_until).getTime() - pana.getTime()) < 60_000;
-        if (!fortat && acelasiInterval && existent.lock_id === cam.access_lock_id) {
+        /* Cele trei drumuri posibile — vezi actiuneCodExistent din
+           src/lib/acces.js, unde e testată: "reuse" (nimic de făcut),
+           "resync" (aceeași yală, altă fereastră — codul rămâne),
+           "replace" (yală diferită sau regenerare cerută explicit). */
+        const actiune = actiuneCodExistent(existent, cam.access_lock_id, de, pana, fortat);
+
+        if (actiune === "reuse") {
           return raspuns({ ok: true, reused: true, code: existent });
         }
-        /* Perioada sau camera s-au schimbat: codul vechi nu mai are voie să
-           rămână valabil. Îl ștergem de pe yală ÎNAINTE de a crea altul. */
+
+        /* Doar orele cazării s-au schimbat, camera a rămas aceeași: codul
+           (PIN-ul) nu se atinge, doar fereastra lui de valabilitate se mută
+           pe yală. Oaspetele a primit deja codul pe WhatsApp sau email — un
+           cod nou l-ar lăsa cu mesajul greșit în mână, în fața ușii. */
+        if (actiune === "resync") {
+          try {
+            await f.api.schimbaPerioada(existent.lock_id, existent.external_id, de, pana);
+            const { data: actualizat, error: eActualizare } = await admin.from("access_codes")
+              .update({ valid_from: de.toISOString(), valid_until: pana.toISOString() })
+              .eq("id", existent.id).select().single();
+            if (eActualizare) throw new Error(eActualizare.message);
+
+            await jurnal(admin, {
+              actor, action: "actualizare perioadă cod", reservation_id: rez.id, room_id: rez.room_id,
+              provider: f.nume, lock_id: existent.lock_id, external_ref: existent.external_id,
+            });
+            return raspuns({ ok: true, reused: true, code: actualizat });
+          } catch (e) {
+            /* Yala n-a acceptat schimbarea (firmware vechi, codul nu mai
+               există pe ea etc.) — mai bine un cod nou decât unul cu
+               fereastra greșită. Cade mai jos, pe drumul "replace". */
+            await jurnal(admin, {
+              actor, action: "actualizare perioadă cod", result: "error",
+              reservation_id: rez.id, room_id: existent.room_id,
+              provider: existent.provider, lock_id: existent.lock_id,
+              detail: String((e as Error).message).slice(0, 300),
+            });
+          }
+        }
+
+        /* Camera s-a schimbat, regenerarea a fost cerută explicit, sau
+           schimbarea perioadei de mai sus a eșuat: codul vechi nu mai are
+           voie să rămână valabil. Îl ștergem de pe yală ÎNAINTE de a crea
+           altul. */
         if (existent.external_id) {
           try { await f.api.stergeCod(existent.lock_id, existent.external_id); }
           catch (e) {

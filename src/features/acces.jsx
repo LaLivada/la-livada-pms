@@ -63,8 +63,13 @@ export async function cheamaAcces(action, payload = {}) {
  *   · rezervarea a fost anulată sau marcată no-show.
  *
  * Nu decidem noi ce se întâmplă la furnizor: `issue` din funcția edge
- * recalculează perioada din rezervare, șterge codul vechi de pe yala lui
- * și creează unul nou. Aici doar recunoaștem CÂND trebuie chemat.
+ * recalculează perioada din rezervare și decide singur ce face cu codul
+ * vechi (`actiuneCodExistent` din lib/acces.js) — dacă doar orele s-au
+ * schimbat, camera fiind aceeași, codul (PIN-ul) RĂMÂNE, doar fereastra lui
+ * de valabilitate se mută pe yală; abia la schimbare de cameră se șterge
+ * codul vechi și se creează altul. Aici doar recunoaștem CÂND trebuie
+ * chemat, și citim din răspuns (`r.reused`) ce s-a întâmplat, ca mesajul
+ * spre recepție să spună adevărul.
  *
  * Ca peste tot în integrarea asta, eșecul nu răstoarnă salvarea: rezervarea
  * e deja modificată, iar recepția primește un avertisment cu ce a rămas de
@@ -99,10 +104,20 @@ export async function reconciliazaAcces(inainte, dupa, core) {
   }
 
   const r = await cheamaAcces("issue", { reservationId: dupa.id });
-  await audit.push(r?.ok ? "Cod acces actualizat" : "Actualizare cod eșuată",
-    `${camera?.name || dupa.roomId}${inainte.roomId !== dupa.roomId ? " · cameră schimbată" : " · perioadă schimbată"}`, { roomId: dupa.roomId, reservationId: dupa.id });
+  /* `r.reused`: acelasi PIN, doar fereastra lui pe yala s-a mutat (cazul
+     „doar orele s-au schimbat"). Fara distinctia asta, mesajul ar spune
+     „oaspetele are alt cod" si la o simpla mutare de ora — o minciuna care
+     ar trimite receptia sa retrimita degeaba un cod care n-a plecat nicaieri. */
+  await audit.push(
+    r?.ok ? (r.reused ? "Cod acces: valabilitate actualizată" : "Cod acces actualizat") : "Actualizare cod eșuată",
+    `${camera?.name || dupa.roomId}${inainte.roomId !== dupa.roomId ? " · cameră schimbată" : " · perioadă schimbată"}`,
+    { roomId: dupa.roomId, reservationId: dupa.id });
   if (r?.ok) {
-    toaster.show("Codul de acces a fost actualizat — oaspetele are alt cod.", { tone: "ok" });
+    toaster.show(
+      r.reused
+        ? "Perioada codului de acces a fost actualizată pe yală — oaspetele păstrează același cod."
+        : "Codul de acces a fost actualizat — oaspetele are alt cod.",
+      { tone: "ok" });
   } else {
     toaster.show(
       "Rezervarea e salvată, dar codul de acces nu a putut fi actualizat. Regenerează-l din rezervare.",

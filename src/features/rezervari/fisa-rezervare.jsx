@@ -75,7 +75,7 @@ function OreCazareModal({ checkin, checkout, onClose, onSave }) {
       <p className="text-secundar mt-10">
         Codul de acces urmează exact aceste ore: merge de la ora de sosire
         până la cea de plecare, plus minutele de grație din Setări.
-        {schimbat && " Codul curent se reface automat la salvare."}
+        {schimbat && " Dacă există deja un cod, acesta rămâne același — doar valabilitatea lui pe yală se actualizează la salvare."}
       </p>
 
       <div className="modal-actions">

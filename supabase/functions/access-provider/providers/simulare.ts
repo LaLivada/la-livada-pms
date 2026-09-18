@@ -45,6 +45,14 @@ export function creeazaCod(
   });
 }
 
+/* Nimic de schimbat pe o yală simulată — doar paritate de interfață, ca la
+   celelalte funcții de aici. */
+export function schimbaPerioada(
+  _lockId: string, _keyboardPwdId: string, _de: Date, _pana: Date,
+): Promise<void> {
+  return Promise.resolve();
+}
+
 export function stergeCod(_lockId: string, externalId: string): Promise<void> {
   if (!externalId.startsWith("sim-")) {
     /* Refuzăm să „ștergem" un cod real prin simulare: ar raporta succes

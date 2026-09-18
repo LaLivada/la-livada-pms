@@ -1,8 +1,8 @@
 import { describe, it, expect } from "vitest";
 import {
   laOraLocala, expirareCod, inceputCod, randeazaSablon, decideActiuneAcces, decalajFus,
-  genereazaCodPin, lungimeCod, SABLON_IMPLICIT, linkOaspete, dataMesaj, numeInMesaj,
-  destinatarWhatsapp,
+  actiuneCodExistent, genereazaCodPin, lungimeCod, SABLON_IMPLICIT, linkOaspete, dataMesaj,
+  numeInMesaj, destinatarWhatsapp,
 } from "./lib/acces.js";
 
 /* Ora locala se citeste inapoi in fusul hotelului, nu in cel al masinii pe
@@ -292,6 +292,55 @@ describe("cand trebuie resincronizat codul", () => {
   it("nu decide nimic fara ambele stari", () => {
     expect(decideActiuneAcces(null, baza)).toBe(null);
     expect(decideActiuneAcces(baza, null)).toBe(null);
+  });
+});
+
+describe("ce se întâmplă cu un cod deja emis (actiuneCodExistent)", () => {
+  /* Cum arata un rand din access_codes — snake_case, ca in baza, nu ca pe
+     ecran (asta e diferenta fata de decideActiuneAcces de mai sus). */
+  const cod = { lock_id: "lock1", valid_from: "2026-08-20T12:00:00Z", valid_until: "2026-08-23T08:30:00Z" };
+  const de = new Date("2026-08-20T12:00:00Z");
+  const pana = new Date("2026-08-23T08:30:00Z");
+
+  it("fara niciun cod existent, nu are ce refolosi", () => {
+    expect(actiuneCodExistent(null, "lock1", de, pana)).toBe("replace");
+  });
+
+  it("interval si yala identice: refolosit, fara niciun apel catre yala", () => {
+    expect(actiuneCodExistent(cod, "lock1", de, pana)).toBe("reuse");
+  });
+
+  /* Miezul cererii din 18 septembrie 2026: „Orele cazarii" schimba doar
+     fereastra, camera ramane aceeasi — codul (PIN-ul) NU are voie sa se
+     schimba, doar valabilitatea lui pe yala. */
+  it("aceeasi yala, alt interval: se pastreaza codul, doar se resincronizeaza", () => {
+    const plecareMutata = new Date("2026-08-23T06:30:00Z");
+    expect(actiuneCodExistent(cod, "lock1", de, plecareMutata)).toBe("resync");
+
+    const sosireMutata = new Date("2026-08-20T07:00:00Z");
+    expect(actiuneCodExistent(cod, "lock1", sosireMutata, pana)).toBe("resync");
+  });
+
+  it("yala diferita (camera schimbata): codul se inlocuieste", () => {
+    expect(actiuneCodExistent(cod, "lock2", de, pana)).toBe("replace");
+    // Chiar daca intervalul a ramas identic — noua yala n-are cum sa aiba deja codul.
+    expect(actiuneCodExistent(cod, "lock2", de, pana)).not.toBe("resync");
+  });
+
+  it("regenerarea forțată înlocuiește codul chiar dacă nimic altceva nu s-a schimbat", () => {
+    // Butonul „Regenerează codul": receptia il cere explicit, de exemplu
+    // fiindca a ajuns la altcineva — un cod refolosit ar ignora cererea.
+    expect(actiuneCodExistent(cod, "lock1", de, pana, true)).toBe("replace");
+  });
+
+  it("regenerarea forțată înlocuiește și când doar ora s-a schimbat", () => {
+    const plecareMutata = new Date("2026-08-23T06:30:00Z");
+    expect(actiuneCodExistent(cod, "lock1", de, plecareMutata, true)).toBe("replace");
+  });
+
+  it("o diferenta sub un minut conteaza tot 'acelasi interval' (rotunjiri)", () => {
+    const aproapeAceeasi = new Date(pana.getTime() + 30_000);
+    expect(actiuneCodExistent(cod, "lock1", de, aproapeAceeasi)).toBe("reuse");
   });
 });
 
