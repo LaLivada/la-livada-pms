@@ -21,6 +21,7 @@ import { ROOM_TYPE, STATUS_LABEL, TARI } from "../lib/constante.js";
 import { Dialog, toaster, useModalLock, PdfPreview, OccupantStepper, Paginare, usePaginare } from "../ui/primitive.jsx";
 import { generatePdfBlob, pregatesteFila, arataInFila, inchideFila } from "../lib/pdf.js";
 import { reconciliazaAcces } from "./acces.jsx";
+import { reconciliazaTv } from "./tv-mesaje.js";
 import { canBilling } from "../lib/permisiuni.js";
 import { GroupInvoiceModal, GroupInvoiceButton, InvoicePrint } from "./facturare.jsx";
 
@@ -446,6 +447,10 @@ export function GroupEditor({ group, core, updateCore, groups, updateGroups, res
        ar lăsa codul vechi activ pe ușa veche. */
     try { await reconciliazaAcces(row, dupa, core); }
     catch (e) { console.error("Sincronizare acces", e); }
+    /* Și mesajul de pe televizor, din același motiv: la un grup, ocupantul
+       unei camere se schimbă cel mai des de aici. */
+    try { await reconciliazaTv(row, dupa, core); }
+    catch (e) { console.error("Sincronizare televizor", e); }
   };
 
   /* Keeps the free-text occupantName (used everywhere else for display)

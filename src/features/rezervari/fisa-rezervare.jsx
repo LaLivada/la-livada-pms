@@ -29,6 +29,7 @@ import { cautaOaspeti, MIN_LITERE_CAUTARE } from "../../data/oaspeti.js";
 import * as dateFise from "../../data/fise.js";
 import { ORA_SOSIRE_IMPLICITA, ORA_PLECARE_IMPLICITA } from "../../lib/acces.js";
 import { SectiuneAcces, cheamaAcces, reconciliazaAcces } from "../acces.jsx";
+import { reconciliazaTv } from "../tv-mesaje.js";
 import { SectiuneFisa } from "../fise.jsx";
 import { FolioPanel, BillingCustomerModal, billingCustomerLabel } from "../facturare.jsx";
 import { GuestModal, ContactQuickActions, emptyGuest } from "../clienti.jsx";
@@ -498,6 +499,11 @@ export function ReservationModal({ data, core, updateCore, reservations, updateR
     if (editing) {
       try { await reconciliazaAcces(editing, record, core); }
       catch (e) { console.error("Sincronizare acces", e); }
+      /* Și televizorul: o cameră schimbată sau un ocupant rescris lasă altfel
+         numele vechi pe ecranul din cameră. Separat de acces, ca o cădere a
+         yalelor să nu împiedice corectarea mesajului, și invers. */
+      try { await reconciliazaTv(editing, record, core); }
+      catch (e) { console.error("Sincronizare televizor", e); }
     }
     toaster.show(editing ? "Rezervare actualizată" : `Rezervare creată · ${rn}`, { tone: "ok" });
     onClose();

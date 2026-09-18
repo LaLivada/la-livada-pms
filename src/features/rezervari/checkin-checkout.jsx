@@ -11,6 +11,7 @@ import { rangesOverlap, esteProtocol } from "../../lib/availability.js";
 import { canCheckIn, canCheckOut } from "../../lib/tranzitii.js";
 import { toaster } from "../../ui/primitive.jsx";
 import { cheamaAcces } from "../acces.jsx";
+import { bunVenitLaCheckin, stergeMesajLaCheckout } from "../tv-mesaje.js";
 
 /* `forta` ocoleste doar fereastra de zile dinaintea sosirii (canCheckIn) —
    folosita de night audit, unde operatorul rezolva manual o sosire deja
@@ -73,6 +74,15 @@ export async function doCheckIn(res, reservations, updateReservations, core, { f
       .catch(() => { /* check-in-ul e deja făcut; nu-l stricăm */ });
   }
 
+  /* Mesajul de bun venit de pe televizorul camerei — aceeași regulă ca la
+     codul de acces: se cere DUPĂ ce check-in-ul e salvat și nu are voie
+     să-l răstoarne. Se cheamă fără să ne uităm întâi dacă există televizor
+     în cameră: funcția edge știe asta mai bine decât ecranul (camerele
+     nemapate primesc `fara: true` și nimeni nu e deranjat), iar o verificare
+     aici ar fi însemnat încă o listă ținută la zi în două locuri. */
+  bunVenitLaCheckin(res, core)
+    .catch(() => { /* check-in-ul e deja făcut; nu-l stricăm */ });
+
   return true;
 }
 
@@ -102,6 +112,14 @@ export async function doCheckOut(res, reservations, updateReservations, core, ho
       }
     } catch (e) { console.error("Revocare acces la check-out", e); }
   }
+
+  /* Mesajul de pe televizor pleacă ACUM, din același motiv pentru care pleacă
+     și codul: camera trece la următorul oaspete, iar „Bun venit, Ana Pop" pe
+     ecranul lui ar fi, în cel mai bun caz, derutant. Aici se așteaptă
+     rezultatul (spre deosebire de check-in): check-out-ul nu ține pe nimeni
+     la ghișeu, iar recepția trebuie să afle pe loc dacă a rămas ceva pe ecran. */
+  try { await stergeMesajLaCheckout(res, core); }
+  catch (e) { console.error("Ștergere mesaj TV la check-out", e); }
 
   return true;
 }
