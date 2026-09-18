@@ -111,6 +111,7 @@ Deno.serve(async (req) => {
     p_client_ip: ip,
     p_metoda_plata: "card",
     p_plata_status: "asteapta",
+    p_firma: c?.firma || null,
   });
 
   if (error) {

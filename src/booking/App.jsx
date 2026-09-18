@@ -38,6 +38,7 @@ import { Turnstile } from "./Turnstile.jsx";
 import { fotoPentru } from "./foto.js";
 import { CalendarPerioada } from "./Calendar.jsx";
 import { azi, peste, adunaZile, noptiIntre } from "./zile.js";
+import { validateCUIFormat } from "../lib/validation.js";
 
 /* Aceleași denumiri ca în PMS (vezi ROOM_TYPES din pms-app.jsx), ca
    recepția și clientul să vorbească despre același lucru. */
@@ -175,8 +176,15 @@ export default function App({ valoriInitiale }) {
     oras: "", judet: "", tara: "România",
   });
   const [cerinte, setCerinte] = useState("");
-  /* 'card' implicit — e opțiunea pe care vrem s-o încurajăm. Oaspetele
-     poate trece pe cash/transfer din rândul mic de dedesubt. */
+  /* Facturarea pe societate rămâne închisă implicit: majoritatea
+     oaspeților plătesc pentru ei înșiși. Câmpurile de mai jos apar doar
+     dacă bifează — firma e mereu în România (la fel ca la Oblio). */
+  const [facturaFirma, setFacturaFirma] = useState(false);
+  const [firma, setFirma] = useState({
+    denumire: "", cui: "", regCom: "", adresa: "", oras: "", judet: "",
+  });
+  /* 'cash' implicit — plata cu cardul rămâne o alegere activă, nu una
+     preselectată. Oaspetele poate trece pe card din rândul de mai sus. */
   const [metodaPlata, setMetodaPlata] = useState("cash");
   const [confirmare, setConfirmare] = useState(null);
   /* Ecranul de anulare se deschide din linkul din email
@@ -374,11 +382,19 @@ export default function App({ valoriInitiale }) {
      unul care n-are nicio legătură cu adresa lui — o dată falsă în PMS,
      obținută printr-o regulă de formular. */
   const judetNecesar = oaspete.tara === "România";
+  /* CUI-ul se verifică doar de formă (are grijă și baza, la creare) —
+     `warn` nu blochează trimiterea, doar `ok === false`. */
+  const firmaValida = !facturaFirma || (
+    firma.denumire.trim() && firma.adresa.trim() &&
+    firma.oras.trim() && firma.judet.trim() &&
+    validateCUIFormat(firma.cui).ok && firma.cui.trim()
+  );
   const dateValide =
     oaspete.nume.trim() && oaspete.prenume.trim() &&
     prefixValid && numarValid && emailValid &&
     oaspete.oras.trim() && oaspete.tara.trim() &&
-    (!judetNecesar || oaspete.judet.trim());
+    (!judetNecesar || oaspete.judet.trim()) &&
+    firmaValida;
 
   /* Trimite browserul direct către pagina găzduită NETOPIA — un formular
      POST clasic, nu fetch: cardul se introduce pe domeniul lor, niciodată
@@ -413,13 +429,18 @@ export default function App({ valoriInitiale }) {
       const camere = (optiune?.rooms || []).map((r) => ({
         roomType: r.roomType, adults: r.adults, children: r.children,
       }));
+      const firmaCerere = facturaFirma ? {
+        denumire: firma.denumire.trim(), cui: firma.cui.trim(),
+        regCom: firma.regCom.trim() || null,
+        adresa: firma.adresa.trim(), oras: firma.oras.trim(), judet: firma.judet.trim(),
+      } : null;
 
       if (metodaPlata === "card") {
         const cerere = {
           cheieIdempotenta: cheie,
           checkin: laSosire(cautare.checkin),
           checkout: laPlecare(cautare.checkout),
-          camere, oaspete, cerinte, jetonTurnstile: jeton,
+          camere, oaspete, cerinte, jetonTurnstile: jeton, firma: firmaCerere,
         };
         const d = await porneStePlataCard(cerere);
         if (d.plata) {
@@ -451,7 +472,7 @@ export default function App({ valoriInitiale }) {
         cheieIdempotenta: cheie,
         checkin: laSosire(cautare.checkin),
         checkout: laPlecare(cautare.checkout),
-        camere, oaspete, cerinte, jetonTurnstile: jeton, metodaPlata,
+        camere, oaspete, cerinte, jetonTurnstile: jeton, metodaPlata, firma: firmaCerere,
       });
       setConfirmare({
         confirmationNumber: d.confirmationNumber,
@@ -843,6 +864,53 @@ export default function App({ valoriInitiale }) {
               <textarea value={cerinte} maxLength={2000} placeholder="ex. sosire după ora 22, pat suplimentar"
                 onChange={(e) => setCerinte(e.target.value)} />
             </label>
+
+            <label className="ldv-bifa-firma">
+              <input type="checkbox" checked={facturaFirma}
+                onChange={(e) => setFacturaFirma(e.target.checked)} />
+              Facturare pe societate
+            </label>
+            {facturaFirma && (
+              <div className="ldv-firma-campuri">
+                <label className="ldv-camp">
+                  <span>Denumire firmă</span>
+                  <input value={firma.denumire} maxLength={200}
+                    onChange={(e) => setFirma((f) => ({ ...f, denumire: e.target.value }))} />
+                </label>
+                <div className="ldv-rand-2">
+                  <label className="ldv-camp">
+                    <span>CUI</span>
+                    <input value={firma.cui} maxLength={13} placeholder="ex. RO12345678"
+                      onChange={(e) => setFirma((f) => ({ ...f, cui: e.target.value }))} />
+                  </label>
+                  <label className="ldv-camp">
+                    <span>Nr. Reg. Com. (opțional)</span>
+                    <input value={firma.regCom} maxLength={50} placeholder="ex. J1/23/2020"
+                      onChange={(e) => setFirma((f) => ({ ...f, regCom: e.target.value }))} />
+                  </label>
+                </div>
+                <label className="ldv-camp">
+                  <span>Adresă sediu</span>
+                  <input value={firma.adresa} maxLength={300}
+                    onChange={(e) => setFirma((f) => ({ ...f, adresa: e.target.value }))} />
+                </label>
+                <div className="ldv-rand-2">
+                  <label className="ldv-camp">
+                    <span>Oraș</span>
+                    <input value={firma.oras} maxLength={100}
+                      onChange={(e) => setFirma((f) => ({ ...f, oras: e.target.value }))} />
+                  </label>
+                  <label className="ldv-camp">
+                    <span>Județ</span>
+                    <select value={firma.judet}
+                      onChange={(e) => setFirma((f) => ({ ...f, judet: e.target.value }))}>
+                      <option value="">————————</option>
+                      {JUDETE.map((j) => <option key={j} value={j}>{j}</option>)}
+                    </select>
+                  </label>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Nu apare decât dacă e configurată cheia Cloudflare. */}

@@ -204,6 +204,7 @@ Deno.serve(async (req) => {
     p_hold_minutes: cuConfirmare ? MINUTE_HOLD : 0,
     p_client_ip: ip,
     p_metoda_plata: metodaPlata,
+    p_firma: c?.firma || null,
   });
 
   if (error) {

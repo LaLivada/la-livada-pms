@@ -127,3 +127,36 @@ describe("confirm_card_payment (schema.sql)", () => {
     expect(schema).toMatch(/tags = case when 'Achitat cu cardul' = any\(tags\)/);
   });
 });
+
+describe("create_public_booking (schema.sql) — facturare pe societate", () => {
+  it("nu creează clientul de facturare fără denumire, chiar dacă p_firma nu e null", () => {
+    expect(schema).toMatch(
+      /v_are_firma\s+boolean := p_firma is not null and coalesce\(trim\(p_firma->>'denumire'\), ''\) <> ''/);
+  });
+
+  it("respinge o firmă incompletă înainte de rate-limit, nu la insert", () => {
+    // Ancora pe parametrul nou, unic în fișier — restul textului („RATE-LIMIT,
+    // pe trei paliere") se repetă la fiecare versiune istorică a funcției.
+    const iFunctie = schema.indexOf("p_firma jsonb default null");
+    expect(iFunctie, "parametrul p_firma a dispărut").toBeGreaterThan(-1);
+    const corp = schema.slice(iFunctie);
+    const iValidare = corp.indexOf("Pentru facturare pe societate sunt necesare");
+    const iRateLimit = corp.indexOf("RATE-LIMIT, pe trei paliere");
+    expect(iValidare).toBeGreaterThan(-1);
+    expect(iRateLimit).toBeGreaterThan(-1);
+    expect(iValidare).toBeLessThan(iRateLimit);
+  });
+
+  it("leagă fiecare rezervare din grup de clientul de facturare, prin billing_customer_id", () => {
+    expect(schema).toMatch(
+      /insert into reservations \(id, room_id, guest_id, group_id, checkin, checkout,\s*\n\s*status, adults, children, source, notes, hold_expires_at,\s*\n\s*billing_customer_id\)/);
+    expect(schema).toMatch(/values \(v_res_id,[\s\S]{0,200}v_billing_id\)/);
+  });
+
+  it("noua semnătură (17 argumente) e singura cu execute pentru service_role — vechea (16) e ștearsă", () => {
+    expect(schema).toMatch(
+      /drop function if exists create_public_booking\(uuid, timestamptz, timestamptz,\s*\n\s*text, text, text, text, text, text, text, jsonb, text, int, text, text, text\);/);
+    expect(schema).toMatch(
+      /grant {2}execute on function create_public_booking\(uuid, timestamptz, timestamptz,\s*\n\s*text, text, text, text, text, text, text, jsonb, text, int, text, text, text, jsonb\)\s*\n\s*to service_role;/);
+  });
+});

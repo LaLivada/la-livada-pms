@@ -70,6 +70,27 @@ describe("site-ul de rezervari: ce se reincearca si ce nu", () => {
     expect(f).toHaveBeenCalledTimes(1);
   });
 
+  it("facturarea pe societate ajunge in corpul cererii, la ambele cai (cash/transfer si card)", async () => {
+    const firma = { denumire: "SC Test SRL", cui: "RO123", regCom: null, adresa: "Str. X", oras: "Iași", judet: "Iași" };
+    for (const [apel, nume] of [
+      [() => api.creeazaRezervare({ cheieIdempotenta: "k", checkin: "a", checkout: "b", camere: [], oaspete, cerinte: "", jetonTurnstile: null, firma }), "booking-create"],
+      [() => api.porneStePlataCard({ cheieIdempotenta: "k", checkin: "a", checkout: "b", camere: [], oaspete, cerinte: "", jetonTurnstile: null, firma }), "netopia-start"],
+    ]) {
+      const f = vi.fn().mockResolvedValue(raspunsJson({}));
+      vi.stubGlobal("fetch", f);
+      await apel();
+      expect(f.mock.calls[0][0]).toBe(`http://baza/functions/v1/${nume}`);
+      expect(JSON.parse(f.mock.calls[0][1].body)).toMatchObject({ firma });
+    }
+  });
+
+  it("fara facturare pe societate, firma pleaca explicit null, nu lipsa", async () => {
+    const f = vi.fn().mockResolvedValue(raspunsJson({}));
+    vi.stubGlobal("fetch", f);
+    await api.creeazaRezervare({ cheieIdempotenta: "k", checkin: "a", checkout: "b", camere: [], oaspete, cerinte: "", jetonTurnstile: null });
+    expect(JSON.parse(f.mock.calls[0][1].body)).toMatchObject({ firma: null });
+  });
+
   it("confirmarea si anularea din link sunt idempotente, deci se reincearca", async () => {
     for (const [apel, nume] of [[() => api.confirmaRezervare("t"), "confirm_public_booking"], [() => api.anuleazaRezervare("t"), "cancel_public_booking"]]) {
       const f = vi.fn().mockRejectedValueOnce(reteaCazuta()).mockResolvedValueOnce(raspunsJson({ status: "confirmed" }));

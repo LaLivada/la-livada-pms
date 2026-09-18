@@ -149,7 +149,7 @@ export function cautaDisponibilitate({ checkin, checkout, adulti, copii }) {
  * nu face a doua rezervare. */
 export function creeazaRezervare({
   cheieIdempotenta, checkin, checkout, camere, oaspete, cerinte, jetonTurnstile,
-  metodaPlata = "cash",
+  metodaPlata = "cash", firma = null,
 }) {
   return functie("booking-create", {
     idempotencyKey: cheieIdempotenta,
@@ -158,6 +158,7 @@ export function creeazaRezervare({
     notes: cerinte || null,
     turnstileToken: jetonTurnstile || null,
     metodaPlata,
+    firma,
     guest: {
       nume: oaspete.nume,
       prenume: oaspete.prenume,
@@ -223,6 +224,7 @@ export async function trimiteEmailConfirmare(token) {
    redirectul propriu-zis. */
 export function porneStePlataCard({
   cheieIdempotenta, checkin, checkout, camere, oaspete, cerinte, jetonTurnstile,
+  firma = null,
 }) {
   return functie("netopia-start", {
     idempotencyKey: cheieIdempotenta,
@@ -230,6 +232,7 @@ export function porneStePlataCard({
     rooms: camere,
     notes: cerinte || null,
     turnstileToken: jetonTurnstile || null,
+    firma,
     guest: {
       nume: oaspete.nume,
       prenume: oaspete.prenume,

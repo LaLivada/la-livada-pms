@@ -302,6 +302,16 @@ export const STILURI = `
 }
 .ldv-metode-secundare label{ display:flex; align-items:center; gap:6px; cursor:pointer; }
 
+.ldv-bifa-firma{
+  display:flex; align-items:center; gap:8px; cursor:pointer;
+  margin-top:8px; font-weight:600;
+}
+.ldv-firma-campuri{
+  display:flex; flex-direction:column; gap:14px; margin-top:2px;
+  padding:14px 16px; border:1px solid var(--ldv-line-soft); border-radius:10px;
+  background:var(--ldv-surface-2);
+}
+
 /* ---------- rezultate ---------- */
 .ldv-tip{
   display:flex; align-items:center; gap:14px; flex-wrap:wrap;
