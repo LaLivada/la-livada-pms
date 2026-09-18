@@ -177,7 +177,7 @@ export default function App({ valoriInitiale }) {
   const [cerinte, setCerinte] = useState("");
   /* 'card' implicit — e opțiunea pe care vrem s-o încurajăm. Oaspetele
      poate trece pe cash/transfer din rândul mic de dedesubt. */
-  const [metodaPlata, setMetodaPlata] = useState("card");
+  const [metodaPlata, setMetodaPlata] = useState("cash");
   const [confirmare, setConfirmare] = useState(null);
   /* Ecranul de anulare se deschide din linkul din email
      (?token=…&anulare=1). Butonul din email NU anulează — deschide
@@ -848,15 +848,6 @@ export default function App({ valoriInitiale }) {
           {/* Nu apare decât dacă e configurată cheia Cloudflare. */}
           <Turnstile onJeton={setJeton} />
 
-          <div className="ldv-actiuni">
-            <button className="ldv-btn ldv-btn-simplu"
-              onClick={() => { setEroare(""); setStare("rezultate"); }}
-              disabled={stare === "trimitere"}>Înapoi</button>
-            <button className="ldv-btn ldv-btn-principal ldv-creste"
-              onClick={trimite} disabled={!dateValide || stare === "trimitere"}>
-              {stare === "trimitere" ? "Se trimite…" : "Trimite rezervarea"}
-            </button>
-          </div>
           <div className="ldv-metode-plata">
             <label className="ldv-metoda-card">
               <input type="radio" name="metodaPlata" value="card"
@@ -883,6 +874,15 @@ export default function App({ valoriInitiale }) {
                 transfer bancar
               </label>
             </div>
+          </div>
+          <div className="ldv-actiuni">
+            <button className="ldv-btn ldv-btn-principal ldv-creste"
+              onClick={trimite} disabled={!dateValide || stare === "trimitere"}>
+              {stare === "trimitere" ? "Se trimite…" : "Trimite rezervarea"}
+            </button>
+            <button className="ldv-btn ldv-btn-simplu"
+              onClick={() => { setEroare(""); setStare("rezultate"); }}
+              disabled={stare === "trimitere"}>Înapoi</button>
           </div>
         </div>
       )}
