@@ -37,9 +37,105 @@ export function opresteTransformarile(el) {
   return () => { for (const [nod, valoare] of oprite) nod.style.transform = valoare; };
 }
 
+/* Unde se rupe un document mai lung decât o coală.
+
+   Până pe 18 septembrie 2026 se tăia la înălțime fixă, adică oriunde: pe lista
+   de cazare a unui grup de 15 camere, pagina a doua începea cu jumătatea de jos
+   a unui rând, iar capul de tabel („# Cameră Ocupant …") rămânea doar pe prima.
+
+   `opriri` sunt marginile de jos ale lucrurilor care nu se taie — rândurile
+   tabelului și blocurile din jurul lui. Se ia cea mai de jos oprire care încape
+   pe pagină. Dacă niciuna nu încape — un rând mai înalt decât o coală — se taie
+   drept, altfel bucla n-ar avansa niciodată și am scrie pagini la infinit.
+
+   `inaltimeCap` e banda repetată în capul paginilor următoare: ea mănâncă din
+   spațiul disponibil, de aceea intră în socoteală aici, nu la desenare. Fiecare
+   pagină își primește înapoi înălțimea de cap pe care chiar o folosește (`cap`),
+   ca desenarea să n-o recalculeze și să iasă altfel.
+   @param {number} inaltimeTotala
+   @param {number} inaltimePagina
+   @param {number[]} [opriri]
+   @param {number} [inaltimeCap]
+   @returns {{ sus: number, jos: number, cap: number }[]} */
+export function taieturiPagina(inaltimeTotala, inaltimePagina, opriri = [], inaltimeCap = 0) {
+  if (!(inaltimeTotala > 0) || !(inaltimePagina > 0)) return [];
+  /* Un cap care ar mânca jumătate de pagină nu se mai repetă: ar umfla
+     documentul în loc să-l facă de citit. */
+  const cap = inaltimeCap > 0 && inaltimeCap < inaltimePagina / 2 ? inaltimeCap : 0;
+  const sortate = [...new Set(opriri)].filter((o) => o > 0).sort((a, b) => a - b);
+  const pagini = [];
+  let sus = 0;
+  while (sus < inaltimeTotala - 0.5) {
+    const capAcum = pagini.length ? cap : 0;
+    const limita = sus + inaltimePagina - capAcum;
+    if (inaltimeTotala <= limita + 0.5) {
+      pagini.push({ sus, jos: inaltimeTotala, cap: capAcum });
+      break;
+    }
+    let jos = 0;
+    /* `sus + 1`, nu `sus`: oprirea chiar de unde începe pagina ar da o felie
+       goală, iar bucla ar bate pasul pe loc. */
+    for (const o of sortate) { if (o > sus + 1 && o <= limita) jos = o; }
+    if (!jos) jos = limita;
+    pagini.push({ sus, jos, cap: capAcum });
+    sus = jos;
+  }
+  return pagini;
+}
+
+/* Măsurătorile de care are nevoie `taieturiPagina`, în pixeli CSS față de
+   marginea de sus a documentului. Se cheamă ÎNAINTE de captură, cu lățimea de
+   tipărire deja pusă și transformările oprite — adică pe exact așezarea pe care
+   o vede html2canvas.
+   @param {HTMLElement} el
+   @param {string} intregi
+   @param {string} capRepetat */
+function masoaraPaginarea(el, intregi, capRepetat) {
+  const coala = el.getBoundingClientRect();
+  const opriri = [];
+  if (intregi) {
+    for (const nod of el.querySelectorAll(intregi)) {
+      const r = nod.getBoundingClientRect();
+      if (r.height > 0) opriri.push(r.bottom - coala.top);
+    }
+  }
+  const nodCap = capRepetat ? el.querySelector(capRepetat) : null;
+  const rCap = nodCap ? nodCap.getBoundingClientRect() : null;
+  return {
+    inaltime: coala.height,
+    opriri,
+    cap: rCap && rCap.height > 0 ? { sus: rCap.top - coala.top, inaltime: rCap.height } : null,
+  };
+}
+
+/* O pagină decupată din captura întreagă: banda de cap (dacă e cerută) lipită
+   deasupra feliei de conținut. Fondul se umple alb fiindcă banda și felia nu
+   sunt lipite pixel-perfect — o dungă transparentă între ele ar ieși neagră la
+   tipărire.
+   @param {HTMLCanvasElement} captura
+   @param {{ sus: number, jos: number, cap: number }} pagina
+   @param {number} capSus
+   @returns {string} */
+function decupeazaPagina(captura, pagina, capSus) {
+  const inaltime = Math.max(1, Math.round(pagina.cap + pagina.jos - pagina.sus));
+  const coala = document.createElement("canvas");
+  coala.width = captura.width;
+  coala.height = inaltime;
+  const ctx = coala.getContext("2d");
+  if (!ctx) return captura.toDataURL("image/png");
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, coala.width, coala.height);
+  if (pagina.cap > 0) {
+    ctx.drawImage(captura, 0, capSus, captura.width, pagina.cap, 0, 0, captura.width, pagina.cap);
+  }
+  const h = pagina.jos - pagina.sus;
+  ctx.drawImage(captura, 0, pagina.sus, captura.width, h, 0, pagina.cap, captura.width, h);
+  return coala.toDataURL("image/png");
+}
+
 export async function generatePdfBlob(el, opts = {}) {
   if (!el) return null;
-  const { singlePage = false, latimeFixa = 0 } = opts;
+  const { singlePage = false, latimeFixa = 0, intregi = "", capRepetat = "" } = opts;
   /* Incarcare la cerere: cele doua biblioteci inseamna ~180 KB din
      pachetul principal, dar se folosesc doar cand cineva chiar descarca
      un PDF — nu la fiecare pornire a aplicatiei. Importul dinamic le
@@ -75,6 +171,9 @@ export async function generatePdfBlob(el, opts = {}) {
   if (latimeFixa) el.style.width = `${latimeFixa}px`;
   // Vezi `opresteTransformarile`: si ea doar cat tine captura.
   const reporneste = opresteTransformarile(el);
+  /* Masurat aici, nu dupa captura: acum documentul e asezat exact cum il vede
+     html2canvas (latimea de tiparire pusa, transformarile oprite). */
+  const masuri = (intregi || capRepetat) ? masoaraPaginarea(el, intregi, capRepetat) : null;
   let canvas;
   try {
     canvas = await html2canvas(el, {
@@ -134,6 +233,30 @@ export async function generatePdfBlob(el, opts = {}) {
   const imgHeight = (canvas.height * imgWidth) / canvas.width;
   /* Inaltimea utila a unei pagini, fara marginile de sus si de jos. */
   const utilH = pageHeight - 2 * MARGINE_MM;
+
+  /* Cand apelantul a spus ce nu se taie, fiecare pagina se decupeaza separat
+     si primeste capul de tabel. Altfel ramane taierea veche, la inaltime fixa:
+     aceeasi imagine mutata in sus de la o pagina la alta. */
+  const mmPePixel = imgWidth / canvas.width;
+  /* Pixeli de captura pe pixel CSS: masuratorile s-au luat pe document, taierea
+     se face pe imagine. */
+  const raport = masuri && masuri.inaltime > 0 ? canvas.height / masuri.inaltime : 0;
+  const pagini = raport
+    ? taieturiPagina(
+      canvas.height, utilH / mmPePixel,
+      masuri.opriri.map((o) => o * raport),
+      masuri.cap ? masuri.cap.inaltime * raport : 0,
+    )
+    : [];
+  if (pagini.length) {
+    const capSus = masuri.cap ? masuri.cap.sus * raport : 0;
+    pagini.forEach((pagina, i) => {
+      if (i) pdf.addPage();
+      const inaltime = (pagina.cap + pagina.jos - pagina.sus) * mmPePixel;
+      pdf.addImage(decupeazaPagina(canvas, pagina, capSus), "PNG", MARGINE_MM, MARGINE_MM, imgWidth, inaltime);
+    });
+    return pdf.output("blob");
+  }
 
   let heightLeft = imgHeight;
   let position = MARGINE_MM;

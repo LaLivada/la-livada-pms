@@ -37,7 +37,15 @@ export function GroupPrint({ group, core, reservations, onClose }) {
        clipea „Se generează…", revenea, si nu aparea niciun fisier si niciun
        mesaj. Mai bine o eroare vizibila decat o tacere. */
     try {
-      const blob = await generatePdfBlob(sheetRef.current);
+      /* Lista curge pe mai multe pagini cand grupul are multe camere, deci
+         spunem ce nu se taie (fiecare rand si fiecare bloc din jurul
+         tabelului) si ce se repeta in capul paginilor urmatoare (capul de
+         tabel). Fara asta pagina a doua incepea cu jumatatea de jos a unui
+         rand, fara sa mai scrie ce inseamna coloanele. */
+      const blob = await generatePdfBlob(sheetRef.current, {
+        intregi: ".fisa-top, .rs-summary, .rooming tr, .rs-value, .rs-notes, .sheet-sign",
+        capRepetat: ".rooming thead",
+      });
       /* Daca browserul a blocat fila, ramane vizualizatorul din aplicatie. */
       if (!arataInFila(fila, blob)) {
         setPdf({ blob, filename: `Cazare-grup-${group.id}.pdf` });
