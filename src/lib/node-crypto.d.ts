@@ -1,7 +1,9 @@
-declare class Buffer {
-  static from(str: string | any, encoding?: string): any;
-  static concat(buffers: any[]): any;
-  toString(encoding?: string): string;
+declare module "node:buffer" {
+  export class Buffer {
+    static from(str: string | any, encoding?: string): any;
+    static concat(buffers: any[]): any;
+    toString(encoding?: string): string;
+  }
 }
 
 declare module "node:crypto" {

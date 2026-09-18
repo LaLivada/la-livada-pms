@@ -4,12 +4,19 @@
    date — testabil singur, importat neschimbat din funcțiile edge
    `netopia-start`/`netopia-ipn` (Deno înțelege `node:crypto` la fel ca
    Node, exact ca aici la testare — vezi și src/lib/ip.js pentru
-   precedentul de import direct dintr-o funcție edge). */
+   precedentul de import direct dintr-o funcție edge).
+
+   `Buffer`, spre deosebire de `node:crypto`, NU e global în runtime-ul
+   real al funcțiilor Supabase (doar în Node/Vitest) — verificat direct
+   pe rezervari.lalivada.ro: fără acest import, `cripteazaPentruNetopia`
+   arunca `ReferenceError: Buffer is not defined`, necaptat, exact la
+   primul plic real (n-a fost prins de teste, care rulează sub Node). */
 
 import {
   randomBytes, publicEncrypt, privateDecrypt,
   createCipheriv, createDecipheriv, constants, X509Certificate,
 } from "node:crypto";
+import { Buffer } from "node:buffer";
 
 export function escXml(s) {
   return String(s ?? "")
