@@ -101,11 +101,35 @@ function masoaraPaginarea(el, intregi, capRepetat) {
   }
   const nodCap = capRepetat ? el.querySelector(capRepetat) : null;
   const rCap = nodCap ? nodCap.getBoundingClientRect() : null;
+  /* Banda urcă și peste linia de deasupra capului de tabel. Pe prima pagină
+     linia aia e în document — e chenarul de jos al blocului dinaintea
+     tabelului — dar nu ține de cap, deci pe paginile următoare capul ar
+     începe cu nimic deasupra, lipit de muchia hârtiei. */
+  const linie = rCap ? chenarulDeDeasupra(el, nodCap, rCap.top) : 0;
   return {
     inaltime: coala.height,
     opriri,
-    cap: rCap && rCap.height > 0 ? { sus: rCap.top - coala.top, inaltime: rCap.height } : null,
+    cap: rCap && rCap.height > 0
+      ? { sus: rCap.top - coala.top - linie, inaltime: rCap.height + linie }
+      : null,
   };
+}
+
+/* Grosimea chenarului de jos al blocului care stă LIPIT deasupra unui element
+   — cel care, pe hârtie, îi ține loc de linie de sus. Zero dacă nu există sau
+   dacă între ele e spațiu: atunci n-am lua o linie, am lua o dungă albă.
+   @param {HTMLElement} el
+   @param {Element} nod
+   @param {number} sus
+   @returns {number} */
+function chenarulDeDeasupra(el, nod, sus) {
+  for (let x = nod; x && x !== el; x = x.parentElement) {
+    const inainte = x.previousElementSibling;
+    if (!inainte) continue;
+    if (Math.abs(inainte.getBoundingClientRect().bottom - sus) > 1) return 0;
+    return parseFloat(getComputedStyle(inainte).borderBottomWidth) || 0;
+  }
+  return 0;
 }
 
 /* O pagină decupată din captura întreagă: banda de cap (dacă e cerută) lipită

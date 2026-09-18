@@ -1416,8 +1416,12 @@ label.field input, label.field select, label.field textarea{ cursor:auto; }
   font-size:8.5px; text-transform:uppercase; letter-spacing:.06em; color:#5a5a56;
   font-weight:700; text-align:left; padding:8px 8px; border-bottom:1px solid #141412;
 }
+/* Randuri stranse: lista unui grup de 15 camere e un document de tinut in
+   mana, nu de rasfoit. Inaltimea vine din celula camerei (numarul plus tipul,
+   pe doua randuri), deci se lucreaza pe padding si pe inaltimea celulei de
+   semnatura, nu pe marimea literelor — alea raman de citit. */
 .rooming tbody td{
-  padding:9px 8px; font-size:12.5px; border-bottom:1px solid #e6e6e2; vertical-align:middle;
+  padding:6px 8px; font-size:12.5px; border-bottom:1px solid #e6e6e2; vertical-align:middle;
   overflow-wrap:break-word; word-break:normal; hyphens:none;
 }
 .rooming tbody tr:nth-child(even) td{ background:#faf9f7; }
@@ -1431,7 +1435,7 @@ label.field input, label.field select, label.field textarea{ cursor:auto; }
 .rooming .c-n{ width:42px; text-align:center; color:#4a4a46; }
 .rooming .c-tot{ font-weight:700; color:#141412; }
 .rooming .c-sign{ width:108px; border-left:1px solid #e6e6e2; }
-.rooming tbody .c-sign{ height:34px; }
+.rooming tbody .c-sign{ height:28px; }
 .rooming tfoot td{
   padding:9px 10px; font-size:12px; font-weight:700; border-top:2px solid #141412;
 }
@@ -1457,7 +1461,7 @@ label.field input, label.field select, label.field textarea{ cursor:auto; }
   .rs-v{ font-size:11px; }
   .rooming-wrap{ overflow-x:visible; }
   .rooming{ min-width:0; }
-  .rooming thead th, .rooming tbody td{ padding:6px 4px; font-size:10.5px; }
+  .rooming thead th, .rooming tbody td{ padding:4px 4px; font-size:10.5px; }
   .rooming .c-num{ width:16px; font-size:9px; }
   .rooming .c-room{ width:50px; }
   .rs-room-no{ font-size:11px; }
