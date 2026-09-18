@@ -149,6 +149,7 @@ export function cautaDisponibilitate({ checkin, checkout, adulti, copii }) {
  * nu face a doua rezervare. */
 export function creeazaRezervare({
   cheieIdempotenta, checkin, checkout, camere, oaspete, cerinte, jetonTurnstile,
+  metodaPlata = "cash",
 }) {
   return functie("booking-create", {
     idempotencyKey: cheieIdempotenta,
@@ -156,6 +157,7 @@ export function creeazaRezervare({
     rooms: camere,
     notes: cerinte || null,
     turnstileToken: jetonTurnstile || null,
+    metodaPlata,
     guest: {
       nume: oaspete.nume,
       prenume: oaspete.prenume,
@@ -212,5 +214,51 @@ export async function trimiteEmailConfirmare(token) {
     if (!r.ok) console.warn("Emailul de confirmare nu a putut fi trimis.", r.status);
   } catch {
     console.warn("Emailul de confirmare nu a putut fi trimis (rețea).");
+  }
+}
+
+/* Pornește plata cu cardul: creează rezervarea (ținută, ca la cash/transfer
+   cu confirmare pe email) și întoarce plicul criptat de trimis către
+   pagina găzduită NETOPIA. Vezi trimiteFormularNetopia din App.jsx pentru
+   redirectul propriu-zis. */
+export function porneStePlataCard({
+  cheieIdempotenta, checkin, checkout, camere, oaspete, cerinte, jetonTurnstile,
+}) {
+  return functie("netopia-start", {
+    idempotencyKey: cheieIdempotenta,
+    checkin, checkout,
+    rooms: camere,
+    notes: cerinte || null,
+    turnstileToken: jetonTurnstile || null,
+    guest: {
+      nume: oaspete.nume,
+      prenume: oaspete.prenume,
+      telefon: telefonInternational(oaspete.prefix, oaspete.telefon),
+      email: oaspete.email || null,
+      oras: oaspete.oras,
+      judet: oaspete.judet,
+      tara: oaspete.tara,
+    },
+  }, TIMEOUT_CREARE_MS);
+}
+
+/* Avizul de rambursare, doar pentru rezervările anulate care fuseseră
+   plătite cu cardul. Ca la trimiteEmailConfirmare: nu aruncă niciodată —
+   anularea a reușit deja, un eșec aici nu trebuie să pară o eroare a
+   oaspetelui. */
+export async function trimiteAvizRambursare(token) {
+  try {
+    const r = await fetchCuTimeout(`${URL_BAZA}/functions/v1/netopia-refund-notice`, {
+      method: "POST",
+      headers: {
+        apikey: CHEIE,
+        Authorization: `Bearer ${CHEIE}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ token }),
+    });
+    if (!r.ok) console.warn("Avizul de rambursare nu a putut fi trimis.", r.status);
+  } catch {
+    console.warn("Avizul de rambursare nu a putut fi trimis (rețea).");
   }
 }

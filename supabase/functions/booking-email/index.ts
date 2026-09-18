@@ -43,7 +43,12 @@ const bani = (n: number) =>
   new Intl.NumberFormat("ro-RO", { maximumFractionDigits: 0 }).format(Number(n)) + " lei";
 
 /* HTML de email: tabele și stiluri inline, fără flexbox și fără clase.
-   Clienții de email (Outlook mai ales) nu suportă CSS modern. */
+   Clienții de email (Outlook mai ales) nu suportă CSS modern.
+
+   ACEEAȘI funcție trimite emailul și pentru cardul online — netopia-ipn o
+   cheamă după IPN-ul de plată reușită, exact ca la cash/transfer. De aceea
+   propoziția despre plată se alege după `metodaPlata`: altfel i-am scrie
+   „plata se face la sosire" cuiva care a achitat deja tot. */
 function sablon(d: any): string {
   const linkRezervare = `${URL_REZERVARI}/?token=${encodeURIComponent(d.publicToken)}`;
   // Linkul de anulare NU anulează la deschidere: duce la o pagină de
@@ -91,7 +96,9 @@ function sablon(d: any): string {
             <td style="padding:2px 0;text-align:right;font-weight:700;font-size:17px;">${bani(d.total)}</td></tr>
       </table>
       <p style="margin:10px 0 0;font-size:13px;color:#5f6a66;">
-        Plata se face la sosire. Nu am reținut niciun card.</p>
+        ${d.metodaPlata === "card"
+          ? "Ai plătit online, prin NETOPIA. Nu mai ai nimic de achitat la sosire."
+          : "Plata se face la sosire. Nu am reținut niciun card."}</p>
     </td></tr>
 
     <tr><td style="padding:22px 26px 6px;">
@@ -135,7 +142,8 @@ function textSimplu(d: any): string {
     `Plecare: ${dataRo(d.checkOut)}, până la ora 11`,
     `Nopți:   ${d.nights}`,
     `Camere:  ${d.rooms}`,
-    `Total:   ${bani(d.total)} (plata la sosire)`,
+    `Total:   ${bani(d.total)}` +
+      (d.metodaPlata === "card" ? " (plătit online)" : " (plata la sosire)"),
     ``,
     `Vezi rezervarea:  ${URL_REZERVARI}/?token=${d.publicToken}`,
     `Anulează:         ${URL_REZERVARI}/?token=${d.publicToken}&anulare=1`,

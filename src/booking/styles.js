@@ -287,6 +287,21 @@ export const STILURI = `
    lăsat rezultatul la mâna ordinii din fișier, nu a regulii potrivite. */
 .ldv .ldv-nota-plata{ margin-top:12px; }
 
+.ldv-metode-plata{ margin-top:18px; }
+.ldv-metoda-card{
+  display:flex; gap:12px; align-items:flex-start;
+  padding:14px 16px; border:2px solid var(--ldv-ink); border-radius:10px;
+  background:var(--ldv-surface-2); cursor:pointer;
+}
+.ldv-metoda-card input{ margin-top:3px; }
+.ldv-metoda-card-titlu{ font-weight:650; }
+.ldv-metoda-card-desc{ margin:4px 0 0; }
+.ldv-metode-secundare{
+  display:flex; gap:16px; margin-top:10px; padding-left:4px;
+  font-size:13px; color:var(--ldv-muted);
+}
+.ldv-metode-secundare label{ display:flex; align-items:center; gap:6px; cursor:pointer; }
+
 /* ---------- rezultate ---------- */
 .ldv-tip{
   display:flex; align-items:center; gap:14px; flex-wrap:wrap;
