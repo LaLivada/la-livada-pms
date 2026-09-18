@@ -218,6 +218,106 @@ export function GroupPrint({ group, core, reservations, onClose }) {
 }
 
 /* ---------------------------------------------------------------
+   CAMPURILE DE OCUPANT ale unei camere din grup.
+
+   Tin o CIORNA locala cat timp scrii si salveaza o singura data, cand
+   focusul paraseste randul ocupantului (nume + prenume + telefon).
+
+   Pana pe 18 septembrie 2026 scriau in baza la FIECARE tasta si isi luau
+   valoarea inapoi din starea globala — aceeasi pe care o rescrie Realtime.
+   Ecoul unei salvari de dinainte are aceeasi stampila ca randul local, deci
+   `aplicaSchimbareRezervare` il aplica, si inlocuia „Po" cu „P" chiar sub
+   deget: „browserul sterge din litere". Aparea cand Realtime ramanea in urma
+   degetelor, adica mai ales pe telefon. Reprodus in
+   src/ocupant-grup-tastare.test.js, cu functiile adevarate pe un ceas fals.
+
+   Cat timp un camp are ciorna, el arata ciorna, nu baza: niciun ecou nu mai
+   are ce sa-i ia. Campurile in care NU scrii raman legate de baza, deci o
+   schimbare de pe alt dispozitiv se vede in continuare.
+
+   Salvarea e pe RAND, nu pe camp: mutarea cu Tab intre nume, prenume si
+   telefon nu scrie nimic. Trei salvari una dupa alta ale aceleiasi rezervari
+   ar fi plecat cu aceeasi stampila, iar a doua ar fi fost refuzata de baza
+   drept „modificata de altcineva" — de tine insuti.
+
+   La demontare (Escape inchide fereastra fara niciun `blur`) ciorna ramasa
+   se scrie, altfel s-ar pierde in tacere.
+----------------------------------------------------------------*/
+const CAMPURI_OCUPANT = ["occupantLastName", "occupantFirstName", "occupantPhone"];
+
+function CampuriOcupant({ r, onPatch, onSetat }) {
+  const [legacyLast, ...legacyRest] = (r.occupantName || "").trim().split(" ");
+  const dinBaza = {
+    occupantLastName: r.occupantLastName ?? legacyLast ?? "",
+    occupantFirstName: r.occupantFirstName ?? legacyRest.join(" "),
+    occupantPhone: r.occupantPhone ?? "",
+  };
+  const [ciorna, setCiorna] = useState({});
+  const val = { ...dinBaza, ...ciorna };
+  const complete = CAMPURI_OCUPANT.every((c) => val[c].trim());
+
+  const scrie = (camp) => (e) => { const text = e.target.value; setCiorna((c) => ({ ...c, [camp]: text })); };
+
+  /* Doar ce difera de baza: o ciorna adusa inapoi la valoarea initiala nu e
+     o schimbare si nu merita o scriere. */
+  const deScris = (deUnde, fataDe) => Object.fromEntries(
+    Object.entries(deUnde).filter(([camp, text]) => text !== fataDe[camp]));
+
+  const ultima = useRef({ ciorna, dinBaza, onPatch });
+  useEffect(() => { ultima.current = { ciorna, dinBaza, onPatch }; });
+  useEffect(() => () => {
+    const { ciorna: c, dinBaza: b, onPatch: scrieInBaza } = ultima.current;
+    const patch = deScris(c, b);
+    if (Object.keys(patch).length) scrieInBaza(patch);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const laIesire = (e) => {
+    /* Focusul doar s-a mutat intre campurile aceluiasi ocupant. */
+    if (e.currentTarget.contains(e.relatedTarget)) return;
+    const patch = deScris(ciorna, dinBaza);
+    setCiorna({});
+    if (!Object.keys(patch).length) return;
+    onPatch(patch);
+    const dupa = { ...dinBaza, ...patch };
+    if (CAMPURI_OCUPANT.every((c) => dupa[c].trim())) onSetat(dupa);
+  };
+
+  return (
+    <div className="grp-occupant">
+      <div className="grp-occupant-head">
+        <span>Ocupant cameră</span>
+        {!complete && <span className="grp-occupant-required">Nume, prenume și telefon obligatorii</span>}
+      </div>
+      <div className="grp-occupant-row" onBlur={laIesire}>
+        <input
+          className={!val.occupantLastName.trim() ? "input-error" : ""}
+          value={val.occupantLastName}
+          placeholder="Nume *"
+          aria-label="Numele ocupantului"
+          onChange={scrie("occupantLastName")}
+        />
+        <input
+          className={!val.occupantFirstName.trim() ? "input-error" : ""}
+          value={val.occupantFirstName}
+          placeholder="Prenume *"
+          aria-label="Prenumele ocupantului"
+          onChange={scrie("occupantFirstName")}
+        />
+        <input
+          className={!val.occupantPhone.trim() ? "input-error" : ""}
+          value={val.occupantPhone}
+          type="tel"
+          placeholder="Telefon *"
+          aria-label="Telefonul ocupantului"
+          onChange={scrie("occupantPhone")}
+        />
+      </div>
+    </div>
+  );
+}
+
+/* ---------------------------------------------------------------
    GROUP EDITOR
    Rooms can be added, swapped or dropped, and occupancy set per
    room — all reservations of the group stay in step.
@@ -657,51 +757,13 @@ export function GroupEditor({ group, core, updateCore, groups, updateGroups, res
                 <div className="grp-price">{fmtMoney(reservationTotal(r, core))}</div>
               </div>
 
-              {(() => {
-                const [legacyLast, ...legacyRest] = (r.occupantName || "").trim().split(" ");
-                const lastVal = r.occupantLastName ?? legacyLast ?? "";
-                const firstVal = r.occupantFirstName ?? legacyRest.join(" ");
-                const phoneVal = r.occupantPhone ?? "";
-                const complete = lastVal.trim() && firstVal.trim() && phoneVal.trim();
-                return (
-                  <div className="grp-occupant">
-                    <div className="grp-occupant-head">
-                      <span>Ocupant cameră</span>
-                      {!complete && <span className="grp-occupant-required">Nume, prenume și telefon obligatorii</span>}
-                    </div>
-                    <div className="grp-occupant-row">
-                      <input
-                        className={!lastVal.trim() ? "input-error" : ""}
-                        value={lastVal}
-                        placeholder="Nume *"
-                        aria-label="Numele ocupantului"
-                        onChange={(e) => patchOccupant(r.id, { occupantLastName: e.target.value })}
-                      />
-                      <input
-                        className={!firstVal.trim() ? "input-error" : ""}
-                        value={firstVal}
-                        placeholder="Prenume *"
-                        aria-label="Prenumele ocupantului"
-                        onChange={(e) => patchOccupant(r.id, { occupantFirstName: e.target.value })}
-                      />
-                      <input
-                        className={!phoneVal.trim() ? "input-error" : ""}
-                        value={phoneVal}
-                        type="tel"
-                        placeholder="Telefon *"
-                        aria-label="Telefonul ocupantului"
-                        onChange={(e) => patchOccupant(r.id, { occupantPhone: e.target.value })}
-                        onBlur={() => {
-                          if (lastVal.trim() && firstVal.trim() && phoneVal.trim()) {
-                            audit.push("Ocupant setat",
-                              `${group.name} · ${core.rooms.find((x) => x.id === r.roomId)?.name}: ${lastVal.trim()} ${firstVal.trim()}`, { roomId: r.roomId, reservationId: r.id });
-                          }
-                        }}
-                      />
-                    </div>
-                  </div>
-                );
-              })()}
+              <CampuriOcupant
+                r={r}
+                onPatch={(patch) => patchOccupant(r.id, patch)}
+                onSetat={(o) => audit.push("Ocupant setat",
+                  `${group.name} · ${numeCamera}: ${o.occupantLastName.trim()} ${o.occupantFirstName.trim()}`,
+                  { roomId: r.roomId, reservationId: r.id })}
+              />
             </div>
           );
         })}
