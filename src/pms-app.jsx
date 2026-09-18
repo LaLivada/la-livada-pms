@@ -866,14 +866,22 @@ function PMSApp() {
       return true;
     } catch (e) {
       if (!esteConflict(e)) { raporteazaEroare(e); return false; }
-      /* Modificata de altcineva intre timp: dialogul C5, nu reincarcarea. */
+      /* Modificata de altcineva intre timp: dialogul C5, nu reincarcarea.
+         `null` (nu `false`) cand nu s-a scris NIMIC din cauza conflictului —
+         spre deosebire de `false` (eroare obisnuita), un formular inca
+         deschis pe rezervarea asta nu mai are date de pe care sa reincerce:
+         ecranul lui a ramas la stampila veche dinainte de conflict, deci
+         orice reincercare ar fi respinsa identic. ReservationModal foloseste
+         distincția ca sa inchida formularul doar aici, nu si la o eroare
+         obisnuita (retea, validare) unde omul chiar poate incerca din nou
+         cu aceleasi date. */
       try {
         const final = await rezolvaConflictul(e, before, combinat);
-        if (!final) return false;
+        if (!final) return null;
         resRef.current = final; setReservations(final);
         aplicaStampile(await syncTable("reservations", before, final, snakeRes));
         return true;
-      } catch (e2) { raporteazaEroare(e2); return false; }
+      } catch (e2) { raporteazaEroare(e2); return null; }
     }
   }, [raporteazaEroare, rezolvaConflictul, aplicaStampile]);
 

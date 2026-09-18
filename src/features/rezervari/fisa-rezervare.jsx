@@ -451,9 +451,19 @@ export function ReservationModal({ data, core, updateCore, reservations, updateR
     /* Scrierea poate fi respinsa de baza — drepturi, suprapunere, conflict
        de versiune. Daca a fost, ne oprim aici: mesajul de eroare l-a dat
        deja `raporteazaEroare`, iar un „Rezervare creată" pe deasupra ar
-       spune exact pe dos fata de ce s-a intamplat. Fereastra ramane
-       deschisa, cu datele in ea, ca omul sa poata reincerca. */
-    if (!await updateReservations(nextRes)) return;
+       spune exact pe dos fata de ce s-a intamplat.
+
+       `updateReservations` intoarce `null` (nu doar `false`) cand refuzul a
+       fost din cauza unei modificari concurente (altcineva a scris intre
+       timp — de ex. chiar un check-in facut cat timp fisa asta era
+       deschisa): in cazul asta formularul inchide, fiindca `editing` a
+       ramas la stampila veche si orice reincercare cu aceleasi date ar fi
+       respinsa identic — trebuie redeschisa rezervarea, cu datele proaspete.
+       La o eroare obisnuita (retea, validare) fereastra ramane deschisa, cu
+       datele in ea, ca omul sa poata reincerca direct. */
+    const scrisaCuSucces = await updateReservations(nextRes);
+    if (scrisaCuSucces === null) { onClose(); return; }
+    if (!scrisaCuSucces) return;
     const who = guestFullName(core.guests.find((g) => g.id === guestId)) || "Fără nume";
     const rn = core.rooms.find((r) => r.id === roomId)?.name;
     /* Pretul, cu vechea si noua valoare, cand chiar s-a schimbat. Jurnalul
