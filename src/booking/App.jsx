@@ -29,6 +29,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   cautaDisponibilitate, creeazaRezervare, citesteRezervare, citesteCapacitatea,
   anuleazaRezervare, trimiteEmailConfirmare, confirmaRezervare, COD_INDISPONIBIL,
+  porneStePlataCard, trimiteAvizRambursare,
 } from "./api.js";
 import { STILURI } from "./styles.js";
 import { Schelet, useIncet, STIL_SCHELET } from "../ui/schelet.jsx";
@@ -140,6 +141,9 @@ export default function App({ valoriInitiale }) {
     oras: "", judet: "", tara: "România",
   });
   const [cerinte, setCerinte] = useState("");
+  /* 'card' implicit — e opțiunea pe care vrem s-o încurajăm. Oaspetele
+     poate trece pe cash/transfer din rândul mic de dedesubt. */
+  const [metodaPlata, setMetodaPlata] = useState("card");
   const [confirmare, setConfirmare] = useState(null);
   /* Ecranul de anulare se deschide din linkul din email
      (?token=…&anulare=1). Butonul din email NU anulează — deschide
@@ -192,6 +196,24 @@ export default function App({ valoriInitiale }) {
       .catch((e) => { setEroare(e.message); setStare("cautare"); });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  /* Cât timp pagina arată "verificăm plata", IPN-ul poate ajunge la câteva
+     secunde după redirect. O singură reîncercare, nu un poll continuu:
+     dacă tot nu s-a schimbat nimic, omul apasă el reîmprospătare — nu
+     trebuie să ținem o buclă vie cât stă pe pagină. */
+  useEffect(() => {
+    if (stare !== "confirmat") return;
+    if (confirmare?.status !== "pending" || confirmare?.metodaPlata !== "card") return;
+    const token = confirmare.publicToken;
+    if (!token) return;
+    const id = setTimeout(() => {
+      citesteRezervare(token)
+        .then((d) => { if (d) setConfirmare((c) => ({ ...c, ...d })); })
+        .catch(() => {});
+    }, 4000);
+    return () => clearTimeout(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stare, confirmare?.status, confirmare?.metodaPlata, confirmare?.publicToken]);
 
   /* Dacă perioada a venit deja din adresă, sărim peste primul pas și
      căutăm direct — vizitatorul a ales-o deja în altă parte. */
@@ -315,6 +337,27 @@ export default function App({ valoriInitiale }) {
     oaspete.oras.trim() && oaspete.tara.trim() &&
     (!judetNecesar || oaspete.judet.trim());
 
+  /* Trimite browserul direct către pagina găzduită NETOPIA — un formular
+     POST clasic, nu fetch: cardul se introduce pe domeniul lor, niciodată
+     pe al nostru. Formularul se creează, se trimite și dispare o dată cu
+     navigarea; nu rămâne nimic de curățat. */
+  function trimiteFormularNetopia(plata) {
+    const form = document.createElement("form");
+    form.method = "POST";
+    form.action = plata.url;
+    for (const [nume, valoare] of Object.entries({
+      env_key: plata.envKey, data: plata.data, cipher: plata.cipher, iv: plata.iv,
+    })) {
+      const input = document.createElement("input");
+      input.type = "hidden";
+      input.name = nume;
+      input.value = valoare;
+      form.appendChild(input);
+    }
+    document.body.appendChild(form);
+    form.submit();
+  }
+
   async function trimite() {
     setEroare("");
     setStare("trimitere");
@@ -323,15 +366,43 @@ export default function App({ valoriInitiale }) {
     /* Exact lista propusa de server, cu ocuparea calculata de el. Nu
        recompunem nimic aici: orice diferenta ar fi o a doua parere despre
        cine sta unde. Camera fizica o alege tot serverul, la creare. */
-    const camere = (optiune?.rooms || []).map((r) => ({
-      roomType: r.roomType, adults: r.adults, children: r.children,
-    }));
     try {
+      const camere = (optiune?.rooms || []).map((r) => ({
+        roomType: r.roomType, adults: r.adults, children: r.children,
+      }));
+
+      if (metodaPlata === "card") {
+        const d = await porneStePlataCard({
+          cheieIdempotenta: cheie,
+          checkin: laSosire(cautare.checkin),
+          checkout: laPlecare(cautare.checkout),
+          camere, oaspete, cerinte, jetonTurnstile: jeton,
+        });
+        if (d.plata) {
+          trimiteFormularNetopia(d.plata);
+          return; // browserul pleacă spre NETOPIA — nimic de mai făcut aici
+        }
+        // Repetare a unei cereri deja rezolvate (aceeași cheie de
+        // idempotență) — arătăm direct ecranul de confirmare, ca la
+        // cash/transfer.
+        setConfirmare({
+          confirmationNumber: d.confirmationNumber,
+          checkIn: laSosire(cautare.checkin), checkOut: laPlecare(cautare.checkout),
+          rooms: d.rooms, total: d.total, status: d.status,
+          holdExpiresAt: d.holdExpiresAt,
+          guestName: `${oaspete.prenume} ${oaspete.nume}`.trim(),
+          publicToken: d.publicToken, metodaPlata: d.metodaPlata,
+          canCancel: d.status === "confirmed",
+        });
+        setStare("confirmat");
+        return;
+      }
+
       const d = await creeazaRezervare({
         cheieIdempotenta: cheie,
         checkin: laSosire(cautare.checkin),
         checkout: laPlecare(cautare.checkout),
-        camere, oaspete, cerinte, jetonTurnstile: jeton,
+        camere, oaspete, cerinte, jetonTurnstile: jeton, metodaPlata,
       });
       setConfirmare({
         confirmationNumber: d.confirmationNumber,
@@ -340,7 +411,7 @@ export default function App({ valoriInitiale }) {
         rooms: d.rooms, total: d.total, status: d.status,
         holdExpiresAt: d.holdExpiresAt,
         guestName: `${oaspete.prenume} ${oaspete.nume}`.trim(),
-        publicToken: d.publicToken,
+        publicToken: d.publicToken, metodaPlata: d.metodaPlata,
         /* Cât e doar ținută, nu se anulează: n-a apucat să existe ca
            rezervare fermă, iar dacă omul se răzgândește e destul să nu
            confirme. */
@@ -370,9 +441,10 @@ export default function App({ valoriInitiale }) {
     setEroare("");
     setAnuleazaAcum(true);
     try {
-      await anuleazaRezervare(confirmare.publicToken);
-      setConfirmare((c) => ({ ...c, status: "cancelled", canCancel: false }));
+      const d = await anuleazaRezervare(confirmare.publicToken);
+      setConfirmare((c) => ({ ...c, status: "cancelled", canCancel: false, refundSuggerat: d?.refundSuggerat }));
       setCereAnulare(false);
+      if (confirmare.metodaPlata === "card") trimiteAvizRambursare(confirmare.publicToken);
     } catch (e) {
       setEroare(e.message);
     } finally {
@@ -703,9 +775,33 @@ export default function App({ valoriInitiale }) {
               {stare === "trimitere" ? "Se trimite…" : "Trimite rezervarea"}
             </button>
           </div>
-          <p className="ldv-mic ldv-nota-plata">
-            Prețul final se confirmă de noi la trimitere. Nu se cere plată online.
-          </p>
+          <div className="ldv-metode-plata">
+            <label className="ldv-metoda-card">
+              <input type="radio" name="metodaPlata" value="card"
+                checked={metodaPlata === "card"}
+                onChange={() => setMetodaPlata("card")} />
+              <span>
+                <span className="ldv-metoda-card-titlu">Plătește cu cardul</span>
+                <p className="ldv-mic ldv-metoda-card-desc">
+                  Sigur, prin NETOPIA. Rezervarea se confirmă imediat după plată.
+                </p>
+              </span>
+            </label>
+            <div className="ldv-metode-secundare">
+              <label>
+                <input type="radio" name="metodaPlata" value="cash"
+                  checked={metodaPlata === "cash"}
+                  onChange={() => setMetodaPlata("cash")} />
+                cash la sosire
+              </label>
+              <label>
+                <input type="radio" name="metodaPlata" value="transfer"
+                  checked={metodaPlata === "transfer"}
+                  onChange={() => setMetodaPlata("transfer")} />
+                transfer bancar
+              </label>
+            </div>
+          </div>
         </div>
       )}
 
@@ -741,6 +837,21 @@ export default function App({ valoriInitiale }) {
             <div className="ldv-alerta ldv-alerta-info ldv-alerta-confirmare">
               Camerele au fost eliberate. Dacă a fost o greșeală, sună-ne —
               putem verifica dacă mai sunt disponibile.
+              {confirmare.refundSuggerat > 0 && (
+                <p className="ldv-alerta-detalii">
+                  Vei primi înapoi {fmtBani(confirmare.refundSuggerat)} pe
+                  cardul folosit — se face manual, în câteva zile lucrătoare.
+                </p>
+              )}
+            </div>
+          ) : confirmare.status === "pending" && confirmare.metodaPlata === "card" ? (
+            <div className="ldv-alerta ldv-alerta-info ldv-alerta-confirmare">
+              <strong>Verificăm plata cu NETOPIA.</strong>
+              <p className="ldv-alerta-detalii">
+                Dacă ai fost adus înapoi de pe pagina de plată, confirmarea
+                poate dura câteva secunde. Reîmprospătează pagina dacă nu se
+                actualizează singură.
+              </p>
             </div>
           ) : confirmare.status === "pending" ? (
             <div className="ldv-alerta ldv-alerta-info ldv-alerta-confirmare">
