@@ -115,7 +115,8 @@ Deno.serve(async (req) => {
       }
       await incheie("ok", `Plată confirmată. Acțiune: ${rasp.actiune}.`, rasp.orderId);
     } else if (esuat) {
-      await admin.rpc("mark_card_payment_failed", { p_token: rasp.orderId });
+      const { error } = await admin.rpc("mark_card_payment_failed", { p_token: rasp.orderId });
+      if (error) throw error;
       await incheie("ok", `Plată eșuată/anulată. Acțiune: ${rasp.actiune}, eroare: ${rasp.codEroare}.`, rasp.orderId);
     } else {
       // Acțiune necunoscută sau intermediară (ex. *_pending) — consemnăm,

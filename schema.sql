@@ -6104,9 +6104,15 @@ end; $$;
 -- netopia-ipn răspunde la `already_paid_but` din răspuns trimițând avizul
 -- de rambursare mai departe — vezi Task 4.
 -- =====================================================================
+-- FIX (revizia Task 4, 18 sept 2026): ramura cancelled/expired întorcea
+-- necondiționat platitDupaAnulare=true la fiecare apel — inclusiv la un IPN
+-- dublu pentru o plată deja consemnată, ceea ce retrimitea avizul de
+-- rambursare (netopia-refund-notice) de fiecare dată. Acum flagul e true
+-- doar prima dată când plata e consemnată pentru acel token — vezi
+-- 20260918001938_confirm_card_payment_idempotent_platit_dupa_anulare.sql.
 create or replace function confirm_card_payment(p_token text, p_ntp_id text, p_amount numeric)
 returns jsonb language plpgsql security definer set search_path = public as $$
-declare v_b public_bookings;
+declare v_b public_bookings; v_nou boolean;
 begin
   select * into v_b from public_bookings where public_token = p_token;
   if not found then
@@ -6121,13 +6127,17 @@ begin
     -- Rezervarea nu mai există, dar plata a reușit — consemnăm suma, ca să
     -- poată fi găsită de booking_refund_payload. Nu atingem reservations:
     -- camera rămâne eliberată, exact ce s-a întâmplat deja.
-    if v_b.plata_status is distinct from 'platit' then
+    --
+    -- Doar prima dată contează ca "descoperire" — un IPN dublu pentru o
+    -- plată deja consemnată nu mai trebuie să retrimită avizul de rambursare.
+    v_nou := v_b.plata_status is distinct from 'platit';
+    if v_nou then
       update public_bookings
          set plata_status = 'platit', netopia_ntp_id = p_ntp_id, suma_platita = p_amount
        where id = v_b.id;
     end if;
     return jsonb_build_object('success', false, 'status', v_b.status,
-      'confirmationNumber', v_b.confirmation_number, 'platitDupaAnulare', true);
+      'confirmationNumber', v_b.confirmation_number, 'platitDupaAnulare', v_nou);
   end if;
 
   update reservations set status = 'confirmed', hold_expires_at = null
