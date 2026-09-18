@@ -1,4 +1,5 @@
 // @ts-check
+/// <reference path="./node-crypto.d.ts" />
 /* Tot ce ține de NETOPIA (API v1, redirect) fără rețea și fără bază de
    date — testabil singur, importat neschimbat din funcțiile edge
    `netopia-start`/`netopia-ipn` (Deno înțelege `node:crypto` la fel ca
