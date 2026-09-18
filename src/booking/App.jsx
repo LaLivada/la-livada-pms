@@ -417,7 +417,14 @@ export default function App({ valoriInitiale }) {
     form.submit();
   }
 
-  async function trimite() {
+  /* `metodaForced` există doar pentru selecția directă a cardului (mai
+     jos): `setMetodaPlata("card")` urmat imediat de `trimite()` ar citi
+     starea VECHE (React nu o actualizează sincron în același handler),
+     deci ramura de plată ar porni greșit, pe cash/transfer. Butonul
+     „Trimite rezervarea" nu are nevoie de el — acolo starea e deja
+     stabilă de la randarea anterioară. */
+  async function trimite(metodaForced) {
+    const metoda = metodaForced || metodaPlata;
     setEroare("");
     setStare("trimitere");
     /* Fiecare cameră aleasă devine o intrare separată, cu ocuparea cerută.
@@ -435,7 +442,7 @@ export default function App({ valoriInitiale }) {
         adresa: firma.adresa.trim(), oras: firma.oras.trim(), judet: firma.judet.trim(),
       } : null;
 
-      if (metodaPlata === "card") {
+      if (metoda === "card") {
         const cerere = {
           cheieIdempotenta: cheie,
           checkin: laSosire(cautare.checkin),
@@ -472,7 +479,7 @@ export default function App({ valoriInitiale }) {
         cheieIdempotenta: cheie,
         checkin: laSosire(cautare.checkin),
         checkout: laPlecare(cautare.checkout),
-        camere, oaspete, cerinte, jetonTurnstile: jeton, metodaPlata, firma: firmaCerere,
+        camere, oaspete, cerinte, jetonTurnstile: jeton, metodaPlata: metoda, firma: firmaCerere,
       });
       setConfirmare({
         confirmationNumber: d.confirmationNumber,
@@ -919,24 +926,33 @@ export default function App({ valoriInitiale }) {
           <div className="ldv-metode-plata">
             <label className="ldv-metoda-card">
               <input type="radio" name="metodaPlata" value="card"
-                checked={metodaPlata === "card"}
-                onChange={() => setMetodaPlata("card")} />
+                checked={metodaPlata === "card"} disabled={stare === "trimitere"}
+                /* Cardul e un „link" spre NETOPIA, nu doar o alegere: dacă
+                   datele sunt deja valide, selectarea lui pleacă direct spre
+                   plată — fără să mai fie nevoie de „Trimite rezervarea".
+                   Dacă nu sunt valide încă, rămâne doar selectat, iar
+                   butonul de mai jos preia trimiterea când oaspetele
+                   termină formularul. */
+                onChange={() => {
+                  setMetodaPlata("card");
+                  if (dateValide) trimite("card");
+                }} />
               <span>
                 <span className="ldv-metoda-card-titlu">Plătește cu cardul</span>
                 <p className="ldv-mic ldv-metoda-card-desc">
-                  Sigur, prin NETOPIA. Rezervarea se confirmă imediat după plată.
+                  Sigur, prin NETOPIA. Te trimite direct la plată.
                 </p>
               </span>
             </label>
             <div className="ldv-metode-secundare">
               <label>
                 <input type="radio" name="metodaPlata" value="cash"
-                  checked={metodaPlata === "cash"}
+                  checked={metodaPlata === "cash"} disabled={stare === "trimitere"}
                   onChange={() => setMetodaPlata("cash")} />
                 cash la sosire
               </label>
               <label>
-                <input type="radio" name="metodaPlata" value="transfer"
+                <input type="radio" name="metodaPlata" value="transfer" disabled={stare === "trimitere"}
                   checked={metodaPlata === "transfer"}
                   onChange={() => setMetodaPlata("transfer")} />
                 transfer bancar
@@ -945,7 +961,7 @@ export default function App({ valoriInitiale }) {
           </div>
           <div className="ldv-actiuni">
             <button className="ldv-btn ldv-btn-principal ldv-creste"
-              onClick={trimite} disabled={!dateValide || stare === "trimitere"}>
+              onClick={() => trimite()} disabled={!dateValide || stare === "trimitere"}>
               {stare === "trimitere" ? "Se trimite…" : "Trimite rezervarea"}
             </button>
             <button className="ldv-btn ldv-btn-simplu"

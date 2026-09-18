@@ -109,6 +109,24 @@ describe("App.jsx (ecranul de confirmare)", () => {
   });
 });
 
+describe("App.jsx (selectarea cardului pornește plata singură)", () => {
+  it("butonul „Trimite rezervarea” nu dă evenimentul de click drept metodă de plată", () => {
+    /* `onClick={trimite}` ar trimite SyntheticEvent-ul ca prim argument —
+       `trimite(metodaForced)` l-ar lua drept metodă de plată „adevărată”
+       (orice obiect e truthy) și ar ocoli complet ramura de card, trimițând
+       evenimentul ca `metodaPlata` la server. */
+    expect(app).not.toMatch(/onClick=\{trimite\}/);
+    expect(app).toContain("onClick={() => trimite()}");
+  });
+
+  it("selectarea cardului trimite metoda explicit, nu citește starea veche din closure", () => {
+    /* `setMetodaPlata(\"card\")` urmat de `trimite()` fără argument ar citi
+       `metodaPlata` din randarea curentă — tot cash/transfer, pentru că
+       React nu actualizează starea sincron în același handler. */
+    expect(app).toMatch(/setMetodaPlata\("card"\);\s*\n\s*if \(dateValide\) trimite\("card"\)/);
+  });
+});
+
 describe("confirm_card_payment (schema.sql)", () => {
   it("refuză să confirme o sumă care nu e cea datorată", () => {
     expect(schema).toMatch(/abs\(v_b\.total_amount - p_amount\) > 0\.01/);
