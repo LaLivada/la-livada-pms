@@ -233,7 +233,7 @@ Bine ai venit la {{hotel_name}}!
 
 Am rezervat pentru tine camera **{{room_number}}**.
 
-Poți intra direct de pe pagina ta: {{guest_link}}
+Poți intra direct în cameră de pe pagina ta… {{guest_link}}
 De acolo vezi codul, regulile casei și ce e de vizitat prin zonă.
 
 Poți intra și cu codul **{{access_code}}**, tastat pe yală — apasă tasta de confirmare # după cifre.
