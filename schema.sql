@@ -2698,6 +2698,11 @@ end; $$;
 -- Datele pentru emailul de confirmare. Conține adresa clientului, deci NU
 -- e accesibilă anonim: o apelează doar funcția edge booking-email, cu
 -- service_role.
+--
+-- `metodaPlata` e aici pentru că netopia-ipn cheamă ACEEAȘI funcție
+-- booking-email ca la cash/transfer: fără ea, șabloanele n-ar avea de unde
+-- să știe dacă plata s-a făcut deja online sau se face la sosire — vezi
+-- 20260918010945_booking_email_payload_metoda_plata.sql.
 create or replace function booking_email_payload(p_token text)
 returns jsonb language sql stable security definer set search_path = public as $$
   select jsonb_build_object(
@@ -2708,6 +2713,7 @@ returns jsonb language sql stable security definer set search_path = public as $
     'checkIn', b.checkin, 'checkOut', b.checkout,
     'nights', b.checkout::date - b.checkin::date,
     'rooms', b.rooms_count, 'total', b.total_amount, 'status', b.status,
+    'metodaPlata', b.metoda_plata,
     'alreadySent', b.email_sent_at is not null)
   from public_bookings b
   left join guests g on g.id = b.guest_id
@@ -6101,7 +6107,7 @@ end; $$;
 -- mai există. De-asta scriem `plata_status='platit'` ȘI în aceste două
 -- cazuri (fără să reînviem rezervarea): altfel booking_refund_payload n-ar
 -- găsi niciodată nimic de rambursat, iar plata ar rămâne needetectată.
--- netopia-ipn răspunde la `already_paid_but` din răspuns trimițând avizul
+-- netopia-ipn răspunde la `platitDupaAnulare` din răspuns trimițând avizul
 -- de rambursare mai departe — vezi Task 4.
 -- =====================================================================
 -- FIX (revizia Task 4, 18 sept 2026): ramura cancelled/expired întorcea
@@ -6110,6 +6116,14 @@ end; $$;
 -- rambursare (netopia-refund-notice) de fiecare dată. Acum flagul e true
 -- doar prima dată când plata e consemnată pentru acel token — vezi
 -- 20260918001938_confirm_card_payment_idempotent_platit_dupa_anulare.sql.
+--
+-- FIX (revizia finală, 18 sept 2026): suma primită de la NETOPIA nu era
+-- verificată niciodată — o plată parțială ar fi confirmat o rezervare
+-- întreagă. Verificarea stă aici, nu în funcția edge: `total_amount` e
+-- sursa unică de adevăr pentru cât se datorează. La nepotrivire nu se
+-- confirmă nimic, rezervarea rămâne ținută, iar netopia-ipn consemnează
+-- cazul ca EROARE în netopia_ipn_log — vezi
+-- 20260918011010_confirm_card_payment_verifica_suma.sql.
 create or replace function confirm_card_payment(p_token text, p_ntp_id text, p_amount numeric)
 returns jsonb language plpgsql security definer set search_path = public as $$
 declare v_b public_bookings; v_nou boolean;
@@ -6128,6 +6142,10 @@ begin
     -- poată fi găsită de booking_refund_payload. Nu atingem reservations:
     -- camera rămâne eliberată, exact ce s-a întâmplat deja.
     --
+    -- Suma nu se verifică pe ramura asta: orice bani ajunși la noi pentru o
+    -- rezervare care nu mai există trebuie găsiți și returnați, fie că sunt
+    -- cât trebuia, fie că nu.
+    --
     -- Doar prima dată contează ca "descoperire" — un IPN dublu pentru o
     -- plată deja consemnată nu mai trebuie să retrimită avizul de rambursare.
     v_nou := v_b.plata_status is distinct from 'platit';
@@ -6138,6 +6156,13 @@ begin
     end if;
     return jsonb_build_object('success', false, 'status', v_b.status,
       'confirmationNumber', v_b.confirmation_number, 'platitDupaAnulare', v_nou);
+  end if;
+
+  -- Suma trebuie să fie exact cea datorată. Altfel nu confirmăm nimic:
+  -- rezervarea rămâne ținută și cazul ajunge la un om prin netopia_ipn_log.
+  if p_amount is null or abs(v_b.total_amount - p_amount) > 0.01 then
+    return jsonb_build_object('success', false, 'status', 'suma_incorecta',
+      'confirmationNumber', v_b.confirmation_number);
   end if;
 
   update reservations set status = 'confirmed', hold_expires_at = null
