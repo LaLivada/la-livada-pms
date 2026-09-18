@@ -233,13 +233,13 @@ Bine ai venit la {{hotel_name}}!
 
 Am rezervat pentru tine camera **{{room_number}}**.
 
-Poți intra direct în cameră de pe pagina ta… {{guest_link}}
+Poți intra direct în cameră de pe pagina {{guest_link}}
 De acolo vezi codul, regulile casei și ce e de vizitat prin zonă.
 
-Poți intra și cu codul **{{access_code}}**, tastat pe yală — apasă tasta de confirmare # după cifre.
+Poți intra și cu codul **{{access_code}}** urmat de tasta de confirmare **#**.
 Accesul e valabil de la {{valid_from}} până la {{valid_until}}.
 
-Dacă ai nevoie de ajutor, sună la {{support_phone}}.`;
+Dacă ai nevoie de ajutor, poți suna la {{support_phone}}.`;
 
 /* Ce trebuie facut cu codul dupa ce o rezervare s-a modificat.
  *
