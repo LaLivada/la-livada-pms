@@ -27,7 +27,14 @@ export function escXml(s) {
 /* XML-ul cererii de plată, versiunea 1 a API-ului NETOPIA — vezi
    docs/netopia-plan.md pentru de ce v1, nu v2. Structura e cea din
    documentația lor (Payment Request Structure); timestamp-ul e ora UTC
-   a serverului, formatul YYYYMMDDHHiiss cerut de ei. */
+   a serverului, formatul YYYYMMDDHHiiss cerut de ei.
+
+   `<ipn_cipher>` spune lui NETOPIA cu ce cifrează RĂSPUNSUL (IPN-ul) —
+   fără el, alege singur `rc4`, pe care `decripteazaDeLaNetopia` îl respinge
+   corect (nu l-am implementat niciodată). Găsit direct la primul test real
+   în sandbox: IPN-ul a ajuns, dar decriptarea a picat cu exact cifrul
+   nesolicitat. Nu are legătură cu cifrul din `cripteazaPentruNetopia`
+   (ăla e mereu aes-256-cbc, ales de noi, pentru plicul CERERII). */
 export function construiesteXmlPlata({
   orderId, semnatura, suma, descriere, notifyUrl, returnUrl,
   client: { email, telefon, prenume, nume }, moneda = "RON",
@@ -47,6 +54,7 @@ export function construiesteXmlPlata({
 </billing>
 </contact_info>
 </invoice>
+<ipn_cipher>aes-256-cbc</ipn_cipher>
 <url>
 <confirm>${escXml(notifyUrl)}</confirm>
 <return>${escXml(returnUrl)}</return>

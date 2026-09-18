@@ -39,6 +39,15 @@ describe("construiesteXmlPlata", () => {
     expect(xml).toContain("<confirm>https://x.test/ipn</confirm>");
     expect(xml).toContain("<return>https://x.test/reveniere</return>");
   });
+
+  it("cere explicit aes-256-cbc pentru IPN — fără el, NETOPIA alege rc4", () => {
+    const xml = construiesteXmlPlata({
+      orderId: "pb-123", semnatura: "XXXX-XXXX", suma: 100,
+      descriere: "test", notifyUrl: "https://x.test/ipn", returnUrl: "https://x.test/reveniere",
+      client: { email: "ion@test.ro", telefon: "+40722000000", prenume: "Ion", nume: "Popescu" },
+    });
+    expect(xml).toContain("<ipn_cipher>aes-256-cbc</ipn_cipher>");
+  });
 });
 
 describe("cripteazaPentruNetopia / decripteazaDeLaNetopia", () => {
