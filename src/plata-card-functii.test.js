@@ -177,4 +177,21 @@ describe("create_public_booking (schema.sql) — facturare pe societate", () => 
     expect(schema).toMatch(
       /grant {2}execute on function create_public_booking\(uuid, timestamptz, timestamptz,\s*\n\s*text, text, text, text, text, text, text, jsonb, text, int, text, text, text, jsonb\)\s*\n\s*to service_role;/);
   });
+
+  it("nu scrie telefonul firmei cu „+” — ecranul de facturare din PMS îl respinge", () => {
+    /* Găsit pe o firmă reală: telefonul venea „+40 722899899” din
+       telefonInternational (booking), iar ecranul „Editează client de
+       facturare” nu are selector de prefix — validatePhone de-acolo
+       respinge orice „+” ca literă nepermisă și bloca salvarea. */
+    expect(schema).not.toMatch(/phone, guest_id\)\s*\n\s*values \([^)]*trim\(p_phone\)/);
+    expect(schema).toContain("nullif(v_billing_phone, ''), v_guest_id)");
+
+    const normalizeazaCaInSql = (pPhone) => {
+      const t = pPhone.trim();
+      return /^\+40\s/.test(t) ? "0" + t.slice(4) : t.replace(/^\+/, "");
+    };
+    expect(normalizeazaCaInSql("+40 722899899")).toBe("0722899899");
+    expect(normalizeazaCaInSql("+39 0612345678")).toBe("39 0612345678");
+    expect(normalizeazaCaInSql("0722123456")).toBe("0722123456");
+  });
 });

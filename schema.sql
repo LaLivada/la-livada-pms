@@ -6335,6 +6335,7 @@ declare
   v_hold      timestamptz := null;
   v_status    text := 'confirmed';
   v_billing_id text := null;
+  v_billing_phone text;
   v_are_firma  boolean := p_firma is not null and coalesce(trim(p_firma->>'denumire'), '') <> '';
 begin
   if coalesce(p_hold_minutes, 0) > 0 then
@@ -6453,14 +6454,27 @@ begin
 
   -- 5b. CLIENT DE FACTURARE (firmă) — o singură dată per cerere, nu per
   -- cameră: o firmă poate plăti pentru tot grupul deodată.
+  --
+  -- `p_phone` vine deja în format internațional („+40 722899899" —
+  -- vezi telefonInternational din booking). Ecranul „Editează client de
+  -- facturare" din PMS nu are selector de prefix — un „0" la început e
+  -- numărul local normal, iar `validatePhone` de-acolo respinge orice
+  -- „+" ca literă nepermisă. Găsit direct pe o firmă reală: telefonul
+  -- venea cu „+40 " în față și bloca salvarea clientului de facturare,
+  -- cu eroarea de format, chiar dacă restul câmpurilor erau corecte.
   if v_are_firma then
     v_billing_id := 'bc-' || encode(gen_random_bytes(6),'hex');
+    v_billing_phone := case
+      when trim(p_phone) ~ '^\+40\s'
+        then '0' || substring(trim(p_phone) from 5)
+      else regexp_replace(trim(p_phone), '^\+', '')
+    end;
     insert into billing_customers (id, kind, company_name, cui, reg_com, contact_name,
                                    address, city, county, country, email, phone, guest_id)
     values (v_billing_id, 'company', trim(p_firma->>'denumire'), trim(p_firma->>'cui'),
             nullif(trim(p_firma->>'regCom'), ''), trim(p_first_name || ' ' || p_last_name),
             trim(p_firma->>'adresa'), trim(p_firma->>'oras'), trim(p_firma->>'judet'),
-            'România', nullif(trim(p_email),''), trim(p_phone), v_guest_id);
+            'România', nullif(trim(p_email),''), nullif(v_billing_phone, ''), v_guest_id);
   end if;
 
   -- 6. GRUP
