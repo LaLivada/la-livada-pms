@@ -130,6 +130,24 @@ describe("sablonul mesajului", () => {
     expect(randeazaSablon(null, valori)).toBe("");
   });
 
+  /* Marcajul **text**, adaugat 18 septembrie 2026: acelasi sablon, un semn
+     tradus diferit pe fiecare canal — vezi ingroasaPeCanal in
+     src/lib/acces.js si docs/guest-app.md 5. */
+  it("pe whatsapp, **text** devine *text* — bold-ul lui nativ", () => {
+    expect(randeazaSablon("Camera **{{room_number}}**", valori, "whatsapp"))
+      .toBe("Camera *204*");
+  });
+
+  it("fara canal (emailul), **text** ramane text simplu, fara asteriscuri", () => {
+    expect(randeazaSablon("Camera **{{room_number}}**", valori))
+      .toBe("Camera 204");
+  });
+
+  it("un canal necunoscut se comporta ca emailul, nu ca whatsapp", () => {
+    // Default sigur: doar "whatsapp", scris explicit, primeste asteriscul.
+    expect(randeazaSablon("**{{room_number}}**", valori, "sms")).toBe("204");
+  });
+
   /* Testul care justifica mutarea sablonului in modulul comun.
    *
    * Sablonul e citit de doua cai — functia edge, pentru email, si PMS-ul,
@@ -142,6 +160,19 @@ describe("sablonul mesajului", () => {
     expect(text).not.toMatch(/\{\{/);
     expect(text).toContain("https://guest.lalivada.ro/#Ajh6k");
     expect(text).toContain("583921");
+  });
+
+  it("sablonul implicit, pe email, nu lasa niciun asterisc — nici dublu, nici simplu", () => {
+    // Cel trimis fara canal: asteriscurile literale ar arata ca text stricat.
+    expect(randeazaSablon(SABLON_IMPLICIT, valori)).not.toMatch(/\*/);
+  });
+
+  it("sablonul implicit, pe whatsapp, ingroasa numele, camera si codul", () => {
+    const text = randeazaSablon(SABLON_IMPLICIT, valori, "whatsapp");
+    expect(text).toContain("*Ion Popescu*");
+    expect(text).toContain("*204*");
+    expect(text).toContain("*583921*");
+    expect(text).not.toMatch(/\*\*/);
   });
 
   /* Aceeasi verificare, dinspre celalalt capat: fiecare acolada din sablon

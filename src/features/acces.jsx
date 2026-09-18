@@ -292,7 +292,11 @@ export function SectiuneAcces({ res, core }) {
                7 septembrie 2026 textul era scris aici de mână și cele două
                apucaseră să se despartă. Randarea în browser e în regulă
                tocmai pentru că mesajul pleacă tot de aici: recepționerul îl
-               vede în WhatsApp înainte să apese trimite. */
+               vede în WhatsApp înainte să apese trimite.
+               "whatsapp" e singurul loc care cere aldin — vezi
+               ingroasaPeCanal în src/lib/acces.js: pe email (implicit)
+               `**text**` devine text simplu, aici devine *text*, bold-ul
+               nativ WhatsApp. */
             const text = randeazaSablon(setari.messageTemplate || SABLON_IMPLICIT, {
               guest_name:  catre.nume || "oaspete",
               hotel_name:  setari.hotelName || NUME_HOTEL_IMPLICIT,
@@ -302,7 +306,7 @@ export function SectiuneAcces({ res, core }) {
               valid_until: dataMesaj(cod.valid_until),
               guest_link:  linkOaspete(res.guestCode),
               support_phone: TELEFON_ASISTENTA,
-            });
+            }, "whatsapp");
             return (
               <a className="btn btn-ghost" href={`https://wa.me/${cifre}?text=${encodeURIComponent(text)}`}
                 target="_blank" rel="noopener noreferrer"

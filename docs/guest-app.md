@@ -910,6 +910,28 @@ funcția — singurul risc real al mutării șablonului într-un modul comun.
 email trimis și un mesaj de WhatsApp deschis. Codul livrat e verificat;
 cum arată textul în Gmail și în WhatsApp, nu.
 
+**Formatare pe canal, cerută de proprietar** (18 septembrie 2026). Șablonul
+unic a ținut un an — pe hârtie — până când proprietarul a cerut aldin pe
+numele oaspetelui, pe numărul camerei și pe cod, plus un 👋 și o ordine
+nouă (camera înaintea linkului, codul după). Aldinul e sintaxă WhatsApp
+(`*text*`); într-un email trimis ca text simplu ar fi ieșit ca asteriscuri
+literale, nu îngroșare — exact genul de scăpare pe care unificarea din
+7 septembrie voia s-o oprească.
+
+Nu s-a revenit la două șabloane. `SABLON_IMPLICIT` scrie `**text**`
+(marcaj neutru, inventat aici, nu markdown de nicăieri), iar
+`randeazaSablon` primește acum un al treilea parametru, `canal`:
+pe `"whatsapp"` devine `*text*`; pe orice altceva (implicit — calea de
+email n-a fost atinsă) asteriscurile dispar, fără urmă. Un singur loc
+scrie ce trebuie îngroșat; fiecare canal își traduce singur semnul.
+
+Verificat: cele 56 de teste din `src/acces.test.js` trec, inclusiv cinci noi
+care apără explicit comportamentul pe fiecare canal — `**x**` devine `*x*`
+pe `"whatsapp"`, dispare fără urmă pe implicit, iar șablonul implicit
+randat pe email n-are niciun asterisc rămas — și testul „nicio acoladă
+nehrănită" de la 7 septembrie, care mai trece o dată neschimbat. Suita
+întreagă a proiectului (1019 teste) trece și ea.
+
 ### Pasul 6 (ulterior, cu decizie separată)
 
 Auto-declararea consumului de minibar (5.2).

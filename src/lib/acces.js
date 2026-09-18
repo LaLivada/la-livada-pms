@@ -67,12 +67,24 @@ export function inceputCod(checkin) {
 export const ORA_SOSIRE_IMPLICITA = 14;
 export const ORA_PLECARE_IMPLICITA = 11;
 
+/* Marcaj neutru pentru „ingrosat", nu markdown de nicaieri: **text** in
+ * sablon. Pe WhatsApp devine *text* — sintaxa lui nativa de bold. Oriunde
+ * altundeva (implicit; azi doar emailul, trimis ca text simplu) asteriscurile
+ * dispar fara urma — ramase, ar fi aratat ca o greseala de tipar, nu ca
+ * ingrosare. Un singur loc scrie ce trebuie ingrosat; fiecare canal isi
+ * traduce singur semnul. Vezi docs/guest-app.md 5, nota din 18 septembrie
+ * 2026. */
+function ingroasaPeCanal(text, canal) {
+  return text.replace(/\*\*(.+?)\*\*/g, canal === "whatsapp" ? "*$1*" : "$1");
+}
+
 /* Inlocuieste {{variabila}} in sablon. Variabilele lipsa devin sir gol, nu
  * raman ca {{...}} in mesajul trimis oaspetelui. */
-export function randeazaSablon(sablon, valori) {
-  return String(sablon || "").replace(
+export function randeazaSablon(sablon, valori, canal) {
+  const cuValori = String(sablon || "").replace(
     /\{\{\s*(\w+)\s*\}\}/g,
     (_, cheie) => (valori && valori[cheie] != null ? String(valori[cheie]) : ""));
+  return ingroasaPeCanal(cuValori, canal);
 }
 
 /* Linkul catre pagina oaspetelui.
@@ -200,6 +212,11 @@ export function destinatarWhatsapp(rezervare, oaspete) {
  * intamplasera, fiindca textul era scris de doua ori. De aceea a urcat aici,
  * unde il citesc amandoua.
  *
+ * `**text**` e ingrosare, tradusa pe canal de `randeazaSablon` — vezi
+ * `ingroasaPeCanal` mai sus si docs/guest-app.md 5 (nota din 18 septembrie
+ * 2026). Nu s-a scris a doua oara sablonul ca sa aiba WhatsApp bold: canalul
+ * decide semnul, textul ramane unul singur.
+ *
  * Ramane configurabil din `app_state`, cheia `pms:access:v1`, campul
  * `messageTemplate`; asta e doar punctul de pornire. In productie campul nu
  * exista (verificat 7 septembrie 2026), deci textul de aici e cel trimis.
@@ -210,19 +227,17 @@ export function destinatarWhatsapp(rezervare, oaspete) {
  * pleaca — receptionerul apasa trimite in aplicatia lui, cu textul sub ochi,
  * deci nu exista nimeni de pacalit. Sablonul e acelasi; doar locul randarii
  * difera, si difera cu motiv. */
-export const SABLON_IMPLICIT = `Bună {{guest_name}},
+export const SABLON_IMPLICIT = `Bună **{{guest_name}}** 👋
 
 Bine ai venit la {{hotel_name}}!
 
-Camera ta este {{room_number}}.
-Codul de acces este: {{access_code}}
+Am rezervat pentru tine camera **{{room_number}}**.
 
-Valabil de la {{valid_from}} până la {{valid_until}}.
+Poți intra direct de pe pagina ta: {{guest_link}}
+De acolo vezi codul, regulile casei și ce e de vizitat prin zonă.
 
-Introdu codul pe tastatura yalei și apasă tasta de confirmare #.
-
-Poți avea acces direct în cameră de pe pagina: {{guest_link}}
-De acolo vezi și codul, regulile casei și ce e de vizitat prin zonă.
+Poți intra și cu codul **{{access_code}}**, tastat pe yală — apasă tasta de confirmare # după cifre.
+Accesul e valabil de la {{valid_from}} până la {{valid_until}}.
 
 Dacă ai nevoie de ajutor, sună la {{support_phone}}.`;
 
