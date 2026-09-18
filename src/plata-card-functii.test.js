@@ -119,4 +119,11 @@ describe("confirm_card_payment (schema.sql)", () => {
     expect(schema).not.toContain("already_paid_but");
     expect(schema).toContain("platitDupaAnulare");
   });
+
+  it("marchează rezervarea cu eticheta de plată cu cardul, vizibilă în PMS", () => {
+    /* Fără ea, personalul din PMS nu avea cum să știe — din listă sau
+       fișă — că o rezervare a fost deja plătită online. */
+    expect(schema).toContain("'Achitat cu cardul'");
+    expect(schema).toMatch(/tags = case when 'Achitat cu cardul' = any\(tags\)/);
+  });
 });

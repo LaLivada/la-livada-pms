@@ -6124,6 +6124,13 @@ end; $$;
 -- confirmă nimic, rezervarea rămâne ținută, iar netopia-ipn consemnează
 -- cazul ca EROARE în netopia_ipn_log — vezi
 -- 20260918011010_confirm_card_payment_verifica_suma.sql.
+--
+-- FIX (18 sept 2026, după primul test complet live): PMS-ul nu arăta
+-- nicăieri că o rezervare a fost plătită online — câmpurile de plată
+-- există doar pe public_bookings. Adăugăm eticheta "Achitat cu cardul" pe
+-- reservations, prin mecanismul existent de tags (deja afișat ca pastile
+-- în listă și fișă, fără cod nou) — vezi
+-- 20260918153253_confirm_card_payment_eticheta_achitat_card.sql.
 create or replace function confirm_card_payment(p_token text, p_ntp_id text, p_amount numeric)
 returns jsonb language plpgsql security definer set search_path = public as $$
 declare v_b public_bookings; v_nou boolean;
@@ -6165,7 +6172,10 @@ begin
       'confirmationNumber', v_b.confirmation_number);
   end if;
 
-  update reservations set status = 'confirmed', hold_expires_at = null
+  update reservations
+     set status = 'confirmed', hold_expires_at = null,
+         tags = case when 'Achitat cu cardul' = any(tags) then tags
+                     else array_append(tags, 'Achitat cu cardul') end
    where id = any(v_b.reservation_ids) and status = 'pending';
 
   update public_bookings
