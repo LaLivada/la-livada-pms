@@ -35,8 +35,12 @@ function raspuns(body: unknown, status = 200): Response {
 
 const esc = (s: string) =>
   String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+/* Aici, spre deosebire de restul afișărilor de bani din aplicație, suma se
+   dă cu bani: cifra din acest email o tastează un om, cu mâna, în formularul
+   de rambursare NETOPIA. Rotunjită la leu, o rambursare de 450,50 ar pleca
+   ca 451. */
 const bani = (n: number) =>
-  new Intl.NumberFormat("ro-RO", { maximumFractionDigits: 0 }).format(Number(n)) + " lei";
+  new Intl.NumberFormat("ro-RO", { maximumFractionDigits: 2 }).format(Number(n)) + " lei";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
@@ -64,12 +68,23 @@ Deno.serve(async (req) => {
     return raspuns({ ok: true, notice: false });
   }
 
+  /* `status` spune CINE a pierdut camera, iar de asta depinde cât se
+     rambursează — booking_refund_payload a calculat deja suma, aici doar
+     numim regula corect:
+       · 'expired' — plata a reușit după ce holdul expirase singur; oaspetele
+         nu a ales nimic, deci se întoarce tot;
+       · 'cancelled' — anulare cerută, se aplică politica publicată și prima
+         noapte se reține.
+     Textul e unul singur, folosit și ca `text` și, escapat, în `html`. */
+  const expirat = d.status === "expired";
   const corpEmail = [
     `Rezervarea ${d.confirmationNumber} (${esc(d.guestName)}) a fost anulată.`,
     `Plătită cu cardul — de rambursat manual din contul NETOPIA:`,
     ``,
     `Suma plătită: ${bani(d.sumaPlatita)}`,
-    `De rambursat (minus prima noapte, conform politicii): ${bani(d.refundSuggerat)}`,
+    expirat
+      ? `De rambursat (integral — camera s-a eliberat înainte ca plata să fie confirmată): ${bani(d.refundSuggerat)}`
+      : `De rambursat (minus prima noapte, conform politicii): ${bani(d.refundSuggerat)}`,
     `Identificator NETOPIA (ntpID): ${d.netopiaNtpId || "—"}`,
   ].join("\n");
 
