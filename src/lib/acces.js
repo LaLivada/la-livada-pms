@@ -113,12 +113,19 @@ export const NUME_HOTEL_IMPLICIT = "Complex La Livada";
  * reciteste in fata unei usi care nu se deschide, iar acolo trebuie omul
  * care raspunde in cateva minute, nu centrala.
  *
+ * CU SPATII, nu lipit. Incercat lipit („+40725259999", 18 septembrie 2026,
+ * la cererea initiala) si verificat pe un WhatsApp real: linkul auto-detectat
+ * de telefon apare fara „+" in bula mesajului, desi textul trimis chiar il
+ * contine — WhatsApp reformateaza randarea numarului detectat, nu ce s-a
+ * trimis. Grupat pe spatii, ca in „scris" din ASISTENTA (guest/continut.js),
+ * detectorul de telefon il recunoaste corect si pastreaza semnul.
+ *
  * ACELASI NUMAR STA SI IN src/guest/continut.js, ca `ASISTENTA`. Nu se
  * importa de acolo si nu e o scapare: guest app-ul e alt build, cu alt
  * deploy, iar un import ar trage logica de acces a receptiei in pachetul
  * public. Daca numarul se schimba, se schimba in amandoua — de aceea sta
  * scris aici, cu numele lui, si nu ingropat in sablon. */
-export const TELEFON_ASISTENTA = "+40725259999";
+export const TELEFON_ASISTENTA = "+40 725 259 999";
 
 /* Data si ora asa cum apar in mesajul trimis oaspetelui: „23 august 2026,
  * 11:30".
