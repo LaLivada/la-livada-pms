@@ -118,7 +118,7 @@ export const NUME_HOTEL_IMPLICIT = "Complex La Livada";
  * deploy, iar un import ar trage logica de acces a receptiei in pachetul
  * public. Daca numarul se schimba, se schimba in amandoua — de aceea sta
  * scris aici, cu numele lui, si nu ingropat in sablon. */
-export const TELEFON_ASISTENTA = "+40 725 259 999";
+export const TELEFON_ASISTENTA = "+40725259999";
 
 /* Data si ora asa cum apar in mesajul trimis oaspetelui: „23 august 2026,
  * 11:30".
@@ -239,7 +239,7 @@ De acolo vezi codul, regulile casei și ce e de vizitat prin zonă.
 Poți intra și cu codul **{{access_code}}** urmat de tasta de confirmare **#**.
 Accesul e valabil de la {{valid_from}} până la {{valid_until}}.
 
-Dacă ai nevoie de ajutor, poți suna la {{support_phone}}.`;
+📞 Dacă ai nevoie de ajutor, poți suna la {{support_phone}}.`;
 
 /* Ce trebuie facut cu codul dupa ce o rezervare s-a modificat.
  *
