@@ -14,7 +14,7 @@
 
 import {
   randomBytes, publicEncrypt, privateDecrypt,
-  createCipheriv, createDecipheriv, constants, X509Certificate,
+  createCipheriv, createDecipheriv, constants,
 } from "node:crypto";
 import { Buffer } from "node:buffer";
 
@@ -57,18 +57,23 @@ export function construiesteXmlPlata({
 /* PKCS1, nu OAEP: e formatul cerut de API-ul v1 NETOPIA (moștenit din
    mobilpay), nu o alegere a noastră — SubtleCrypto din browser nu suportă
    deloc acest padding pentru criptare, de-asta tot fluxul trăiește pe
-   server (node:crypto), niciodată în browser. */
+   server (node:crypto), niciodată în browser.
+
+   `certificatPem` e certificatul X.509 dat de NETOPIA, nu o cheie publică
+   separată — `publicEncrypt` îl acceptă direct (OpenSSL extrage singur
+   cheia din certificat), verificat în Node. `X509Certificate(...).publicKey`
+   ar fi echivalent în Node, dar KeyObject-ul întors de Deno pentru el
+   nu e acceptat de `publicEncrypt` acolo („TypeError: Invalid key type",
+   găsit direct pe rezervari.lalivada.ro) — de-asta trecem PEM-ul mai
+   departe neschimbat, în loc să-l extragem noi. */
 export function cripteazaPentruNetopia(xml, certificatPem) {
   const cheieAes = randomBytes(32);
   const iv = randomBytes(16);
   const cifru = createCipheriv("aes-256-cbc", cheieAes, iv);
   const data = Buffer.concat([cifru.update(xml, "utf8"), cifru.final()]);
 
-  const cheiePublica = certificatPem.includes("BEGIN CERTIFICATE")
-    ? new X509Certificate(certificatPem).publicKey
-    : certificatPem;
   const envKey = publicEncrypt(
-    { key: cheiePublica, padding: constants.RSA_PKCS1_PADDING },
+    { key: certificatPem, padding: constants.RSA_PKCS1_PADDING },
     cheieAes,
   );
 
