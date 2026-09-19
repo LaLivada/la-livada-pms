@@ -1,5 +1,74 @@
-/* PUNTE TEMPORARA — inlocuit cu traduceri reale in Task 6.
- * Pana atunci, oaspetele care alege ucraineana vede text romanesc: asta e
- * de asteptat si dispare cand Task 6 inlocuieste continutul de-a dreptul,
- * fara sa schimbe forma testata de continut-forme.test.js. */
-export * from "./interfata.ro.js";
+/* Textele de interfata in ucraineana, traduse si aprobate 19 septembrie 2026.
+ * Aceeasi forma ca in interfata.ro.js — verificat de
+ * continut-forme.test.js. */
+export const TEXTE = {
+  acces: {
+    eticheta: "Доступ до номера",
+    deschideUsa: "Відкрити двері",
+    sauTasteaza: "Або введіть код на дверях",
+    valabilPana: "Дійсний до",
+    codLipsa: "Код ще не готовий. Оновіть сторінку через кілька хвилин або зателефонуйте нам — тим часом ви можете увійти за допомогою кнопки вище.",
+  },
+  refuzuri: {
+    incearcaDinNou: "Повторити",
+    sunaRecetia: "Зателефонувати на ресепшн",
+    neinceput: { titlu: "Ваше перебування ще не почалося", text: "Сторінка відкриється автоматично під час заселення. Код доступу з'явиться тут одразу після заселення." },
+    incheiat: { titlu: "Ваше перебування завершено", text: "Посилання втратило чинність після вашого від'їзду. Дякуємо, що були з нами." },
+    anulat: { titlu: "Бронювання більше не активне", text: "Якщо це помилка, зателефонуйте нам, і ми одразу все з'ясуємо." },
+    necunoscut: { titlu: "Посилання не працює", text: "Перевірте, чи відкрили ви його повністю, точно так, як отримали. Якщо все одно не працює, зателефонуйте нам." },
+    "prea-multe": { titlu: "Забагато спроб", text: "Зачекайте кілька хвилин і спробуйте знову. Якщо ви поспішаєте, зателефонуйте нам." },
+    lipsa: { titlu: "Неповне посилання", text: "В адресі відсутній код перебування. Відкрийте посилання повністю, так, як ви його отримали." },
+    eroare: { titlu: "Щось пішло не так", text: "Не вдалося завантажити дані. Спробуйте ще раз; якщо все одно не працює, зателефонуйте нам." },
+    timeout: { titlu: "Сервер не відповів", text: "Річ не в посиланні: сервер не відповів вчасно. Перевірте інтернет-з'єднання і спробуйте знову; якщо ви біля дверей, зателефонуйте нам." },
+  },
+  instalare: {
+    pasiIos: [
+      { inainte: "Натисніть ", tare: "Поділитися", dupa: " — квадрат зі стрілкою вгору, на нижній панелі." },
+      { inainte: "Прогорніть і виберіть ", tare: "На початковий екран", dupa: "." },
+      { inainte: "Підтвердіть, натиснувши ", tare: "Додати", dupa: ", вгорі праворуч." },
+    ],
+    pasiAndroid: [
+      { inainte: "Натисніть ", tare: "⋮", dupa: " у верхньому правому куті." },
+      { inainte: "Виберіть ", tare: "Додати на головний екран", dupa: " або ", tare2: "Установити додаток", dupa2: "." },
+      { inainte: "Підтвердіть, натиснувши ", tare: "Додати", dupa: "." },
+    ],
+    pasiWifiIos: [
+      { inainte: "Відкрийте ", tare: "Налаштування", dupa: " → ", tare2: "Wi-Fi", dupa2: "." },
+      { inainte: "Виберіть ", dupa: " зі списку." }, // `tare` = WIFI.retea, injectat in App.jsx
+      { text: "Готово — мережа не потребує пароля." },
+    ],
+    pasiWifiAndroid: [
+      { inainte: "Потягніть верхню панель вниз і натисніть і утримуйте ", tare: "Wi-Fi", dupa: "." },
+      { inainte: "Виберіть ", dupa: " зі списку." },
+      { text: "Готово — мережа не потребує пароля." },
+    ],
+  },
+  fisa: {
+    titluFereastra: "Реєстраційна анкета",
+    intro: "Обов'язкова під час заселення, один раз за перебування.",
+    ajutor: { inainte: "Мережа ", mijloc: ", без пароля. Якщо виникнуть труднощі, зателефонуйте ", dupa: " за номером" },
+    campEtichete: {
+      nume: "Прізвище", prenume: "Ім'я", dataNasterii: "Дата народження",
+      loculNasterii: "Місце народження", nationalitate: "Національність",
+      tara: "Країна проживання", adresa: "Адреса", localitate: "Місто",
+      scopul: "Мета поїздки", actTip: "Тип документа",
+      actSeria: "Серія", actNumarul: "Номер",
+    },
+    actTipEtichete: { ci: "Посвідчення особи", pasaport: "Паспорт", permis: "Посвідка на проживання" },
+    dacaAre: "(за наявності)",
+    dataZiua: "День", dataLuna: "Місяць", dataAnul: "Рік",
+    eroriCamp: {
+      LIPSA: (eticheta) => `${eticheta} відсутнє.`,
+      DATA_INVALIDA: "Дата народження вказана невірно.",
+      DATA_VIITOR: "Дата народження не може бути в майбутньому.",
+      AN_SUSPECT: "Перевірте рік народження.",
+      ACT_NECUNOSCUT: "Виберіть тип документа зі списку.",
+    },
+    eroareSemnatura: "Розпишіться в полі вище.",
+    dejaCompletata: "Анкету вже надіслано.",
+    eroareTrimitere: "Не вдалося надіслати анкету. Спробуйте ще раз.",
+    trimite: "Підписати й надіслати",
+    trimitAcum: "Надсилання…",
+    seIncarca: "Завантаження…",
+  },
+};
