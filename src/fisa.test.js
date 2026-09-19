@@ -11,10 +11,11 @@ const completa = {
 };
 
 describe("campurile fisei", () => {
-  it("fiecare camp are cheie, eticheta si daca e obligatoriu", () => {
+  it("fiecare camp are cheie si daca e obligatoriu", () => {
+    // Eticheta (textul de-afisat) s-a mutat in interfata.ro.js — CAMPURI
+    // pastreaza doar datele de validare.
     for (const c of CAMPURI) {
       expect(typeof c.cheie).toBe("string");
-      expect(typeof c.eticheta).toBe("string");
       expect(typeof c.obligatoriu).toBe("boolean");
     }
   });
@@ -266,7 +267,7 @@ describe("data nasterii, in trei casete", () => {
 describe("zilele care nu exista", () => {
   it("refuza 31 februarie", () => {
     expect(valideazaFisa({ ...completa, dataNasterii: "1980-02-31" }).erori.dataNasterii)
-      .toBe("Data nașterii nu e o dată validă.");
+      .toBe("DATA_INVALIDA");
   });
 
   it("refuza 31 aprilie si luna 13", () => {

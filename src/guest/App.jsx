@@ -25,6 +25,7 @@ import {
   LINK_MAPS, LINK_WAZE, ACCES_CAMERE, HARTA_INCORPORATA, WIFI, REGULAMENT,
 } from "./continut.js";
 import { asistentaRaspuns, ACCES_CAMERE_DESCRIERI, ATRACTII_TEXT } from "./continut.ro.js"; // temporar
+import { useTexte } from "./interfata.js";
 import {
   promptDisponibil, asculta, cheamaPrompt, esteInstalata, esteIOS,
 } from "./instalare.js";
@@ -65,46 +66,6 @@ export function salut(ora) {
   if (ora >= 11 && ora < 18) return "Bună ziua,";
   return "Bună seara,";
 }
-
-/* Fiecare motiv de refuz primeste propriul ecran. „Link invalid" pentru
-   toate ar fi trimis la receptie si oaspetii care n-au nicio problema —
-   doar au deschis linkul cu o zi mai devreme. */
-const REFUZURI = {
-  neinceput: {
-    titlu: "Sejurul n-a început încă",
-    text: "Pagina se deschide singură când te cazezi. Codul de acces apare aici imediat după check-in.",
-  },
-  incheiat: {
-    titlu: "Sejurul s-a încheiat",
-    text: "Linkul a expirat odată cu plecarea. Îți mulțumim că ai stat la noi.",
-  },
-  anulat: {
-    titlu: "Rezervarea nu mai este activă",
-    text: "Dacă e o greșeală, sună-ne și o lămurim pe loc.",
-  },
-  necunoscut: {
-    titlu: "Linkul nu funcționează",
-    text: "Verifică dacă l-ai deschis întreg, așa cum l-ai primit. Dacă tot nu merge, sună-ne.",
-  },
-  "prea-multe": {
-    titlu: "Prea multe încercări",
-    text: "Așteaptă câteva minute și încearcă din nou. Dacă te grăbești, sună-ne.",
-  },
-  lipsa: {
-    titlu: "Link incomplet",
-    text: "Adresa nu conține codul sejurului. Deschide linkul întreg, așa cum l-ai primit.",
-  },
-  eroare: {
-    titlu: "Ceva n-a mers",
-    text: "N-am putut încărca datele. Încearcă din nou; dacă tot nu merge, sună-ne.",
-  },
-  /* Timeout-ul (lib/retea.js, B4) e alt ecran decat „ceva n-a mers": omul
-     afla ca serverul n-a raspuns la timp, nu ca linkul e stricat. */
-  timeout: {
-    titlu: "Serverul n-a răspuns",
-    text: "Nu e vina linkului: serverul n-a răspuns la timp. Verifică internetul și încearcă din nou; dacă ești în fața ușii, sună-ne.",
-  },
-};
 
 export const motivEsec = (e) => (e?.timeout ? "timeout" : "eroare");
 
@@ -251,30 +212,16 @@ const Semnal = () => (
   </svg>
 );
 
-/* Pasii scrisi cu numele exacte pe care oaspetele le vede pe ecran. Traduse
-   gresit, instructiunile sunt mai rele decat lipsa lor: omul cauta un buton
-   care nu exista si conchide ca pagina e stricata. */
-const PASI_IOS = [
-  <>Apasă <b>Partajare</b> — pătratul cu săgeata în sus, în bara de jos.</>,
-  <>Derulează și alege <b>Adaugă la ecranul principal</b>.</>,
-  <>Confirmă cu <b>Adaugă</b>, sus în dreapta.</>,
-];
-const PASI_ANDROID = [
-  <>Apasă <b>⋮</b> în colțul din dreapta sus.</>,
-  <>Alege <b>Adaugă la ecranul principal</b> sau <b>Instalează aplicația</b>.</>,
-  <>Confirmă cu <b>Adaugă</b>.</>,
-];
-
-const PASI_WIFI_IOS = [
-  <>Deschide <b>Setări</b> → <b>Wi-Fi</b>.</>,
-  <>Alege <b>{WIFI.retea}</b> din listă.</>,
-  <>Gata — rețeaua nu cere parolă.</>,
-];
-const PASI_WIFI_ANDROID = [
-  <>Trage în jos bara de sus și ține apăsat pe <b>Wi-Fi</b>.</>,
-  <>Alege <b>{WIFI.retea}</b> din listă.</>,
-  <>Gata — rețeaua nu cere parolă.</>,
-];
+/* Pasii vin acum din date (texte.instalare.*), nu din JSX fix — ca sa poata
+   fi traduse (Task 6). Fiecare pas e `{ inainte, tare, dupa, tare2?, dupa2? }`
+   sau `{ text }`; randate cu componenta de mai jos, cu numele exacte pe care
+   oaspetele le vede pe ecran. Traduse gresit, instructiunile sunt mai rele
+   decat lipsa lor: omul cauta un buton care nu exista si conchide ca pagina
+   e stricata. */
+function Pas({ p }) {
+  if (p.text) return <>{p.text}</>;
+  return <>{p.inainte}<b>{p.tare}</b>{p.dupa}{p.tare2 && <><b>{p.tare2}</b>{p.dupa2}</>}</>;
+}
 
 /* Conectarea la Wi-Fi.
  *
@@ -293,7 +240,9 @@ const PASI_WIFI_ANDROID = [
  * retelei e constanta, iar un generator adus in bundle ar fi zeci de
  * kiloocteti pentru o imagine care nu se schimba niciodata. */
 function ConectareWifi() {
+  const texte = useTexte();
   const [deschis, setDeschis] = useState(false);
+  const pasiWifi = esteIOS() ? texte.instalare.pasiWifiIos : texte.instalare.pasiWifiAndroid;
 
   return (
     <div className="g-actiune-loc">
@@ -315,8 +264,10 @@ function ConectareWifi() {
           </div>
           <p className="g-instructiuni-titlu">Sau, de pe telefonul ăsta:</p>
           <ol className="g-instructiuni">
-            {(esteIOS() ? PASI_WIFI_IOS : PASI_WIFI_ANDROID).map((p, i) => (
-              <li key={i}>{p}</li>
+            {/* Al doilea pas n-are `tare` scris in date — WIFI.retea se
+                injecteaza la randare, doar la indexul 1. */}
+            {pasiWifi.map((p, i) => (
+              <li key={i}><Pas p={i === 1 ? { ...p, tare: WIFI.retea } : p} /></li>
             ))}
           </ol>
         </div>
@@ -333,9 +284,11 @@ function ConectareWifi() {
  *
  * Cand pagina e deja deschisa din icon, butonul dispare: n-are ce oferi. */
 function Instaleaza() {
+  const texte = useTexte();
   const [nativ, setNativ] = useState(promptDisponibil);
   const [pasi, setPasi] = useState(false);
   const [gata, setGata] = useState(esteInstalata);
+  const pasiInstalare = esteIOS() ? texte.instalare.pasiIos : texte.instalare.pasiAndroid;
 
   useEffect(() => asculta(() => {
     setNativ(promptDisponibil());
@@ -366,9 +319,7 @@ function Instaleaza() {
       {pasi && (
         <div id="g-pasi-instalare">
           <ol className="g-instructiuni">
-            {(esteIOS() ? PASI_IOS : PASI_ANDROID).map((p, i) => (
-              <li key={i}>{p}</li>
-            ))}
+            {pasiInstalare.map((p, i) => <li key={i}><Pas p={p} /></li>)}
           </ol>
           <p className="g-instructiuni-nota">
             Nu găsești opțiunea? Deschide pagina în{" "}
@@ -649,6 +600,8 @@ function CumAjungi({ deschideAcces }) {
 }
 
 export function Refuz({ motiv, onReincearca }) {
+  const texte = useTexte();
+  const REFUZURI = texte.refuzuri; // inlocuieste constanta modul-level
   const m = REFUZURI[motiv] || REFUZURI.eroare;
   return (
     <div className="g-pagina">
@@ -694,6 +647,7 @@ function Vremea() {
 /* Butonul de usa. Sta separat fiindca are stare proprie — o cerere in curs,
    un rezultat de aratat — si n-are rost sa reincarce toata pagina. */
 function ButonUsa({ cod }) {
+  const texte = useTexte();
   const [stare, setStare] = useState("gata");
   const [mesaj, setMesaj] = useState("");
 
@@ -731,7 +685,7 @@ function ButonUsa({ cod }) {
         <Cheie />
         {stare === "trimite" ? "Se deschide…"
           : stare === "deschis" ? "Ușa e deschisă"
-          : "Deschide ușa"}
+          : texte.acces.deschideUsa}
       </button>
       {/* Randul isi tine inaltimea si cand e gol, ca aparitia mesajului sa
           nu impinga butonul sub degetul care tocmai l-a apasat. */}
@@ -836,6 +790,7 @@ function Atractii() {
 }
 
 export default function App() {
+  const texte = useTexte();
   const [cod, setCod] = useState(codDinAdresa);
   const [stare, setStare] = useState("incarca");
   const [incercare, setIncercare] = useState(0); // „Încearcă din nou” de pe ecranul de refuz
@@ -1025,7 +980,7 @@ export default function App() {
             din fata usii — la ce usa si ce poate face aici — fara sa coste
             doua randuri. */}
         <div className="g-hero-sus">
-          <p className="g-eticheta">Acces cameră</p>
+          <p className="g-eticheta">{texte.acces.eticheta}</p>
           {(felCamera || nrCamera) && (
             <p className="g-hero-camera">
               {felCamera && <span className="g-hero-camera-fel">{felCamera}</span>}
@@ -1052,19 +1007,16 @@ export default function App() {
 
         {acces?.code ? (
           <div className="g-hero-rezerva">
-            <p className="g-eticheta">Sau tastează codul pe ușă</p>
+            <p className="g-eticheta">{texte.acces.sauTasteaza}</p>
             {/* Diezul face parte din ce se tasteaza pe yala, deci se
                 afiseaza langa cifre, nu se lasa pe seama memoriei. */}
             <p className="g-cod">{acces.code}<span className="g-diez">#</span></p>
             <p className="g-valabil">
-              Valabil până <b>{ziSiOra(acces.validUntil)}</b>
+              {texte.acces.valabilPana} <b>{ziSiOra(acces.validUntil)}</b>
             </p>
           </div>
         ) : (
-          <p className="g-cod-lipsa">
-            Codul nu e încă pregătit. Reîncarcă pagina în câteva minute sau
-            sună-ne — între timp, poți intra cu butonul de mai sus.
-          </p>
+          <p className="g-cod-lipsa">{texte.acces.codLipsa}</p>
         )}
       </div>
 
