@@ -1,13 +1,17 @@
-/* Dispecer temporar — pana la Task 4, care il face sa aleaga dupa limba
- * curenta (useLimba().cod). Pana atunci, textele de interfata raman in
- * romana, exact ca azi (vezi acelasi model in continut.js, Task 1).
- *
- * `TEXTE` se importa (nu doar re-exporta) fiindca `useTexte` are nevoie de
- * legatura locala — un `export { TEXTE } from ...` fara import n-o creeaza,
- * si `TEXTE` ar fi ramas nedefinita in acest modul. */
-import { TEXTE } from "./interfata.ro.js";
-export { TEXTE };
+/* Dispecerul real al textelor de interfata pe limba, ales dupa
+ * useLimba().cod — vezi acelasi model in continut.js. */
+import { useLimba } from "./limbi.jsx";
+import * as ro from "./interfata.ro.js";
+import * as en from "./interfata.en.js";
+import * as fr from "./interfata.fr.js";
+import * as it from "./interfata.it.js";
+import * as de from "./interfata.de.js";
+import * as ru from "./interfata.ru.js";
+import * as uk from "./interfata.uk.js";
+
+const MODULE = { ro, en, fr, it, de, ru, uk };
+
 export function useTexte() {
-  // Single-limba deocamdata — Task 4 il face sa aleaga dupa useLimba().cod.
-  return TEXTE;
+  const { cod } = useLimba();
+  return MODULE[cod].TEXTE;
 }

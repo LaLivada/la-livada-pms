@@ -7,6 +7,7 @@ import React from "react";
 import { createRoot } from "react-dom/client";
 import { act } from "react";
 import { Refuz, motivEsec } from "./guest/App.jsx";
+import { LimbaProvider } from "./guest/limbi.jsx";
 
 const montate = [];
 async function deschide(props) {
@@ -14,7 +15,12 @@ async function deschide(props) {
   document.body.appendChild(host);
   const root = createRoot(host);
   montate.push({ root, host });
-  await act(async () => { root.render(React.createElement(Refuz, props)); });
+  // Refuz cheama useTexte(), care de la Task 4 alege dupa useLimba() —
+  // are nevoie de <LimbaProvider> deasupra in arbore, la fel ca in App reala
+  // (vezi guest/main.jsx).
+  await act(async () => {
+    root.render(React.createElement(LimbaProvider, null, React.createElement(Refuz, props)));
+  });
   return host;
 }
 afterEach(async () => {

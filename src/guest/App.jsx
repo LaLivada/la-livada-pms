@@ -20,11 +20,13 @@ import Fisa from "./Fisa.jsx";
 import Fereastra from "./Fereastra.jsx";
 import { Schelet, useIncet } from "../ui/schelet.jsx";
 import {
-  TELEFON, TELEFON_SCRIS, FIRMA, ASISTENTA, ACASA, BUN_VENIT, IMPORTANT,
+  TELEFON, TELEFON_SCRIS, FIRMA, ASISTENTA, ACASA,
   ATRACTII, ATRACTII_PE_PAGINA, linkHarta,
-  LINK_MAPS, LINK_WAZE, ACCES_CAMERE, HARTA_INCORPORATA, WIFI, REGULAMENT,
+  LINK_MAPS, LINK_WAZE, ACCES_CAMERE, HARTA_INCORPORATA, WIFI,
+  useContinutMic, useAsistentaRaspuns, useAccesCamereDescrieri, useAtractiiText,
 } from "./continut.js";
-import { asistentaRaspuns, ACCES_CAMERE_DESCRIERI, ATRACTII_TEXT } from "./continut.ro.js"; // temporar
+// REGULAMENT ramane in afara dispecerului (vezi continut.js) pana la Task 7.
+import { REGULAMENT } from "./continut.ro.js";
 import { useTexte } from "./interfata.js";
 import {
   promptDisponibil, asculta, cheamaPrompt, esteInstalata, esteIOS,
@@ -378,14 +380,14 @@ const VREME = {
   ),
 };
 
-/* `poze` (din date.js) tine doar ordinea si fisierul; descrierea (text, deci
-   pe limba) vine din continut.ro.js si se leaga prin `fisier`, nu prin
-   pozitia in array. */
-const descrierePentru = (fisier) =>
-  ACCES_CAMERE_DESCRIERI.find((d) => d.fisier === fisier)?.descriere || "";
-
 function ContinutAcces() {
   const { poze, pasi } = ACCES_CAMERE;
+  /* `poze` (din date.js) tine doar ordinea si fisierul; descrierea (text,
+     deci pe limba) vine din dispecerul de continut si se leaga prin
+     `fisier`, nu prin pozitia in array. */
+  const accesCamereDescrieri = useAccesCamereDescrieri();
+  const descrierePentru = (fisier) =>
+    accesCamereDescrieri.find((d) => d.fisier === fisier)?.descriere || "";
   /* Cat timp continutul nu e pus, fereastra spune de ce e goala si da
      numarul — nu se preface ca indruma pe cineva prin curte. */
   if (!poze.length && !pasi.length) {
@@ -716,11 +718,11 @@ function Sectiune({ cheie, deschis, alege, iconita, eticheta }) {
  * Paginarea nu e doar de asezare in pagina: pozele se incarca lenes, deci
  * cine nu trece la pagina a doua nu descarca niciodata ultimele cinci
  * imagini. Pe date mobile, in curte, asta se simte. */
-/* `ATRACTII` (din date.js) tine campurile factuale; `nume`/`text` (pe
-   limba) vin din continut.ro.js si se leaga prin `cheie`. */
-const textAtractiePentru = (cheie) => ATRACTII_TEXT.find((t) => t.cheie === cheie);
-
 function Atractii() {
+  /* `ATRACTII` (din date.js) tine campurile factuale; `nume`/`text` (pe
+     limba) vin din dispecerul de continut si se leaga prin `cheie`. */
+  const atractiiText = useAtractiiText();
+  const textAtractiePentru = (cheie) => atractiiText.find((t) => t.cheie === cheie);
   const [pagina, setPagina] = useState(0);
   const capul = useRef(null);
   const pagini = Math.ceil(ATRACTII.length / ATRACTII_PE_PAGINA);
@@ -791,6 +793,8 @@ function Atractii() {
 
 export default function App() {
   const texte = useTexte();
+  const { BUN_VENIT, IMPORTANT } = useContinutMic();
+  const asistentaRaspuns = useAsistentaRaspuns();
   const [cod, setCod] = useState(codDinAdresa);
   const [stare, setStare] = useState("incarca");
   const [incercare, setIncercare] = useState(0); // „Încearcă din nou” de pe ecranul de refuz
