@@ -1,7 +1,8 @@
 /* Continutul editorial in germana, tradus si aprobat 19 septembrie 2026.
  * Aceeasi forma (aceleasi chei) ca in continut.ro.js — verificat de
- * continut-forme.test.js. REGULAMENT si ATRACTII_TEXT raman re-export
- * pana la Task 7 (stratul mare, incarcat leneș). */
+ * continut-forme.test.js. REGULAMENT si ATRACTII_TEXT nu mai sunt aici
+ * din Task 7 — traiesc separat, in regulament.<lang>.js si
+ * atractii-text.<lang>.js, incarcate lenes din continut-mare.js. */
 
 export const asistentaRaspuns = "antwortet innerhalb weniger Minuten";
 
@@ -35,5 +36,3 @@ export const ACCES_CAMERE_DESCRIERI = [
   { fisier: "3-parcarea.jpg", descriere: "Sie haben den Parkplatz erreicht." },
   { fisier: "4-poteca.jpg",   descriere: "Der Zugang zu den Zimmern erfolgt über den Weg rechts, am Grand'Or Ballroom vorbei." },
 ];
-
-export { REGULAMENT, ATRACTII_TEXT } from "./continut.ro.js"; // inca netraduse — Task 7 (stratul mare, §2 din spec)

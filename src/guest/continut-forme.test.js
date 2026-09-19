@@ -16,6 +16,20 @@ import * as interfataIt from "./interfata.it.js";
 import * as interfataDe from "./interfata.de.js";
 import * as interfataRu from "./interfata.ru.js";
 import * as interfataUk from "./interfata.uk.js";
+import * as regulamentRo from "./regulament.ro.js";
+import * as regulamentEn from "./regulament.en.js";
+import * as regulamentFr from "./regulament.fr.js";
+import * as regulamentIt from "./regulament.it.js";
+import * as regulamentDe from "./regulament.de.js";
+import * as regulamentRu from "./regulament.ru.js";
+import * as regulamentUk from "./regulament.uk.js";
+import * as atractiiTextRo from "./atractii-text.ro.js";
+import * as atractiiTextEn from "./atractii-text.en.js";
+import * as atractiiTextFr from "./atractii-text.fr.js";
+import * as atractiiTextIt from "./atractii-text.it.js";
+import * as atractiiTextDe from "./atractii-text.de.js";
+import * as atractiiTextRu from "./atractii-text.ru.js";
+import * as atractiiTextUk from "./atractii-text.uk.js";
 
 /* Compara forma (cheile, recursiv), nu continutul — o traducere e altfel
  * ca text, dar trebuie sa aiba EXACT aceleasi chei ca sursa romana. Un
@@ -50,6 +64,28 @@ describe("forma comuna a continutului pe limbi", () => {
   for (const [cod, modul] of Object.entries(interfataPeLimba)) {
     it(`interfata.${cod}.js are exact cheile din interfata.ro.js`, () => {
       expect(chei(modul)).toEqual(cheieInterfataSursa);
+    });
+  }
+
+  const cheieRegulamentSursa = chei(regulamentRo);
+  const regulamentPeLimba = {
+    en: regulamentEn, fr: regulamentFr, it: regulamentIt,
+    de: regulamentDe, ru: regulamentRu, uk: regulamentUk,
+  };
+  for (const [cod, modul] of Object.entries(regulamentPeLimba)) {
+    it(`regulament.${cod}.js are exact cheile din regulament.ro.js`, () => {
+      expect(chei(modul)).toEqual(cheieRegulamentSursa);
+    });
+  }
+
+  const cheieAtractiiTextSursa = chei(atractiiTextRo);
+  const atractiiTextPeLimba = {
+    en: atractiiTextEn, fr: atractiiTextFr, it: atractiiTextIt,
+    de: atractiiTextDe, ru: atractiiTextRu, uk: atractiiTextUk,
+  };
+  for (const [cod, modul] of Object.entries(atractiiTextPeLimba)) {
+    it(`atractii-text.${cod}.js are exact cheile din atractii-text.ro.js`, () => {
+      expect(chei(modul)).toEqual(cheieAtractiiTextSursa);
     });
   }
 });

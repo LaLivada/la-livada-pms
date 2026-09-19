@@ -24,10 +24,11 @@ import {
   TELEFON, TELEFON_SCRIS, FIRMA, ASISTENTA, ACASA,
   ATRACTII, ATRACTII_PE_PAGINA, linkHarta,
   LINK_MAPS, LINK_WAZE, ACCES_CAMERE, HARTA_INCORPORATA, WIFI,
-  useContinutMic, useAsistentaRaspuns, useAccesCamereDescrieri, useAtractiiText,
+  useContinutMic, useAsistentaRaspuns, useAccesCamereDescrieri,
 } from "./continut.js";
-// REGULAMENT ramane in afara dispecerului (vezi continut.js) pana la Task 7.
-import { REGULAMENT } from "./continut.ro.js";
+// Regulamentul si textul Atractiilor sunt stratul "mare", incarcat leneș
+// prin import() dinamic — vezi Task 7 din spec.
+import { useRegulament, useAtractiiTextMare } from "./continut-mare.js";
 import { useTexte } from "./interfata.js";
 import {
   promptDisponibil, asculta, cheamaPrompt, esteInstalata, esteIOS,
@@ -751,9 +752,10 @@ function Sectiune({ cheie, deschis, alege, iconita, eticheta }) {
  * imagini. Pe date mobile, in curte, asta se simte. */
 function Atractii() {
   /* `ATRACTII` (din date.js) tine campurile factuale; `nume`/`text` (pe
-     limba) vin din dispecerul de continut si se leaga prin `cheie`. */
-  const atractiiText = useAtractiiText();
-  const textAtractiePentru = (cheie) => atractiiText.find((t) => t.cheie === cheie);
+     limba) vin din stratul mare, incarcat leneș, si se leaga prin `cheie`. */
+  const { stare, texte: atractiiText } = useAtractiiTextMare();
+  const texte = useTexte();
+  const textAtractiePentru = (cheie) => atractiiText?.find((t) => t.cheie === cheie);
   const [pagina, setPagina] = useState(0);
   const capul = useRef(null);
   const pagini = Math.ceil(ATRACTII.length / ATRACTII_PE_PAGINA);
@@ -765,6 +767,15 @@ function Atractii() {
   function mergiLa(p) {
     setPagina(p);
     capul.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  if (stare === "incarca") {
+    return (
+      <div className="g-card" ref={capul}>
+        <h2>Atracții în județul Vaslui</h2>
+        <p className="g-gol">{texte.fisa.seIncarca}</p>
+      </div>
+    );
   }
 
   return (
@@ -819,6 +830,24 @@ function Atractii() {
       </div>
       <p className="g-nota">Distanțele sunt pe șosea, de la complex.</p>
     </div>
+  );
+}
+
+/* Continutul ferestrei de regulament, montat doar cat timp fereastra e
+ * deschisa (vezi `aratRegulament` mai jos) — asa se declanseaza import()-ul
+ * din useRegulament() doar cand oaspetele chiar cere regulamentul, nu la
+ * incarcarea paginii. */
+function ConinutRegulament() {
+  const { stare, regulament } = useRegulament();
+  const texte = useTexte();
+  if (stare === "incarca") return <p className="g-gol">{texte.fisa.seIncarca}</p>;
+  return (
+    <>
+      <p className="g-reg-intro">{regulament.intro}</p>
+      <ul className="g-reg">
+        {regulament.reguli.map((r, i) => <li key={i}>{r}</li>)}
+      </ul>
+    </>
   );
 }
 
@@ -1249,10 +1278,7 @@ export default function App() {
             </div>
           }
           onInchide={() => setAratRegulament(false)}>
-          <p className="g-reg-intro">{REGULAMENT.intro}</p>
-          <ul className="g-reg">
-            {REGULAMENT.reguli.map((r, i) => <li key={i}>{r}</li>)}
-          </ul>
+          <ConinutRegulament />
         </Fereastra>
       )}
     </div>
