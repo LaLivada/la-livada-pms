@@ -2,12 +2,101 @@
  * Aceeasi forma ca in interfata.ro.js — verificat de
  * continut-forme.test.js. */
 export const TEXTE = {
+  hero: {
+    dimineata: "Доброго ранку,",
+    ziua: "Доброго дня,",
+    seara: "Доброго вечора,",
+    numeImplicit: "ласкаво просимо",
+    gestSalut: "привіт",
+  },
+  selector: {
+    ariaEticheta: "Обрати мову сторінки",
+    titluFereastra: "Обрати мову",
+  },
   acces: {
     eticheta: "Доступ до номера",
     deschideUsa: "Відкрити двері",
     sauTasteaza: "Або введіть код на дверях",
     valabilPana: "Дійсний до",
     codLipsa: "Код ще не готовий. Оновіть сторінку через кілька хвилин або зателефонуйте нам — тим часом ви можете увійти за допомогою кнопки вище.",
+    indrumareLipsa: {
+      inainte: "Підказки, як пройти подвір'ям, тут ще не додано. Якщо не можете знайти номер, зателефонуйте нам за номером ",
+      dupa: ", і ми вас проведемо.",
+    },
+  },
+  usa: {
+    seDeschide: "Відчиняється…",
+    usaDeschisa: "Двері відчинено",
+    usaDeschisaIntra: "Двері відчинено. Заходьте протягом кількох секунд.",
+    faraInternet: "Немає з'єднання з інтернетом. Скористайтеся кодом доступу.",
+  },
+  drum: {
+    cumAjungi: "Як до нас дістатися",
+    accesCatreCamere: "Прохід до номерів",
+    hartaTitlu: "Карта до Complex La Livada",
+  },
+  wifi: {
+    conecteaza: "Підключитися до Wi-Fi",
+    codQrPentru: (retea) => `QR-код для мережі ${retea}`,
+    scaneaza: { tare: "Відскануйте камерою іншого телефона", dupa: " — підключення відбудеться автоматично, без пароля." },
+    sauDePeTelefon: "Або з цього телефона:",
+  },
+  venit: {
+    scurtatura: "Ласкаво просимо",
+    titluPagina: "Ласкаво просимо до La Livadă",
+    dateRezervarii: "Дані бронювання",
+    sosire: "Заїзд",
+    plecare: "Виїзд",
+    nopti: "Ночей",
+    persoane: "Гостей",
+    adultSg: "дорослий",
+    adultPl: "дорослих",
+    copilSg: "дитина",
+    copilPl: "дітей",
+    totalDePlata: "Разом до сплати",
+    contactAsistenta: "Контакт підтримки",
+    suna: "Зателефонувати",
+  },
+  important: {
+    titluSectiune: "Важливо",
+    decazareTitlu: "Виїзд",
+    decazareText: (cand) => `Номер звільняється ${cand}.`,
+    codTitlu: "Термін дії коду",
+    codText: (cod, pana) => `Код ${cod}# діє до ${pana}.`,
+    usaTitlu: "Якщо двері не відчиняються",
+    usaText: {
+      p1: "Натисніть кнопку відчинення ще раз. Якщо все одно не працює, введіть код на дверях або зателефонуйте ",
+      p2: " за номером ",
+      p3: ". Ми відповідаємо цілодобово.",
+    },
+    regulamentEticheta: "Правила проживання:",
+    deschideRegulament: "Відкрити правила проживання комплексу",
+  },
+  regulamentFereastra: {
+    titlu: "Правила проживання комплексу",
+    antetSubtitlu: "Правила проживання",
+  },
+  minibar: {
+    titluSectiune: "Мінібар",
+    notaRecepite: "Вартість спожитого додається до рахунку на ресепшн.",
+    meniuGol: { inainte: "Меню тут ще не опубліковано. Запитайте нас, що у нас є — ми відповідаємо за номером ", dupa: "." },
+  },
+  atractii: {
+    scurtatura: "Атракції",
+    titluSectiune: "Атракції у Васлуйському повіті",
+    minCuMasina: "хв на автомобілі",
+    deschideGoogleMaps: "Відкрити в Google Maps",
+    inapoi: "← Назад",
+    inainte: "Далі →",
+    din: "з",
+    distanteNota: "Відстані вказано по дорозі, від комплексу.",
+  },
+  fisaBanner: {
+    titlu: "Заповніть реєстраційну анкету",
+    sub: "Обов'язкова під час заселення, один раз за перебування.",
+  },
+  continutMare: {
+    eroare: "Не вдалося завантажити вміст. Спробуйте ще раз.",
   },
   refuzuri: {
     incearcaDinNou: "Повторити",
@@ -22,6 +111,8 @@ export const TEXTE = {
     timeout: { titlu: "Сервер не відповів", text: "Річ не в посиланні: сервер не відповів вчасно. Перевірте інтернет-з'єднання і спробуйте знову; якщо ви біля дверей, зателефонуйте нам." },
   },
   instalare: {
+    adaugaIconul: "Додати значок на головний екран",
+    nuGasestiOptiunea: (browser) => `Не можете знайти цей пункт? Відкрийте сторінку в ${browser} — у браузері WhatsApp він не з'являється.`,
     pasiIos: [
       { inainte: "Натисніть ", tare: "Поділитися", dupa: " — квадрат зі стрілкою вгору, на нижній панелі." },
       { inainte: "Прогорніть і виберіть ", tare: "На початковий екран", dupa: "." },
