@@ -85,7 +85,7 @@ export function esteIOS() {
  * Daca ceva din toate astea nu tine, Chrome pur si simplu nu trimite
  * `beforeinstallprompt`, iar butonul cade pe instructiuni. Nu se strica
  * nimic — doar se pierde apasarea unica. */
-export function pregatesteManifestul() {
+export function pregatesteManifestul(lang = "ro") {
   if (typeof document === "undefined") return;
   if (document.querySelector('link[rel="manifest"]')) return;
 
@@ -93,7 +93,7 @@ export function pregatesteManifestul() {
   const manifest = {
     name: "Sejurul tău — Complex La Livada",
     short_name: "La Livadă",
-    lang: "ro",
+    lang,
     dir: "ltr",
     start_url: window.location.href,
     scope: `${baza}/`,

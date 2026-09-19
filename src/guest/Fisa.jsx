@@ -34,6 +34,7 @@ import { CAMPURI, ACT_TIPURI, valideazaFisa, SABLON_VERSIUNE,
 import { traseuSvg, esteGoala } from "../lib/semnatura.js";
 import { citesteFisa, trimiteFisa } from "./api.js";
 import { ASISTENTA, WIFI } from "./continut.js";
+import { useTexte } from "./interfata.js";
 import Semnatura from "./Semnatura.jsx";
 import Fereastra from "./Fereastra.jsx";
 
@@ -53,7 +54,7 @@ import Fereastra from "./Fereastra.jsx";
  * locala se seamana o singura data fiindca data nasterii nu se precompleteaza
  * NICIODATA — e camp sensibil — deci nimeni nu i-o schimba din afara.
  */
-function DataNasterii({ valoare, eroare, onSchimbare }) {
+function DataNasterii({ valoare, eroare, onSchimbare, texte }) {
   const [parti, setParti] = useState(() => dataInParti(valoare));
   const refZi = useRef(null);
   const refLuna = useRef(null);
@@ -81,9 +82,9 @@ function DataNasterii({ valoare, eroare, onSchimbare }) {
   };
 
   const casete = [
-    { cheie: "zi",   eticheta: "Ziua",  loc: "ZZ",   maxim: 2, ref: refZi,   urmator: refLuna, precedent: null,    autocomplete: "bday-day" },
-    { cheie: "luna", eticheta: "Luna",  loc: "LL",   maxim: 2, ref: refLuna,  urmator: refAn,   precedent: refZi,   autocomplete: "bday-month" },
-    { cheie: "an",   eticheta: "Anul",  loc: "AAAA", maxim: 4, ref: refAn,    urmator: null,    precedent: refLuna, autocomplete: "bday-year" },
+    { cheie: "zi",   eticheta: texte.fisa.dataZiua, loc: "ZZ",   maxim: 2, ref: refZi,   urmator: refLuna, precedent: null,    autocomplete: "bday-day" },
+    { cheie: "luna", eticheta: texte.fisa.dataLuna, loc: "LL",   maxim: 2, ref: refLuna,  urmator: refAn,   precedent: refZi,   autocomplete: "bday-month" },
+    { cheie: "an",   eticheta: texte.fisa.dataAnul, loc: "AAAA", maxim: 4, ref: refAn,    urmator: null,    precedent: refLuna, autocomplete: "bday-year" },
   ];
 
   return (
@@ -91,7 +92,7 @@ function DataNasterii({ valoare, eroare, onSchimbare }) {
        camp, iar aici sunt trei. Asa cititorul de ecran anunta grupul, apoi
        fiecare caseta cu numele ei. */
     <div className="g-camp" role="group" aria-labelledby="fisa-nastere">
-      <span className="g-camp-eticheta" id="fisa-nastere">Data nașterii</span>
+      <span className="g-camp-eticheta" id="fisa-nastere">{texte.fisa.campEtichete.dataNasterii}</span>
       <div className="g-data">
         {casete.map((c) => (
           <input key={c.cheie} ref={c.ref}
@@ -109,6 +110,7 @@ function DataNasterii({ valoare, eroare, onSchimbare }) {
 }
 
 export default function Fisa({ cod, onGata, deschis, onInchide }) {
+  const texte = useTexte();
   const [date, setDate] = useState({});
   const [linii, setLinii] = useState([]);
   const [erori, setErori] = useState({});
@@ -138,7 +140,7 @@ export default function Fisa({ cod, onGata, deschis, onInchide }) {
   async function trimite() {
     const v = valideazaFisa(date);
     const toate = { ...v.erori };
-    if (esteGoala(linii)) toate.semnatura = "Semnează în chenarul de mai sus.";
+    if (esteGoala(linii)) toate.semnatura = texte.fisa.eroareSemnatura;
     setErori(toate);
     if (Object.keys(toate).length > 0) return;
 
@@ -151,8 +153,8 @@ export default function Fisa({ cod, onGata, deschis, onInchide }) {
     if (r?.ok) { onGata(); return; }
     setStare("gata");
     setMesaj(r?.motiv === "deja-completata"
-      ? "Fișa e deja completată."
-      : "Nu am putut trimite fișa. Mai încearcă o dată.");
+      ? texte.fisa.dejaCompletata
+      : texte.fisa.eroareTrimitere);
   }
 
   /* Componenta ramane montata (efectul de mai sus tot ruleaza) chiar cand nu
@@ -161,14 +163,21 @@ export default function Fisa({ cod, onGata, deschis, onInchide }) {
      merita deschisa fereastra din jur. */
   if (!deschis) return null;
 
+  /* `valideazaFisa` intoarce coduri, nu text (nu are eticheta la indemana
+     si nici limba curenta) — se traduc aici, unde ambele exista.
+     „LIPSA" are nevoie si de eticheta campului. */
+  const mesajEroareCamp = (cheie, cod) => (cod === "LIPSA"
+    ? texte.fisa.eroriCamp.LIPSA(texte.fisa.campEtichete[cheie])
+    : texte.fisa.eroriCamp[cod] || cod);
+
   return (
-    <Fereastra titlu="Fișă de cazare" onInchide={onInchide}>
+    <Fereastra titlu={texte.fisa.titluFereastra} onInchide={onInchide}>
       {stare === "incarca" ? (
-        <p className="g-gol">Se încarcă…</p>
+        <p className="g-gol">{texte.fisa.seIncarca}</p>
       ) : (
         <>
           <p className="g-fisa-intro">
-            E obligatorie la cazare, o singură dată pe sejur.
+            {texte.fisa.intro}
           </p>
 
           {/* Wi-fi-ul si asistenta stau AICI si dupa mutarea in fereastra:
@@ -176,25 +185,27 @@ export default function Fisa({ cod, onGata, deschis, onInchide }) {
               nevoie de retea ca sa trimita formularul, si de un numar la
               indemana daca se impotmoleste. */}
           <p className="g-fisa-ajutor">
-            Rețeaua <strong>{WIFI.retea}</strong>, fără parolă. Dacă te
-            împotmolești, sună-l pe {ASISTENTA.nume} la{" "}
+            {texte.fisa.ajutor.inainte}<strong>{WIFI.retea}</strong>
+            {texte.fisa.ajutor.mijloc}{ASISTENTA.nume}
+            {texte.fisa.ajutor.dupa}{" "}
             <a href={`tel:${ASISTENTA.telefon}`}>{ASISTENTA.scris}</a>.
           </p>
 
           {CAMPURI.map((c) => (c.tip === "date" ? (
-            <DataNasterii key={c.cheie} valoare={date[c.cheie]} eroare={erori[c.cheie]}
-              onSchimbare={(v) => pune(c.cheie, v)} />
+            <DataNasterii key={c.cheie} valoare={date[c.cheie]}
+              eroare={erori[c.cheie] && mesajEroareCamp(c.cheie, erori[c.cheie])}
+              onSchimbare={(v) => pune(c.cheie, v)} texte={texte} />
           ) : (
             <label key={c.cheie} className="g-camp">
               <span className="g-camp-eticheta">
-                {c.eticheta}{!c.obligatoriu && <em> (dacă are)</em>}
+                {texte.fisa.campEtichete[c.cheie]}{!c.obligatoriu && <em> {texte.fisa.dacaAre}</em>}
               </span>
               {c.tip === "alegere" ? (
                 <select value={date[c.cheie] || ""}
                   onChange={(e) => pune(c.cheie, e.target.value)}>
                   <option value="">Alege…</option>
                   {ACT_TIPURI.map((t) => (
-                    <option key={t.cheie} value={t.cheie}>{t.eticheta}</option>
+                    <option key={t.cheie} value={t.cheie}>{texte.fisa.actTipEtichete[t.cheie]}</option>
                   ))}
                 </select>
               ) : (
@@ -202,7 +213,9 @@ export default function Fisa({ cod, onGata, deschis, onInchide }) {
                   value={date[c.cheie] || ""}
                   onChange={(e) => pune(c.cheie, e.target.value)} />
               )}
-              {erori[c.cheie] && <span className="g-camp-eroare">{erori[c.cheie]}</span>}
+              {erori[c.cheie] && (
+                <span className="g-camp-eroare">{mesajEroareCamp(c.cheie, erori[c.cheie])}</span>
+              )}
             </label>
           )))}
 
@@ -213,7 +226,7 @@ export default function Fisa({ cod, onGata, deschis, onInchide }) {
 
           <button type="button" className="g-fisa-trimit" disabled={stare === "trimit"}
             onClick={trimite}>
-            {stare === "trimit" ? "Trimit…" : "Semnez și trimit"}
+            {stare === "trimit" ? texte.fisa.trimitAcum : texte.fisa.trimite}
           </button>
         </>
       )}

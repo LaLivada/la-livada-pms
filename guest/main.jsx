@@ -1,6 +1,7 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import App from "../src/guest/App.jsx";
+import { LimbaProvider, limbaCurenta } from "../src/guest/limbi.jsx";
 import { STILURI } from "../src/guest/styles.js";
 import { pregatesteManifestul } from "../src/guest/instalare.js";
 
@@ -14,10 +15,12 @@ document.head.appendChild(stil);
 /* Inainte de render, nu dintr-o componenta: Chrome verifica manifestul o
    data, la scurt timp dupa incarcare, si abia dupa aceea trimite
    `beforeinstallprompt`. Pus mai tarziu, ar ajunge dupa verificare. */
-pregatesteManifestul();
+pregatesteManifestul(limbaCurenta());
 
 createRoot(document.getElementById("oaspete")).render(
   <StrictMode>
-    <App />
+    <LimbaProvider>
+      <App />
+    </LimbaProvider>
   </StrictMode>,
 );

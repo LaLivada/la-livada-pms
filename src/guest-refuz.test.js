@@ -7,20 +7,31 @@ import React from "react";
 import { createRoot } from "react-dom/client";
 import { act } from "react";
 import { Refuz, motivEsec } from "./guest/App.jsx";
+import { LimbaProvider } from "./guest/limbi.jsx";
 
 const montate = [];
 async function deschide(props) {
+  // Testul asta verifica textul romanesc exact — fara limba fixata,
+  // useLimba() ar detecta limba mediului de test (engleza, dupa Task 6) si
+  // asertiunile de mai jos ar pica, desi Refuz functioneaza corect.
+  localStorage.setItem("g-limba", "ro");
   const host = document.createElement("div");
   document.body.appendChild(host);
   const root = createRoot(host);
   montate.push({ root, host });
-  await act(async () => { root.render(React.createElement(Refuz, props)); });
+  // Refuz cheama useTexte(), care de la Task 4 alege dupa useLimba() —
+  // are nevoie de <LimbaProvider> deasupra in arbore, la fel ca in App reala
+  // (vezi guest/main.jsx).
+  await act(async () => {
+    root.render(React.createElement(LimbaProvider, null, React.createElement(Refuz, props)));
+  });
   return host;
 }
 afterEach(async () => {
   await act(async () => { montate.forEach(({ root }) => root.unmount()); });
   montate.forEach(({ host }) => host.remove());
   montate.length = 0;
+  localStorage.removeItem("g-limba");
 });
 const butonReincearca = (host) =>
   [...host.querySelectorAll("button")].find((b) => b.textContent === "Încearcă din nou") || null;

@@ -12,31 +12,35 @@
  * intr-un comentariu.
  */
 
+/* Etichetele (textul de-afisat) NU mai stau aici — s-au mutat in
+   interfata.ro.js (si surorile ei, cate una pe limba), ca sa poata fi
+   traduse. lib/fisa.js pastreaza doar datele de validare: cheie,
+   obligatoriu, sensibil, tip. */
 export const ACT_TIPURI = [
-  { cheie: "ci",       eticheta: "Carte de identitate" },
-  { cheie: "pasaport", eticheta: "Pașaport" },
-  { cheie: "permis",   eticheta: "Permis de ședere" },
+  { cheie: "ci" },
+  { cheie: "pasaport" },
+  { cheie: "permis" },
 ];
 
 export const CAMPURI = [
-  { cheie: "nume",           eticheta: "Nume",              obligatoriu: true,  sensibil: false },
-  { cheie: "prenume",        eticheta: "Prenume",           obligatoriu: true,  sensibil: false },
-  { cheie: "dataNasterii",   eticheta: "Data nașterii",     obligatoriu: true,  sensibil: true,  tip: "date" },
-  { cheie: "loculNasterii",  eticheta: "Locul nașterii",    obligatoriu: true,  sensibil: true },
+  { cheie: "nume",          obligatoriu: true,  sensibil: false },
+  { cheie: "prenume",       obligatoriu: true,  sensibil: false },
+  { cheie: "dataNasterii",  obligatoriu: true,  sensibil: true,  tip: "date" },
+  { cheie: "loculNasterii", obligatoriu: true,  sensibil: true },
   /* Doua campuri, nu unul: coala tiparita scrie `guests.country` in
      amandoua, deci un roman cu domiciliul in Germania iesea cu „Germania"
      la nationalitate. Pe hartie trecea neobservat fiindca receptionerul
      corecta cu pixul. */
-  { cheie: "nationalitate",  eticheta: "Naționalitate",     obligatoriu: true,  sensibil: false },
-  { cheie: "tara",           eticheta: "Țara de domiciliu", obligatoriu: true,  sensibil: false },
-  { cheie: "adresa",         eticheta: "Adresa",            obligatoriu: true,  sensibil: false },
-  { cheie: "localitate",     eticheta: "Localitatea",       obligatoriu: true,  sensibil: false },
-  { cheie: "scopul",         eticheta: "Scopul călătoriei", obligatoriu: true,  sensibil: false },
-  { cheie: "actTip",         eticheta: "Act de identitate", obligatoriu: true,  sensibil: true,  tip: "alegere" },
+  { cheie: "nationalitate", obligatoriu: true,  sensibil: false },
+  { cheie: "tara",          obligatoriu: true,  sensibil: false },
+  { cheie: "adresa",        obligatoriu: true,  sensibil: false },
+  { cheie: "localitate",    obligatoriu: true,  sensibil: false },
+  { cheie: "scopul",        obligatoriu: true,  sensibil: false },
+  { cheie: "actTip",        obligatoriu: true,  sensibil: true,  tip: "alegere" },
   /* Seria NU e obligatorie: pasapoartele n-au serie separata, doar numar.
      Ceruta, ar fi blocat orice oaspete strain in fata usii. */
-  { cheie: "actSeria",       eticheta: "Seria",             obligatoriu: false, sensibil: true },
-  { cheie: "actNumarul",     eticheta: "Numărul",           obligatoriu: true,  sensibil: true },
+  { cheie: "actSeria",      obligatoriu: false, sensibil: true },
+  { cheie: "actNumarul",    obligatoriu: true,  sensibil: true },
 ];
 
 /* PRECOMPLETAREA DE LA RECEPTIE.
@@ -173,34 +177,37 @@ export function campuriLipsa(date) {
    sa fie refuzat cineva real. */
 const ANI_MAXIM = 120;
 
+/* Nu mai compune text — n-are eticheta la indemana (s-a mutat in
+   interfata.ro.js) si n-are limba curenta. Intoarce coduri, pe care
+   Fisa.jsx le traduce cu `texte.fisa.eroriCamp[cod]` (pentru „LIPSA", care
+   are nevoie de eticheta campului, apeleaza functia cu ea). */
 export function valideazaFisa(date) {
   const erori = {};
 
   /* Toate erorile deodata, nu prima. Un formular care arata cate una pe rand
      se completeaza de trei ori, iar oaspetele e in fata usii. */
   for (const cheie of campuriLipsa(date)) {
-    const c = CAMPURI.find((x) => x.cheie === cheie);
-    erori[cheie] = `${c.eticheta} lipsește.`;
+    erori[cheie] = "LIPSA";
   }
 
   const d = date?.dataNasterii;
   if (!gol(d)) {
     const nasterea = new Date(d);
     if (Number.isNaN(nasterea.getTime()) || !esteZiReala(d)) {
-      erori.dataNasterii = "Data nașterii nu e o dată validă.";
+      erori.dataNasterii = "DATA_INVALIDA";
     } else if (nasterea > new Date()) {
-      erori.dataNasterii = "Data nașterii nu poate fi în viitor.";
+      erori.dataNasterii = "DATA_VIITOR";
     } else {
       const ani = (Date.now() - nasterea.getTime()) / (365.2425 * 24 * 3600 * 1000);
-      /* Mesajul spune ce sa verifice, nu ca a gresit: cel mai des e o cifra
+      /* Codul spune ce sa verifice, nu ca a gresit: cel mai des e o cifra
          schimbata la an, iar „verifica" duce ochiul acolo. */
-      if (ani > ANI_MAXIM) erori.dataNasterii = "Verifică anul nașterii.";
+      if (ani > ANI_MAXIM) erori.dataNasterii = "AN_SUSPECT";
     }
   }
 
   const tip = date?.actTip;
   if (!gol(tip) && !ACT_TIPURI.some((t) => t.cheie === tip)) {
-    erori.actTip = "Alege un tip de act din listă.";
+    erori.actTip = "ACT_NECUNOSCUT";
   }
 
   return { ok: Object.keys(erori).length === 0, erori };

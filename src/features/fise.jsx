@@ -26,8 +26,36 @@ import { Dialog, toaster, usePaginare, Paginare } from "../ui/primitive.jsx";
 import { uid } from "../lib/uid.js";
 import { LATIME_PANZA, INALTIME_PANZA } from "../lib/semnatura.js";
 
-const eticheta = (cheie) => CAMPURI.find((c) => c.cheie === cheie)?.eticheta || cheie;
-const tipAct = (c) => ACT_TIPURI.find((t) => t.cheie === c)?.eticheta || c || "—";
+/* Etichetele si mesajele de eroare sunt scrise aici, nu in lib/fisa.js:
+   coordonatele de validare (CAMPURI/ACT_TIPURI) raman comune cu pagina
+   oaspetelui, dar textul RO e local — pagina de receptie nu se traduce
+   niciodata, spre deosebire de guest/interfata.ro.js (Task 3, 19 sept 2026),
+   care tine acelasi text pe fiecare limba. */
+// Exportate doar ca sa fie verificate impotriva CAMPURI/ACT_TIPURI
+// (src/fisa-etichete.test.js) — un camp nou aparut acolo si uitat aici
+// arata azi ca un cod brut pe formularul de receptie, nu ca o eroare.
+export const CAMPURI_ETICHETE = {
+  nume: "Nume", prenume: "Prenume", dataNasterii: "Data nașterii",
+  loculNasterii: "Locul nașterii", nationalitate: "Naționalitate",
+  tara: "Țara de domiciliu", adresa: "Adresa", localitate: "Localitatea",
+  scopul: "Scopul călătoriei", actTip: "Act de identitate",
+  actSeria: "Seria", actNumarul: "Numărul",
+};
+export const ACT_TIPURI_ETICHETE = { ci: "Carte de identitate", pasaport: "Pașaport", permis: "Permis de ședere" };
+
+const eticheta = (cheie) => CAMPURI_ETICHETE[cheie] || cheie;
+const tipAct = (c) => ACT_TIPURI_ETICHETE[c] || c || "—";
+
+/* `valideazaFisa` intoarce coduri, nu text (Task 3) — traduse aici in RO,
+   fix ca inainte. */
+const EROARE_CAMP = {
+  LIPSA: (cheie) => `${eticheta(cheie)} lipsește.`,
+  DATA_INVALIDA: "Data nașterii nu e o dată validă.",
+  DATA_VIITOR: "Data nașterii nu poate fi în viitor.",
+  AN_SUSPECT: "Verifică anul nașterii.",
+  ACT_NECUNOSCUT: "Alege un tip de act din listă.",
+};
+const mesajEroareCamp = (cheie, cod) => (cod === "LIPSA" ? EROARE_CAMP.LIPSA(cheie) : EROARE_CAMP[cod] || cod);
 
 /* ---------------------------------------------------------------
    INDICATORUL DIN REZERVARE
@@ -425,21 +453,22 @@ function FormularFisa({ res, core, onGata, onClose }) {
       </p>
 
       {CAMPURI.map((c) => (c.tip === "date" ? (
-        <CaseteData key={c.cheie} valoare={date[c.cheie]} eroare={erori[c.cheie]}
+        <CaseteData key={c.cheie} valoare={date[c.cheie]}
+          eroare={erori[c.cheie] && mesajEroareCamp(c.cheie, erori[c.cheie])}
           onSchimbare={(v) => pune(c.cheie, v)} />
       ) : (
         <div className="field" key={c.cheie}>
-          <label>{c.eticheta}{!c.obligatoriu && " (dacă are)"}</label>
+          <label>{eticheta(c.cheie)}{!c.obligatoriu && " (dacă are)"}</label>
           {c.tip === "alegere" ? (
             <select value={date[c.cheie] || ""} onChange={(e) => pune(c.cheie, e.target.value)}>
               <option value="">Alege…</option>
-              {ACT_TIPURI.map((t) => <option key={t.cheie} value={t.cheie}>{t.eticheta}</option>)}
+              {ACT_TIPURI.map((t) => <option key={t.cheie} value={t.cheie}>{tipAct(t.cheie)}</option>)}
             </select>
           ) : (
             <input type={c.tip === "date" ? "date" : "text"}
               value={date[c.cheie] || ""} onChange={(e) => pune(c.cheie, e.target.value)} />
           )}
-          {erori[c.cheie] && <div className="error-text">{erori[c.cheie]}</div>}
+          {erori[c.cheie] && <div className="error-text">{mesajEroareCamp(c.cheie, erori[c.cheie])}</div>}
         </div>
       )))}
 

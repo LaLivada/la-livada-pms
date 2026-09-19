@@ -13,14 +13,16 @@ import { X, Printer } from "lucide-react";
 import { occupantName } from "../lib/nume.js";
 import { FMT_DATE_FULL } from "../lib/format.js";
 import { Dialog, useModalLock } from "../ui/primitive.jsx";
-import { ACT_TIPURI } from "../lib/fisa.js";
 import { LATIME_PANZA, INALTIME_PANZA } from "../lib/semnatura.js";
 import * as dateFise from "../data/fise.js";
 
-/* Tipul actului, scris cum il citeste un om. Lista traieste in lib/fisa.js,
-   langa restul campurilor, ca sa nu existe doua definitii ale acelorasi trei
-   variante. */
-const tipActScris = (c) => ACT_TIPURI.find((t) => t.cheie === c)?.eticheta || "";
+/* Tipul actului, scris cum il citeste un om. Codurile traiesc in lib/fisa.js
+   (ACT_TIPURI), dar textul RO ramane aici: pagina de receptie nu se
+   traduce niciodata, spre deosebire de guest/interfata.ro.js, unde acelasi
+   text exista pe fiecare limba. */
+// Exportat doar ca sa fie verificat impotriva ACT_TIPURI (src/fisa-etichete.test.js).
+export const ACT_TIPURI_ETICHETE = { ci: "Carte de identitate", pasaport: "Pașaport", permis: "Permis de ședere" };
+const tipActScris = (c) => ACT_TIPURI_ETICHETE[c] || "";
 
 /* `fisa` e randul din fise_cazare, cand exista. Cand nu, coala se tipareste
    ca pana acum: precompletata din `guests` acolo unde se poate, goala in
