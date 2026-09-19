@@ -1,5 +1,74 @@
-/* PUNTE TEMPORARA — inlocuit cu traduceri reale in Task 6.
- * Pana atunci, oaspetele care alege rusa vede text romanesc: asta e
- * de asteptat si dispare cand Task 6 inlocuieste continutul de-a dreptul,
- * fara sa schimbe forma testata de continut-forme.test.js. */
-export * from "./interfata.ro.js";
+/* Textele de interfata in rusa, traduse si aprobate 19 septembrie 2026.
+ * Aceeasi forma ca in interfata.ro.js — verificat de
+ * continut-forme.test.js. */
+export const TEXTE = {
+  acces: {
+    eticheta: "Доступ в номер",
+    deschideUsa: "Открыть дверь",
+    sauTasteaza: "Или введите код на двери",
+    valabilPana: "Действителен до",
+    codLipsa: "Код ещё не готов. Обновите страницу через несколько минут или позвоните нам — а пока вы можете войти с помощью кнопки выше.",
+  },
+  refuzuri: {
+    incearcaDinNou: "Повторить",
+    sunaRecetia: "Позвонить на ресепшн",
+    neinceput: { titlu: "Ваше пребывание ещё не началось", text: "Страница откроется автоматически при заселении. Код доступа появится здесь сразу после заселения." },
+    incheiat: { titlu: "Ваше пребывание завершено", text: "Ссылка перестала действовать после вашего отъезда. Спасибо, что были с нами." },
+    anulat: { titlu: "Бронирование больше не активно", text: "Если это ошибка, позвоните нам, и мы сразу всё уладим." },
+    necunoscut: { titlu: "Ссылка не работает", text: "Проверьте, открыли ли вы её полностью, точно так, как получили. Если всё равно не работает, позвоните нам." },
+    "prea-multe": { titlu: "Слишком много попыток", text: "Подождите несколько минут и попробуйте снова. Если вы спешите, позвоните нам." },
+    lipsa: { titlu: "Неполная ссылка", text: "В адресе отсутствует код пребывания. Откройте ссылку полностью, так, как вы её получили." },
+    eroare: { titlu: "Что-то пошло не так", text: "Не удалось загрузить данные. Попробуйте снова; если всё равно не работает, позвоните нам." },
+    timeout: { titlu: "Сервер не ответил", text: "Дело не в ссылке: сервер не ответил вовремя. Проверьте интернет-соединение и попробуйте снова; если вы у двери, позвоните нам." },
+  },
+  instalare: {
+    pasiIos: [
+      { inainte: "Нажмите ", tare: "Поделиться", dupa: " — квадрат со стрелкой вверх, на нижней панели." },
+      { inainte: "Прокрутите и выберите ", tare: "На экран «Домой»", dupa: "." },
+      { inainte: "Подтвердите нажатием ", tare: "Добавить", dupa: ", вверху справа." },
+    ],
+    pasiAndroid: [
+      { inainte: "Нажмите ", tare: "⋮", dupa: " в правом верхнем углу." },
+      { inainte: "Выберите ", tare: "Добавить на главный экран", dupa: " или ", tare2: "Установить приложение", dupa2: "." },
+      { inainte: "Подтвердите нажатием ", tare: "Добавить", dupa: "." },
+    ],
+    pasiWifiIos: [
+      { inainte: "Откройте ", tare: "Настройки", dupa: " → ", tare2: "Wi-Fi", dupa2: "." },
+      { inainte: "Выберите ", dupa: " из списка." }, // `tare` = WIFI.retea, injectat in App.jsx
+      { text: "Готово — сеть не требует пароля." },
+    ],
+    pasiWifiAndroid: [
+      { inainte: "Потяните верхнюю панель вниз и нажмите и удерживайте ", tare: "Wi-Fi", dupa: "." },
+      { inainte: "Выберите ", dupa: " из списка." },
+      { text: "Готово — сеть не требует пароля." },
+    ],
+  },
+  fisa: {
+    titluFereastra: "Регистрационная анкета",
+    intro: "Обязательна при заселении, один раз за пребывание.",
+    ajutor: { inainte: "Сеть ", mijloc: ", без пароля. Если возникнут трудности, позвоните ", dupa: " по номеру" },
+    campEtichete: {
+      nume: "Фамилия", prenume: "Имя", dataNasterii: "Дата рождения",
+      loculNasterii: "Место рождения", nationalitate: "Национальность",
+      tara: "Страна проживания", adresa: "Адрес", localitate: "Город",
+      scopul: "Цель поездки", actTip: "Тип документа",
+      actSeria: "Серия", actNumarul: "Номер",
+    },
+    actTipEtichete: { ci: "Удостоверение личности", pasaport: "Паспорт", permis: "Вид на жительство" },
+    dacaAre: "(если есть)",
+    dataZiua: "День", dataLuna: "Месяц", dataAnul: "Год",
+    eroriCamp: {
+      LIPSA: (eticheta) => `${eticheta} отсутствует.`,
+      DATA_INVALIDA: "Дата рождения указана неверно.",
+      DATA_VIITOR: "Дата рождения не может быть в будущем.",
+      AN_SUSPECT: "Проверьте год рождения.",
+      ACT_NECUNOSCUT: "Выберите тип документа из списка.",
+    },
+    eroareSemnatura: "Распишитесь в поле выше.",
+    dejaCompletata: "Анкета уже отправлена.",
+    eroareTrimitere: "Не удалось отправить анкету. Попробуйте ещё раз.",
+    trimite: "Подписать и отправить",
+    trimitAcum: "Отправка…",
+    seIncarca: "Загрузка…",
+  },
+};
