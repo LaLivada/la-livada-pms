@@ -43,7 +43,12 @@ function useContinutMare(incarcator, extrage) {
     let viu = true;
     setStare({ stare: "incarca", date: null });
     incarcator[cod]()
-      .then((modul) => { if (viu) setStare({ stare: "gata", date: extrage(modul) }); });
+      .then((modul) => { if (viu) setStare({ stare: "gata", date: extrage(modul) }); })
+      /* Fara catch, un import() esuat (conexiune pierduta, sau un chunk
+         hash-uit disparut dupa un redeploy, cerut de o sesiune PWA veche)
+         ar fi lasat panoul blocat pe "Se incarca…" la nesfarsit, cu o
+         respingere de promisiune netratata. */
+      .catch(() => { if (viu) setStare({ stare: "eroare", date: null }); });
     return () => { viu = false; };
   }, [cod]);
 

@@ -3,12 +3,101 @@
  * Aceeasi forma trebuie sa existe si in interfata.en.js, .fr.js, .it.js,
  * .de.js, .ru.js, .uk.js — verificat de continut-forme.test.js. */
 export const TEXTE = {
+  hero: {
+    dimineata: "Bună dimineața,",
+    ziua: "Bună ziua,",
+    seara: "Bună seara,",
+    numeImplicit: "bun venit",
+    gestSalut: "salut",
+  },
+  selector: {
+    ariaEticheta: "Alege limba paginii",
+    titluFereastra: "Alege limba",
+  },
   acces: {
     eticheta: "Acces cameră",
     deschideUsa: "Deschide ușa",
     sauTasteaza: "Sau tastează codul pe ușă",
     valabilPana: "Valabil până",
     codLipsa: "Codul nu e încă pregătit. Reîncarcă pagina în câteva minute sau sună-ne — între timp, poți intra cu butonul de mai sus.",
+    indrumareLipsa: {
+      inainte: "Îndrumarea prin curte nu e încă pusă aici. Dacă nu găsești camera, sună-ne la ",
+      dupa: " și te conducem noi.",
+    },
+  },
+  usa: {
+    seDeschide: "Se deschide…",
+    usaDeschisa: "Ușa e deschisă",
+    usaDeschisaIntra: "Ușa e deschisă. Intră în câteva secunde.",
+    faraInternet: "Fără legătură la internet. Folosește codul de acces.",
+  },
+  drum: {
+    cumAjungi: "Cum ajungi la noi",
+    accesCatreCamere: "Acces către camere",
+    hartaTitlu: "Harta către Complex La Livada",
+  },
+  wifi: {
+    conecteaza: "Conectează-te la Wi-Fi",
+    codQrPentru: (retea) => `Cod QR pentru rețeaua ${retea}`,
+    scaneaza: { tare: "Scanează cu camera altui telefon", dupa: " — se conectează singur, fără parolă." },
+    sauDePeTelefon: "Sau, de pe telefonul ăsta:",
+  },
+  venit: {
+    scurtatura: "Bun venit",
+    titluPagina: "Bun venit la Livadă",
+    dateRezervarii: "Datele rezervării",
+    sosire: "Sosire",
+    plecare: "Plecare",
+    nopti: "Nopți",
+    persoane: "Persoane",
+    adultSg: "adult",
+    adultPl: "adulți",
+    copilSg: "copil",
+    copilPl: "copii",
+    totalDePlata: "Total de plată",
+    contactAsistenta: "Contact asistență",
+    suna: "Sună",
+  },
+  important: {
+    titluSectiune: "Important",
+    decazareTitlu: "Decazarea",
+    decazareText: (cand) => `Camera se eliberează ${cand}.`,
+    codTitlu: "Cât ține codul",
+    codText: (cod, pana) => `Codul ${cod}# funcționează până ${pana}.`,
+    usaTitlu: "Dacă ușa nu se deschide",
+    usaText: {
+      p1: "Apasă din nou butonul de deschidere. Dacă tot nu merge, tastează codul pe ușă sau sună-l pe ",
+      p2: " la ",
+      p3: ". Răspundem non-stop.",
+    },
+    regulamentEticheta: "Regulament:",
+    deschideRegulament: "Deschide regulamentul complexului",
+  },
+  regulamentFereastra: {
+    titlu: "Regulamentul complexului",
+    antetSubtitlu: "Regulament intern",
+  },
+  minibar: {
+    titluSectiune: "Minibar",
+    notaRecepite: "Consumul se trece pe notă la recepție.",
+    meniuGol: { inainte: "Meniul nu e încă publicat aici. Întreabă-ne ce avem — răspundem la ", dupa: "." },
+  },
+  atractii: {
+    scurtatura: "Atracții",
+    titluSectiune: "Atracții în județul Vaslui",
+    minCuMasina: "min cu mașina",
+    deschideGoogleMaps: "Deschide în Google Maps",
+    inapoi: "← Înapoi",
+    inainte: "Înainte →",
+    din: "din",
+    distanteNota: "Distanțele sunt pe șosea, de la complex.",
+  },
+  fisaBanner: {
+    titlu: "Completează fișa de cazare",
+    sub: "Obligatorie la cazare, o singură dată.",
+  },
+  continutMare: {
+    eroare: "Nu am putut încărca conținutul. Încearcă din nou.",
   },
   refuzuri: {
     incearcaDinNou: "Încearcă din nou",
@@ -23,6 +112,8 @@ export const TEXTE = {
     timeout: { titlu: "Serverul n-a răspuns", text: "Nu e vina linkului: serverul n-a răspuns la timp. Verifică internetul și încearcă din nou; dacă ești în fața ușii, sună-ne." },
   },
   instalare: {
+    adaugaIconul: "Adaugă iconul pe ecran",
+    nuGasestiOptiunea: (browser) => `Nu găsești opțiunea? Deschide pagina în ${browser} — în browserul din WhatsApp nu apare.`,
     pasiIos: [
       { inainte: "Apasă ", tare: "Partajare", dupa: " — pătratul cu săgeata în sus, în bara de jos." },
       { inainte: "Derulează și alege ", tare: "Adaugă la ecranul principal", dupa: "." },

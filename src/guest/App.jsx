@@ -46,29 +46,38 @@ function codDinAdresa() {
   return window.location.pathname.split("/").filter(Boolean).pop() || "";
 }
 
-const FMT_ZI = new Intl.DateTimeFormat("ro-RO", {
-  weekday: "long", day: "numeric", month: "long",
-});
-const FMT_ORA = new Intl.DateTimeFormat("ro-RO", { hour: "2-digit", minute: "2-digit" });
-
-const ziSiOra = (iso) => {
+/* Data si ora se formateaza pe limba paginii, nu mereu in romana — un
+   oaspete englez care citeste „duminică, 20 septembrie" alaturi de restul
+   paginii tradus ar fi o inconsecventa vizibila. Formatoarele se construiesc
+   per apel, dupa `locale`, in loc de constante module-level: sunt ieftine,
+   iar limba se poate schimba oricand din SelectorLimba, cat timp pagina
+   ramane deschisa. */
+const ziSiOra = (iso, locale) => {
   const d = iso ? new Date(iso) : null;
   if (!d || Number.isNaN(d.getTime())) return "—";
-  return `${FMT_ZI.format(d)}, ${FMT_ORA.format(d)}`;
+  const fmtZi = new Intl.DateTimeFormat(locale, { weekday: "long", day: "numeric", month: "long" });
+  const fmtOra = new Intl.DateTimeFormat(locale, { hour: "2-digit", minute: "2-digit" });
+  return `${fmtZi.format(d)}, ${fmtOra.format(d)}`;
 };
 
-const pret = (n) => `${Number(n || 0).toLocaleString("ro-RO", {
+// „lei" ramane netradus in orice limba — e numele monedei, nu text de
+// interfata (vezi aceeasi alegere in regulament.<lang>.js).
+const pret = (n, locale) => `${Number(n || 0).toLocaleString(locale, {
   minimumFractionDigits: 0, maximumFractionDigits: 2,
 })} lei`;
 
 const TIP = { tiny: "Tiny house", loft: "Loft" };
 
 /* Salutul dupa ceasul telefonului, nu dupa al serverului: oaspetele citeste
-   „bună seara" cand e seara la el, iar el si casa sunt in acelasi fus. */
-export function salut(ora) {
-  if (ora >= 5 && ora < 11) return "Bună dimineața,";
-  if (ora >= 11 && ora < 18) return "Bună ziua,";
-  return "Bună seara,";
+   „bună seara" cand e seara la el, iar el si casa sunt in acelasi fus.
+   `texteHero` vine din TEXTE.hero pe limba curenta; implicitul e doar
+   pentru cine cheama functia fara context de limba (vezi guest-salut.test.js,
+   care testeaza logica orelor independent de traducere). */
+const SALUT_IMPLICIT = { dimineata: "Bună dimineața,", ziua: "Bună ziua,", seara: "Bună seara," };
+export function salut(ora, texteHero = SALUT_IMPLICIT) {
+  if (ora >= 5 && ora < 11) return texteHero.dimineata;
+  if (ora >= 11 && ora < 18) return texteHero.ziua;
+  return texteHero.seara;
 }
 
 export const motivEsec = (e) => (e?.timeout ? "timeout" : "eroare");
@@ -254,19 +263,18 @@ function ConectareWifi() {
         onClick={() => setDeschis((d) => !d)}
         aria-expanded={deschis} aria-controls="g-wifi-cum">
         <Semnal />
-        Conectează-te la Wi-Fi
+        {texte.wifi.conecteaza}
       </button>
       {deschis && (
         <div id="g-wifi-cum">
           <div className="g-qr">
             <img src="/wifi-qr.svg" width="128" height="128"
-              alt={`Cod QR pentru rețeaua ${WIFI.retea}`} />
+              alt={texte.wifi.codQrPentru(WIFI.retea)} />
             <p>
-              <b>Scanează cu camera altui telefon</b> — se conectează singur,
-              fără parolă.
+              <b>{texte.wifi.scaneaza.tare}</b>{texte.wifi.scaneaza.dupa}
             </p>
           </div>
-          <p className="g-instructiuni-titlu">Sau, de pe telefonul ăsta:</p>
+          <p className="g-instructiuni-titlu">{texte.wifi.sauDePeTelefon}</p>
           <ol className="g-instructiuni">
             {/* Al doilea pas n-are `tare` scris in date — WIFI.retea se
                 injecteaza la randare, doar la indexul 1. */}
@@ -318,7 +326,7 @@ function Instaleaza() {
       <button type="button" className="g-actiune" onClick={apasa}
         aria-expanded={pasi} aria-controls="g-pasi-instalare">
         <Adauga />
-        Adaugă iconul pe ecran
+        {texte.instalare.adaugaIconul}
       </button>
       {pasi && (
         <div id="g-pasi-instalare">
@@ -326,9 +334,7 @@ function Instaleaza() {
             {pasiInstalare.map((p, i) => <li key={i}><Pas p={p} /></li>)}
           </ol>
           <p className="g-instructiuni-nota">
-            Nu găsești opțiunea? Deschide pagina în{" "}
-            {esteIOS() ? "Safari" : "Chrome"} — în browserul din WhatsApp nu
-            apare.
+            {texte.instalare.nuGasestiOptiunea(esteIOS() ? "Safari" : "Chrome")}
           </p>
         </div>
       )}
@@ -383,6 +389,7 @@ const VREME = {
 };
 
 function ContinutAcces() {
+  const texte = useTexte();
   const { poze, pasi } = ACCES_CAMERE;
   /* `poze` (din date.js) tine doar ordinea si fisierul; descrierea (text,
      deci pe limba) vine din dispecerul de continut si se leaga prin
@@ -395,9 +402,9 @@ function ContinutAcces() {
   if (!poze.length && !pasi.length) {
     return (
       <p className="g-gol">
-        Îndrumarea prin curte nu e încă pusă aici. Dacă nu găsești camera,
-        sună-ne la <a href={`tel:${TELEFON}`}>{TELEFON_SCRIS}</a> și te
-        conducem noi.
+        {texte.acces.indrumareLipsa.inainte}
+        <a href={`tel:${TELEFON}`}>{TELEFON_SCRIS}</a>
+        {texte.acces.indrumareLipsa.dupa}
       </p>
     );
   }
@@ -538,6 +545,7 @@ function useInaltimeaHartii(refCard, refHarta) {
  * nu concureaza cu nimeni pentru loc — poate sta deschis sau inchis
  * independent de orice panou ales mai jos. */
 function CumAjungi({ deschideAcces }) {
+  const texte = useTexte();
   const [deschis, setDeschis] = useState(false);
   const refCard = useRef(null);
   const refHarta = useRef(null);
@@ -548,7 +556,7 @@ function CumAjungi({ deschideAcces }) {
       <button type="button" className="g-drum-comutator" aria-expanded={deschis}
         onClick={() => setDeschis((d) => !d)}>
         <Reper />
-        <span>Cum ajungi la noi</span>
+        <span>{texte.drum.cumAjungi}</span>
         <span className="g-drum-sageata"><Sageata /></span>
       </button>
       {deschis && (
@@ -562,7 +570,7 @@ function CumAjungi({ deschideAcces }) {
                 nicaieri, deschide ceva pe loc — un `<a href="#">` ar minti
                 cititorul de ecran. */}
             <button type="button" className="g-leg" onClick={deschideAcces}>
-              <Usa />Acces către camere
+              <Usa />{texte.drum.accesCatreCamere}
             </button>
             {/* Cele doua harti stau impreuna, ca un singur element de asezare:
                 sunt acelasi lucru facut in doua aplicatii, deci daca randul se
@@ -591,7 +599,7 @@ function CumAjungi({ deschideAcces }) {
             <iframe
               className="g-harta-rama"
               src={HARTA_INCORPORATA}
-              title="Harta către Complex La Livada"
+              title={texte.drum.hartaTitlu}
               loading="lazy"
               referrerPolicy="no-referrer-when-downgrade"
               allowFullScreen
@@ -651,17 +659,18 @@ function Vremea() {
 /* Selectorul de limbă: buton cu steag care deschide fereastră cu
    cele 7 limbi disponibile. */
 function SelectorLimba() {
+  const texte = useTexte();
   const { cod, steag, seteazaLimba } = useLimba();
   const [deschis, setDeschis] = useState(false);
 
   return (
     <>
       <button type="button" className="g-limba-buton" onClick={() => setDeschis(true)}
-        aria-label="Alege limba paginii">
+        aria-label={texte.selector.ariaEticheta}>
         <span aria-hidden="true">{steag}</span>
       </button>
       {deschis && (
-        <Fereastra titlu="Alege limba" onInchide={() => setDeschis(false)}>
+        <Fereastra titlu={texte.selector.titluFereastra} onInchide={() => setDeschis(false)}>
           <div className="g-limba-lista">
             {LIMBI.map((l) => (
               <button key={l.cod} type="button" className="g-limba-rand"
@@ -700,8 +709,8 @@ function ButonUsa({ cod }) {
     setMesaj("");
     let r;
     try { r = await deschideUsa(cod); }
-    catch { r = { ok: false, mesaj: "Fără legătură la internet. Folosește codul de acces." }; }
-    if (r.ok) { setStare("deschis"); setMesaj("Ușa e deschisă. Intră în câteva secunde."); }
+    catch { r = { ok: false, mesaj: texte.usa.faraInternet }; }
+    if (r.ok) { setStare("deschis"); setMesaj(texte.usa.usaDeschisaIntra); }
     else { setStare("gata"); setMesaj(r.mesaj); }
   }
 
@@ -717,8 +726,8 @@ function ButonUsa({ cod }) {
         type="button"
       >
         <Cheie />
-        {stare === "trimite" ? "Se deschide…"
-          : stare === "deschis" ? "Ușa e deschisă"
+        {stare === "trimite" ? texte.usa.seDeschide
+          : stare === "deschis" ? texte.usa.usaDeschisa
           : texte.acces.deschideUsa}
       </button>
       {/* Randul isi tine inaltimea si cand e gol, ca aparitia mesajului sa
@@ -769,18 +778,18 @@ function Atractii() {
     capul.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
-  if (stare === "incarca") {
+  if (stare === "incarca" || stare === "eroare") {
     return (
       <div className="g-card" ref={capul}>
-        <h2>Atracții în județul Vaslui</h2>
-        <p className="g-gol">{texte.fisa.seIncarca}</p>
+        <h2>{texte.atractii.titluSectiune}</h2>
+        <p className="g-gol">{stare === "eroare" ? texte.continutMare.eroare : texte.fisa.seIncarca}</p>
       </div>
     );
   }
 
   return (
     <div className="g-card" ref={capul}>
-      <h2>Atracții în județul Vaslui</h2>
+      <h2>{texte.atractii.titluSectiune}</h2>
       <ul className="g-atractii">
         {feliile.map((a) => { const { nume, text } = textAtractiePentru(a.cheie) || {}; return (
           <li className="g-atractie" key={a.cheie}>
@@ -807,12 +816,12 @@ function Atractii() {
             ) : null}
             <h3>{nume}</h3>
             <p className="g-atractie-drum">
-              {a.loc} · {a.km} km · {a.minute} min cu mașina
+              {a.loc} · {a.km} km · {a.minute} {texte.atractii.minCuMasina}
             </p>
             <p className="g-atractie-text">{text}</p>
             <a className="g-harta" href={linkHarta(a)}
                target="_blank" rel="noopener noreferrer">
-              <Reper /> Deschide în Google Maps
+              <Reper /> {texte.atractii.deschideGoogleMaps}
             </a>
           </li>
         ); })}
@@ -820,15 +829,15 @@ function Atractii() {
 
       <div className="g-paginatie">
         <button type="button" onClick={() => mergiLa(pagina - 1)} disabled={pagina === 0}>
-          ← Înapoi
+          {texte.atractii.inapoi}
         </button>
-        <span>{de + 1}–{de + feliile.length} din {ATRACTII.length}</span>
+        <span>{de + 1}–{de + feliile.length} {texte.atractii.din} {ATRACTII.length}</span>
         <button type="button" onClick={() => mergiLa(pagina + 1)}
                 disabled={pagina >= pagini - 1}>
-          Înainte →
+          {texte.atractii.inainte}
         </button>
       </div>
-      <p className="g-nota">Distanțele sunt pe șosea, de la complex.</p>
+      <p className="g-nota">{texte.atractii.distanteNota}</p>
     </div>
   );
 }
@@ -841,6 +850,7 @@ function ContinutRegulament() {
   const { stare, regulament } = useRegulament();
   const texte = useTexte();
   if (stare === "incarca") return <p className="g-gol">{texte.fisa.seIncarca}</p>;
+  if (stare === "eroare") return <p className="g-gol">{texte.continutMare.eroare}</p>;
   return (
     <>
       <p className="g-reg-intro">{regulament.intro}</p>
@@ -853,6 +863,7 @@ function ContinutRegulament() {
 
 export default function App() {
   const texte = useTexte();
+  const { locale } = useLimba();
   const { BUN_VENIT, IMPORTANT } = useContinutMic();
   const asistentaRaspuns = useAsistentaRaspuns();
   const [cod, setCod] = useState(codDinAdresa);
@@ -949,7 +960,7 @@ export default function App() {
     return (
       <div className="g-pagina">
         <div className="g-card">
-          <Schelet randuri={3} eticheta="Se încarcă…" incet={incet} />
+          <Schelet randuri={3} eticheta={texte.fisa.seIncarca} incet={incet} />
         </div>
       </div>
     );
@@ -968,13 +979,13 @@ export default function App() {
      fisierul de continut ar fi fost gresita pentru orice sejur cu alta
      intelegere; asa vine din baza. */
   const important = [
-    { titlu: "Decazarea", text: `Camera se eliberează ${ziSiOra(sejur.checkOut)}.` },
+    { titlu: texte.important.decazareTitlu, text: texte.important.decazareText(ziSiOra(sejur.checkOut, locale)) },
     acces?.code && {
-      titlu: "Cât ține codul",
-      text: `Codul ${acces.code}# funcționează până ${ziSiOra(acces.validUntil)}.`,
+      titlu: texte.important.codTitlu,
+      text: texte.important.codText(acces.code, ziSiOra(acces.validUntil, locale)),
     },
     {
-      titlu: "Dacă ușa nu se deschide",
+      titlu: texte.important.usaTitlu,
       /* Numarul de asistenta, nu cel general de la subsol: cine sta in fata
          unei usi inchise are nevoie de omul care raspunde in cateva minute.
          Si e legatura de telefon, nu text: exact aici oaspetele are o mana
@@ -987,12 +998,13 @@ export default function App() {
          contrazis cardul chiar in panoul care explica ce sa faci cand ceva
          nu merge.
          `text` primeste noduri, nu doar siruri; restul punctelor vin din
-         continut.js, care e .js si nu poate purta JSX. */
+         continut.js, care e .js si nu poate purta JSX — de-asta textul
+         tradus (texte.important.usaText) vine spart in trei bucati, cu
+         legatura telefonica asamblata aici, in jurul lui. */
       text: (
         <>
-          Apasă din nou butonul de deschidere. Dacă tot nu merge, tastează
-          codul pe ușă sau sună-l pe {ASISTENTA.nume} la{" "}
-          <a href={`tel:${ASISTENTA.telefon}`}>{ASISTENTA.scris}</a>. Răspundem non-stop.
+          {texte.important.usaText.p1}{ASISTENTA.nume}{texte.important.usaText.p2}
+          <a href={`tel:${ASISTENTA.telefon}`}>{ASISTENTA.scris}</a>{texte.important.usaText.p3}
         </>
       ),
     },
@@ -1004,7 +1016,7 @@ export default function App() {
       <div className="g-salut">
         {/* Ora zilei la stanga, vremea la dreapta — deasupra siglei. */}
         <div className="g-salut-sus">
-          <p className="g-salut-ora">{salut(new Date().getHours())}</p>
+          <p className="g-salut-ora">{salut(new Date().getHours(), texte.hero)}</p>
           <SelectorLimba />
           <Vremea />
         </div>
@@ -1015,8 +1027,8 @@ export default function App() {
               greseala. Asa, ori sta langa ultimul cuvant, ori coboara
               impreuna cu el. */}
           <h1 className="g-salut-nume">
-            {sejur.guestName || "bun venit"}{"\u00A0"}
-            <span className="g-mana" role="img" aria-label="salut">👋</span>
+            {sejur.guestName || texte.hero.numeImplicit}{"\u00A0"}
+            <span className="g-mana" role="img" aria-label={texte.hero.gestSalut}>👋</span>
           </h1>
           {/* Fisierul siglei e chiar cel folosit de
             rezervari.lalivada.ro — aceeasi marca, nu o refacere. */}
@@ -1077,7 +1089,7 @@ export default function App() {
                 afiseaza langa cifre, nu se lasa pe seama memoriei. */}
             <p className="g-cod">{acces.code}<span className="g-diez">#</span></p>
             <p className="g-valabil">
-              {texte.acces.valabilPana} <b>{ziSiOra(acces.validUntil)}</b>
+              {texte.acces.valabilPana} <b>{ziSiOra(acces.validUntil, locale)}</b>
             </p>
           </div>
         ) : (
@@ -1111,8 +1123,8 @@ export default function App() {
                 care sa pozitionezi un inel in jurul lui. */}
             <span className="g-fisa-banner-icon"><Foaie /></span>
             <span className="g-fisa-banner-text">
-              <span className="g-fisa-banner-titlu">Completează fișa de cazare</span>
-              <span className="g-fisa-banner-sub">Obligatorie la cazare, o singură dată.</span>
+              <span className="g-fisa-banner-titlu">{texte.fisaBanner.titlu}</span>
+              <span className="g-fisa-banner-sub">{texte.fisaBanner.sub}</span>
             </span>
           </button>
           <Fisa cod={cod} onGata={fisaCompletata} deschis={aratFisa}
@@ -1122,30 +1134,30 @@ export default function App() {
 
       <div className="g-scurtaturi">
         <Sectiune cheie="venit" deschis={deschis} alege={setDeschis}
-          iconita={<Casa />} eticheta="Bun venit" />
+          iconita={<Casa />} eticheta={texte.venit.scurtatura} />
         <Sectiune cheie="important" deschis={deschis} alege={setDeschis}
-          iconita={<Info />} eticheta="Important" />
+          iconita={<Info />} eticheta={texte.important.titluSectiune} />
         <Sectiune cheie="minibar" deschis={deschis} alege={setDeschis}
-          iconita={<Cana />} eticheta="Minibar" />
+          iconita={<Cana />} eticheta={texte.minibar.titluSectiune} />
         <Sectiune cheie="atractii" deschis={deschis} alege={setDeschis}
-          iconita={<Reper />} eticheta="Atracții" />
+          iconita={<Reper />} eticheta={texte.atractii.scurtatura} />
       </div>
 
       {deschis === "venit" && (
         <div className="g-card">
-          <h2>Bun venit la Livadă</h2>
+          <h2>{texte.venit.titluPagina}</h2>
           <Intro>{BUN_VENIT.intro}</Intro>
 
-          <h3 className="g-eticheta-sectiune">Datele rezervării</h3>
+          <h3 className="g-eticheta-sectiune">{texte.venit.dateRezervarii}</h3>
           <dl className="g-lista">
-            <div className="g-rand"><dt>Sosire</dt><dd>{ziSiOra(sejur.checkIn)}</dd></div>
-            <div className="g-rand"><dt>Plecare</dt><dd>{ziSiOra(sejur.checkOut)}</dd></div>
-            <div className="g-rand"><dt>Nopți</dt><dd>{sejur.nights}</dd></div>
+            <div className="g-rand"><dt>{texte.venit.sosire}</dt><dd>{ziSiOra(sejur.checkIn, locale)}</dd></div>
+            <div className="g-rand"><dt>{texte.venit.plecare}</dt><dd>{ziSiOra(sejur.checkOut, locale)}</dd></div>
+            <div className="g-rand"><dt>{texte.venit.nopti}</dt><dd>{sejur.nights}</dd></div>
             <div className="g-rand">
-              <dt>Persoane</dt>
+              <dt>{texte.venit.persoane}</dt>
               <dd>
-                {sejur.adults} {sejur.adults === 1 ? "adult" : "adulți"}
-                {sejur.children > 0 && `, ${sejur.children} ${sejur.children === 1 ? "copil" : "copii"}`}
+                {sejur.adults} {sejur.adults === 1 ? texte.venit.adultSg : texte.venit.adultPl}
+                {sejur.children > 0 && `, ${sejur.children} ${sejur.children === 1 ? texte.venit.copilSg : texte.venit.copilPl}`}
               </dd>
             </div>
           </dl>
@@ -1154,8 +1166,8 @@ export default function App() {
               intrebare despre bani. */}
           {sejur.total != null && (
             <p className="g-total">
-              <span>Total de plată</span>
-              <b>{pret(sejur.total)}</b>
+              <span>{texte.venit.totalDePlata}</span>
+              <b>{pret(sejur.total, locale)}</b>
             </p>
           )}
 
@@ -1177,7 +1189,7 @@ export default function App() {
               ultimul lucru pe care il vede, adica exact acolo unde il cauta
               cineva care n-a gasit ce-i trebuia mai sus. */}
           <div className="g-asistenta">
-            <h3>Contact asistență</h3>
+            <h3>{texte.venit.contactAsistenta}</h3>
             <p className="g-asistenta-cine">
               <b>{ASISTENTA.nume}</b> — {asistentaRaspuns}
             </p>
@@ -1192,7 +1204,7 @@ export default function App() {
               </a>
               <a className="g-contact" href={`tel:${ASISTENTA.telefon}`}>
                 <Telefon />
-                Sună
+                {texte.venit.suna}
               </a>
             </div>
           </div>
@@ -1201,7 +1213,7 @@ export default function App() {
 
       {deschis === "important" && (
         <div className="g-card">
-          <h2>Important</h2>
+          <h2>{texte.important.titluSectiune}</h2>
           <ul className="g-puncte">
             {important.map((p, i) => (
               <li key={i}><b>{p.titlu}</b> — {p.text}</li>
@@ -1211,7 +1223,7 @@ export default function App() {
               singurul din panou fara nume, si se citea ca o nota agatata la
               sfarsit, nu ca inca o intrare din lista. */}
           <p className="g-legatura-rand">
-            <b>Regulament:</b>{" "}
+            <b>{texte.important.regulamentEticheta}</b>{" "}
             {/* Buton, nu <a>: nu duce nicaieri, deschide o fereastra peste
                 pagina. Un link cu href="#" ar fi mintit si tastatura, si
                 cititoarele de ecran despre ce urmeaza sa se intample.
@@ -1220,7 +1232,7 @@ export default function App() {
                 de care tocmai s-a agatat randul. */}
             <button type="button" className="g-legatura"
               onClick={() => setAratRegulament(true)}>
-              Deschide regulamentul complexului
+              {texte.important.deschideRegulament}
             </button>
           </p>
         </div>
@@ -1228,7 +1240,7 @@ export default function App() {
 
       {deschis === "minibar" && (
         <div className="g-card">
-          <h2>Minibar</h2>
+          <h2>{texte.minibar.titluSectiune}</h2>
           {minibar.length > 0 ? (
             <>
               {minibar.map((p, i) => (
@@ -1237,18 +1249,19 @@ export default function App() {
                     {p.name}
                     {p.description && <span className="g-produs-desc">{p.description}</span>}
                   </span>
-                  <span className="g-produs-pret">{pret(p.price)}</span>
+                  <span className="g-produs-pret">{pret(p.price, locale)}</span>
                 </div>
               ))}
-              <p className="g-nota">Consumul se trece pe notă la recepție.</p>
+              <p className="g-nota">{texte.minibar.notaRecepite}</p>
             </>
           ) : (
             /* Meniul e gol cat timp niciun produs nu e marcat vizibil public
                in PMS. Butonul ramane, dar spune de ce nu are ce arata — un
                panou gol ar parea o eroare de incarcare. */
             <p className="g-gol">
-              Meniul nu e încă publicat aici. Întreabă-ne ce avem — răspundem
-              la <a href={`tel:${TELEFON}`}>{TELEFON_SCRIS}</a>.
+              {texte.minibar.meniuGol.inainte}
+              <a href={`tel:${TELEFON}`}>{TELEFON_SCRIS}</a>
+              {texte.minibar.meniuGol.dupa}
             </p>
           )}
         </div>
@@ -1262,19 +1275,19 @@ export default function App() {
       </p>
 
       {aratAcces && (
-        <Fereastra titlu="Acces către camere" onInchide={() => setAratAcces(false)}>
+        <Fereastra titlu={texte.drum.accesCatreCamere} onInchide={() => setAratAcces(false)}>
           <ContinutAcces />
         </Fereastra>
       )}
 
       {aratRegulament && (
         <Fereastra
-          titlu="Regulamentul complexului"
+          titlu={texte.regulamentFereastra.titlu}
           antet={
             <div className="g-reg-antet">
               <img src="/brand/livada-text.svg" alt="Complex La Livada"
                 width="104" height="26" />
-              <p>Regulament intern</p>
+              <p>{texte.regulamentFereastra.antetSubtitlu}</p>
             </div>
           }
           onInchide={() => setAratRegulament(false)}>

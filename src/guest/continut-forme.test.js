@@ -37,13 +37,20 @@ import * as atractiiTextUk from "./atractii-text.uk.js";
  * neobservat de niciun test care doar verifica ca fisierul exista. */
 function chei(obiect, prefix = "") {
   if (Array.isArray(obiect)) {
-    return obiect.length > 0 ? chei(obiect[0], `${prefix}[]`) : [`${prefix}[]`];
+    // Lungimea intra in comparatie ca o cheie in plus: doar primul element
+    // n-ar fi prins o traducere care a pierdut sau a adaugat un rand (o
+    // regula lipsa din REGULAMENT, o atractie in plus).
+    const cheileElementelor = obiect.length > 0 ? chei(obiect[0], `${prefix}[]`) : [`${prefix}[]`];
+    return [`${prefix}[].lungime=${obiect.length}`, ...cheileElementelor];
   }
   if (obiect && typeof obiect === "object") {
     return Object.keys(obiect).sort()
       .flatMap((k) => chei(obiect[k], prefix ? `${prefix}.${k}` : k));
   }
-  return [prefix];
+  // Tipul intra in cheie: o traducere care a inlocuit o functie parametrizata
+  // (ex. eroriCamp.LIPSA) cu un sir simplu ar fi trecut neobservata altfel,
+  // fiindca ambele sunt frunze fara sub-chei proprii.
+  return [`${prefix}:${typeof obiect}`];
 }
 
 describe("forma comuna a continutului pe limbi", () => {

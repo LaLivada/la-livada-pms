@@ -6,16 +6,16 @@
  *
  * Engleza, nu romana, e limba de rezerva: un turist a carui limba nu e
  * in lista are sanse mai mari sa inteleaga engleza decat romana. */
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 
 export const LIMBI = [
-  { cod: "ro", nume: "Română",     steag: "🇷🇴" },
-  { cod: "en", nume: "English",    steag: "🇬🇧" },
-  { cod: "fr", nume: "Français",   steag: "🇫🇷" },
-  { cod: "it", nume: "Italiano",   steag: "🇮🇹" },
-  { cod: "de", nume: "Deutsch",    steag: "🇩🇪" },
-  { cod: "ru", nume: "Русский",    steag: "🇷🇺" },
-  { cod: "uk", nume: "Українська", steag: "🇺🇦" },
+  { cod: "ro", nume: "Română",     steag: "🇷🇴", locale: "ro-RO" },
+  { cod: "en", nume: "English",    steag: "🇬🇧", locale: "en-GB" },
+  { cod: "fr", nume: "Français",   steag: "🇫🇷", locale: "fr-FR" },
+  { cod: "it", nume: "Italiano",   steag: "🇮🇹", locale: "it-IT" },
+  { cod: "de", nume: "Deutsch",    steag: "🇩🇪", locale: "de-DE" },
+  { cod: "ru", nume: "Русский",    steag: "🇷🇺", locale: "ru-RU" },
+  { cod: "uk", nume: "Українська", steag: "🇺🇦", locale: "uk-UA" },
 ];
 
 export const LIMBA_IMPLICITA = "en";
@@ -48,6 +48,13 @@ function limbaSalvata() {
   }
 }
 
+/* Aceeasi regula de rezolvare ca `LimbaProvider`, dar utilizabila inainte
+ * de primul render — manifestul PWA (vezi instalare.js) se pregateste
+ * sincron, la incarcarea modulului, inaintea oricarei componente React. */
+export function limbaCurenta() {
+  return limbaSalvata() || detecteazaLimba(navigator.languages);
+}
+
 const LimbaContext = createContext(null);
 
 export function LimbaProvider({ children }) {
@@ -55,13 +62,24 @@ export function LimbaProvider({ children }) {
     () => limbaSalvata() || detecteazaLimba(navigator.languages));
 
   useEffect(() => {
-    try { localStorage.setItem(CHEIE_STOCARE, cod); } catch { /* vezi mai sus */ }
+    document.documentElement.lang = cod;
   }, [cod]);
 
+  /* Persista doar alegerea MANUALA (butonul din SelectorLimba), nu si
+     limba auto-detectata la prima montare — altfel un oaspete a carui
+     limba a telefonului nu era in `localStorage` ar fi "fixat" acolo
+     limba detectata la prima vizita, iar o schimbare ulterioara a limbii
+     telefonului n-ar mai avea niciun efect. */
+  const seteazaLimba = useCallback((codNou) => {
+    setCod(codNou);
+    try { localStorage.setItem(CHEIE_STOCARE, codNou); } catch { /* vezi mai sus */ }
+  }, []);
+
   const valoare = useMemo(() => {
-    const limba = LIMBI.find((l) => l.cod === cod) || LIMBI[0];
-    return { cod: limba.cod, steag: limba.steag, seteazaLimba: setCod };
-  }, [cod]);
+    const limba = LIMBI.find((l) => l.cod === cod)
+      || LIMBI.find((l) => l.cod === LIMBA_IMPLICITA);
+    return { cod: limba.cod, steag: limba.steag, locale: limba.locale, seteazaLimba };
+  }, [cod, seteazaLimba]);
 
   return <LimbaContext.Provider value={valoare}>{children}</LimbaContext.Provider>;
 }

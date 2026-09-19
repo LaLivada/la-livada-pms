@@ -27,12 +27,22 @@ describe("detecteazaLimba", () => {
     expect(detecteazaLimba(undefined)).toBe(LIMBA_IMPLICITA);
   });
 
-  it("fiecare limba din LIMBI e formata din cod, nume si steag", () => {
-    expect(LIMBI.length).toBe(7);
+  it("fiecare limba din LIMBI e formata din cod, nume, steag si locale", () => {
+    const CODURI_ASTEPTATE = ["ro", "en", "fr", "it", "de", "ru", "uk"];
+    expect(LIMBI.map((l) => l.cod)).toEqual(CODURI_ASTEPTATE);
     for (const l of LIMBI) {
-      expect(l.cod).toMatch(/^[a-z]{2}$/);
+      // Nu doar forma (regexul ar fi lasat sa treaca si "ua"): codul
+      // trebuie sa fie EXACT unul dintre cele sapte, ISO 639-1.
+      expect(CODURI_ASTEPTATE).toContain(l.cod);
       expect(l.nume.length).toBeGreaterThan(0);
       expect(l.steag.length).toBeGreaterThan(0);
+      expect(l.locale).toMatch(/^[a-z]{2}-[A-Z]{2}$/);
     }
+  });
+
+  it("limba implicita e engleza, nu romana", () => {
+    // Verificare literala, nu doar simbolica: un LIMBA_IMPLICITA schimbat
+    // din greseala la "ro" ar fi trecut testele de mai sus neobservat.
+    expect(LIMBA_IMPLICITA).toBe("en");
   });
 });
