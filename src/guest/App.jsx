@@ -24,6 +24,7 @@ import {
   ATRACTII, ATRACTII_PE_PAGINA, linkHarta,
   LINK_MAPS, LINK_WAZE, ACCES_CAMERE, HARTA_INCORPORATA, WIFI, REGULAMENT,
 } from "./continut.js";
+import { asistentaRaspuns, ACCES_CAMERE_DESCRIERI, ATRACTII_TEXT } from "./continut.ro.js"; // temporar
 import {
   promptDisponibil, asculta, cheamaPrompt, esteInstalata, esteIOS,
 } from "./instalare.js";
@@ -426,6 +427,12 @@ const VREME = {
   ),
 };
 
+/* `poze` (din date.js) tine doar ordinea si fisierul; descrierea (text, deci
+   pe limba) vine din continut.ro.js si se leaga prin `fisier`, nu prin
+   pozitia in array. */
+const descrierePentru = (fisier) =>
+  ACCES_CAMERE_DESCRIERI.find((d) => d.fisier === fisier)?.descriere || "";
+
 function ContinutAcces() {
   const { poze, pasi } = ACCES_CAMERE;
   /* Cat timp continutul nu e pus, fereastra spune de ce e goala si da
@@ -459,10 +466,10 @@ function ContinutAcces() {
           {/* Cifra vine din POZITIA in lista, nu e scrisa in text: daca
              cineva rearanjeaza pozele mai tarziu, numarul urmeaza poza, nu
              ramane lipit de una gresita. */}
-          {p.descriere && (
+          {descrierePentru(p.fisier) && (
             <figcaption>
               <span className="g-acces-numar" aria-hidden="true">{i + 1}</span>
-              {p.descriere}
+              {descrierePentru(p.fisier)}
             </figcaption>
           )}
         </figure>
@@ -755,6 +762,10 @@ function Sectiune({ cheie, deschis, alege, iconita, eticheta }) {
  * Paginarea nu e doar de asezare in pagina: pozele se incarca lenes, deci
  * cine nu trece la pagina a doua nu descarca niciodata ultimele cinci
  * imagini. Pe date mobile, in curte, asta se simte. */
+/* `ATRACTII` (din date.js) tine campurile factuale; `nume`/`text` (pe
+   limba) vin din continut.ro.js si se leaga prin `cheie`. */
+const textAtractiePentru = (cheie) => ATRACTII_TEXT.find((t) => t.cheie === cheie);
+
 function Atractii() {
   const [pagina, setPagina] = useState(0);
   const capul = useRef(null);
@@ -773,11 +784,11 @@ function Atractii() {
     <div className="g-card" ref={capul}>
       <h2>Atracții în județul Vaslui</h2>
       <ul className="g-atractii">
-        {feliile.map((a) => (
+        {feliile.map((a) => { const { nume, text } = textAtractiePentru(a.cheie) || {}; return (
           <li className="g-atractie" key={a.cheie}>
             {a.foto ? (
               <figure className="g-atractie-foto">
-                <img src={`/atractii/${a.foto}`} alt={a.nume}
+                <img src={`/atractii/${a.foto}`} alt={nume}
                      width="720" height="450" loading="lazy" decoding="async" />
                 {/* Autorul si licenta nu sunt politete, sunt conditia sub
                     care avem voie sa folosim poza — de aceea pozele luate de
@@ -796,17 +807,17 @@ function Atractii() {
                 ) : null}
               </figure>
             ) : null}
-            <h3>{a.nume}</h3>
+            <h3>{nume}</h3>
             <p className="g-atractie-drum">
               {a.loc} · {a.km} km · {a.minute} min cu mașina
             </p>
-            <p className="g-atractie-text">{a.text}</p>
+            <p className="g-atractie-text">{text}</p>
             <a className="g-harta" href={linkHarta(a)}
                target="_blank" rel="noopener noreferrer">
               <Reper /> Deschide în Google Maps
             </a>
           </li>
-        ))}
+        ); })}
       </ul>
 
       <div className="g-paginatie">
@@ -1136,7 +1147,7 @@ export default function App() {
               {BUN_VENIT.puncte.map((p, i) => (
                 <li key={i}>
                   <b>{p.titlu}</b> —{" "}
-                  {p.tare ? <>{p.inainte}<b>{p.tare}</b>{p.dupa}</> : p.text}
+                  {p.actiune === "wifi" ? <>{p.inainte}<b>{WIFI.retea}</b>{p.dupa}</> : p.text}
                   {p.actiune === "wifi" && <ConectareWifi />}
                   {p.actiune === "instalare" && <Instaleaza />}
                 </li>
@@ -1151,7 +1162,7 @@ export default function App() {
           <div className="g-asistenta">
             <h3>Contact asistență</h3>
             <p className="g-asistenta-cine">
-              <b>{ASISTENTA.nume}</b> — {ASISTENTA.raspuns}
+              <b>{ASISTENTA.nume}</b> — {asistentaRaspuns}
             </p>
             <div className="g-asistenta-butoane">
               {/* wa.me, nu api.whatsapp.com: prima deschide direct aplicatia
