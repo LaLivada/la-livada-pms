@@ -135,15 +135,22 @@ body{
    aliniate la dreapta ca sa cada sub sigla. Randul nu se rupe niciodata
    (white-space:nowrap): altfel „Vaslui" ramane singur deasupra si arata ca
    doua lucruri fara legatura. */
+/* Steagul si vremea impreuna, ridicate deasupra salutului, in marginea de
+   sus a paginii — singurul loc liber. Pagina are 22px de padding sus; -16
+   lasa grupul sa inceapa la 6px de marginea de sus, adica intreaga deasupra
+   literelor din „buna seara". Nu misca nimic: intr-un rand flex cu
+   align-items:flex-start, marginea negativa micsoreaza cutia exterioara a
+   elementului, deci inaltimea randului ramane data de ora zilei, care e mai
+   inalta. Verificat — sigla, numele si cardul stau la acelasi pixel ca
+   inainte. Steagul sta IN acest grup, nu ca al treilea copil direct al
+   randului de sus: altfel justify-content:space-between il imprastia
+   inegal fata de vreme, si nemaifiind ridicat de aceasta margine, ramanea
+   vizibil mai jos — exact ce a semnalat Ovidiu pe telefon. */
+.g-salut-dreapta{
+  margin:-16px 0 0; display:flex; align-items:center; gap:8px;
+}
 .g-vreme{
-  /* Ridicata deasupra salutului, in marginea de sus a paginii — singurul loc
-     liber. Pagina are 22px de padding sus; -16 lasa vremea sa inceapa la 6px
-     de marginea de sus, adica intreaga deasupra literelor din „buna seara".
-     Nu misca nimic: intr-un rand flex cu align-items:flex-start, marginea
-     negativa micsoreaza cutia exterioara a elementului, deci inaltimea
-     randului ramane data de ora zilei, care e mai inalta. Verificat — sigla,
-     numele si cardul stau la acelasi pixel ca inainte. */
-  margin:-16px 0 0; display:flex; align-items:center; justify-content:flex-end;
+  display:flex; align-items:center; justify-content:flex-end;
   gap:6px; line-height:1.25; white-space:nowrap;
 }
 .g-vreme-loc{ font-size:12.5px; color:var(--g-muted); }
@@ -155,7 +162,10 @@ body{
 
 /* ---------- selectorul de limba ---------- */
 .g-limba-buton{
-  border:0; background:none; padding:4px; margin-right:8px;
+  /* Padding generos in jurul unui steag mic: zona de atins ramane usor de
+     nimerit cu degetul, desi steagul insusi (15px) sta acum langa vreme,
+     nu singur pe rand. */
+  border:0; background:none; padding:8px; margin:-8px;
   line-height:1; cursor:pointer; touch-action:manipulation;
 }
 .g-limba-lista{ display:flex; flex-direction:column; gap:2px; }
@@ -170,7 +180,10 @@ body{
    simplu ("GB") in loc de steagul colorat. Vezi limbi.jsx. */
 .g-limba-steag{ display:inline-flex; line-height:0; flex-shrink:0; }
 .g-limba-steag svg{ width:20px; height:auto; border-radius:2px; box-shadow:0 0 0 1px rgba(34,34,31,0.15); }
-.g-limba-buton .g-limba-steag svg{ width:22px; }
+/* Mai mic aici decat in lista din fereastra: alaturi de vreme, pe randul de
+   sus, un steag de 22px atragea prea multa atentie fata de textul de 15px
+   al orei zilei si al vremii. */
+.g-limba-buton .g-limba-steag svg{ width:15px; }
 
 /* ---------- cardul inchis: codul si usa ---------- */
 /* Culorile de aici sunt scrise ca valori, nu ca jetoane, si e intentionat.
