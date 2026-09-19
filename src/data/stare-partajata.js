@@ -29,6 +29,12 @@ export const K = {
      browserul, pentru mesajul de WhatsApp. Sirul sta o singura data, ca sa
      nu ajunga o litera diferita intre cele doua. */
   access: "pms:access:v1",
+  /* Setarile televizoarelor din camere (furnizorul, sabloanele mesajului de
+     bun venit, reteaua Wi-Fi scrisa pe ecran). Ca `access`, o citesc
+     amandoua capetele: ecranul „Televizoare" si functia edge `tv-provider`.
+     Scrisa doar de admin — `provider` de acolo decide daca mesajele pleaca
+     spre televizoare reale sau spre simulare. */
+  tv: "pms:tv:v1",
 };
 
 /* Audit log — module-level so any component can record an action

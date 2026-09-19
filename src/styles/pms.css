@@ -2909,3 +2909,34 @@ label.field input, label.field select, label.field textarea{ cursor:auto; }
 /* Buton mai strâns decât cel implicit (`.btn` are 11px 18px), în rânduri de
    acțiuni. Se pune lângă `.btn-lat`, care îi ia lățimea de 100%. */
 .btn-mic{ padding:8px 12px; }
+
+/* ---------------------------------------------------------------
+   TELEVIZOARE (mesajele de bun venit din camere)
+----------------------------------------------------------------*/
+/* Ce scrie pe ecranul din cameră, arătat cu rândurile lui.
+   `pre`, nu `div`: mesajul are rânduri care contează — cine se uită aici
+   vrea să vadă exact ce vede oaspetele, inclusiv un rând lipsă. */
+.tv-ecran{
+  margin:8px 0 0; padding:10px 12px;
+  background:var(--surface-2); border:1px solid var(--border-soft);
+  border-radius:8px;
+  font-family:inherit; font-size:var(--fs-sm); line-height:1.45;
+  white-space:pre-wrap; word-break:break-word;
+}
+.tv-gol{ margin-top:8px; font-size:var(--fs-sm); color:var(--text-muted); font-style:italic; }
+/* Șablonul se editează ca text, cu rândurile vizibile: un `input` de o linie
+   ar fi ascuns tocmai împărțirea pe rânduri, care e jumătate din mesaj. */
+.tv-sablon{
+  width:100%; margin:8px 0; font-family:inherit; font-size:var(--fs-sm);
+  line-height:1.45; resize:vertical;
+}
+/* „Furnizor: simulare" și „integrarea e oprită" — amândouă înseamnă că ce se
+   vede mai jos nu ajunge pe televizoare reale. Stă deasupra secțiunilor,
+   deci arată ca un avertisment, nu ca un rând din listă. */
+.tv-avertisment{
+  display:flex; align-items:flex-start; gap:8px;
+  margin-bottom:14px; padding:10px 14px;
+  border:1px solid var(--warning); border-radius:var(--radius);
+  background:var(--warning-soft); color:var(--text);
+  font-size:var(--fs-sm); line-height:1.45;
+}

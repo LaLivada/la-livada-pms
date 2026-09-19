@@ -2,8 +2,9 @@
 
 Sistemul de administrare al Complexului La Livadă (Vaslui): recepție,
 calendar de rezervări, oaspeți, facturare, curățenie, acces electronic la
-camere și relee. Trei aplicații într-un singur repo, cu un singur backend
-(Supabase: Postgres + RLS, Realtime, funcții edge).
+camere, relee și mesajele de bun venit de pe televizoarele din camere. Trei
+aplicații într-un singur repo, cu un singur backend (Supabase: Postgres +
+RLS, Realtime, funcții edge).
 
 | Aplicație | Adresă | Intrare | Build |
 |---|---|---|---|
@@ -37,7 +38,7 @@ fiecăreia: `public/`, `public-booking/`, `public-guest/`.
   aplicate pe proiectul live, câte un fișier, redabile cu `supabase db push`;
   `supabase/functions/` — funcțiile edge (Deno): `booking-create`,
   `booking-email`, `ical-feed`, `access-provider`, `access-webhook`, `caldav`,
-  `guest-unlock`, `device-provider`, `anaf-lookup`. Fiecare are, în capul
+  `guest-unlock`, `device-provider`, `tv-provider`, `anaf-lookup`. Fiecare are, în capul
   fișierului, ce primește și de ce există.
 - `scripts/` — unelte de rulat de mână: `backup.mjs` (copie a bazei, fără
   Docker), `export-migratii.mjs` (migrațiile aplicate → `supabase/migrations/`),
@@ -91,7 +92,10 @@ build-uri — la fiecare push și PR pe `main`. `backup.yml` face zilnic, la
 `TURNSTILE_SECRET_KEY` (rezervări și email); `TTLOCK_CLIENT_ID`,
 `TTLOCK_CLIENT_SECRET`, `TTLOCK_USERNAME`, `TTLOCK_PASSWORD_MD5`,
 `TTLOCK_API_BASE`, `TTLOCK_WEBHOOK_TOKEN` (yale); `SHELLY_AUTH_KEY`,
-`SHELLY_SERVER_URI` (relee); `OBLIO_CLIENT_ID`, `OBLIO_CLIENT_SECRET`
+`SHELLY_SERVER_URI` (relee); `LYNK_API_BASE`, `LYNK_CLIENT_ID`,
+`LYNK_CLIENT_SECRET`, `LYNK_SITE_ID` (mesajele de bun venit de pe
+televizoarele din camere, `docs/lynk-samsung.md`; fără ele integrarea rămâne
+pe furnizorul `simulare`); `OBLIO_CLIENT_ID`, `OBLIO_CLIENT_SECRET`
 (facturarea prin Oblio, `docs/oblio.md`).
 
 **Backup** (GitHub Actions): secretul `DATABASE_URL`, plus două fișiere în
