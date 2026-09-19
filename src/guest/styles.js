@@ -82,7 +82,12 @@ body{
   display:flex; align-items:flex-start; justify-content:space-between;
   gap:10px;
 }
-.g-salut-ora{ margin:0; font-size:15px; color:var(--g-muted); }
+/* position:relative + top, nu margin-top: o margine ar fi crescut
+   inaltimea acestui element din randul flex, impingand in jos si randul cu
+   numele si sigla de dedesubt (vezi .g-salut, coloana cu gap). Offsetul
+   relativ muta doar desenul, dupa ce inaltimea randului s-a calculat deja
+   — numele, sigla si vremea raman exact unde erau. */
+.g-salut-ora{ position:relative; top:4px; margin:0; font-size:15px; color:var(--g-muted); }
 
 /* space-between tine sigla lipita de marginea din dreapta indiferent cat de
    scurt e numele.
