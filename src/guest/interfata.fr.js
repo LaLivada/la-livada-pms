@@ -2,12 +2,101 @@
  * Aceeasi forma ca in interfata.ro.js — verificat de
  * continut-forme.test.js. */
 export const TEXTE = {
+  hero: {
+    dimineata: "Bonjour,",
+    ziua: "Bon après-midi,",
+    seara: "Bonsoir,",
+    numeImplicit: "bienvenue",
+    gestSalut: "salut",
+  },
+  selector: {
+    ariaEticheta: "Choisir la langue de la page",
+    titluFereastra: "Choisir la langue",
+  },
   acces: {
     eticheta: "Accès à la chambre",
     deschideUsa: "Ouvrir la porte",
     sauTasteaza: "Ou tapez le code sur la porte",
     valabilPana: "Valable jusqu'au",
     codLipsa: "Le code n'est pas encore prêt. Rechargez la page dans quelques minutes ou appelez-nous — en attendant, vous pouvez entrer avec le bouton ci-dessus.",
+    indrumareLipsa: {
+      inainte: "L'itinéraire dans la cour n'est pas encore renseigné ici. Si vous ne trouvez pas votre chambre, appelez-nous au ",
+      dupa: " et nous viendrons vous chercher.",
+    },
+  },
+  usa: {
+    seDeschide: "Ouverture…",
+    usaDeschisa: "Porte ouverte",
+    usaDeschisaIntra: "La porte est ouverte. Entrez dans quelques secondes.",
+    faraInternet: "Pas de connexion internet. Utilisez le code d'accès.",
+  },
+  drum: {
+    cumAjungi: "Comment nous rejoindre",
+    accesCatreCamere: "Accès aux chambres",
+    hartaTitlu: "Carte du Complex La Livada",
+  },
+  wifi: {
+    conecteaza: "Se connecter au Wi-Fi",
+    codQrPentru: (retea) => `Code QR pour le réseau ${retea}`,
+    scaneaza: { tare: "Scannez avec l'appareil photo d'un autre téléphone", dupa: " — la connexion se fait automatiquement, sans mot de passe." },
+    sauDePeTelefon: "Ou, depuis ce téléphone :",
+  },
+  venit: {
+    scurtatura: "Bienvenue",
+    titluPagina: "Bienvenue à La Livadă",
+    dateRezervarii: "Détails du séjour",
+    sosire: "Arrivée",
+    plecare: "Départ",
+    nopti: "Nuits",
+    persoane: "Personnes",
+    adultSg: "adulte",
+    adultPl: "adultes",
+    copilSg: "enfant",
+    copilPl: "enfants",
+    totalDePlata: "Total à payer",
+    contactAsistenta: "Contact assistance",
+    suna: "Appeler",
+  },
+  important: {
+    titluSectiune: "Important",
+    decazareTitlu: "Le départ",
+    decazareText: (cand) => `La chambre est libérée ${cand}.`,
+    codTitlu: "Durée de validité du code",
+    codText: (cod, pana) => `Le code ${cod}# fonctionne jusqu'à ${pana}.`,
+    usaTitlu: "Si la porte ne s'ouvre pas",
+    usaText: {
+      p1: "Appuyez à nouveau sur le bouton d'ouverture. Si cela ne fonctionne toujours pas, tapez le code sur la porte, ou appelez ",
+      p2: " au ",
+      p3: ". Nous répondons 24h/24.",
+    },
+    regulamentEticheta: "Règlement :",
+    deschideRegulament: "Ouvrir le règlement intérieur du complexe",
+  },
+  regulamentFereastra: {
+    titlu: "Le règlement intérieur du complexe",
+    antetSubtitlu: "Règlement intérieur",
+  },
+  minibar: {
+    titluSectiune: "Minibar",
+    notaRecepite: "La consommation est ajoutée à votre note à la réception.",
+    meniuGol: { inainte: "Le menu n'est pas encore publié ici. Demandez-nous ce que nous avons — nous répondons au ", dupa: "." },
+  },
+  atractii: {
+    scurtatura: "Attractions",
+    titluSectiune: "Attractions du département de Vaslui",
+    minCuMasina: "min en voiture",
+    deschideGoogleMaps: "Ouvrir dans Google Maps",
+    inapoi: "← Précédent",
+    inainte: "Suivant →",
+    din: "sur",
+    distanteNota: "Les distances sont par la route, depuis le complexe.",
+  },
+  fisaBanner: {
+    titlu: "Remplissez la fiche de séjour",
+    sub: "Obligatoire à l'arrivée, une seule fois.",
+  },
+  continutMare: {
+    eroare: "Impossible de charger le contenu. Réessayez.",
   },
   refuzuri: {
     incearcaDinNou: "Réessayer",
@@ -22,6 +111,8 @@ export const TEXTE = {
     timeout: { titlu: "Le serveur n'a pas répondu", text: "Ce n'est pas la faute du lien : le serveur n'a pas répondu à temps. Vérifiez votre connexion et réessayez ; si vous êtes devant la porte, appelez-nous." },
   },
   instalare: {
+    adaugaIconul: "Ajouter l'icône à l'écran d'accueil",
+    nuGasestiOptiunea: (browser) => `Vous ne trouvez pas l'option ? Ouvrez la page dans ${browser} — elle n'apparaît pas dans le navigateur de WhatsApp.`,
     pasiIos: [
       { inainte: "Appuyez sur ", tare: "Partager", dupa: " — le carré avec la flèche vers le haut, dans la barre du bas." },
       { inainte: "Faites défiler et choisissez ", tare: "Sur l'écran d'accueil", dupa: "." },
