@@ -1014,11 +1014,19 @@ export default function App() {
   return (
     <div className="g-pagina">
       <div className="g-salut">
-        {/* Ora zilei la stanga, vremea la dreapta — deasupra siglei. */}
+        {/* Ora zilei la stanga, steagul si vremea la dreapta, pe acelasi rand
+            — deasupra siglei. Steagul si vremea stau intr-un singur grup, nu
+            ca al treilea copil direct al randului flex: cu trei copii,
+            `justify-content:space-between` le-ar fi imprastiat inegal, iar
+            steagul ar fi ajuns vizibil mai jos decat vremea (vezi marginea
+            negativa de la .g-salut-dreapta, care ridica tot grupul, nu doar
+            vremea, cum era inainte — semnalat de Ovidiu pe telefon). */}
         <div className="g-salut-sus">
           <p className="g-salut-ora">{salut(new Date().getHours(), texte.hero)}</p>
-          <SelectorLimba />
-          <Vremea />
+          <div className="g-salut-dreapta">
+            <SelectorLimba />
+            <Vremea />
+          </div>
         </div>
         {/* Numele si sigla pe acelasi rand, centrate unul pe altul. */}
         <div className="g-salut-rand">
