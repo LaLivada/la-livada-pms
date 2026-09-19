@@ -18,6 +18,7 @@ import {
 import { citesteVremea } from "./vreme.js";
 import Fisa from "./Fisa.jsx";
 import Fereastra from "./Fereastra.jsx";
+import { LIMBI, useLimba } from "./limbi.jsx";
 import { Schelet, useIncet } from "../ui/schelet.jsx";
 import {
   TELEFON, TELEFON_SCRIS, FIRMA, ASISTENTA, ACASA,
@@ -646,6 +647,36 @@ function Vremea() {
   );
 }
 
+/* Selectorul de limbă: buton cu steag care deschide fereastră cu
+   cele 7 limbi disponibile. */
+function SelectorLimba() {
+  const { cod, steag, seteazaLimba } = useLimba();
+  const [deschis, setDeschis] = useState(false);
+
+  return (
+    <>
+      <button type="button" className="g-limba-buton" onClick={() => setDeschis(true)}
+        aria-label="Alege limba paginii">
+        <span aria-hidden="true">{steag}</span>
+      </button>
+      {deschis && (
+        <Fereastra titlu="Alege limba" onInchide={() => setDeschis(false)}>
+          <div className="g-limba-lista">
+            {LIMBI.map((l) => (
+              <button key={l.cod} type="button" className="g-limba-rand"
+                aria-current={l.cod === cod}
+                onClick={() => { seteazaLimba(l.cod); setDeschis(false); }}>
+                <span aria-hidden="true">{l.steag}</span>
+                <span>{l.nume}</span>
+              </button>
+            ))}
+          </div>
+        </Fereastra>
+      )}
+    </>
+  );
+}
+
 /* Butonul de usa. Sta separat fiindca are stare proprie — o cerere in curs,
    un rezultat de aratat — si n-are rost sa reincarce toata pagina. */
 function ButonUsa({ cod }) {
@@ -945,6 +976,7 @@ export default function App() {
         {/* Ora zilei la stanga, vremea la dreapta — deasupra siglei. */}
         <div className="g-salut-sus">
           <p className="g-salut-ora">{salut(new Date().getHours())}</p>
+          <SelectorLimba />
           <Vremea />
         </div>
         {/* Numele si sigla pe acelasi rand, centrate unul pe altul. */}
