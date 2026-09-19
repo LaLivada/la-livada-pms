@@ -159,6 +159,47 @@ export default {
     galerieTitlu: "The houses, the pathway and the rooms",
   },
 
+  antet: {
+    ariaMarca: "La Livada Reservations — home page",
+    ariaAlegeLimba: "Choose language",
+    ariaDeschideMeniul: "Open menu",
+    ariaPrincipal: "Main",
+    ariaTotSitul: "Whole site",
+    nav: { sali: "Venues", nunti: "Weddings", experienta: "Experience", galerie: "Gallery", contact: "Contact" },
+    cta: "Check availability",
+    grup1: { nume: "Home", kicker: "Stays at La Livada" },
+    grup2: { nume: "Venues", kicker: "Four venues", toate: "All venues" },
+    grup3: {
+      nume: "Events", kicker: "What we celebrate here",
+      nunti: "Weddings", cununii: "Outdoor civil ceremonies", botezuri: "Christenings", corporate: "Corporate events",
+    },
+    grup4: {
+      nume: "Experience", kicker: "How the day unfolds",
+      experienta: "The La Livada Experience", meniu: "Menu and offer", cazare: "Accommodation", nuntaProba: "Trial Wedding",
+    },
+    grup5: { nume: "Gallery", kicker: "What it actually looks like" },
+  },
+
+  subsol: {
+    seo: "Accommodation in Vaslui, in the courtyard of Complex La Livada: 16 units — two lofts and "
+      + "fourteen tiny house rooms, each with a private bathroom, air conditioning, and a terrace. "
+      + "We're on DN24, in Muntenii de Jos, just a few minutes from the entrance to Vaslui — "
+      + "accommodation for event guests as well as for a weekend stay or a business trip to Vaslui "
+      + "County. Booking is done directly here, with no intermediaries.",
+    col1: { titlu: "Venues" },
+    col2: {
+      titlu: "Events",
+      nunti: "Weddings", botezuri: "Christenings", cununii: "Outdoor civil ceremonies", corporate: "Corporate events",
+    },
+    col3: { titlu: "Details", meniu: "Menu and offer", cazare: "Accommodation", nuntaProba: "Trial Wedding", galerie: "Gallery" },
+    col4: { titlu: "Contact" },
+    adresa: "DN24, no. 743, Muntenii de Jos, Vaslui County",
+    legal: {
+      termeni: "Terms and Conditions", livrare: "Delivery policy", anulare: "Cancellation policy",
+      retragere: "Withdrawal from contract", confidentialitate: "Privacy", cookies: "Cookies",
+    },
+  },
+
   calendar: {
     lunaAnterioara: "Previous month",
     lunaUrmatoare: "Next month",

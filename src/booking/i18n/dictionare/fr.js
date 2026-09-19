@@ -159,6 +159,48 @@ export default {
     galerieTitlu: "Les maisons, l'allée et les chambres",
   },
 
+  antet: {
+    ariaMarca: "Réservations La Livada — page d'accueil",
+    ariaAlegeLimba: "Choisir la langue",
+    ariaDeschideMeniul: "Ouvrir le menu",
+    ariaPrincipal: "Principal",
+    ariaTotSitul: "Tout le site",
+    nav: { sali: "Salles", nunti: "Mariages", experienta: "L'expérience", galerie: "Galerie", contact: "Contact" },
+    cta: "Vérifier la disponibilité",
+    grup1: { nume: "Accueil", kicker: "Séjours à La Livada" },
+    grup2: { nume: "Salles", kicker: "Quatre espaces", toate: "Tous les espaces" },
+    grup3: {
+      nume: "Événements", kicker: "Ce que nous célébrons ici",
+      nunti: "Mariages", cununii: "Cérémonies civiles en plein air", botezuri: "Baptêmes", corporate: "Événements d'entreprise",
+    },
+    grup4: {
+      nume: "L'expérience", kicker: "Comment se déroule la journée",
+      experienta: "L'expérience La Livada", meniu: "Menu et offre", cazare: "Hébergement", nuntaProba: "Mariage d'essai",
+    },
+    grup5: { nume: "Galerie", kicker: "À quoi ça ressemble vraiment" },
+  },
+
+  subsol: {
+    seo: "Hébergement à Vaslui, dans la cour du Complexe La Livada : 16 unités — deux lofts et "
+      + "quatorze chambres de type tiny house, chacune avec salle de bain privée, climatisation et "
+      + "terrasse. Nous sommes sur la DN24, à Muntenii de Jos, à quelques minutes de l'entrée de "
+      + "Vaslui — un hébergement aussi bien pour les invités d'événements que pour une escapade de "
+      + "week-end ou un déplacement professionnel dans le département de Vaslui. La réservation se "
+      + "fait directement ici, sans intermédiaire.",
+    col1: { titlu: "Salles" },
+    col2: {
+      titlu: "Événements",
+      nunti: "Mariages", botezuri: "Baptêmes", cununii: "Cérémonies civiles en plein air", corporate: "Événements d'entreprise",
+    },
+    col3: { titlu: "Détails", meniu: "Menu et offre", cazare: "Hébergement", nuntaProba: "Mariage d'essai", galerie: "Galerie" },
+    col4: { titlu: "Contact" },
+    adresa: "DN24, n° 743, Muntenii de Jos, département de Vaslui",
+    legal: {
+      termeni: "Conditions générales", livrare: "Politique de livraison", anulare: "Politique d'annulation",
+      retragere: "Rétractation du contrat", confidentialitate: "Confidentialité", cookies: "Cookies",
+    },
+  },
+
   calendar: {
     lunaAnterioara: "Mois précédent",
     lunaUrmatoare: "Mois suivant",

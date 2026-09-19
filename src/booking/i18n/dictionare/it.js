@@ -159,6 +159,47 @@ export default {
     galerieTitlu: "Le case, il vialetto e le camere",
   },
 
+  antet: {
+    ariaMarca: "Prenotazioni La Livada — pagina iniziale",
+    ariaAlegeLimba: "Scegli la lingua",
+    ariaDeschideMeniul: "Apri il menu",
+    ariaPrincipal: "Principale",
+    ariaTotSitul: "Tutto il sito",
+    nav: { sali: "Sale", nunti: "Matrimoni", experienta: "L'esperienza", galerie: "Galleria", contact: "Contatti" },
+    cta: "Verifica la disponibilità",
+    grup1: { nume: "Home", kicker: "Soggiorni a La Livada" },
+    grup2: { nume: "Sale", kicker: "Quattro spazi", toate: "Tutti gli spazi" },
+    grup3: {
+      nume: "Eventi", kicker: "Cosa festeggiamo qui",
+      nunti: "Matrimoni", cununii: "Cerimonie civili all'aperto", botezuri: "Battesimi", corporate: "Eventi aziendali",
+    },
+    grup4: {
+      nume: "L'esperienza", kicker: "Come si svolge la giornata",
+      experienta: "L'esperienza La Livada", meniu: "Menu e offerta", cazare: "Alloggio", nuntaProba: "Matrimonio di prova",
+    },
+    grup5: { nume: "Galleria", kicker: "Come appare davvero" },
+  },
+
+  subsol: {
+    seo: "Alloggio a Vaslui, nel cortile del Complesso La Livada: 16 unità — due loft e quattordici "
+      + "camere in case tipo tiny house, ciascuna con bagno privato, aria condizionata e terrazza. "
+      + "Siamo sulla DN24, a Muntenii de Jos, a pochi minuti dall'ingresso di Vaslui — un alloggio "
+      + "adatto sia agli ospiti di eventi sia per una pausa nel weekend o un viaggio di lavoro nella "
+      + "contea di Vaslui. La prenotazione si effettua direttamente qui, senza intermediari.",
+    col1: { titlu: "Sale" },
+    col2: {
+      titlu: "Eventi",
+      nunti: "Matrimoni", botezuri: "Battesimi", cununii: "Cerimonie civili all'aperto", corporate: "Eventi aziendali",
+    },
+    col3: { titlu: "Dettagli", meniu: "Menu e offerta", cazare: "Alloggio", nuntaProba: "Matrimonio di prova", galerie: "Galleria" },
+    col4: { titlu: "Contatti" },
+    adresa: "DN24, n. 743, Muntenii de Jos, contea di Vaslui",
+    legal: {
+      termeni: "Termini e condizioni", livrare: "Politica di consegna", anulare: "Politica di cancellazione",
+      retragere: "Recesso dal contratto", confidentialitate: "Privacy", cookies: "Cookie",
+    },
+  },
+
   calendar: {
     lunaAnterioara: "Mese precedente",
     lunaUrmatoare: "Mese successivo",

@@ -44,15 +44,53 @@ const STEAGURI_SVG = {
    `data-i18n="cale.catre.cheie"`. Rulează o singură dată, la încărcare:
    pe pagina principală, alegerea unei alte limbi reîncarcă pagina (vezi
    `alegeLimba` mai jos), deci nu există stare de re-aplicat. */
+function cauta(cale, dict) {
+  return cale.split(".").reduce((o, k) => (o == null ? o : o[k]), dict)
+    ?? cale.split(".").reduce((o, k) => (o == null ? o : o[k]), ro);
+}
+
 function traduceStatic(cod) {
   const dict = DICTIONARE[cod] || ro;
   document.querySelectorAll("[data-i18n]").forEach((el) => {
-    const cale = el.dataset.i18n;
-    const text = cale.split(".").reduce((o, k) => (o == null ? o : o[k]), dict)
-      ?? cale.split(".").reduce((o, k) => (o == null ? o : o[k]), ro);
+    const text = cauta(el.dataset.i18n, dict);
     if (typeof text === "string") el.textContent = text;
   });
+  document.querySelectorAll("[data-i18n-aria]").forEach((el) => {
+    const text = cauta(el.dataset.i18nAria, dict);
+    if (typeof text === "string") el.setAttribute("aria-label", text);
+  });
   document.documentElement.lang = cod;
+}
+
+/* Cele 6 pagini legale statice — aceeași listă ca PAGINI din
+   vite.booking.config.js (nu poate fi importată direct, e cod Node). */
+const PAGINI_LEGALE = ["termeni", "livrare", "anulare", "retragere", "confidentialitate", "cookies"];
+
+/* Limba antetului/subsolului comun. Pagina principală (motorul React)
+   urmează preferința salvată/browserul, ca înainte. O pagină legală însă
+   e deja tradusă static într-un fișier separat per limbă — antetul și
+   subsolul ei trebuie să se potrivească cu ACEA limbă, nu cu preferința
+   memorată (care poate fi alta, dacă vizitatorul a ajuns direct dintr-un
+   motor de căutare într-o altă limbă decât cea implicită a browserului). */
+function limbaPaginii() {
+  const segmente = window.location.pathname.split("/").filter(Boolean);
+  if (segmente.length === 0) return detecteazaLimba();
+  const ultimul = segmente[segmente.length - 1];
+  if (LIMBI.some((l) => l.cod === ultimul && l.cod !== LIMBA_IMPLICITA)) return ultimul;
+  if (PAGINI_LEGALE.includes(ultimul)) return LIMBA_IMPLICITA;
+  return detecteazaLimba();
+}
+
+/* Linkurile spre paginile legale din antet/subsol (ex. "/termeni/") duc
+   implicit la varianta română — le mutăm spre varianta limbii curente a
+   paginii, ca meniul unei pagini în franceză să trimită tot spre pagini
+   în franceză. */
+function localizeazaLinkuriLegale(cod) {
+  document.querySelectorAll('a[href^="/"]').forEach((a) => {
+    const segmente = a.getAttribute("href").split("/").filter(Boolean);
+    if (segmente.length !== 1 || !PAGINI_LEGALE.includes(segmente[0])) return;
+    a.setAttribute("href", `/${segmente[0]}/${cod === LIMBA_IMPLICITA ? "" : `${cod}/`}`);
+  });
 }
 
 (function () {
@@ -95,10 +133,11 @@ function traduceStatic(cod) {
     panel.appendChild(buton);
   });
 
-  const limbaCurenta = detecteazaLimba();
+  const limbaCurenta = limbaPaginii();
   seteazaSteagCurent(limbaCurenta);
   marcheazaActiva(limbaCurenta);
   traduceStatic(limbaCurenta);
+  localizeazaLinkuriLegale(limbaCurenta);
 
   function setOpen(open) {
     container.dataset.open = open ? "true" : "false";

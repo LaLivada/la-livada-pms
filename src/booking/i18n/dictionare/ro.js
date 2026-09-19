@@ -164,6 +164,53 @@ export default {
     galerieTitlu: "Casele, aleea și camerele",
   },
 
+  /* Antetul și subsolul statice (booking/_antet.html, booking/_subsol.html)
+     — injectate identic pe fiecare pagină, traduse la încărcare de
+     booking/limba-selector.js. Numele sălilor/spațiilor de pe lalivada.ro
+     (Sera, Magnifique, Grand'Or Ballroom, PRIVÉ) sunt nume proprii și NU
+     apar aici — rămân netraduse direct în HTML. */
+  antet: {
+    ariaMarca: "Rezervări La Livadă — pagina de start",
+    ariaAlegeLimba: "Alege limba",
+    ariaDeschideMeniul: "Deschide meniul",
+    ariaPrincipal: "Principal",
+    ariaTotSitul: "Tot site-ul",
+    nav: { sali: "Sălile", nunti: "Nunți", experienta: "Experiența", galerie: "Galerie", contact: "Contact" },
+    cta: "Verifică disponibilitatea",
+    grup1: { nume: "Prima pagină", kicker: "Cazare La Livadă" },
+    grup2: { nume: "Sălile", kicker: "Patru spații", toate: "Toate spațiile" },
+    grup3: {
+      nume: "Evenimente", kicker: "Ce sărbătorim aici",
+      nunti: "Nunți", cununii: "Cununii în aer liber", botezuri: "Botezuri", corporate: "Evenimente corporate",
+    },
+    grup4: {
+      nume: "Experiența", kicker: "Cum se petrece ziua",
+      experienta: "Experiența La Livadă", meniu: "Meniul și oferta", cazare: "Cazare", nuntaProba: "Nunta de Probă",
+    },
+    grup5: { nume: "Galerie", kicker: "Cum arată, de fapt" },
+  },
+
+  subsol: {
+    seo: "Cazare în Vaslui, în curtea Complexului La Livadă: 16 unități — două loft-uri și "
+      + "paisprezece camere în case tip tiny house, fiecare cu baie proprie, aer condiționat "
+      + "și terasă. Suntem pe DN24, în Muntenii de Jos, la câțiva metri de intrarea în "
+      + "Vaslui — cazare deopotrivă pentru invitații la evenimente, cât și pentru o oprire "
+      + "de weekend ori o deplasare de lucru în județul Vaslui. Rezervarea se face direct "
+      + "aici, fără intermediari.",
+    col1: { titlu: "Sălile" },
+    col2: {
+      titlu: "Evenimente",
+      nunti: "Nunți", botezuri: "Botezuri", cununii: "Cununii în aer liber", corporate: "Evenimente corporate",
+    },
+    col3: { titlu: "Detalii", meniu: "Meniu și oferta", cazare: "Cazare", nuntaProba: "Nunta de Probă", galerie: "Galerie" },
+    col4: { titlu: "Contact" },
+    adresa: "DN24, nr. 743, Muntenii de Jos, jud. Vaslui",
+    legal: {
+      termeni: "Termeni și condiții", livrare: "Politica de livrare", anulare: "Politica de anulare",
+      retragere: "Retragere din contract", confidentialitate: "Confidențialitate", cookies: "Cookies",
+    },
+  },
+
   calendar: {
     lunaAnterioara: "Luna anterioară",
     lunaUrmatoare: "Luna următoare",

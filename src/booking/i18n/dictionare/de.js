@@ -159,6 +159,48 @@ export default {
     galerieTitlu: "Die Häuser, der Weg und die Zimmer",
   },
 
+  antet: {
+    ariaMarca: "La-Livada-Reservierungen — Startseite",
+    ariaAlegeLimba: "Sprache wählen",
+    ariaDeschideMeniul: "Menü öffnen",
+    ariaPrincipal: "Haupt",
+    ariaTotSitul: "Gesamte Website",
+    nav: { sali: "Säle", nunti: "Hochzeiten", experienta: "Erlebnis", galerie: "Galerie", contact: "Kontakt" },
+    cta: "Verfügbarkeit prüfen",
+    grup1: { nume: "Startseite", kicker: "Aufenthalte bei La Livada" },
+    grup2: { nume: "Säle", kicker: "Vier Räume", toate: "Alle Räume" },
+    grup3: {
+      nume: "Veranstaltungen", kicker: "Was wir hier feiern",
+      nunti: "Hochzeiten", cununii: "Standesamtliche Zeremonien im Freien", botezuri: "Taufen", corporate: "Firmenveranstaltungen",
+    },
+    grup4: {
+      nume: "Erlebnis", kicker: "Wie der Tag abläuft",
+      experienta: "Das La-Livada-Erlebnis", meniu: "Menü und Angebot", cazare: "Unterkunft", nuntaProba: "Probehochzeit",
+    },
+    grup5: { nume: "Galerie", kicker: "Wie es wirklich aussieht" },
+  },
+
+  subsol: {
+    seo: "Unterkunft in Vaslui, im Hof des Complex La Livada: 16 Einheiten — zwei Lofts und "
+      + "vierzehn Zimmer in Tiny-House-Häusern, jedes mit eigenem Bad, Klimaanlage und Terrasse. "
+      + "Wir befinden uns an der DN24, in Muntenii de Jos, nur wenige Minuten vom Ortseingang von "
+      + "Vaslui entfernt — eine Unterkunft sowohl für Veranstaltungsgäste als auch für einen "
+      + "Wochenendaufenthalt oder eine Geschäftsreise im Kreis Vaslui. Die Buchung erfolgt direkt "
+      + "hier, ohne Vermittler.",
+    col1: { titlu: "Säle" },
+    col2: {
+      titlu: "Veranstaltungen",
+      nunti: "Hochzeiten", botezuri: "Taufen", cununii: "Standesamtliche Zeremonien im Freien", corporate: "Firmenveranstaltungen",
+    },
+    col3: { titlu: "Details", meniu: "Menü und Angebot", cazare: "Unterkunft", nuntaProba: "Probehochzeit", galerie: "Galerie" },
+    col4: { titlu: "Kontakt" },
+    adresa: "DN24, Nr. 743, Muntenii de Jos, Kreis Vaslui",
+    legal: {
+      termeni: "Allgemeine Geschäftsbedingungen", livrare: "Lieferbedingungen", anulare: "Stornierungsbedingungen",
+      retragere: "Vertragswiderruf", confidentialitate: "Datenschutz", cookies: "Cookies",
+    },
+  },
+
   calendar: {
     lunaAnterioara: "Vorheriger Monat",
     lunaUrmatoare: "Nächster Monat",

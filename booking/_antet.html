@@ -6,55 +6,57 @@
      început. -->
     <header class="ldv-hdr" data-open="false" data-film="__FILM__">
       <div class="wrap ldv-hdr-in">
-        <a class="ldv-hdr-mark" href="/" aria-label="Rezervări La Livadă — pagina de start">
+        <a class="ldv-hdr-mark" href="/" data-i18n-aria="antet.ariaMarca" aria-label="Rezervări La Livadă — pagina de start">
           <img src="/brand/livada-text.svg" alt="La Livada" width="140" height="21" />
         </a>
 
-        <nav class="ldv-hdr-nav" aria-label="Principal">
-          <a href="https://lalivada.ro/spatii/">Sălile</a>
-          <a href="https://lalivada.ro/nunti/">Nunți</a>
-          <a href="https://lalivada.ro/experienta/">Experiența</a>
-          <a href="https://lalivada.ro/galerie/">Galerie</a>
-          <a href="https://lalivada.ro/contact/">Contact</a>
+        <nav class="ldv-hdr-nav" data-i18n-aria="antet.ariaPrincipal" aria-label="Principal">
+          <a href="https://lalivada.ro/spatii/" data-i18n="antet.nav.sali">Sălile</a>
+          <a href="https://lalivada.ro/nunti/" data-i18n="antet.nav.nunti">Nunți</a>
+          <a href="https://lalivada.ro/experienta/" data-i18n="antet.nav.experienta">Experiența</a>
+          <a href="https://lalivada.ro/galerie/" data-i18n="antet.nav.galerie">Galerie</a>
+          <a href="https://lalivada.ro/contact/" data-i18n="antet.nav.contact">Contact</a>
         </nav>
 
         <div class="ldv-hdr-cta">
-          <a class="ldv-btn" href="/#rezervari">Verifică disponibilitatea</a>
+          <a class="ldv-btn" href="/#rezervari" data-i18n="antet.cta">Verifică disponibilitatea</a>
         </div>
 
         <!-- Selectorul de limbă, populat și interactiv prin limba-selector.js
              (vezi și src/booking/i18n/limbi.js — aceeași listă de limbi). -->
         <div class="ldv-lang" id="ldv-lang" data-open="false">
           <button class="ldv-lang-toggle" type="button" id="ldv-lang-toggle"
-            aria-haspopup="true" aria-expanded="false" aria-controls="ldv-lang-panel" aria-label="Alege limba">
+            aria-haspopup="true" aria-expanded="false" aria-controls="ldv-lang-panel"
+            data-i18n-aria="antet.ariaAlegeLimba" aria-label="Alege limba">
             <span class="ldv-lang-steag" id="ldv-lang-steag-curent"><svg viewBox="0 0 3 2" xmlns="http://www.w3.org/2000/svg"><rect width="3" height="2" fill="#002B7F"/><rect x="1" width="1" height="2" fill="#FCD116"/><rect x="2" width="1" height="2" fill="#CE1126"/></svg></span>
           </button>
           <div class="ldv-lang-panel" id="ldv-lang-panel"></div>
         </div>
 
-        <button class="ldv-hdr-toggle" type="button" aria-expanded="false" aria-controls="ldv-meniu" aria-label="Deschide meniul">
+        <button class="ldv-hdr-toggle" type="button" aria-expanded="false" aria-controls="ldv-meniu"
+          data-i18n-aria="antet.ariaDeschideMeniul" aria-label="Deschide meniul">
           <i></i><i></i><i></i>
         </button>
       </div>
 
       <div class="ldv-hdr-panel" id="ldv-meniu" data-open="false">
         <div class="wrap ldv-hdr-panel-in">
-          <nav class="ldv-hdr-groups" aria-label="Tot site-ul">
+          <nav class="ldv-hdr-groups" data-i18n-aria="antet.ariaTotSitul" aria-label="Tot site-ul">
             <a class="ldv-hdr-group ldv-hdr-group--flat" href="https://rezervari.lalivada.ro">
               <b class="ldv-hdr-group-n" aria-hidden="true">01</b>
-              <span class="ldv-hdr-group-name">Prima pagină</span>
-              <small class="ldv-hdr-group-kicker">Cazare La Livadă</small>
+              <span class="ldv-hdr-group-name" data-i18n="antet.grup1.nume">Prima pagină</span>
+              <small class="ldv-hdr-group-kicker" data-i18n="antet.grup1.kicker">Cazare La Livadă</small>
             </a>
 
             <div class="ldv-hdr-group" data-open="false">
               <button class="ldv-hdr-group-head" type="button" aria-expanded="false" aria-controls="ldv-meniu-0">
                 <b class="ldv-hdr-group-n" aria-hidden="true">02</b>
-                <span class="ldv-hdr-group-name">Sălile</span>
-                <small class="ldv-hdr-group-kicker">Patru spații</small>
+                <span class="ldv-hdr-group-name" data-i18n="antet.grup2.nume">Sălile</span>
+                <small class="ldv-hdr-group-kicker" data-i18n="antet.grup2.kicker">Patru spații</small>
               </button>
               <div class="ldv-hdr-sub" id="ldv-meniu-0">
                 <div class="ldv-hdr-sub-in">
-                  <a href="https://lalivada.ro/spatii/">Toate spațiile</a>
+                  <a href="https://lalivada.ro/spatii/" data-i18n="antet.grup2.toate">Toate spațiile</a>
                   <a href="https://lalivada.ro/sera/">Sera</a>
                   <a href="https://lalivada.ro/magnifique/">Magnifique</a>
                   <a href="https://lalivada.ro/grandor/">Grand'Or Ballroom</a>
@@ -66,15 +68,15 @@
             <div class="ldv-hdr-group" data-open="false">
               <button class="ldv-hdr-group-head" type="button" aria-expanded="false" aria-controls="ldv-meniu-1">
                 <b class="ldv-hdr-group-n" aria-hidden="true">03</b>
-                <span class="ldv-hdr-group-name">Evenimente</span>
-                <small class="ldv-hdr-group-kicker">Ce sărbătorim aici</small>
+                <span class="ldv-hdr-group-name" data-i18n="antet.grup3.nume">Evenimente</span>
+                <small class="ldv-hdr-group-kicker" data-i18n="antet.grup3.kicker">Ce sărbătorim aici</small>
               </button>
               <div class="ldv-hdr-sub" id="ldv-meniu-1">
                 <div class="ldv-hdr-sub-in">
-                  <a href="https://lalivada.ro/nunti/">Nunți</a>
-                  <a href="https://lalivada.ro/cununii/">Cununii în aer liber</a>
-                  <a href="https://lalivada.ro/botezuri/">Botezuri</a>
-                  <a href="https://lalivada.ro/evenimente-corporate/">Evenimente corporate</a>
+                  <a href="https://lalivada.ro/nunti/" data-i18n="antet.grup3.nunti">Nunți</a>
+                  <a href="https://lalivada.ro/cununii/" data-i18n="antet.grup3.cununii">Cununii în aer liber</a>
+                  <a href="https://lalivada.ro/botezuri/" data-i18n="antet.grup3.botezuri">Botezuri</a>
+                  <a href="https://lalivada.ro/evenimente-corporate/" data-i18n="antet.grup3.corporate">Evenimente corporate</a>
                 </div>
               </div>
             </div>
@@ -82,30 +84,30 @@
             <div class="ldv-hdr-group" data-open="false">
               <button class="ldv-hdr-group-head" type="button" aria-expanded="false" aria-controls="ldv-meniu-2">
                 <b class="ldv-hdr-group-n" aria-hidden="true">04</b>
-                <span class="ldv-hdr-group-name">Experiența</span>
-                <small class="ldv-hdr-group-kicker">Cum se petrece ziua</small>
+                <span class="ldv-hdr-group-name" data-i18n="antet.grup4.nume">Experiența</span>
+                <small class="ldv-hdr-group-kicker" data-i18n="antet.grup4.kicker">Cum se petrece ziua</small>
               </button>
               <div class="ldv-hdr-sub" id="ldv-meniu-2">
                 <div class="ldv-hdr-sub-in">
-                  <a href="https://lalivada.ro/experienta/">Experiența La Livadă</a>
-                  <a href="https://lalivada.ro/meniu/">Meniul și oferta</a>
-                  <a href="https://lalivada.ro/cazare/">Cazare</a>
-                  <a href="https://lalivada.ro/nunta-de-proba/">Nunta de Probă</a>
+                  <a href="https://lalivada.ro/experienta/" data-i18n="antet.grup4.experienta">Experiența La Livadă</a>
+                  <a href="https://lalivada.ro/meniu/" data-i18n="antet.grup4.meniu">Meniul și oferta</a>
+                  <a href="https://lalivada.ro/cazare/" data-i18n="antet.grup4.cazare">Cazare</a>
+                  <a href="https://lalivada.ro/nunta-de-proba/" data-i18n="antet.grup4.nuntaProba">Nunta de Probă</a>
                 </div>
               </div>
             </div>
 
             <a class="ldv-hdr-group ldv-hdr-group--flat" href="https://lalivada.ro/galerie/">
               <b class="ldv-hdr-group-n" aria-hidden="true">05</b>
-              <span class="ldv-hdr-group-name">Galerie</span>
-              <small class="ldv-hdr-group-kicker">Cum arată, de fapt</small>
+              <span class="ldv-hdr-group-name" data-i18n="antet.grup5.nume">Galerie</span>
+              <small class="ldv-hdr-group-kicker" data-i18n="antet.grup5.kicker">Cum arată, de fapt</small>
             </a>
           </nav>
 
           <div class="ldv-hdr-foot">
-            <a class="ldv-btn" href="/#rezervari">Verifică disponibilitatea</a>
+            <a class="ldv-btn" href="/#rezervari" data-i18n="antet.cta">Verifică disponibilitatea</a>
             <div class="ldv-hdr-util">
-              <a href="https://lalivada.ro/contact/">Contact</a>
+              <a href="https://lalivada.ro/contact/" data-i18n="antet.nav.contact">Contact</a>
               <a href="tel:+40722899899">+40 722 899 899</a>
               <a href="https://wa.me/40722899899" target="_blank" rel="noopener noreferrer">WhatsApp</a>
             </div>

@@ -202,6 +202,16 @@ body {
 .ldv-lang {
   position: relative;
   flex: 0 0 auto;
+  /* Sub 1080px, nav-ul și CTA-ul dispar (display:none) și rămân doar
+     marca, steagul și hamburgerul — fără asta, `justify-content:
+     space-between` de pe `.ldv-hdr-in` i-ar împrăștia pe cei trei egal,
+     în loc să lase steagul lipit de hamburger. */
+  margin-left: auto;
+}
+@media (min-width: 1080px) {
+  .ldv-lang {
+    margin-left: 0;
+  }
 }
 .ldv-lang-toggle {
   display: inline-flex;
