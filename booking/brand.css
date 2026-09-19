@@ -121,7 +121,11 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 1rem;
+  /* Sub 1080px, nav-ul și CTA-ul dispar — rămân doar marca, steagul (lipit
+     de hamburger prin `margin-left: auto` pe .ldv-lang) și hamburgerul,
+     deci acest gap se simte doar între steag și hamburger. Mai mic aici
+     decât la desktop, unde desparte grupuri întregi de linkuri. */
+  gap: 0.5rem;
   width: 100%;
 }
 .ldv-hdr-mark {
@@ -175,6 +179,9 @@ body {
   display: none;
 }
 @media (min-width: 1080px) {
+  .ldv-hdr-in {
+    gap: 1rem;
+  }
   .ldv-hdr-nav,
   .ldv-hdr-cta {
     display: flex;
