@@ -837,7 +837,7 @@ function Atractii() {
  * deschisa (vezi `aratRegulament` mai jos) — asa se declanseaza import()-ul
  * din useRegulament() doar cand oaspetele chiar cere regulamentul, nu la
  * incarcarea paginii. */
-function ConinutRegulament() {
+function ContinutRegulament() {
   const { stare, regulament } = useRegulament();
   const texte = useTexte();
   if (stare === "incarca") return <p className="g-gol">{texte.fisa.seIncarca}</p>;
@@ -1278,7 +1278,7 @@ export default function App() {
             </div>
           }
           onInchide={() => setAratRegulament(false)}>
-          <ConinutRegulament />
+          <ContinutRegulament />
         </Fereastra>
       )}
     </div>
