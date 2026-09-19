@@ -2,12 +2,101 @@
  * Aceeasi forma ca in interfata.ro.js — verificat de
  * continut-forme.test.js. */
 export const TEXTE = {
+  hero: {
+    dimineata: "Guten Morgen,",
+    ziua: "Guten Tag,",
+    seara: "Guten Abend,",
+    numeImplicit: "willkommen",
+    gestSalut: "Winken",
+  },
+  selector: {
+    ariaEticheta: "Seitensprache wählen",
+    titluFereastra: "Sprache wählen",
+  },
   acces: {
     eticheta: "Zimmerzugang",
     deschideUsa: "Tür öffnen",
     sauTasteaza: "Oder Code an der Tür eingeben",
     valabilPana: "Gültig bis",
     codLipsa: "Der Code ist noch nicht bereit. Laden Sie die Seite in ein paar Minuten neu oder rufen Sie uns an — in der Zwischenzeit können Sie mit dem obigen Button eintreten.",
+    indrumareLipsa: {
+      inainte: "Die Wegbeschreibung durch den Hof wurde hier noch nicht hinterlegt. Falls Sie Ihr Zimmer nicht finden, rufen Sie uns an unter ",
+      dupa: " und wir begleiten Sie.",
+    },
+  },
+  usa: {
+    seDeschide: "Wird geöffnet…",
+    usaDeschisa: "Tür ist offen",
+    usaDeschisaIntra: "Die Tür ist offen. Treten Sie in wenigen Sekunden ein.",
+    faraInternet: "Keine Internetverbindung. Verwenden Sie den Zugangscode.",
+  },
+  drum: {
+    cumAjungi: "So erreichen Sie uns",
+    accesCatreCamere: "Weg zu den Zimmern",
+    hartaTitlu: "Karte zum Complex La Livada",
+  },
+  wifi: {
+    conecteaza: "Mit Wi-Fi verbinden",
+    codQrPentru: (retea) => `QR-Code für das Netzwerk ${retea}`,
+    scaneaza: { tare: "Mit der Kamera eines anderen Telefons scannen", dupa: " — die Verbindung erfolgt automatisch, ohne Passwort." },
+    sauDePeTelefon: "Oder von diesem Telefon aus:",
+  },
+  venit: {
+    scurtatura: "Willkommen",
+    titluPagina: "Willkommen bei La Livadă",
+    dateRezervarii: "Ihre Reservierung",
+    sosire: "Anreise",
+    plecare: "Abreise",
+    nopti: "Nächte",
+    persoane: "Personen",
+    adultSg: "Erwachsener",
+    adultPl: "Erwachsene",
+    copilSg: "Kind",
+    copilPl: "Kinder",
+    totalDePlata: "Gesamtbetrag",
+    contactAsistenta: "Kontakt Support",
+    suna: "Anrufen",
+  },
+  important: {
+    titluSectiune: "Wichtig",
+    decazareTitlu: "Abreise",
+    decazareText: (cand) => `Das Zimmer wird ${cand} geräumt.`,
+    codTitlu: "Gültigkeitsdauer des Codes",
+    codText: (cod, pana) => `Der Code ${cod}# funktioniert bis ${pana}.`,
+    usaTitlu: "Wenn sich die Tür nicht öffnet",
+    usaText: {
+      p1: "Drücken Sie den Öffnungsknopf erneut. Falls es weiterhin nicht funktioniert, geben Sie den Code an der Tür ein oder rufen Sie ",
+      p2: " an unter ",
+      p3: ". Wir sind rund um die Uhr erreichbar.",
+    },
+    regulamentEticheta: "Hausordnung:",
+    deschideRegulament: "Hausordnung der Anlage öffnen",
+  },
+  regulamentFereastra: {
+    titlu: "Die Hausordnung der Anlage",
+    antetSubtitlu: "Hausordnung",
+  },
+  minibar: {
+    titluSectiune: "Minibar",
+    notaRecepite: "Der Verbrauch wird an der Rezeption auf Ihre Rechnung gesetzt.",
+    meniuGol: { inainte: "Die Speisekarte ist hier noch nicht veröffentlicht. Fragen Sie uns, was wir haben — wir sind erreichbar unter ", dupa: "." },
+  },
+  atractii: {
+    scurtatura: "Ausflugsziele",
+    titluSectiune: "Ausflugsziele im Kreis Vaslui",
+    minCuMasina: "Min. mit dem Auto",
+    deschideGoogleMaps: "In Google Maps öffnen",
+    inapoi: "← Zurück",
+    inainte: "Weiter →",
+    din: "von",
+    distanteNota: "Die Entfernungen sind Straßenentfernungen, ab der Anlage.",
+  },
+  fisaBanner: {
+    titlu: "Anmeldeformular ausfüllen",
+    sub: "Beim Check-in erforderlich, einmal pro Aufenthalt.",
+  },
+  continutMare: {
+    eroare: "Der Inhalt konnte nicht geladen werden. Versuchen Sie es erneut.",
   },
   refuzuri: {
     incearcaDinNou: "Erneut versuchen",
@@ -22,6 +111,8 @@ export const TEXTE = {
     timeout: { titlu: "Der Server hat nicht geantwortet", text: "Das liegt nicht am Link: Der Server hat nicht rechtzeitig geantwortet. Prüfen Sie Ihre Internetverbindung und versuchen Sie es erneut; falls Sie vor der Tür stehen, rufen Sie uns an." },
   },
   instalare: {
+    adaugaIconul: "Symbol zum Home-Bildschirm hinzufügen",
+    nuGasestiOptiunea: (browser) => `Finden Sie die Option nicht? Öffnen Sie die Seite in ${browser} — im WhatsApp-Browser wird sie nicht angezeigt.`,
     pasiIos: [
       { inainte: "Tippen Sie auf ", tare: "Teilen", dupa: " — das Quadrat mit dem Pfeil nach oben, in der unteren Leiste." },
       { inainte: "Scrollen Sie und wählen Sie ", tare: "Zum Home-Bildschirm", dupa: "." },
