@@ -14,34 +14,31 @@
 import { audit } from "../lib/audit.js";
 import { toaster } from "../ui/primitive.jsx";
 import { cheamaTv } from "../data/televizoare.js";
-import { decideActiuneTv } from "../lib/tv.js";
+import { decideActiuneTv, taceLaCheckin } from "../lib/tv.js";
 
 const numeCamerei = (core, roomId) =>
   (core?.rooms || []).find((r) => r.id === roomId)?.name || roomId;
 
 /* Ce se spune recepției după un apel.
  *
- * Trei tăceri deliberate, ca ecranul să nu latre degeaba:
- *   · `fara`    — camera n-are televizor mapat. Majoritatea camerelor vor fi
- *                 așa la început, iar un avertisment la fiecare check-in ar
- *                 învăța pe toată lumea să ignore avertismentele.
- *   · `inactiv` — integrarea e oprită din setări, adică cineva a hotărât
- *                 exact asta.
- *   · `trimise: 0` fără eroare — n-avea ce trimite.
+ * CÂND SE TACE e o regulă pură, în lib/tv.js (`taceLaCheckin`), nu una scrisă
+ * aici: o folosesc toate cele trei căi automate de mai jos, iar motivele ei —
+ * camera n-are televizor, integrarea e oprită, funcția edge nu e publicată,
+ * lipsesc secretele — sunt toate situații despre care omul de la ghișeu n-are
+ * nimic de făcut. Ecranul „Televizoare" nu tace niciodată: acolo s-a apăsat un
+ * buton, deci se așteaptă un răspuns.
  *
- * Eșecul se spune întotdeauna, dar ca avertisment, nu ca eroare de
- * operațiune: cazarea s-a făcut oricum. */
+ * Eșecul care SE spune rămâne un avertisment, nu o eroare de operațiune:
+ * cazarea s-a făcut oricum. */
 function spune(r, camera, { verbTrimis, verbEsuat }) {
-  if (!r || r.inactiv || r.fara) return;
-  if (r.ok && r.trimise > 0) {
+  if (taceLaCheckin(r)) return;
+  if (r.ok) {
     toaster.show(
       `${verbTrimis} · ${camera}${r.simulat ? " (simulare — niciun televizor real)" : ""}`,
       { tone: "ok" });
     return;
   }
-  if (!r.ok) {
-    toaster.show(`${verbEsuat} · ${camera}. ${r.error || ""}`.trim(), { tone: "danger" });
-  }
+  toaster.show(`${verbEsuat} · ${camera}. ${r.error || ""}`.trim(), { tone: "danger" });
 }
 
 /* Mesajul de bun venit, după check-in.
@@ -51,9 +48,12 @@ function spune(r, camera, { verbTrimis, verbEsuat }) {
 export async function bunVenitLaCheckin(res, core) {
   const camera = numeCamerei(core, res.roomId);
   const r = await cheamaTv("welcome", { reservationId: res.id });
+  /* Jurnalul urmează aceeași regulă ca notificarea, și din același motiv: un
+     rând „Mesaj TV eșuat" la fiecare check-in, cât timp funcția nu e publicată,
+     ar îngropa în jurnal exact zilele în care s-a întâmplat ceva real. */
   if (r?.ok && r.trimise > 0) {
     await audit.push("Mesaj TV trimis", `${camera}`, { roomId: res.roomId, reservationId: res.id });
-  } else if (r && !r.ok) {
+  } else if (r && !r.ok && !taceLaCheckin(r)) {
     await audit.push("Mesaj TV eșuat", `${camera} · ${r.error || ""}`.slice(0, 200),
       { roomId: res.roomId, reservationId: res.id });
   }
@@ -72,7 +72,7 @@ export async function bunVenitLaCheckin(res, core) {
 export async function stergeMesajLaCheckout(res, core) {
   const camera = numeCamerei(core, res.roomId);
   const r = await cheamaTv("clear", { reservationId: res.id });
-  if (r && !r.ok) {
+  if (r && !r.ok && !taceLaCheckin(r)) {
     await audit.push("Ștergere mesaj TV eșuată", `${camera} · ${r.error || ""}`.slice(0, 200),
       { roomId: res.roomId, reservationId: res.id });
     toaster.show(
@@ -102,7 +102,7 @@ export async function reconciliazaTv(inainte, dupa, core) {
 
   if (actiune === "clear") {
     const r = await cheamaTv("clear", { reservationId: dupa.id });
-    if (r && !r.ok) {
+    if (r && !r.ok && !taceLaCheckin(r)) {
       toaster.show(`Mesajul de bun venit a rămas pe televizorul din ${camera}. ${r.error || ""}`.trim(),
         { tone: "danger" });
     }
@@ -112,16 +112,18 @@ export async function reconciliazaTv(inainte, dupa, core) {
   if (actiune === "muta") {
     const veche = numeCamerei(core, inainte.roomId);
     const rSters = await cheamaTv("clear", { reservationId: dupa.id, roomId: inainte.roomId });
-    if (rSters && !rSters.ok) {
+    if (rSters && !rSters.ok && !taceLaCheckin(rSters)) {
       toaster.show(`Mesajul vechi a rămas pe televizorul din ${veche}. ${rSters.error || ""}`.trim(),
         { tone: "danger" });
     }
   }
 
   const r = await cheamaTv("welcome", { reservationId: dupa.id });
-  await audit.push(r?.ok && r.trimise > 0 ? "Mesaj TV actualizat" : "Actualizare mesaj TV eșuată",
-    `${camera}${inainte.roomId !== dupa.roomId ? " · cameră schimbată" : ""}`,
-    { roomId: dupa.roomId, reservationId: dupa.id });
+  if (!taceLaCheckin(r) || (r?.ok && r.trimise > 0)) {
+    await audit.push(r?.ok && r.trimise > 0 ? "Mesaj TV actualizat" : "Actualizare mesaj TV eșuată",
+      `${camera}${inainte.roomId !== dupa.roomId ? " · cameră schimbată" : ""}`,
+      { roomId: dupa.roomId, reservationId: dupa.id });
+  }
   spune(r, camera, {
     verbTrimis: "Mesajul de pe televizor a fost actualizat",
     verbEsuat: "Mesajul de pe televizor n-a putut fi actualizat",

@@ -347,6 +347,42 @@ export function normalizeazaSetari(brut) {
   };
 }
 
+/* CE NU I SE SPUNE RECEPTIEI, dupa un apel pornit de la sine.
+ *
+ * Mesajul de pe televizor pleaca singur la check-in si la check-out, fara ca
+ * cineva sa-l fi cerut. Un avertisment rosu pe o cale pe care nimeni n-a
+ * apasat nimic nu se citeste ca „televizorul are o problema", ci ca „PMS-ul
+ * se plange iar" — si dupa a treia oara nimeni nu-l mai citeste deloc,
+ * inclusiv atunci cand chiar are dreptate.
+ *
+ * Tac patru situatii, toate avand in comun ca nu sunt despre cazarea de fata:
+ *   · `fara`         — camera n-are televizor mapat. Majoritatea camerelor
+ *                      sunt asa la inceput, si unele raman.
+ *   · `inactiv`      — integrarea e oprita din setari, adica exact ce a cerut
+ *                      cineva.
+ *   · `nepublicat`   — functia edge nu e publicata pe proiect. Asa arata
+ *                      intervalul dintre un deploy de frontend si unul de
+ *                      backend; receptia n-are ce face, iar cazarile merg mai
+ *                      departe neatinse.
+ *   · `neconfigurat` — lipsesc secretele LYNK. E treaba adminului, nu a celui
+ *                      de la ghiseu — acelasi tratament ca la yale, unde
+ *                      doCheckOut tace deja pe „neconfigurat".
+ *
+ * ECRANUL „TELEVIZOARE" NU TACE NICIODATA: acolo omul a apasat un buton si
+ * asteapta un raspuns, deci primeste eroarea intreaga. Tacerea e a caii
+ * automate, nu a integrarii. */
+export const MOTIVE_TACUTE = ["nepublicat", "neconfigurat"];
+
+/** @param {any} r raspunsul functiei edge, asa cum il intoarce cheamaTv */
+export function taceLaCheckin(r) {
+  if (!r) return true;
+  if (r.inactiv || r.fara) return true;
+  /* Reusita fara nimic trimis: n-avea ce sa plece, deci n-are ce sa se
+     anunte. Un „mesaj trimis pe 0 televizoare" e o notificare despre nimic. */
+  if (r.ok) return !(r.trimise > 0);
+  return MOTIVE_TACUTE.includes(r.reason);
+}
+
 /* Statusurile in care camera NU mai e a oaspetelui, deci ecranul lui n-are ce
    cauta pe televizor. Plecarea e inclusa: mesajul trebuie sa dispara la
    check-out, nu sa-l intampine pe urmatorul cu numele celui dinainte. */

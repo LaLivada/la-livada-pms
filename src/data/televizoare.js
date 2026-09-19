@@ -113,6 +113,24 @@ export async function cheamaTv(action, payload = {}) {
       let detaliu = null;
       try { detaliu = (await error.context?.json())?.error; } catch { /* ramane null */ }
       if (detaliu) return { ok: false, error: detaliu };
+
+      /* FUNCTIA NU E PUBLICATA PE PROIECT.
+       *
+       * Un 404 FARA campul nostru `error` in corp vine de la poarta Supabase,
+       * nu din functie: functia raspunde si la 404 tot cu `{ ok, error }` (o
+       * rezervare negasita, de exemplu), iar ala e prins deja mai sus.
+       *
+       * Se deosebeste fiindca e singurul esec despre care receptia n-are
+       * absolut nimic de facut, si fiindca e starea normala a intervalului
+       * dintre publicarea frontendului (Vercel, la fiecare merge in main) si
+       * cea a functiei edge (manuala). Vezi MOTIVE_TACUTE in lib/tv.js. */
+      if (error.context?.status === 404) {
+        return {
+          ok: false, reason: "nepublicat",
+          error: "Serviciul de televizoare nu e publicat pe proiect (funcția `tv-provider`).",
+        };
+      }
+
       const retea = /failed to send|fetch/i.test(error.message || "");
       return {
         ok: false,

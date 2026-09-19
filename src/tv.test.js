@@ -7,7 +7,8 @@
 import { describe, it, expect } from "vitest";
 import {
   limbaOaspete, randeazaMesajTv, faraDiacritice, curataRand, taieLa, numeScurt,
-  numePeTv, mesajBunVenit, decideActiuneTv, SABLOANE_IMPLICITE, LUNGIME_MAXIMA,
+  numePeTv, mesajBunVenit, decideActiuneTv, taceLaCheckin,
+  SABLOANE_IMPLICITE, LUNGIME_MAXIMA,
 } from "./lib/tv.js";
 
 const SETARI = {
@@ -269,5 +270,32 @@ describe("ce se face dupa o modificare de rezervare", () => {
 
   it("o salvare fara schimbari care conteaza nu trimite nimic", () => {
     expect(decideActiuneTv(cazat, { ...cazat, notes: "alta nota" })).toBe(null);
+  });
+});
+
+describe("ce se spune recepției pe calea automată", () => {
+  it("spune doar ce s-a întâmplat cu adevărat", () => {
+    expect(taceLaCheckin({ ok: true, trimise: 1 })).toBe(false);
+    expect(taceLaCheckin({ ok: false, reason: "necazat", error: "…" })).toBe(false);
+    // O eroare reală, fără motiv cunoscut, se spune: altfel un televizor care
+    // chiar nu răspunde ar dispărea din vedere.
+    expect(taceLaCheckin({ ok: false, error: "LYNK Cloud n-a răspuns în 8 secunde." })).toBe(false);
+  });
+
+  it("tace când nu e nimic de spus", () => {
+    expect(taceLaCheckin(null)).toBe(true);
+    expect(taceLaCheckin({ ok: true, fara: true, trimise: 0 })).toBe(true);
+    expect(taceLaCheckin({ ok: true, inactiv: true, trimise: 0 })).toBe(true);
+    expect(taceLaCheckin({ ok: true, trimise: 0 })).toBe(true);
+  });
+
+  it("tace și când n-are omul de la ghișeu ce face cu eroarea", () => {
+    // Intervalul dintre publicarea frontendului (Vercel, la fiecare merge) și
+    // cea a funcției edge (manuală): altfel fiecare check-in din intervalul
+    // ăla ar fi arătat un avertisment roșu despre televizoare.
+    expect(taceLaCheckin({ ok: false, reason: "nepublicat", error: "…" })).toBe(true);
+    // Secretele LYNK lipsesc: treaba adminului. Aceeași alegere ca la yale,
+    // unde doCheckOut tace deja pe „neconfigurat".
+    expect(taceLaCheckin({ ok: false, reason: "neconfigurat", error: "…" })).toBe(true);
   });
 });

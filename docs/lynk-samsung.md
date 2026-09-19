@@ -81,10 +81,21 @@ oaspetele stă la recepție. La check-in apelul nici nu e așteptat; la check-ou
 e, fiindcă acolo nu ține nimeni pe nimeni la ghișeu, iar recepția trebuie să
 afle pe loc dacă a rămas ceva pe ecran.
 
-**Camerele fără televizor mapat nu produc niciun avertisment.** Funcția
-răspunde `fara: true`, iar ecranul tace. La început, toate camerele sunt așa;
-un avertisment la fiecare check-in ar învăța pe toată lumea să ignore
-avertismentele.
+**Calea automată tace când recepția n-are ce face.** Patru situații nu produc
+niciun avertisment la check-in sau check-out (`taceLaCheckin`, în
+`src/lib/tv.js`): camera n-are televizor mapat (`fara`), integrarea e oprită
+din setări (`inactiv`), funcția edge nu e publicată pe proiect (`nepublicat`)
+și lipsesc secretele LYNK (`neconfigurat`). Primele două sunt starea normală a
+unei instalări noi; a treia e intervalul dintre publicarea frontendului
+(Vercel, la fiecare merge în `main`) și cea a funcției edge, care e manuală; a
+patra e treaba adminului, nu a celui de la ghișeu — aceeași alegere ca la
+yale, unde `doCheckOut` tace deja pe „neconfigurat". Un avertisment roșu la
+fiecare cazare, pe o cale pe care nimeni n-a apăsat nimic, ar învăța pe toată
+lumea să ignore avertismentele — inclusiv pe cele adevărate.
+
+**Ecranul „Televizoare" nu tace niciodată**: acolo omul a apăsat un buton și
+așteaptă un răspuns, deci primește eroarea întreagă. Tăcerea e a căii
+automate, nu a integrării.
 
 **La ștergerea pe cameră, cine e cazat acum are prioritate.** Dacă în camera
 golită s-a cazat între timp altcineva (mutare încrucișată, cameră eliberată și
