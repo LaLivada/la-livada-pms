@@ -1,6 +1,7 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import App from "../src/guest/App.jsx";
+import { LimbaProvider } from "../src/guest/limbi.jsx";
 import { STILURI } from "../src/guest/styles.js";
 import { pregatesteManifestul } from "../src/guest/instalare.js";
 
@@ -18,6 +19,8 @@ pregatesteManifestul();
 
 createRoot(document.getElementById("oaspete")).render(
   <StrictMode>
-    <App />
+    <LimbaProvider>
+      <App />
+    </LimbaProvider>
   </StrictMode>,
 );
