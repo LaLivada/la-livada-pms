@@ -72,7 +72,7 @@ body{
    Sigla sta pe ACELASI rand cu numele si centrata pe el — nu langa blocul
    intreg de text, unde se alinia cu „buna dimineata" si parea agatata de
    randul gresit. */
-.g-salut{ display:flex; flex-direction:column; gap:7px; }
+.g-salut{ display:flex; flex-direction:column; gap:2px; }
 /* Ora zilei la stanga, vremea la dreapta, deasupra siglei.
    Aliniate la INCEPUT, nu la mijloc: sigla de sub ele urca 11px in banda asta
    (vezi marginea negativa de la .g-salut-rand), deci vremea trebuie tinuta cat
@@ -86,8 +86,13 @@ body{
    inaltimea acestui element din randul flex, impingand in jos si randul cu
    numele si sigla de dedesubt (vezi .g-salut, coloana cu gap). Offsetul
    relativ muta doar desenul, dupa ce inaltimea randului s-a calculat deja
-   — numele, sigla si vremea raman exact unde erau. */
-.g-salut-ora{ position:relative; top:4px; margin:0; font-size:15px; color:var(--g-muted); }
+   — numele, sigla si vremea raman exact unde erau.
+   Valoarea -3px e masurata din metrica reala a fontului (ascent/descent/
+   leading via Canvas), nu ghicita: aliniaza linia de baza a textului cu
+   linia de baza din „Vaslui" (.g-vreme-loc), nu doar marginile cutiilor —
+   cele doua au marimi si inaltimi de rand diferite, deci cutii aliniate la
+   fel tot ar fi aratat texte nealiniate. */
+.g-salut-ora{ position:relative; top:-3px; margin:0; font-size:15px; color:var(--g-muted); }
 
 /* space-between tine sigla lipita de marginea din dreapta indiferent cat de
    scurt e numele.
