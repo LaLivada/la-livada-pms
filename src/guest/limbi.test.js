@@ -35,7 +35,9 @@ describe("detecteazaLimba", () => {
       // trebuie sa fie EXACT unul dintre cele sapte, ISO 639-1.
       expect(CODURI_ASTEPTATE).toContain(l.cod);
       expect(l.nume.length).toBeGreaterThan(0);
-      expect(l.steag.length).toBeGreaterThan(0);
+      // Componenta SVG, nu emoji — vezi comentariul din limbi.jsx despre
+      // fallback-ul de text ("GB") al Windows pentru steagul de emoji.
+      expect(typeof l.Steag).toBe("function");
       expect(l.locale).toMatch(/^[a-z]{2}-[A-Z]{2}$/);
     }
   });

@@ -156,7 +156,7 @@ body{
 /* ---------- selectorul de limba ---------- */
 .g-limba-buton{
   border:0; background:none; padding:4px; margin-right:8px;
-  font-size:20px; line-height:1; cursor:pointer; touch-action:manipulation;
+  line-height:1; cursor:pointer; touch-action:manipulation;
 }
 .g-limba-lista{ display:flex; flex-direction:column; gap:2px; }
 .g-limba-rand{
@@ -166,7 +166,11 @@ body{
   text-align:left; touch-action:manipulation;
 }
 .g-limba-rand[aria-current="true"]{ background:var(--beige); font-weight:600; }
-.g-limba-rand span:first-child{ font-size:20px; flex-shrink:0; }
+/* SVG, nu emoji: pe Windows multe fonturi arata steagul de emoji ca text
+   simplu ("GB") in loc de steagul colorat. Vezi limbi.jsx. */
+.g-limba-steag{ display:inline-flex; line-height:0; flex-shrink:0; }
+.g-limba-steag svg{ width:20px; height:auto; border-radius:2px; box-shadow:0 0 0 1px rgba(34,34,31,0.15); }
+.g-limba-buton .g-limba-steag svg{ width:22px; }
 
 /* ---------- cardul inchis: codul si usa ---------- */
 /* Culorile de aici sunt scrise ca valori, nu ca jetoane, si e intentionat.

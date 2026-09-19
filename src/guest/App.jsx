@@ -660,14 +660,14 @@ function Vremea() {
    cele 7 limbi disponibile. */
 function SelectorLimba() {
   const texte = useTexte();
-  const { cod, steag, seteazaLimba } = useLimba();
+  const { cod, Steag, seteazaLimba } = useLimba();
   const [deschis, setDeschis] = useState(false);
 
   return (
     <>
       <button type="button" className="g-limba-buton" onClick={() => setDeschis(true)}
         aria-label={texte.selector.ariaEticheta}>
-        <span aria-hidden="true">{steag}</span>
+        <span className="g-limba-steag" aria-hidden="true"><Steag /></span>
       </button>
       {deschis && (
         <Fereastra titlu={texte.selector.titluFereastra} onInchide={() => setDeschis(false)}>
@@ -676,7 +676,7 @@ function SelectorLimba() {
               <button key={l.cod} type="button" className="g-limba-rand"
                 aria-current={l.cod === cod}
                 onClick={() => { seteazaLimba(l.cod); setDeschis(false); }}>
-                <span aria-hidden="true">{l.steag}</span>
+                <span className="g-limba-steag" aria-hidden="true"><l.Steag /></span>
                 <span>{l.nume}</span>
               </button>
             ))}
