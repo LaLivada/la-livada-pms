@@ -2,12 +2,101 @@
  * Aceeasi forma ca in interfata.ro.js — verificat de
  * continut-forme.test.js. */
 export const TEXTE = {
+  hero: {
+    dimineata: "Good morning,",
+    ziua: "Good afternoon,",
+    seara: "Good evening,",
+    numeImplicit: "welcome",
+    gestSalut: "wave",
+  },
+  selector: {
+    ariaEticheta: "Choose the page language",
+    titluFereastra: "Choose language",
+  },
   acces: {
     eticheta: "Room access",
     deschideUsa: "Open the door",
     sauTasteaza: "Or type the code on the door",
     valabilPana: "Valid until",
     codLipsa: "The code isn't ready yet. Reload the page in a few minutes or call us — meanwhile, you can enter with the button above.",
+    indrumareLipsa: {
+      inainte: "The walk-through hasn't been set up here yet. If you can't find your room, call us at ",
+      dupa: " and we'll walk you there.",
+    },
+  },
+  usa: {
+    seDeschide: "Opening…",
+    usaDeschisa: "Door open",
+    usaDeschisaIntra: "The door is open. Come in within a few seconds.",
+    faraInternet: "No internet connection. Use the access code instead.",
+  },
+  drum: {
+    cumAjungi: "How to get here",
+    accesCatreCamere: "Way to the rooms",
+    hartaTitlu: "Map to Complex La Livada",
+  },
+  wifi: {
+    conecteaza: "Connect to Wi-Fi",
+    codQrPentru: (retea) => `QR code for the ${retea} network`,
+    scaneaza: { tare: "Scan with another phone's camera", dupa: " — it connects on its own, no password." },
+    sauDePeTelefon: "Or, from this phone:",
+  },
+  venit: {
+    scurtatura: "Welcome",
+    titluPagina: "Welcome to La Livadă",
+    dateRezervarii: "Your reservation",
+    sosire: "Check-in",
+    plecare: "Check-out",
+    nopti: "Nights",
+    persoane: "Guests",
+    adultSg: "adult",
+    adultPl: "adults",
+    copilSg: "child",
+    copilPl: "children",
+    totalDePlata: "Total due",
+    contactAsistenta: "Contact support",
+    suna: "Call",
+  },
+  important: {
+    titluSectiune: "Important",
+    decazareTitlu: "Check-out",
+    decazareText: (cand) => `The room is vacated ${cand}.`,
+    codTitlu: "How long the code lasts",
+    codText: (cod, pana) => `Code ${cod}# works until ${pana}.`,
+    usaTitlu: "If the door doesn't open",
+    usaText: {
+      p1: "Press the door button again. If it still doesn't work, type the code on the door, or call ",
+      p2: " at ",
+      p3: ". We answer around the clock.",
+    },
+    regulamentEticheta: "House rules:",
+    deschideRegulament: "Open the complex's house rules",
+  },
+  regulamentFereastra: {
+    titlu: "The complex's house rules",
+    antetSubtitlu: "House rules",
+  },
+  minibar: {
+    titluSectiune: "Minibar",
+    notaRecepite: "Charges are added to your bill at reception.",
+    meniuGol: { inainte: "The menu isn't published here yet. Ask us what we have — we answer at ", dupa: "." },
+  },
+  atractii: {
+    scurtatura: "Attractions",
+    titluSectiune: "Attractions in Vaslui County",
+    minCuMasina: "min by car",
+    deschideGoogleMaps: "Open in Google Maps",
+    inapoi: "← Back",
+    inainte: "Next →",
+    din: "of",
+    distanteNota: "Distances are by road, from the complex.",
+  },
+  fisaBanner: {
+    titlu: "Fill in your registration form",
+    sub: "Required at check-in, once per stay.",
+  },
+  continutMare: {
+    eroare: "We couldn't load the content. Try again.",
   },
   refuzuri: {
     incearcaDinNou: "Try again",
@@ -22,6 +111,8 @@ export const TEXTE = {
     timeout: { titlu: "Server didn't respond", text: "It's not the link's fault: the server didn't respond in time. Check your internet and try again; if you're at the door, call us." },
   },
   instalare: {
+    adaugaIconul: "Add the icon to your home screen",
+    nuGasestiOptiunea: (browser) => `Can't find the option? Open the page in ${browser} — it doesn't show up in WhatsApp's browser.`,
     pasiIos: [
       { inainte: "Tap ", tare: "Share", dupa: " — the square with the arrow pointing up, in the bottom bar." },
       { inainte: "Scroll down and choose ", tare: "Add to Home Screen", dupa: "." },
