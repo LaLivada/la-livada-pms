@@ -2,12 +2,101 @@
  * Aceeasi forma ca in interfata.ro.js — verificat de
  * continut-forme.test.js. */
 export const TEXTE = {
+  hero: {
+    dimineata: "Buongiorno,",
+    ziua: "Buon pomeriggio,",
+    seara: "Buonasera,",
+    numeImplicit: "benvenuto",
+    gestSalut: "saluto",
+  },
+  selector: {
+    ariaEticheta: "Scegli la lingua della pagina",
+    titluFereastra: "Scegli la lingua",
+  },
   acces: {
     eticheta: "Accesso alla camera",
     deschideUsa: "Apri la porta",
     sauTasteaza: "Oppure digita il codice sulla porta",
     valabilPana: "Valido fino al",
     codLipsa: "Il codice non è ancora pronto. Ricarica la pagina tra qualche minuto o chiamaci — nel frattempo puoi entrare con il pulsante qui sopra.",
+    indrumareLipsa: {
+      inainte: "Il percorso nel cortile non è ancora stato inserito qui. Se non trovi la camera, chiamaci al ",
+      dupa: " e ti accompagniamo noi.",
+    },
+  },
+  usa: {
+    seDeschide: "Apertura…",
+    usaDeschisa: "Porta aperta",
+    usaDeschisaIntra: "La porta è aperta. Entra tra qualche secondo.",
+    faraInternet: "Nessuna connessione a internet. Usa il codice di accesso.",
+  },
+  drum: {
+    cumAjungi: "Come raggiungerci",
+    accesCatreCamere: "Accesso alle camere",
+    hartaTitlu: "Mappa del Complex La Livada",
+  },
+  wifi: {
+    conecteaza: "Connettiti al Wi-Fi",
+    codQrPentru: (retea) => `Codice QR per la rete ${retea}`,
+    scaneaza: { tare: "Scansiona con la fotocamera di un altro telefono", dupa: " — si connette da solo, senza password." },
+    sauDePeTelefon: "Oppure, da questo telefono:",
+  },
+  venit: {
+    scurtatura: "Benvenuto",
+    titluPagina: "Benvenuto a La Livadă",
+    dateRezervarii: "Dati della prenotazione",
+    sosire: "Arrivo",
+    plecare: "Partenza",
+    nopti: "Notti",
+    persoane: "Persone",
+    adultSg: "adulto",
+    adultPl: "adulti",
+    copilSg: "bambino",
+    copilPl: "bambini",
+    totalDePlata: "Totale da pagare",
+    contactAsistenta: "Contatto assistenza",
+    suna: "Chiama",
+  },
+  important: {
+    titluSectiune: "Importante",
+    decazareTitlu: "Il check-out",
+    decazareText: (cand) => `La camera si libera ${cand}.`,
+    codTitlu: "Durata del codice",
+    codText: (cod, pana) => `Il codice ${cod}# funziona fino al ${pana}.`,
+    usaTitlu: "Se la porta non si apre",
+    usaText: {
+      p1: "Premi di nuovo il pulsante di apertura. Se ancora non funziona, digita il codice sulla porta oppure chiama ",
+      p2: " al ",
+      p3: ". Rispondiamo 24 ore su 24.",
+    },
+    regulamentEticheta: "Regolamento:",
+    deschideRegulament: "Apri il regolamento del complesso",
+  },
+  regulamentFereastra: {
+    titlu: "Il regolamento del complesso",
+    antetSubtitlu: "Regolamento interno",
+  },
+  minibar: {
+    titluSectiune: "Minibar",
+    notaRecepite: "Il consumo viene addebitato sul conto alla reception.",
+    meniuGol: { inainte: "Il menu non è ancora pubblicato qui. Chiedici cosa abbiamo — rispondiamo al ", dupa: "." },
+  },
+  atractii: {
+    scurtatura: "Attrazioni",
+    titluSectiune: "Attrazioni della contea di Vaslui",
+    minCuMasina: "min in auto",
+    deschideGoogleMaps: "Apri in Google Maps",
+    inapoi: "← Indietro",
+    inainte: "Avanti →",
+    din: "di",
+    distanteNota: "Le distanze sono su strada, dal complesso.",
+  },
+  fisaBanner: {
+    titlu: "Compila la scheda di soggiorno",
+    sub: "Obbligatoria al check-in, una sola volta.",
+  },
+  continutMare: {
+    eroare: "Non siamo riusciti a caricare il contenuto. Riprova.",
   },
   refuzuri: {
     incearcaDinNou: "Riprova",
@@ -22,6 +111,8 @@ export const TEXTE = {
     timeout: { titlu: "Il server non ha risposto", text: "Non è colpa del link: il server non ha risposto in tempo. Controlla la connessione e riprova; se sei davanti alla porta, chiamaci." },
   },
   instalare: {
+    adaugaIconul: "Aggiungi l'icona alla schermata principale",
+    nuGasestiOptiunea: (browser) => `Non trovi l'opzione? Apri la pagina in ${browser} — non compare nel browser di WhatsApp.`,
     pasiIos: [
       { inainte: "Tocca ", tare: "Condividi", dupa: " — il quadrato con la freccia verso l'alto, nella barra in basso." },
       { inainte: "Scorri e scegli ", tare: "Aggiungi alla schermata Home", dupa: "." },
