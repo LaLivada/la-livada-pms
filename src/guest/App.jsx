@@ -613,9 +613,9 @@ export function Refuz({ motiv, onReincearca }) {
         <p>{m.text}</p>
         <div className="g-mesaj-actiuni">
           {SE_POATE_REINCERCA.has(motiv) && onReincearca && (
-            <button type="button" className="g-buton" onClick={onReincearca}>Încearcă din nou</button>
+            <button type="button" className="g-buton" onClick={onReincearca}>{REFUZURI.incearcaDinNou}</button>
           )}
-          <a className="g-buton" href={`tel:${TELEFON}`}>Sună recepția</a>
+          <a className="g-buton" href={`tel:${TELEFON}`}>{REFUZURI.sunaRecetia}</a>
         </div>
       </div>
       <p className="g-subsol">

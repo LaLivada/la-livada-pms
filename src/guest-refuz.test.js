@@ -11,6 +11,10 @@ import { LimbaProvider } from "./guest/limbi.jsx";
 
 const montate = [];
 async function deschide(props) {
+  // Testul asta verifica textul romanesc exact — fara limba fixata,
+  // useLimba() ar detecta limba mediului de test (engleza, dupa Task 6) si
+  // asertiunile de mai jos ar pica, desi Refuz functioneaza corect.
+  localStorage.setItem("g-limba", "ro");
   const host = document.createElement("div");
   document.body.appendChild(host);
   const root = createRoot(host);
@@ -27,6 +31,7 @@ afterEach(async () => {
   await act(async () => { montate.forEach(({ root }) => root.unmount()); });
   montate.forEach(({ host }) => host.remove());
   montate.length = 0;
+  localStorage.removeItem("g-limba");
 });
 const butonReincearca = (host) =>
   [...host.querySelectorAll("button")].find((b) => b.textContent === "Încearcă din nou") || null;

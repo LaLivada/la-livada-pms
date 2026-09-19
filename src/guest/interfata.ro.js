@@ -11,6 +11,8 @@ export const TEXTE = {
     codLipsa: "Codul nu e încă pregătit. Reîncarcă pagina în câteva minute sau sună-ne — între timp, poți intra cu butonul de mai sus.",
   },
   refuzuri: {
+    incearcaDinNou: "Încearcă din nou",
+    sunaRecetia: "Sună recepția",
     neinceput: { titlu: "Sejurul n-a început încă", text: "Pagina se deschide singură când te cazezi. Codul de acces apare aici imediat după check-in." },
     incheiat: { titlu: "Sejurul s-a încheiat", text: "Linkul a expirat odată cu plecarea. Îți mulțumim că ai stat la noi." },
     anulat: { titlu: "Rezervarea nu mai este activă", text: "Dacă e o greșeală, sună-ne și o lămurim pe loc." },
