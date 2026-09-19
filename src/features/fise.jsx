@@ -31,14 +31,17 @@ import { LATIME_PANZA, INALTIME_PANZA } from "../lib/semnatura.js";
    oaspetelui, dar textul RO e local — pagina de receptie nu se traduce
    niciodata, spre deosebire de guest/interfata.ro.js (Task 3, 19 sept 2026),
    care tine acelasi text pe fiecare limba. */
-const CAMPURI_ETICHETE = {
+// Exportate doar ca sa fie verificate impotriva CAMPURI/ACT_TIPURI
+// (src/fisa-etichete.test.js) — un camp nou aparut acolo si uitat aici
+// arata azi ca un cod brut pe formularul de receptie, nu ca o eroare.
+export const CAMPURI_ETICHETE = {
   nume: "Nume", prenume: "Prenume", dataNasterii: "Data nașterii",
   loculNasterii: "Locul nașterii", nationalitate: "Naționalitate",
   tara: "Țara de domiciliu", adresa: "Adresa", localitate: "Localitatea",
   scopul: "Scopul călătoriei", actTip: "Act de identitate",
   actSeria: "Seria", actNumarul: "Numărul",
 };
-const ACT_TIPURI_ETICHETE = { ci: "Carte de identitate", pasaport: "Pașaport", permis: "Permis de ședere" };
+export const ACT_TIPURI_ETICHETE = { ci: "Carte de identitate", pasaport: "Pașaport", permis: "Permis de ședere" };
 
 const eticheta = (cheie) => CAMPURI_ETICHETE[cheie] || cheie;
 const tipAct = (c) => ACT_TIPURI_ETICHETE[c] || c || "—";

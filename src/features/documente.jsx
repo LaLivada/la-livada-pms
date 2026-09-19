@@ -20,7 +20,8 @@ import * as dateFise from "../data/fise.js";
    (ACT_TIPURI), dar textul RO ramane aici: pagina de receptie nu se
    traduce niciodata, spre deosebire de guest/interfata.ro.js, unde acelasi
    text exista pe fiecare limba. */
-const ACT_TIPURI_ETICHETE = { ci: "Carte de identitate", pasaport: "Pașaport", permis: "Permis de ședere" };
+// Exportat doar ca sa fie verificat impotriva ACT_TIPURI (src/fisa-etichete.test.js).
+export const ACT_TIPURI_ETICHETE = { ci: "Carte de identitate", pasaport: "Pașaport", permis: "Permis de ședere" };
 const tipActScris = (c) => ACT_TIPURI_ETICHETE[c] || "";
 
 /* `fisa` e randul din fise_cazare, cand exista. Cand nu, coala se tipareste
