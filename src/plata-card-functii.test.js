@@ -20,6 +20,7 @@
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import ro from "./booking/i18n/dictionare/ro.js";
 
 const sursa = (...p) => readFileSync(join(...p), "utf8");
 const ipn = sursa("supabase", "functions", "netopia-ipn", "index.ts");
@@ -100,12 +101,14 @@ describe("App.jsx (ecranul de confirmare)", () => {
     /* Găsit pe viu, la primul test complet în sandbox: rezervarea ajunsese
        "confirmed" prin card, dar ecranul cădea pe ramura implicită, scrisă
        pentru cash/transfer, și spunea unui oaspete care tocmai plătise că
-       "plata se face la sosire". */
-    const i = app.indexOf("Plata se face la sosire");
-    expect(i, "textul a dispărut de tot").toBeGreaterThan(-1);
+       "plata se face la sosire" — text tradus acum prin
+       t("confirmare.implicitMesaj"), vezi dictionare/ro.js. */
+    const i = app.indexOf('t("confirmare.implicitMesaj")');
+    expect(i, "cheia a dispărut de tot").toBeGreaterThan(-1);
     const vecinatate = app.slice(Math.max(0, i - 900), i);
-    expect(vecinatate, "textul nu mai stă pe o ramură după metoda de plată")
+    expect(vecinatate, "cheia nu mai stă pe o ramură după metoda de plată")
       .toContain('confirmare.metodaPlata === "card"');
+    expect(ro.confirmare.implicitMesaj).toContain("Plata se face la sosire");
   });
 });
 

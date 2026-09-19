@@ -196,6 +196,85 @@ body {
   }
 }
 
+/* ── Selectorul de limbă ────────────────────────────────────────────────
+   Stă chiar înaintea butonului hamburger, pe toate lățimile de ecran —
+   spre deosebire de `.ldv-hdr-cta`, care există doar de la 1080px în sus. */
+.ldv-lang {
+  position: relative;
+  flex: 0 0 auto;
+}
+.ldv-lang-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  padding: 0;
+  background: none;
+  border: 0;
+  border-radius: 999px;
+  cursor: pointer;
+  font-size: 1.3rem;
+  line-height: 1;
+  transition: background 0.2s ease;
+}
+.ldv-lang-toggle:hover {
+  background: rgba(34, 34, 31, 0.06);
+}
+.ldv-hdr[data-open="true"] .ldv-lang-toggle:hover {
+  background: rgba(245, 241, 232, 0.12);
+}
+.ldv-lang-panel {
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  right: 0;
+  z-index: 5;
+  display: none;
+  flex-direction: column;
+  min-width: 11rem;
+  padding: 0.4rem;
+  background: var(--ivory);
+  border: 1px solid rgba(34, 34, 31, 0.12);
+  border-radius: 0.6rem;
+  box-shadow: 0 0.75rem 2rem rgba(34, 34, 31, 0.18);
+}
+.ldv-lang[data-open="true"] .ldv-lang-panel {
+  display: flex;
+}
+.ldv-lang-opt {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.5rem 0.6rem;
+  background: none;
+  border: 0;
+  border-radius: 0.4rem;
+  text-align: left;
+  font-size: 0.82rem;
+  color: var(--charcoal);
+  cursor: pointer;
+}
+.ldv-lang-opt:hover {
+  background: rgba(34, 34, 31, 0.06);
+}
+.ldv-lang-opt[aria-pressed="true"] {
+  background: rgba(63, 74, 61, 0.1);
+  font-weight: 600;
+}
+.ldv-lang-steag {
+  display: inline-flex;
+  line-height: 0;
+}
+.ldv-lang-steag svg {
+  width: 1.35rem;
+  height: auto;
+  border-radius: 2px;
+  box-shadow: 0 0 0 1px rgba(34, 34, 31, 0.15);
+}
+.ldv-lang-toggle .ldv-lang-steag svg {
+  width: 1.5rem;
+}
+
 /* ── Butonul hamburger ──────────────────────────────────────────────── */
 .ldv-hdr-toggle {
   display: inline-flex;

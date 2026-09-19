@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/brand/favicon-32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/brand/favicon-16.png" />
+    <link rel="apple-touch-icon" href="/brand/apple-touch-icon.png" />
+    <title>Withdrawal from contract · Stays at La Livada</title>
+    <meta name="description" content="Online form to exercise your right of withdrawal for a booking made on rezervari.lalivada.ro, under Article 11¹ of Government Emergency Ordinance 34/2014." />
+    <link rel="canonical" href="https://rezervari.lalivada.ro/retragere/en/" />
+    <meta name="robots" content="index, follow" />
+    <meta property="og:type" content="website" />
+    <meta property="og:locale" content="en_US" />
+    <meta property="og:site_name" content="Complex La Livada" />
+    <meta property="og:title" content="Withdrawal from contract · Stays at La Livada" />
+    <meta property="og:url" content="https://rezervari.lalivada.ro/retragere/en/" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter+Tight:wght@300&family=Manrope:wght@400;500&display=swap" />
+    <link rel="stylesheet" href="/brand.css" />
+  </head>
+  <body>
+    <!-- @antet film=false -->
+
+    <main>
+      <!-- Calea online de retragere cerută de art. 11^1 din OUG 34/2014.
+           Formularul pleacă spre funcția edge `retragere` (vezi retragere.js
+           de alături), care scrie cererea în bază și trimite emailurile.
+           Câmpul „website” e capcana pentru roboți: ascuns din CSS, un om
+           nu-l vede; dacă vine plin, funcția răspunde OK fără să facă nimic. -->
+      <section class="ldv-legal">
+        <div class="wrap">
+          <div class="ldv-legal-in">
+            <p class="label">Withdrawal from contract</p>
+            <h1>The withdrawal request.</h1>
+            <p class="lede">
+              Fill in your name, email, and booking number, press "Send" and you'll
+              get a copy right away. We'll confirm the cancellation by email.
+            </p>
+
+            <p>
+              This form is the online way to exercise your right of withdrawal, under
+              Article 11¹ of Government Emergency Ordinance 34/2014. Accommodation booked
+              for a specific date is exempt by law from the 14-day withdrawal period
+              (Article 16, letter l), but we offer you the cancellation described in the
+              <a href="/anulare/en/">cancellation policy</a> anyway: cancelling charges
+              the full first night's stay, and the rest is refunded.
+            </p>
+
+            <form class="ldv-cerere" id="cerere" novalidate>
+              <div class="ldv-cerere-2">
+                <label>
+                  <span>Full name</span>
+                  <input name="nume" autocomplete="name" maxlength="120" required />
+                  <small class="ldv-cerere-eroare" data-eroare="nume"></small>
+                </label>
+                <label>
+                  <span>Email</span>
+                  <input name="email" type="email" autocomplete="email" maxlength="200" required />
+                  <small class="ldv-cerere-eroare" data-eroare="email"></small>
+                </label>
+              </div>
+              <div class="ldv-cerere-2">
+                <label>
+                  <span>Reservation number (from the email)</span>
+                  <input name="rezervare" maxlength="40" autocomplete="off" />
+                  <small class="ldv-cerere-eroare" data-eroare="rezervare"></small>
+                </label>
+                <label>
+                  <span>Arrival date</span>
+                  <input name="sosire" type="date" />
+                  <small class="ldv-cerere-eroare" data-eroare="sosire"></small>
+                </label>
+              </div>
+              <label>
+                <span>Message</span>
+                <textarea name="mesaj" maxlength="2000" required></textarea>
+                <small class="ldv-cerere-eroare" data-eroare="mesaj"></small>
+              </label>
+              <label class="ldv-cerere-hp" aria-hidden="true">
+                <span>Leave this field blank</span>
+                <input name="website" tabindex="-1" autocomplete="off" />
+              </label>
+              <p class="ldv-cerere-stare" id="cerere-stare" role="status" aria-live="polite"></p>
+              <button class="ldv-btn" type="submit" id="cerere-trimite">Send the request</button>
+            </form>
+
+            <h2>Other ways</h2>
+            <ul class="ldv-fapte">
+              <li>
+                from the <b>confirmation email</b>, the "Cancel booking" button — the
+                fastest way, the cancellation happens instantly;
+              </li>
+              <li>
+                by email, at <a href="mailto:office@lalivada.com">office@lalivada.com</a>,
+                with your booking number;
+              </li>
+              <li>by phone, at <a href="tel:+40722899899">+40 722 899 899</a>.</li>
+            </ul>
+
+            <h2>What we do with the request</h2>
+            <p>
+              We record it in our booking system and send it by email to the front
+              desk, and a copy to you. We respond within 14 days at most, usually the
+              same day. We use the data from the form only to resolve the request; how
+              we keep it is described on the
+              <a href="/confidentialitate/en/">Privacy</a> page.
+            </p>
+            <p>
+              The request is sent by S.C. OVISER S.R.L., tax ID RO33918057, J2014000396379,
+              DN24, no. 743, Muntenii de Jos, Vaslui County — the provider of the
+              accommodation services.
+            </p>
+
+            <p class="ldv-legal-meta">Last updated: September 16, 2026.</p>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- @subsol -->
+    <script type="module" src="/menu.js"></script>
+    <script type="module" src="/retragere/retragere.js"></script>
+  </body>
+</html>

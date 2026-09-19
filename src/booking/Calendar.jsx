@@ -15,8 +15,9 @@
 import { useState, useRef, useEffect } from "react";
 import {
   adunaZile, noptiIntre, primaZiDinLuna, adunaLuni, numeLuna, numeZiLunga,
-  CAPETE_ZILE, saptamaniDinLuna,
+  capeteZile, saptamaniDinLuna,
 } from "./zile.js";
+import { useLimba } from "./i18n/context.jsx";
 
 /* Două luni pe ecran lat, una pe telefon. A doua e ascunsă din CSS
    (`display:none`), deci nu ajunge nici în arborele de accesibilitate —
@@ -26,6 +27,7 @@ const LUNI_AFISATE = 2;
 export function CalendarPerioada({
   sosire, plecare, minZi, maxZi, maxNopti = 30, onSchimba,
 }) {
+  const { limba, t } = useLimba();
   const [luna, setLuna] = useState(() => primaZiDinLuna(sosire || minZi));
   /* Sosirea aleasă, în așteptarea plecării. Null = nu e nicio alegere în curs,
      deci următoarea apăsare începe una nouă. */
@@ -113,25 +115,25 @@ export function CalendarPerioada({
       onPointerLeave={(e) => e.pointerType === "mouse" && setSubMouse(null)}>
       <div className="ldv-cal-bara">
         <button type="button" className="ldv-cal-nav" disabled={inapoiOprit}
-          aria-label="Luna anterioară"
+          aria-label={t("calendar.lunaAnterioara")}
           onClick={() => setLuna((l) => adunaLuni(l, -1))}>‹</button>
         <div className="ldv-cal-titluri" aria-live="polite">
           {luniDeAfisat.map((l) => (
-            <span key={l} className="ldv-cal-titlu">{numeLuna(l)}</span>
+            <span key={l} className="ldv-cal-titlu">{numeLuna(l, limba)}</span>
           ))}
         </div>
         <button type="button" className="ldv-cal-nav" disabled={inainteOprit}
-          aria-label="Luna următoare"
+          aria-label={t("calendar.lunaUrmatoare")}
           onClick={() => setLuna((l) => adunaLuni(l, 1))}>›</button>
       </div>
 
       <div className="ldv-cal-luni">
         {luniDeAfisat.map((l) => (
           <table className="ldv-cal-luna" key={l}>
-            <caption className="ldv-doar-citit">{numeLuna(l)}</caption>
+            <caption className="ldv-doar-citit">{numeLuna(l, limba)}</caption>
             <thead>
               <tr>
-                {CAPETE_ZILE.map((c, i) => (
+                {capeteZile(limba).map((c, i) => (
                   <th key={i} scope="col" abbr={c}>{c}</th>
                 ))}
               </tr>
@@ -155,7 +157,7 @@ export function CalendarPerioada({
                           className={clase.join(" ")}
                           disabled={oprita}
                           tabIndex={zi === ziFocus ? 0 : -1}
-                          aria-label={numeZiLunga(zi)}
+                          aria-label={numeZiLunga(zi, limba)}
                           aria-pressed={eSosire || ePlecare}
                           onFocus={() => setZiFocus(zi)}
                           onPointerEnter={(e) => {
@@ -176,9 +178,9 @@ export function CalendarPerioada({
       </div>
 
       <p className="ldv-mic ldv-cal-indiciu" aria-live="polite">
-        {inCurs ? "Alege și ziua plecării."
-          : sosire && plecare ? "Apasă o zi ca să alegi altă perioadă."
-          : "Apasă ziua sosirii, apoi pe cea a plecării."}
+        {inCurs ? t("calendar.alegeZiuaPlecarii")
+          : sosire && plecare ? t("calendar.apasaPentruAltaPerioada")
+          : t("calendar.apasaSosireaApoiPlecarea")}
       </p>
     </div>
   );

@@ -11,6 +11,7 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import { resolve } from "path";
 import { readFileSync } from "fs";
+import { CODURI_LIMBA, LIMBA_IMPLICITA } from "./src/booking/i18n/limbi.js";
 
 const RADACINA = resolve(process.cwd(), "booking");
 
@@ -18,6 +19,12 @@ const RADACINA = resolve(process.cwd(), "booking");
    adresa lui — un procesator de plăți sau ANPC trebuie să le poată
    deschide direct, nu ca stare a aplicației React. */
 export const PAGINI = ["termeni", "livrare", "anulare", "retragere", "confidentialitate", "cookies"];
+
+/* Fiecare pagină de text are și câte un fișier tradus per limbă
+   nerromânească, la booking/<pagina>/<limba>/index.html (vezi
+   src/booking/i18n/dictionare/ — aceleași 6 limbi ca motorul de
+   rezervare). Limba română rămâne la calea existentă, fără subfolder. */
+export const LIMBI_PAGINI = CODURI_LIMBA.filter((c) => c !== LIMBA_IMPLICITA);
 
 /* Antetul și subsolul stau o singură dată, în booking/_antet.html și
    booking/_subsol.html, și intră în fiecare pagină prin marcajele
@@ -59,6 +66,8 @@ export default defineConfig({
       input: Object.fromEntries([
         ["index", resolve(RADACINA, "index.html")],
         ...PAGINI.map((p) => [p, resolve(RADACINA, p, "index.html")]),
+        ...PAGINI.flatMap((p) => LIMBI_PAGINI.map(
+          (l) => [`${p}-${l}`, resolve(RADACINA, p, l, "index.html")])),
       ]),
     },
   },

@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/brand/favicon-32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/brand/favicon-16.png" />
+    <link rel="apple-touch-icon" href="/brand/apple-touch-icon.png" />
+    <title>Отказ от договора · Проживание La Livada</title>
+    <meta name="description" content="Онлайн-форма, с помощью которой вы можете воспользоваться правом на отказ от договора для бронирования, сделанного на rezervari.lalivada.ro, согласно ст. 11¹ Постановления OUG 34/2014." />
+    <link rel="canonical" href="https://rezervari.lalivada.ro/retragere/ru/" />
+    <meta name="robots" content="index, follow" />
+    <meta property="og:type" content="website" />
+    <meta property="og:locale" content="ru_RU" />
+    <meta property="og:site_name" content="Complex La Livada" />
+    <meta property="og:title" content="Отказ от договора · Проживание La Livada" />
+    <meta property="og:url" content="https://rezervari.lalivada.ro/retragere/ru/" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter+Tight:wght@300&family=Manrope:wght@400;500&display=swap" />
+    <link rel="stylesheet" href="/brand.css" />
+  </head>
+  <body>
+    <!-- @antet film=false -->
+
+    <main>
+      <!-- Calea online de retragere cerută de art. 11^1 din OUG 34/2014.
+           Formularul pleacă spre funcția edge `retragere` (vezi retragere.js
+           de alături), care scrie cererea în bază și trimite emailurile.
+           Câmpul „website” e capcana pentru roboți: ascuns din CSS, un om
+           nu-l vede; dacă vine plin, funcția răspunde OK fără să facă nimic. -->
+      <section class="ldv-legal">
+        <div class="wrap">
+          <div class="ldv-legal-in">
+            <p class="label">Отказ от договора</p>
+            <h1>Заявка на отказ от договора.</h1>
+            <p class="lede">
+              Вы указываете имя, email и номер бронирования, нажимаете «Отправить» и сразу
+              получаете копию. Мы подтвердим отмену по email.
+            </p>
+
+            <p>
+              Форма — это онлайн-способ воспользоваться правом на отказ от договора согласно
+              ст. 11¹ Постановления OUG 34/2014. Проживание, забронированное на конкретную
+              дату, законом освобождено от 14-дневного права на отказ (ст. 16, п. l), но мы
+              в любом случае предлагаем отмену, описанную в
+              <a href="/anulare/ru/">политике отмены</a>: при отмене полностью удерживается
+              стоимость первой ночи проживания, остальное возвращается.
+            </p>
+
+            <form class="ldv-cerere" id="cerere" novalidate>
+              <div class="ldv-cerere-2">
+                <label>
+                  <span>Имя и фамилия</span>
+                  <input name="nume" autocomplete="name" maxlength="120" required />
+                  <small class="ldv-cerere-eroare" data-eroare="nume"></small>
+                </label>
+                <label>
+                  <span>Email</span>
+                  <input name="email" type="email" autocomplete="email" maxlength="200" required />
+                  <small class="ldv-cerere-eroare" data-eroare="email"></small>
+                </label>
+              </div>
+              <div class="ldv-cerere-2">
+                <label>
+                  <span>Номер бронирования (из письма)</span>
+                  <input name="rezervare" maxlength="40" autocomplete="off" />
+                  <small class="ldv-cerere-eroare" data-eroare="rezervare"></small>
+                </label>
+                <label>
+                  <span>Дата заезда</span>
+                  <input name="sosire" type="date" />
+                  <small class="ldv-cerere-eroare" data-eroare="sosire"></small>
+                </label>
+              </div>
+              <label>
+                <span>Сообщение</span>
+                <textarea name="mesaj" maxlength="2000" required></textarea>
+                <small class="ldv-cerere-eroare" data-eroare="mesaj"></small>
+              </label>
+              <label class="ldv-cerere-hp" aria-hidden="true">
+                <span>Оставьте это поле пустым</span>
+                <input name="website" tabindex="-1" autocomplete="off" />
+              </label>
+              <p class="ldv-cerere-stare" id="cerere-stare" role="status" aria-live="polite"></p>
+              <button class="ldv-btn" type="submit" id="cerere-trimite">Отправить запрос</button>
+            </form>
+
+            <h2>Другие способы</h2>
+            <ul class="ldv-fapte">
+              <li>
+                из <b>письма с подтверждением</b>, кнопка «Отменить бронирование» — самый
+                быстрый способ, отмена происходит сразу;
+              </li>
+              <li>
+                по email, на <a href="mailto:office@lalivada.com">office@lalivada.com</a>,
+                указав номер бронирования;
+              </li>
+              <li>по телефону, <a href="tel:+40722899899">+40 722 899 899</a>.</li>
+            </ul>
+
+            <h2>Что мы делаем с заявкой</h2>
+            <p>
+              Мы регистрируем её в нашей системе бронирования и отправляем по email на
+              ресепшен, а копию — вам. Мы отвечаем не позднее чем через 14 дней, обычно
+              в тот же день. Данные из формы мы используем только для обработки заявки;
+              как мы их храним, написано на странице
+              <a href="/confidentialitate/ru/">Конфиденциальность</a>.
+            </p>
+            <p>
+              Заявку отправляет S.C. OVISER S.R.L., CUI RO33918057, J2014000396379, DN24,
+              nr. 743, Muntenii de Jos, уезд Васлуй — поставщик услуг проживания.
+            </p>
+
+            <p class="ldv-legal-meta">Последнее обновление: 16 сентября 2026 г.</p>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- @subsol -->
+    <script type="module" src="/menu.js"></script>
+    <script type="module" src="/retragere/retragere.js"></script>
+  </body>
+</html>

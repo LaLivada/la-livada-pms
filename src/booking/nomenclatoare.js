@@ -86,32 +86,106 @@ export function telefonInternational(prefix, numar) {
   return fara0 ? `${String(prefix || "").trim()} ${fara0}` : "";
 }
 
+/* Fiecare țară ține și codul ISO 3166-1 alpha-2, ca eticheta din <select>
+   să poată fi localizată la afișare (Intl.DisplayNames) fără traducere de
+   mână a ~195 de nume × 6 limbi. VALOAREA trimisă la server rămâne mereu
+   numele românesc (`ro`) — vezi `numeTara()` mai jos — deci nimic din
+   backend sau din regula „judetNecesar" nu se schimbă odată cu limba. */
 export const TARI = [
-  "România", "Republica Moldova", "Afganistan", "Africa de Sud", "Albania", "Algeria", "Andorra",
-  "Angola", "Antigua și Barbuda", "Arabia Saudită", "Argentina", "Armenia", "Australia", "Austria",
-  "Azerbaidjan", "Bahamas", "Bahrain", "Bangladesh", "Barbados", "Belarus", "Belgia", "Belize",
-  "Benin", "Bhutan", "Bolivia", "Bosnia și Herțegovina", "Botswana", "Brazilia", "Brunei",
-  "Bulgaria", "Burkina Faso", "Burundi", "Cambodgia", "Camerun", "Canada", "Capul Verde", "Cehia",
-  "Chile", "China", "Cipru", "Columbia", "Comore", "Congo", "Coreea de Nord", "Coreea de Sud",
-  "Costa Rica", "Coasta de Fildeș", "Croația", "Cuba", "Danemarca", "Djibouti", "Dominica",
-  "Ecuador", "Egipt", "El Salvador", "Elveția", "Emiratele Arabe Unite", "Eritreea", "Estonia",
-  "Eswatini", "Etiopia", "Fiji", "Filipine", "Finlanda", "Franța", "Gabon", "Gambia", "Georgia",
-  "Germania", "Ghana", "Grecia", "Grenada", "Guatemala", "Guineea", "Guineea-Bissau",
-  "Guineea Ecuatorială", "Guyana", "Haiti", "Honduras", "India", "Indonezia", "Irak", "Iran",
-  "Irlanda", "Islanda", "Israel", "Italia", "Jamaica", "Japonia", "Iordania", "Kazahstan", "Kenya",
-  "Kirgizstan", "Kiribati", "Kosovo", "Kuweit", "Laos", "Lesotho", "Letonia", "Liban", "Liberia",
-  "Libia", "Liechtenstein", "Lituania", "Luxemburg", "Macedonia de Nord", "Madagascar", "Malaezia",
-  "Malawi", "Maldive", "Mali", "Malta", "Maroc", "Insulele Marshall", "Mauritania", "Mauritius",
-  "Mexic", "Micronezia", "Monaco", "Mongolia", "Muntenegru", "Mozambic", "Myanmar", "Namibia",
-  "Nauru", "Nepal", "Nicaragua", "Niger", "Nigeria", "Norvegia", "Noua Zeelandă", "Olanda", "Oman",
-  "Pakistan", "Palau", "Palestina", "Panama", "Papua Noua Guinee", "Paraguay", "Peru", "Polonia",
-  "Portugalia", "Qatar", "Regatul Unit", "Republica Centrafricană", "Republica Dominicană",
-  "Republica Democrată Congo", "Ruanda", "Rusia", "Saint Kitts și Nevis", "Saint Lucia",
-  "Saint Vincent și Grenadinele", "Samoa", "San Marino", "São Tomé și Príncipe", "Senegal",
-  "Serbia", "Seychelles", "Sierra Leone", "Singapore", "Siria", "Slovacia", "Slovenia",
-  "Insulele Solomon", "Somalia", "Spania", "Sri Lanka", "Statele Unite ale Americii", "Sudan",
-  "Sudanul de Sud", "Suedia", "Surinam", "Tadjikistan", "Tanzania", "Thailanda", "Timorul de Est",
-  "Togo", "Tonga", "Trinidad și Tobago", "Tunisia", "Turcia", "Turkmenistan", "Tuvalu", "Ucraina",
-  "Uganda", "Ungaria", "Uruguay", "Uzbekistan", "Vanuatu", "Vatican", "Venezuela", "Vietnam",
-  "Yemen", "Zambia", "Zimbabwe",
+  { ro: "România", iso: "RO" }, { ro: "Republica Moldova", iso: "MD" },
+  { ro: "Afganistan", iso: "AF" }, { ro: "Africa de Sud", iso: "ZA" },
+  { ro: "Albania", iso: "AL" }, { ro: "Algeria", iso: "DZ" }, { ro: "Andorra", iso: "AD" },
+  { ro: "Angola", iso: "AO" }, { ro: "Antigua și Barbuda", iso: "AG" },
+  { ro: "Arabia Saudită", iso: "SA" }, { ro: "Argentina", iso: "AR" },
+  { ro: "Armenia", iso: "AM" }, { ro: "Australia", iso: "AU" }, { ro: "Austria", iso: "AT" },
+  { ro: "Azerbaidjan", iso: "AZ" }, { ro: "Bahamas", iso: "BS" }, { ro: "Bahrain", iso: "BH" },
+  { ro: "Bangladesh", iso: "BD" }, { ro: "Barbados", iso: "BB" }, { ro: "Belarus", iso: "BY" },
+  { ro: "Belgia", iso: "BE" }, { ro: "Belize", iso: "BZ" }, { ro: "Benin", iso: "BJ" },
+  { ro: "Bhutan", iso: "BT" }, { ro: "Bolivia", iso: "BO" },
+  { ro: "Bosnia și Herțegovina", iso: "BA" }, { ro: "Botswana", iso: "BW" },
+  { ro: "Brazilia", iso: "BR" }, { ro: "Brunei", iso: "BN" }, { ro: "Bulgaria", iso: "BG" },
+  { ro: "Burkina Faso", iso: "BF" }, { ro: "Burundi", iso: "BI" }, { ro: "Cambodgia", iso: "KH" },
+  { ro: "Camerun", iso: "CM" }, { ro: "Canada", iso: "CA" }, { ro: "Capul Verde", iso: "CV" },
+  { ro: "Cehia", iso: "CZ" }, { ro: "Chile", iso: "CL" }, { ro: "China", iso: "CN" },
+  { ro: "Cipru", iso: "CY" }, { ro: "Columbia", iso: "CO" }, { ro: "Comore", iso: "KM" },
+  { ro: "Congo", iso: "CG" }, { ro: "Coreea de Nord", iso: "KP" },
+  { ro: "Coreea de Sud", iso: "KR" }, { ro: "Costa Rica", iso: "CR" },
+  { ro: "Coasta de Fildeș", iso: "CI" }, { ro: "Croația", iso: "HR" }, { ro: "Cuba", iso: "CU" },
+  { ro: "Danemarca", iso: "DK" }, { ro: "Djibouti", iso: "DJ" }, { ro: "Dominica", iso: "DM" },
+  { ro: "Ecuador", iso: "EC" }, { ro: "Egipt", iso: "EG" }, { ro: "El Salvador", iso: "SV" },
+  { ro: "Elveția", iso: "CH" }, { ro: "Emiratele Arabe Unite", iso: "AE" },
+  { ro: "Eritreea", iso: "ER" }, { ro: "Estonia", iso: "EE" }, { ro: "Eswatini", iso: "SZ" },
+  { ro: "Etiopia", iso: "ET" }, { ro: "Fiji", iso: "FJ" }, { ro: "Filipine", iso: "PH" },
+  { ro: "Finlanda", iso: "FI" }, { ro: "Franța", iso: "FR" }, { ro: "Gabon", iso: "GA" },
+  { ro: "Gambia", iso: "GM" }, { ro: "Georgia", iso: "GE" }, { ro: "Germania", iso: "DE" },
+  { ro: "Ghana", iso: "GH" }, { ro: "Grecia", iso: "GR" }, { ro: "Grenada", iso: "GD" },
+  { ro: "Guatemala", iso: "GT" }, { ro: "Guineea", iso: "GN" },
+  { ro: "Guineea-Bissau", iso: "GW" }, { ro: "Guineea Ecuatorială", iso: "GQ" },
+  { ro: "Guyana", iso: "GY" }, { ro: "Haiti", iso: "HT" }, { ro: "Honduras", iso: "HN" },
+  { ro: "India", iso: "IN" }, { ro: "Indonezia", iso: "ID" }, { ro: "Irak", iso: "IQ" },
+  { ro: "Iran", iso: "IR" }, { ro: "Irlanda", iso: "IE" }, { ro: "Islanda", iso: "IS" },
+  { ro: "Israel", iso: "IL" }, { ro: "Italia", iso: "IT" }, { ro: "Jamaica", iso: "JM" },
+  { ro: "Japonia", iso: "JP" }, { ro: "Iordania", iso: "JO" }, { ro: "Kazahstan", iso: "KZ" },
+  { ro: "Kenya", iso: "KE" }, { ro: "Kirgizstan", iso: "KG" }, { ro: "Kiribati", iso: "KI" },
+  { ro: "Kosovo", iso: "XK" }, { ro: "Kuweit", iso: "KW" }, { ro: "Laos", iso: "LA" },
+  { ro: "Lesotho", iso: "LS" }, { ro: "Letonia", iso: "LV" }, { ro: "Liban", iso: "LB" },
+  { ro: "Liberia", iso: "LR" }, { ro: "Libia", iso: "LY" }, { ro: "Liechtenstein", iso: "LI" },
+  { ro: "Lituania", iso: "LT" }, { ro: "Luxemburg", iso: "LU" },
+  { ro: "Macedonia de Nord", iso: "MK" }, { ro: "Madagascar", iso: "MG" },
+  { ro: "Malaezia", iso: "MY" }, { ro: "Malawi", iso: "MW" }, { ro: "Maldive", iso: "MV" },
+  { ro: "Mali", iso: "ML" }, { ro: "Malta", iso: "MT" }, { ro: "Maroc", iso: "MA" },
+  { ro: "Insulele Marshall", iso: "MH" }, { ro: "Mauritania", iso: "MR" },
+  { ro: "Mauritius", iso: "MU" }, { ro: "Mexic", iso: "MX" }, { ro: "Micronezia", iso: "FM" },
+  { ro: "Monaco", iso: "MC" }, { ro: "Mongolia", iso: "MN" }, { ro: "Muntenegru", iso: "ME" },
+  { ro: "Mozambic", iso: "MZ" }, { ro: "Myanmar", iso: "MM" }, { ro: "Namibia", iso: "NA" },
+  { ro: "Nauru", iso: "NR" }, { ro: "Nepal", iso: "NP" }, { ro: "Nicaragua", iso: "NI" },
+  { ro: "Niger", iso: "NE" }, { ro: "Nigeria", iso: "NG" }, { ro: "Norvegia", iso: "NO" },
+  { ro: "Noua Zeelandă", iso: "NZ" }, { ro: "Olanda", iso: "NL" }, { ro: "Oman", iso: "OM" },
+  { ro: "Pakistan", iso: "PK" }, { ro: "Palau", iso: "PW" }, { ro: "Palestina", iso: "PS" },
+  { ro: "Panama", iso: "PA" }, { ro: "Papua Noua Guinee", iso: "PG" },
+  { ro: "Paraguay", iso: "PY" }, { ro: "Peru", iso: "PE" }, { ro: "Polonia", iso: "PL" },
+  { ro: "Portugalia", iso: "PT" }, { ro: "Qatar", iso: "QA" }, { ro: "Regatul Unit", iso: "GB" },
+  { ro: "Republica Centrafricană", iso: "CF" }, { ro: "Republica Dominicană", iso: "DO" },
+  { ro: "Republica Democrată Congo", iso: "CD" }, { ro: "Ruanda", iso: "RW" },
+  { ro: "Rusia", iso: "RU" }, { ro: "Saint Kitts și Nevis", iso: "KN" },
+  { ro: "Saint Lucia", iso: "LC" }, { ro: "Saint Vincent și Grenadinele", iso: "VC" },
+  { ro: "Samoa", iso: "WS" }, { ro: "San Marino", iso: "SM" },
+  { ro: "São Tomé și Príncipe", iso: "ST" }, { ro: "Senegal", iso: "SN" },
+  { ro: "Serbia", iso: "RS" }, { ro: "Seychelles", iso: "SC" }, { ro: "Sierra Leone", iso: "SL" },
+  { ro: "Singapore", iso: "SG" }, { ro: "Siria", iso: "SY" }, { ro: "Slovacia", iso: "SK" },
+  { ro: "Slovenia", iso: "SI" }, { ro: "Insulele Solomon", iso: "SB" },
+  { ro: "Somalia", iso: "SO" }, { ro: "Spania", iso: "ES" }, { ro: "Sri Lanka", iso: "LK" },
+  { ro: "Statele Unite ale Americii", iso: "US" }, { ro: "Sudan", iso: "SD" },
+  { ro: "Sudanul de Sud", iso: "SS" }, { ro: "Suedia", iso: "SE" }, { ro: "Surinam", iso: "SR" },
+  { ro: "Tadjikistan", iso: "TJ" }, { ro: "Tanzania", iso: "TZ" }, { ro: "Thailanda", iso: "TH" },
+  { ro: "Timorul de Est", iso: "TL" }, { ro: "Togo", iso: "TG" }, { ro: "Tonga", iso: "TO" },
+  { ro: "Trinidad și Tobago", iso: "TT" }, { ro: "Tunisia", iso: "TN" },
+  { ro: "Turcia", iso: "TR" }, { ro: "Turkmenistan", iso: "TM" }, { ro: "Tuvalu", iso: "TV" },
+  { ro: "Ucraina", iso: "UA" }, { ro: "Uganda", iso: "UG" }, { ro: "Ungaria", iso: "HU" },
+  { ro: "Uruguay", iso: "UY" }, { ro: "Uzbekistan", iso: "UZ" }, { ro: "Vanuatu", iso: "VU" },
+  { ro: "Vatican", iso: "VA" }, { ro: "Venezuela", iso: "VE" }, { ro: "Vietnam", iso: "VN" },
+  { ro: "Yemen", iso: "YE" }, { ro: "Zambia", iso: "ZM" }, { ro: "Zimbabwe", iso: "ZW" },
 ];
+
+/* Numele afișat pentru o intrare din TARI, în limba curentă a site-ului.
+   Valoarea trimisă la server (state-ul `tara`/`firma.judet` etc.) rămâne
+   mereu `intrare.ro` — doar eticheta din <option> se schimbă. Pe o limbă
+   fără resurse de regiune (rar, dar posibil într-un motor JS mai vechi),
+   Intl.DisplayNames poate arunca sau întoarce chiar codul ISO — în ambele
+   cazuri cădem pe numele românesc, mai bine decât un cod gol pe ecran. */
+const cacheDisplayNames = new Map();
+export function numeTara(intrare, limba) {
+  if (!intrare) return "";
+  if (limba === "ro") return intrare.ro;
+  try {
+    let dn = cacheDisplayNames.get(limba);
+    if (!dn) {
+      dn = new Intl.DisplayNames([limba], { type: "region" });
+      cacheDisplayNames.set(limba, dn);
+    }
+    const nume = dn.of(intrare.iso);
+    return nume && nume !== intrare.iso ? nume : intrare.ro;
+  } catch {
+    return intrare.ro;
+  }
+}

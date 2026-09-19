@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/brand/favicon-32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/brand/favicon-16.png" />
+    <link rel="apple-touch-icon" href="/brand/apple-touch-icon.png" />
+    <title>Vertragswiderruf · Unterkunft La Livada</title>
+    <meta name="description" content="Online-Formular, mit dem Sie Ihr Widerrufsrecht für eine auf rezervari.lalivada.ro getätigte Buchung ausüben, gemäß Art. 11¹ der Verordnung OUG 34/2014." />
+    <link rel="canonical" href="https://rezervari.lalivada.ro/retragere/de/" />
+    <meta name="robots" content="index, follow" />
+    <meta property="og:type" content="website" />
+    <meta property="og:locale" content="de_DE" />
+    <meta property="og:site_name" content="Complex La Livada" />
+    <meta property="og:title" content="Vertragswiderruf · Unterkunft La Livada" />
+    <meta property="og:url" content="https://rezervari.lalivada.ro/retragere/de/" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter+Tight:wght@300&family=Manrope:wght@400;500&display=swap" />
+    <link rel="stylesheet" href="/brand.css" />
+  </head>
+  <body>
+    <!-- @antet film=false -->
+
+    <main>
+      <!-- Calea online de retragere cerută de art. 11^1 din OUG 34/2014.
+           Formularul pleacă spre funcția edge `retragere` (vezi retragere.js
+           de alături), care scrie cererea în bază și trimite emailurile.
+           Câmpul „website” e capcana pentru roboți: ascuns din CSS, un om
+           nu-l vede; dacă vine plin, funcția răspunde OK fără să facă nimic. -->
+      <section class="ldv-legal">
+        <div class="wrap">
+          <div class="ldv-legal-in">
+            <p class="label">Vertragswiderruf</p>
+            <h1>Der Widerrufsantrag.</h1>
+            <p class="lede">
+              Sie geben Ihren Namen, Ihre E-Mail-Adresse und die Buchungsnummer ein, klicken
+              auf „Anfrage senden" und erhalten sofort eine Kopie. Wir bestätigen Ihnen die
+              Stornierung per E-Mail.
+            </p>
+
+            <p>
+              Das Formular ist der Online-Weg, auf dem Sie Ihr Widerrufsrecht ausüben können,
+              gemäß Art. 11¹ der Verordnung OUG 34/2014. Eine für ein bestimmtes Datum gebuchte
+              Unterkunft ist gesetzlich vom 14-tägigen Widerrufsrecht ausgenommen (Art. 16
+              Buchst. l), dennoch bieten wir Ihnen ohnehin die in den
+              <a href="/anulare/de/">Stornierungsbedingungen</a> beschriebene Stornierung an:
+              Bei einer Stornierung wird die erste Übernachtung vollständig berechnet, der Rest
+              wird erstattet.
+            </p>
+
+            <form class="ldv-cerere" id="cerere" novalidate>
+              <div class="ldv-cerere-2">
+                <label>
+                  <span>Vor- und Nachname</span>
+                  <input name="nume" autocomplete="name" maxlength="120" required />
+                  <small class="ldv-cerere-eroare" data-eroare="nume"></small>
+                </label>
+                <label>
+                  <span>E-Mail</span>
+                  <input name="email" type="email" autocomplete="email" maxlength="200" required />
+                  <small class="ldv-cerere-eroare" data-eroare="email"></small>
+                </label>
+              </div>
+              <div class="ldv-cerere-2">
+                <label>
+                  <span>Buchungsnummer (aus der E-Mail)</span>
+                  <input name="rezervare" maxlength="40" autocomplete="off" />
+                  <small class="ldv-cerere-eroare" data-eroare="rezervare"></small>
+                </label>
+                <label>
+                  <span>Anreisedatum</span>
+                  <input name="sosire" type="date" />
+                  <small class="ldv-cerere-eroare" data-eroare="sosire"></small>
+                </label>
+              </div>
+              <label>
+                <span>Nachricht</span>
+                <textarea name="mesaj" maxlength="2000" required></textarea>
+                <small class="ldv-cerere-eroare" data-eroare="mesaj"></small>
+              </label>
+              <label class="ldv-cerere-hp" aria-hidden="true">
+                <span>Dieses Feld leer lassen</span>
+                <input name="website" tabindex="-1" autocomplete="off" />
+              </label>
+              <p class="ldv-cerere-stare" id="cerere-stare" role="status" aria-live="polite"></p>
+              <button class="ldv-btn" type="submit" id="cerere-trimite">Anfrage senden</button>
+            </form>
+
+            <h2>Weitere Wege</h2>
+            <ul class="ldv-fapte">
+              <li>
+                aus der <b>Bestätigungs-E-Mail</b>, Schaltfläche „Reservierung stornieren" —
+                der schnellste Weg, die Stornierung erfolgt sofort;
+              </li>
+              <li>
+                per E-Mail, an <a href="mailto:office@lalivada.com">office@lalivada.com</a>,
+                mit Angabe der Buchungsnummer;
+              </li>
+              <li>telefonisch, unter <a href="tel:+40722899899">+40 722 899 899</a>.</li>
+            </ul>
+
+            <h2>Was wir mit der Anfrage tun</h2>
+            <p>
+              Wir erfassen sie in unserem Buchungssystem und senden sie per E-Mail an die
+              Rezeption sowie in Kopie an Sie. Wir antworten innerhalb von höchstens 14 Tagen,
+              in der Regel noch am selben Tag. Die Daten aus dem Formular verwenden wir nur,
+              um die Anfrage zu bearbeiten; wie wir sie aufbewahren, steht auf der Seite
+              <a href="/confidentialitate/de/">Datenschutz</a>.
+            </p>
+            <p>
+              Die Anfrage wird gesendet an S.C. OVISER S.R.L., USt-IdNr. RO33918057,
+              J2014000396379, DN24, Nr. 743, Muntenii de Jos, Kreis Vaslui — den Anbieter der
+              Beherbergungsleistungen.
+            </p>
+
+            <p class="ldv-legal-meta">Letzte Aktualisierung: 16. September 2026.</p>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- @subsol -->
+    <script type="module" src="/menu.js"></script>
+    <script type="module" src="/retragere/retragere.js"></script>
+  </body>
+</html>

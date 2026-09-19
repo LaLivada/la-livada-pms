@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/brand/favicon-32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/brand/favicon-16.png" />
+    <link rel="apple-touch-icon" href="/brand/apple-touch-icon.png" />
+    <title>Rétractation du contrat · Hébergement La Livada</title>
+    <meta name="description" content="Formulaire en ligne pour exercer votre droit de rétractation pour une réservation faite sur rezervari.lalivada.ro, conformément à l'art. 11¹ de l'OUG 34/2014." />
+    <link rel="canonical" href="https://rezervari.lalivada.ro/retragere/fr/" />
+    <meta name="robots" content="index, follow" />
+    <meta property="og:type" content="website" />
+    <meta property="og:locale" content="fr_FR" />
+    <meta property="og:site_name" content="Complex La Livada" />
+    <meta property="og:title" content="Rétractation du contrat · Hébergement La Livada" />
+    <meta property="og:url" content="https://rezervari.lalivada.ro/retragere/fr/" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter+Tight:wght@300&family=Manrope:wght@400;500&display=swap" />
+    <link rel="stylesheet" href="/brand.css" />
+  </head>
+  <body>
+    <!-- @antet film=false -->
+
+    <main>
+      <!-- Calea online de retragere cerută de art. 11^1 din OUG 34/2014.
+           Formularul pleacă spre funcția edge `retragere` (vezi retragere.js
+           de alături), care scrie cererea în bază și trimite emailurile.
+           Câmpul „website” e capcana pentru roboți: ascuns din CSS, un om
+           nu-l vede; dacă vine plin, funcția răspunde OK fără să facă nimic. -->
+      <section class="ldv-legal">
+        <div class="wrap">
+          <div class="ldv-legal-in">
+            <p class="label">Rétractation du contrat</p>
+            <h1>La demande de rétractation.</h1>
+            <p class="lede">
+              Vous renseignez votre nom, votre email et le numéro de réservation, vous appuyez sur
+              « Envoyer » et vous recevez aussitôt une copie. Nous vous confirmons l'annulation par
+              email.
+            </p>
+
+            <p>
+              Ce formulaire est le moyen en ligne d'exercer votre droit de rétractation,
+              conformément à l'art. 11¹ de l'OUG 34/2014. L'hébergement réservé pour une date précise
+              est exclu par la loi du droit de rétractation de 14 jours (art. 16 lit. l), mais nous
+              vous offrons malgré tout l'annulation décrite dans la
+              <a href="/anulare/fr/">politique d'annulation</a> : à l'annulation, la première nuit
+              d'hébergement est intégralement retenue, le reste est remboursé.
+            </p>
+
+            <form class="ldv-cerere" id="cerere" novalidate>
+              <div class="ldv-cerere-2">
+                <label>
+                  <span>Nom et prénom</span>
+                  <input name="nume" autocomplete="name" maxlength="120" required />
+                  <small class="ldv-cerere-eroare" data-eroare="nume"></small>
+                </label>
+                <label>
+                  <span>Email</span>
+                  <input name="email" type="email" autocomplete="email" maxlength="200" required />
+                  <small class="ldv-cerere-eroare" data-eroare="email"></small>
+                </label>
+              </div>
+              <div class="ldv-cerere-2">
+                <label>
+                  <span>Numéro de réservation (dans l'email)</span>
+                  <input name="rezervare" maxlength="40" autocomplete="off" />
+                  <small class="ldv-cerere-eroare" data-eroare="rezervare"></small>
+                </label>
+                <label>
+                  <span>Date d'arrivée</span>
+                  <input name="sosire" type="date" />
+                  <small class="ldv-cerere-eroare" data-eroare="sosire"></small>
+                </label>
+              </div>
+              <label>
+                <span>Message</span>
+                <textarea name="mesaj" maxlength="2000" required></textarea>
+                <small class="ldv-cerere-eroare" data-eroare="mesaj"></small>
+              </label>
+              <label class="ldv-cerere-hp" aria-hidden="true">
+                <span>Laissez ce champ vide</span>
+                <input name="website" tabindex="-1" autocomplete="off" />
+              </label>
+              <p class="ldv-cerere-stare" id="cerere-stare" role="status" aria-live="polite"></p>
+              <button class="ldv-btn" type="submit" id="cerere-trimite">Envoyer la demande</button>
+            </form>
+
+            <h2>Autres moyens</h2>
+            <ul class="ldv-fapte">
+              <li>
+                depuis l'<b>email de confirmation</b>, le bouton « Annuler la réservation » — le moyen
+                le plus rapide, l'annulation se fait immédiatement ;
+              </li>
+              <li>
+                par email, à <a href="mailto:office@lalivada.com">office@lalivada.com</a>, avec le
+                numéro de réservation ;
+              </li>
+              <li>par téléphone, au <a href="tel:+40722899899">+40 722 899 899</a>.</li>
+            </ul>
+
+            <h2>Ce que nous faisons de la demande</h2>
+            <p>
+              Nous l'enregistrons dans notre système de réservation et l'envoyons par email à la
+              réception et, en copie, à vous. Nous répondons sous 14 jours maximum, généralement le
+              jour même. Les données du formulaire ne sont utilisées que pour traiter la demande ;
+              la façon dont nous les conservons est décrite sur la page
+              <a href="/confidentialitate/fr/">Confidentialité</a>.
+            </p>
+            <p>
+              La demande est envoyée à S.C. OVISER S.R.L., CUI RO33918057, J2014000396379, DN24,
+              n° 743, Muntenii de Jos, département de Vaslui — le prestataire des services
+              d'hébergement.
+            </p>
+
+            <p class="ldv-legal-meta">Dernière mise à jour : 16 septembre 2026.</p>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- @subsol -->
+    <script type="module" src="/menu.js"></script>
+    <script type="module" src="/retragere/retragere.js"></script>
+  </body>
+</html>

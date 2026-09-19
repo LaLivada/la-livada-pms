@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/brand/favicon-32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/brand/favicon-16.png" />
+    <link rel="apple-touch-icon" href="/brand/apple-touch-icon.png" />
+    <title>Конфиденциальность · Проживание La Livada</title>
+    <meta name="description" content="Какие данные запрашивает форма бронирования на rezervari.lalivada.ro, куда они попадают, кто их видит, как долго хранятся и какие права у вас есть согласно GDPR." />
+    <link rel="canonical" href="https://rezervari.lalivada.ro/confidentialitate/ru/" />
+    <meta name="robots" content="index, follow" />
+    <meta property="og:type" content="website" />
+    <meta property="og:locale" content="ru_RU" />
+    <meta property="og:site_name" content="Complex La Livada" />
+    <meta property="og:title" content="Конфиденциальность · Проживание La Livada" />
+    <meta property="og:url" content="https://rezervari.lalivada.ro/confidentialitate/ru/" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter+Tight:wght@300&family=Manrope:wght@400;500&display=swap" />
+    <link rel="stylesheet" href="/brand.css" />
+  </head>
+  <body>
+    <!-- @antet film=false -->
+
+    <main>
+      <!-- Pornită de la pagina de confidențialitate a lalivada.ro și rescrisă
+           pentru ce face site-ul ăsta: aici nu e un formular care pleacă pe
+           email, ci o rezervare care intră într-un sistem. Fiecare afirmație
+           se poate confrunta cu codul — câmpurile cu src/booking/App.jsx,
+           drumul datelor cu src/booking/api.js și funcțiile edge, lipsa
+           măsurării traficului cu booking/index.html (niciun script de
+           analiză). Regiunea bazei e cea a proiectului Supabase
+           (eu-central-1, Frankfurt). -->
+      <section class="ldv-legal">
+        <div class="wrap">
+          <div class="ldv-legal-in">
+            <p class="label">Конфиденциальность</p>
+            <h1>Что происходит с вашими данными.</h1>
+            <p class="lede">
+              Коротко: данные из бронирования попадают в нашу систему бронирования,
+              размещённую в Европейском союзе, их видит только ресепшен, мы никому их не
+              продаём, а измерение трафика на этом сайте отсутствует вовсе.
+            </p>
+
+            <h2>Кто мы</h2>
+            <p>
+              Сайт rezervari.lalivada.ro и Комплекс La Livada управляются компанией
+              <b>S.C. OVISER S.R.L.</b>, CUI RO33918057, J2014000396379, с юридическим
+              адресом DN24, nr. 743, Muntenii de Jos, уезд Васлуй. Мы являемся оператором
+              ваших данных по смыслу Регламента (ЕС) 2016/679 (GDPR).
+            </p>
+            <p>
+              По любым вопросам о ваших данных пишите на
+              <a href="mailto:office@lalivada.com">office@lalivada.com</a> или звоните
+              <a href="tel:+40722899899">+40 722 899 899</a>.
+            </p>
+
+            <h2>Что собирает форма бронирования</h2>
+            <p>Ровно столько, сколько нужно, чтобы удержать для вас номер и иметь возможность с вами связаться:</p>
+            <ul class="ldv-fapte">
+              <li>имя и фамилия</li>
+              <li>номер телефона</li>
+              <li>адрес электронной почты</li>
+              <li>населённый пункт, уезд и страна</li>
+              <li>даты заезда и выезда, количество человек и выбранный номер</li>
+            </ul>
+            <p>
+              Мы используем их, чтобы зарегистрировать бронирование, позвонить вам для
+              подтверждения, отправить письмо с подтверждением, встретить вас при заезде
+              и выставить счёт. Основанием служит договор проживания, который вы заключаете
+              с нами, и наши законные обязательства (учёт туристов, бухгалтерский учёт).
+              Мы не используем их для рекламы, не продаём и не передаём их никому, кроме
+              перечисленных ниже.
+            </p>
+
+            <h2>Куда они попадают</h2>
+            <p>
+              В нашу систему бронирования — базу данных, размещённую компанией Supabase
+              в Европейском союзе (Франкфурт). Её видят ресепшен и администрация комплекса,
+              каждый под своей учётной записью. Данные не проходят ни через какой внешний
+              сервис форм.
+            </p>
+            <p>Чтобы бронирование работало, часть данных для нас обрабатывают несколько сервисов:</p>
+            <ul class="ldv-fapte">
+              <li>
+                <b>Resend</b> отправляет письмо с подтверждением, с вашим именем, данными
+                о пребывании и вашим адресом электронной почты.
+              </li>
+              <li>
+                <b>NETOPIA Payments</b>, когда вы оплачиваете онлайн картой: данные карты вы
+                вводите на их защищённой странице, и они не попадают к нам; мы получаем
+                только подтверждение оплаты. Их обработка описана в политике NETOPIA.
+              </li>
+              <li>
+                <b>Oblio</b>, программа для выставления счетов, получает имя и платёжные
+                данные, когда мы выставляем вам счёт.
+              </li>
+              <li>
+                <b>Vercel</b> размещает страницы сайта и видит, как любой сервер, IP-адрес,
+                с которого вы их открываете, в своих технических журналах.
+              </li>
+            </ul>
+            <p>
+              Если вы отправляете <a href="/retragere/ru/">форму отказа от договора</a>,
+              заявка записывается в ту же систему и отправляется по email на ресепшен,
+              а копия — вам.
+            </p>
+
+            <h2>Как долго мы их храним</h2>
+            <p>
+              Данные бронирования — столько, сколько закон обязывает нас хранить связанные
+              с ним бухгалтерские и налоговые документы: счета и соответствующую отчётность —
+              десять лет с окончания года, в котором они были выданы. Заявки на отказ от
+              договора и сообщения без бронирования — три года с момента получения. После
+              этого они удаляются.
+            </p>
+            <p>
+              Вы можете попросить удалить их раньше в любой момент, написав на
+              <a href="mailto:office@lalivada.com">office@lalivada.com</a>; мы делаем это
+              для всего, что не обязаны хранить по закону.
+            </p>
+
+            <h2>Измерение трафика</h2>
+            <p>
+              Его не существует. На rezervari.lalivada.ro не работают Google Analytics, Meta
+              Pixel или другой сервис измерения, не записывается ни один cookie-файл и ничего
+              не отправляется в Google или Meta. Подробности — на странице
+              <a href="/cookies/ru/">Cookies</a>.
+            </p>
+
+            <h2>Какие у вас права</h2>
+            <p>
+              Согласно GDPR вы можете попросить нас сообщить, какие данные о вас у нас есть
+              (доступ), исправить их, удалить, ограничить их обработку или предоставить их
+              вам в формате, который можно забрать с собой (переносимость), а также
+              возразить против обработки. Пишите на
+              <a href="mailto:office@lalivada.com">office@lalivada.com</a>, и мы ответим
+              не позднее чем через месяц.
+            </p>
+            <p>
+              Если вас не устроит наш ответ, вы можете обратиться в Национальный надзорный
+              орган по обработке персональных данных (ANSPDCP),
+              <a href="https://www.dataprotection.ro/" target="_blank" rel="noopener noreferrer">dataprotection.ro</a>.
+            </p>
+
+            <h2>Безопасность данных</h2>
+            <p>
+              Соединение с сайтом и с системой бронирования зашифровано (HTTPS). База данных
+              недоступна из интернета иначе как через функции, выполняющие бронирование,
+              каждая со своими проверками; учётные записи ресепшена защищены собственными
+              паролями. Данные карты никогда не проходят через нас.
+            </p>
+
+            <p class="ldv-legal-meta">Последнее обновление: 16 сентября 2026 г.</p>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- @subsol -->
+    <script type="module" src="/menu.js"></script>
+  </body>
+</html>

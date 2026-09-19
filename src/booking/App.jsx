@@ -33,28 +33,27 @@ import {
 } from "./api.js";
 import { STILURI } from "./styles.js";
 import { Schelet, useIncet, STIL_SCHELET } from "../ui/schelet.jsx";
-import { JUDETE, TARI, PREFIXE_TELEFON, PREFIX_IMPLICIT, telefonInternational } from "./nomenclatoare.js";
+import { JUDETE, TARI, PREFIXE_TELEFON, PREFIX_IMPLICIT, telefonInternational, numeTara } from "./nomenclatoare.js";
 import { Turnstile } from "./Turnstile.jsx";
 import { fotoPentru } from "./foto.js";
 import { CalendarPerioada } from "./Calendar.jsx";
 import { azi, peste, adunaZile, noptiIntre } from "./zile.js";
 import { validateCUIFormat } from "../lib/validation.js";
+import { LimbaProvider, useLimba } from "./i18n/context.jsx";
 
-/* Aceleași denumiri ca în PMS (vezi ROOM_TYPES din pms-app.jsx), ca
-   recepția și clientul să vorbească despre același lucru. */
-const ETICHETE_TIP = {
-  tiny: "Tiny house",
-  loft: "Loft",
-  /* Serverul intoarce "mixt" cand grupul nu incape intr-un singur tip si
-     foloseste camere din amandoua — cazul grupurilor mari. */
-  mixt: "Camere mixte",
-};
-const numeTip = (t) => ETICHETE_TIP[t] || t;
+/* "Tiny house" și "Loft" rămân neschimbate în orice limbă — sunt nume de
+   marcă, nu descrieri. Doar "Camere mixte" (grupul care nu încape într-un
+   singur tip) e text descriptiv și trece prin `t()`. */
+const numeTip = (tip, t) => (
+  tip === "tiny" ? "Tiny house"
+    : tip === "loft" ? "Loft"
+    : tip === "mixt" ? t("tipCamera.mixt")
+    : tip
+);
 
-
-const fmtData = (iso) =>
-  new Date(iso).toLocaleDateString("ro-RO", { day: "numeric", month: "long", year: "numeric" });
-const fmtBani = (n) => new Intl.NumberFormat("ro-RO", { maximumFractionDigits: 0 }).format(n) + " lei";
+const fmtData = (iso, limba) =>
+  new Date(iso).toLocaleDateString(limba, { day: "numeric", month: "long", year: "numeric" });
+const fmtBani = (n, limba) => new Intl.NumberFormat(limba, { maximumFractionDigits: 0 }).format(n) + " lei";
 
 /* Reîncercarea plății după un card refuzat.
  *
@@ -103,12 +102,12 @@ function uitaPlataCard() {
  * `key` pe tip: la trecerea de la un tip la altul React ar fi refolosit
  * aceleași <img>, iar fâșia ar fi rămas derulată unde o lăsaseși, arătând
  * a treia poză a casei noi. Cu cheia schimbată, lista se reface de la capăt. */
-function GalerieTip({ tip, eticheta }) {
+function GalerieTip({ tip, eticheta, etichetaFotografii }) {
   const poze = fotoPentru(tip);
   if (!poze.length) return null;
   return (
     <div className="ldv-foto" key={tip}>
-      <ul className="ldv-foto-sir" aria-label={`Fotografii — ${eticheta}`}>
+      <ul className="ldv-foto-sir" aria-label={`${etichetaFotografii} — ${eticheta}`}>
         {poze.map((p) => (
           <li key={p.nume}>
             <img
@@ -123,15 +122,14 @@ function GalerieTip({ tip, eticheta }) {
   );
 }
 
-const minuteRamase = (iso) => {
-  if (!iso) return "un timp scurt";
+/* Cât mai ține camera, spus în cuvinte, în limba curentă a site-ului.
+   `plural()` alege forma corectă a substantivului „minut" pentru limba
+   curentă (regulile reale de plural, nu doar singular/plural). */
+const minuteRamase = (iso, t, plural) => {
+  if (!iso) return t("countdown.putin");
   const m = Math.round((new Date(iso) - Date.now()) / 60000);
-  if (m <= 1) return "încă un minut";
-  /* „30 de minute", dar „5 minute": în română, numeralele al căror rest
-     la 100 e între 1 și 19 se leagă direct de substantiv, restul cer
-     „de". Fără regula asta ar fi ieșit „încă 5 de minute". */
-  const rest = m % 100;
-  return `încă ${m}${rest >= 1 && rest <= 19 ? "" : " de"} minute`;
+  if (m <= 1) return t("countdown.unMinut");
+  return t("countdown.inca", { m, cuvant: plural(m, "cuvinte.minut") });
 };
 
 /* Datele din formular sunt zile calendaristice; le trimitem cu orele de
@@ -139,7 +137,19 @@ const minuteRamase = (iso) => {
 const laSosire = (zi) => new Date(`${zi}T14:00:00`).toISOString();
 const laPlecare = (zi) => new Date(`${zi}T11:00:00`).toISOString();
 
-export default function App({ valoriInitiale }) {
+/* Contextul de limbă stă în afara motorului propriu-zis: `App` rămâne
+   componenta publică (vezi antetul fișierului), iar `<LimbaProvider>` se
+   pune o singură dată, deasupra ei — nu la fiecare re-randare. */
+export default function App(props) {
+  return (
+    <LimbaProvider>
+      <MotorRezervari {...props} />
+    </LimbaProvider>
+  );
+}
+
+function MotorRezervari({ valoriInitiale }) {
+  const { limba, t, plural } = useLimba();
   const params = new URLSearchParams(window.location.search);
 
   /* Ordinea surselor: ce primește componenta prin props, apoi ce vine din
@@ -232,7 +242,7 @@ export default function App({ valoriInitiale }) {
         return citesteRezervare(token);
       })
       .then((d) => {
-        if (!d) { setEroare("Rezervarea nu a fost găsită."); setStare("cautare"); return; }
+        if (!d) { setEroare(t("eroare.rezervareaNuAFostGasita")); setStare("cautare"); return; }
         if (d.status !== "pending") uitaPlataCard();
         setConfirmare({ ...d, publicToken: token });
         setCereAnulare(params.get("anulare") === "1" && d.canCancel);
@@ -505,7 +515,7 @@ export default function App({ valoriInitiale }) {
         /* Nu e o defecțiune — între căutare și confirmare s-a ocupat
            camera. Îl ducem înapoi la rezultate, cu disponibilitatea
            reîmprospătată. */
-        setEroare("Între timp camera s-a ocupat. Am actualizat disponibilitatea — alege din nou sau schimbă datele.");
+        setEroare(t("eroare.camaraOcupata"));
         await cauta();
         setStare("rezultate");
         return;
@@ -525,7 +535,7 @@ export default function App({ valoriInitiale }) {
     setEroare("");
     const cerere = iaPlataCard(confirmare?.publicToken);
     if (!cerere) {
-      setEroare("Nu mai putem relua plata din această pagină (ai deschis-o din alt tab sau de pe alt dispozitiv). Sună-ne și o rezolvăm pe loc.");
+      setEroare(t("eroare.reluarePlataImposibila"));
       return;
     }
     setReiaPlata(true);
@@ -577,8 +587,8 @@ export default function App({ valoriInitiale }) {
 
       {stare !== "incarca-confirmare" && (
         <div className="ldv-pasi" aria-hidden="true">
-          {[["cautare", "Perioada"], ["rezultate", "Camerele"],
-            ["date", "Datele tale"], ["confirmat", "Gata"]].map(([cheiePas, eticheta]) => (
+          {[["cautare", t("pasi.perioada")], ["rezultate", t("pasi.camerele")],
+            ["date", t("pasi.datele")], ["confirmat", t("pasi.gata")]].map(([cheiePas, eticheta]) => (
             <span key={cheiePas}
               className={pasCurent === cheiePas ? "ldv-pas-activ" : undefined}>
               {eticheta}
@@ -593,18 +603,18 @@ export default function App({ valoriInitiale }) {
 
       {stare === "incarca-confirmare" && (
         <div className="ldv-card">
-          <Schelet randuri={2} eticheta="Se încarcă rezervarea…" incet={incet} />
+          <Schelet randuri={2} eticheta={t("schelet.incarcaRezervare")} incet={incet} />
         </div>
       )}
 
       {/* ---------------- CĂUTARE ---------------- */}
       {(stare === "cautare" || stare === "caut" || stare === "rezultate") && (
         <div className="ldv-card">
-          <h2>Verifică disponibilitatea</h2>
+          <h2>{t("cautare.titlu")}</h2>
           <p className="ldv-sub">
             {nopti > 0
-              ? `${nopti} ${nopti === 1 ? "noapte" : "nopți"} · sosire de la ora 14, plecare până la 11`
-              : "Alege perioada sejurului"}
+              ? t("cautare.subtitluPerioada", { nopti, cuvantNopti: plural(nopti, "cuvinte.noapte") })
+              : t("cautare.subtitluGol")}
           </p>
           <div className="ldv-randuri">
             {/* Un singur calendar pentru amândouă datele. `maxNopti` e limita
@@ -620,7 +630,7 @@ export default function App({ valoriInitiale }) {
                 {/* Rămâne, deși nopțile se aleg acum din calendar: e drumul
                     scurt pentru „de vineri, trei nopți", fără a mai căuta
                     ziua plecării pe grilă. */}
-                <span>Nopți</span>
+                <span>{t("cautare.nopti")}</span>
                 {/* Fără sosire aleasă n-ar avea de unde socoti plecarea, iar
                     `adunaZile("")` ar arunca. Rămâne stins până există un
                     punct de plecare pentru calcul. */}
@@ -631,7 +641,7 @@ export default function App({ valoriInitiale }) {
                 </select>
               </label>
               <label className="ldv-camp">
-                <span>Adulți</span>
+                <span>{t("cautare.adulti")}</span>
                 <select value={cautare.adulti}
                   onChange={(e) => schimbaAdulti(Number(e.target.value))}>
                   {Array.from({ length: maxPers }, (_, i) => i + 1)
@@ -639,7 +649,7 @@ export default function App({ valoriInitiale }) {
                 </select>
               </label>
               <label className="ldv-camp">
-                <span>Copii</span>
+                <span>{t("cautare.copii")}</span>
                 <select value={cautare.copii}
                   onChange={(e) => setCautare((c) => ({ ...c, copii: Number(e.target.value) }))}>
                   {Array.from({ length: maxCopii + 1 }, (_, i) => i)
@@ -651,7 +661,7 @@ export default function App({ valoriInitiale }) {
           <div className="ldv-actiuni">
             <button className="ldv-btn ldv-btn-principal ldv-creste"
               onClick={cauta} disabled={stare === "caut" || nopti < 1}>
-              {stare === "caut" ? "Verific disponibilitatea…" : "Caută camere"}
+              {stare === "caut" ? t("cautare.verificand") : t("cautare.cautaCamere")}
             </button>
           </div>
         </div>
@@ -662,25 +672,32 @@ export default function App({ valoriInitiale }) {
           rândurile gri devin camere. */}
       {stare === "caut" && (
         <div className="ldv-card" ref={cardRezultate}>
-          <h2>Camere disponibile</h2>
-          <Schelet randuri={3} eticheta="Verific disponibilitatea…" incet={incet} />
+          <h2>{t("rezultate.titlu")}</h2>
+          <Schelet randuri={3} eticheta={t("schelet.verificaDisponibilitate")} incet={incet} />
         </div>
       )}
 
       {/* ---------------- REZULTATE ---------------- */}
       {stare === "rezultate" && rezultate && (
         <div className="ldv-card" ref={cardRezultate}>
-          <h2>Camere disponibile</h2>
+          <h2>{t("rezultate.titlu")}</h2>
           <p className="ldv-sub">
-            {fmtData(cautare.checkin)} → {fmtData(cautare.checkout)} ·{" "}
-            {cautare.adulti} {cautare.adulti === 1 ? "adult" : "adulți"}
-            {cautare.copii > 0 && ` · ${cautare.copii} ${cautare.copii === 1 ? "copil" : "copii"}`}
+            {cautare.copii > 0
+              ? t("rezultate.subtitluCuCopii", {
+                  sosire: fmtData(cautare.checkin, limba), plecare: fmtData(cautare.checkout, limba),
+                  adulti: cautare.adulti, cuvantAdulti: plural(cautare.adulti, "cuvinte.adult"),
+                  copii: cautare.copii, cuvantCopii: plural(cautare.copii, "cuvinte.copil"),
+                })
+              : t("rezultate.subtitlu", {
+                  sosire: fmtData(cautare.checkin, limba), plecare: fmtData(cautare.checkout, limba),
+                  adulti: cautare.adulti, cuvantAdulti: plural(cautare.adulti, "cuvinte.adult"),
+                })}
           </p>
 
           {!rezultate.options?.length ? (
             <div className="ldv-gol">
-              <p><strong>{rezultate.error || "Nicio cameră liberă în perioada aleasă."}</strong></p>
-              <p className="ldv-mic">Încearcă alte date sau sună-ne — poate găsim o soluție.</p>
+              <p><strong>{rezultate.error || t("rezultate.nimicLiber")}</strong></p>
+              <p className="ldv-mic">{t("rezultate.nimicLiberSfat")}</p>
             </div>
           ) : (
             <>
@@ -694,42 +711,45 @@ export default function App({ valoriInitiale }) {
                     aria-pressed={ales}
                     onClick={() => setOptiuneAleasa(o.roomType)}>
                     <div className="ldv-tip-info">
-                      <h3>{numeTip(o.roomType)}</h3>
+                      <h3>{numeTip(o.roomType, t)}</h3>
                       <div className="ldv-mic">
-                        {o.roomsNeeded} {o.roomsNeeded === 1 ? "cameră" : "camere"}
+                        {o.roomsNeeded} {plural(o.roomsNeeded, "cuvinte.camera")}
                         {o.roomType === "mixt" && " · " + Object.entries(
                           o.rooms.reduce((a, r) => ({ ...a, [r.roomType]: (a[r.roomType] || 0) + 1 }), {}))
-                          .map(([t, n]) => `${n} × ${numeTip(t)}`).join(" + ")}
-                        {o.roomsNeeded > 1 && " · " + o.rooms
-                          .map((r) => r.adults + r.children)
-                          .join("+") + " persoane"}
+                          .map(([tipCam, n]) => `${n} × ${numeTip(tipCam, t)}`).join(" + ")}
+                        {o.roomsNeeded > 1 && " · " + t("rezultate.persoane", {
+                          n: o.rooms.map((r) => r.adults + r.children).join("+"),
+                          cuvantPersoane: plural(
+                            o.rooms.reduce((s, r) => s + r.adults + r.children, 0), "cuvinte.persoana"),
+                        })}
                       </div>
                     </div>
                     <div className="ldv-pret">
-                      {fmtBani(o.total)}
-                      <small>{nopti} {nopti === 1 ? "noapte" : "nopți"}, total</small>
+                      {fmtBani(o.total, limba)}
+                      <small>{t("rezultate.totalPerioada", { n: nopti, cuvantNopti: plural(nopti, "cuvinte.noapte") })}</small>
                     </div>
                   </button>
                 );
               })}
 
               {optiune && (
-                <GalerieTip tip={optiune.roomType} eticheta={numeTip(optiune.roomType)} />
+                <GalerieTip tip={optiune.roomType} eticheta={numeTip(optiune.roomType, t)}
+                  etichetaFotografii={t("rezultate.fotografii")} />
               )}
 
               {optiune && (
                 <div className="ldv-sumar ldv-sumar-optiune">
                   {optiune.rooms.map((r, i) => (
                     <div className="ldv-sumar-linie" key={i}>
-                      <span>{numeTip(r.roomType)} {optiune.roomsNeeded > 1 && `#${i + 1}`}</span>
+                      <span>{numeTip(r.roomType, t)} {optiune.roomsNeeded > 1 && `#${i + 1}`}</span>
                       <span>
-                        {r.adults} {r.adults === 1 ? "adult" : "adulți"}
-                        {r.children > 0 && ` · ${r.children} ${r.children === 1 ? "copil" : "copii"}`}
+                        {r.adults} {plural(r.adults, "cuvinte.adult")}
+                        {r.children > 0 && ` · ${r.children} ${plural(r.children, "cuvinte.copil")}`}
                       </span>
                     </div>
                   ))}
                   <div className="ldv-sumar-linie ldv-sumar-total">
-                    <span>Total estimat</span><span>{fmtBani(totalEstimat)}</span>
+                    <span>{t("rezultate.totalEstimat")}</span><span>{fmtBani(totalEstimat, limba)}</span>
                   </div>
                 </div>
               )}
@@ -738,7 +758,7 @@ export default function App({ valoriInitiale }) {
                 <button className="ldv-btn ldv-btn-principal ldv-creste"
                   onClick={() => { setEroare(""); setStare("date"); }}
                   disabled={!optiune}>
-                  {!optiune ? "Alege o variantă" : "Continuă"}
+                  {!optiune ? t("rezultate.alegeVarianta") : t("rezultate.continua")}
                 </button>
               </div>
             </>
@@ -749,33 +769,33 @@ export default function App({ valoriInitiale }) {
       {/* ---------------- DATELE CLIENTULUI ---------------- */}
       {(stare === "date" || stare === "trimitere") && (
         <div className="ldv-card">
-          <h2>Datele tale</h2>
-          <p className="ldv-sub">Îți trimitem confirmarea și te contactăm doar pentru rezervare.</p>
+          <h2>{t("date.titlu")}</h2>
+          <p className="ldv-sub">{t("date.subtitlu")}</p>
 
           <div className="ldv-sumar">
             <div className="ldv-sumar-linie">
-              <span>Perioada</span>
-              <span>{fmtData(cautare.checkin)} → {fmtData(cautare.checkout)}</span>
+              <span>{t("date.perioada")}</span>
+              <span>{fmtData(cautare.checkin, limba)} → {fmtData(cautare.checkout, limba)}</span>
             </div>
             <div className="ldv-sumar-linie">
-              <span>{numeTip(optiune?.roomType)} × {totalCamere}</span>
-              <span>{cautare.adulti} {cautare.adulti === 1 ? "adult" : "adulți"}
-                {cautare.copii > 0 && ` · ${cautare.copii} ${cautare.copii === 1 ? "copil" : "copii"}`}</span>
+              <span>{numeTip(optiune?.roomType, t)} × {totalCamere}</span>
+              <span>{cautare.adulti} {plural(cautare.adulti, "cuvinte.adult")}
+                {cautare.copii > 0 && ` · ${cautare.copii} ${plural(cautare.copii, "cuvinte.copil")}`}</span>
             </div>
             <div className="ldv-sumar-linie ldv-sumar-total">
-              <span>Total estimat</span><span>{fmtBani(totalEstimat)}</span>
+              <span>{t("rezultate.totalEstimat")}</span><span>{fmtBani(totalEstimat, limba)}</span>
             </div>
           </div>
 
           <div className="ldv-randuri">
             <div className="ldv-rand-2">
               <label className="ldv-camp">
-                <span>Nume</span>
+                <span>{t("date.nume")}</span>
                 <input value={oaspete.nume} autoComplete="family-name" maxLength={100}
                   onChange={(e) => setOaspete((o) => ({ ...o, nume: e.target.value }))} />
               </label>
               <label className="ldv-camp">
-                <span>Prenume</span>
+                <span>{t("date.prenume")}</span>
                 <input value={oaspete.prenume} autoComplete="given-name" maxLength={100}
                   onChange={(e) => setOaspete((o) => ({ ...o, prenume: e.target.value }))} />
               </label>
@@ -785,9 +805,9 @@ export default function App({ valoriInitiale }) {
                   controale nu spune caruia dintre ele ii apartine, deci
                   fiecare isi poarta propriul aria-label. */}
               <div className="ldv-camp">
-                <span>Telefon</span>
+                <span>{t("date.telefon")}</span>
                 <div className={`ldv-tel${prefixCunoscut ? "" : " ldv-tel-3"}`}>
-                  <select className="ldv-tel-prefix" aria-label="Prefix internațional"
+                  <select className="ldv-tel-prefix" aria-label={t("date.prefixInternational")}
                     autoComplete="tel-country-code"
                     value={prefixCunoscut ? oaspete.prefix : "alt"}
                     onChange={(e) => setOaspete((o) => ({
@@ -805,46 +825,47 @@ export default function App({ valoriInitiale }) {
                     {PREFIXE_TELEFON.map((p) => (
                       <option key={p.tara} value={p.cod}>{p.cod}</option>
                     ))}
-                    <option value="alt">Alt prefix…</option>
+                    <option value="alt">{t("date.altPrefix")}</option>
                   </select>
                   {!prefixCunoscut && (
                     <input className="ldv-tel-alt" value={oaspete.prefix} inputMode="tel"
-                      maxLength={5} aria-label="Prefixul țării" placeholder="+___"
+                      maxLength={5} aria-label={t("date.prefixulTarii")} placeholder="+___"
                       onChange={(e) => setOaspete((o) => ({ ...o, prefix: e.target.value }))} />
                   )}
                   <input type="tel" className="ldv-tel-numar" value={oaspete.telefon}
                     autoComplete="tel-national" inputMode="tel" maxLength={20}
-                    aria-label="Numărul de telefon" placeholder="722 123 456"
+                    aria-label={t("date.numarulDeTelefon")} placeholder="722 123 456"
                     onChange={(e) => setOaspete((o) => ({ ...o, telefon: e.target.value }))} />
                 </div>
               </div>
               <label className="ldv-camp">
-                <span>Email</span>
+                <span>{t("date.email")}</span>
                 <input type="email" value={oaspete.email} autoComplete="email" maxLength={200}
-                  placeholder="pentru confirmare rezervare"
+                  placeholder={t("date.emailPlaceholder")}
                   onChange={(e) => setOaspete((o) => ({ ...o, email: e.target.value }))} />
               </label>
             </div>
             <div className="ldv-rand-3">
               <label className="ldv-camp">
-                <span>Localitate</span>
+                <span>{t("date.localitate")}</span>
                 <input value={oaspete.oras} autoComplete="address-level2" maxLength={100}
                   onChange={(e) => setOaspete((o) => ({ ...o, oras: e.target.value }))} />
               </label>
               <label className="ldv-camp">
-                <span>Județ</span>
+                <span>{t("date.judet")}</span>
                 <select value={oaspete.judet}
                   onChange={(e) => setOaspete((o) => ({ ...o, judet: e.target.value }))}>
                   {/* Fără județ preselectat: „Cluj" era doar primul din listă
                       alfabetic, iar cine nu se uita la câmp trimitea rezervarea
                       cu un județ care n-avea legătură cu el. Mai bine gol și
-                      obligatoriu decât plin și greșit. */}
+                      obligatoriu decât plin și greșit. Numele județelor rămân
+                      românești în orice limbă — sunt nume proprii, netraduse. */}
                   <option value="">————————</option>
                   {JUDETE.map((j) => <option key={j} value={j}>{j}</option>)}
                 </select>
               </label>
               <label className="ldv-camp">
-                <span>Țara</span>
+                <span>{t("date.tara")}</span>
                 <select value={oaspete.tara}
                   onChange={(e) => setOaspete((o) => ({
                     ...o,
@@ -855,7 +876,9 @@ export default function App({ valoriInitiale }) {
                        datele greșite pe care regula le evită. */
                     judet: e.target.value === "România" ? o.judet : "",
                   }))}>
-                  {TARI.map((t) => <option key={t} value={t}>{t}</option>)}
+                  {TARI.map((intrare) => (
+                    <option key={intrare.ro} value={intrare.ro}>{numeTara(intrare, limba)}</option>
+                  ))}
                 </select>
               </label>
             </div>
@@ -863,52 +886,51 @@ export default function App({ valoriInitiale }) {
                 cerințele speciale, care rămân opționale. Pusă la capătul de
                 jos ar fi spus ceva neadevărat despre ele. */}
             <p className="ldv-mic ldv-obligatorii">
-              Toate câmpurile de mai sus sunt obligatorii
-              {judetNecesar ? "." : ", în afară de județ."}
+              {judetNecesar ? t("date.obligatoriiCuJudet") : t("date.obligatoriiFaraJudet")}
             </p>
             <label className="ldv-camp">
-              <span>Cerințe speciale</span>
-              <textarea value={cerinte} maxLength={2000} placeholder="ex. sosire după ora 22, pat suplimentar"
+              <span>{t("date.cerinteSpeciale")}</span>
+              <textarea value={cerinte} maxLength={2000} placeholder={t("date.cerinteSpecialePlaceholder")}
                 onChange={(e) => setCerinte(e.target.value)} />
             </label>
 
             <label className="ldv-bifa-firma">
               <input type="checkbox" checked={facturaFirma}
                 onChange={(e) => setFacturaFirma(e.target.checked)} />
-              Facturare pe societate
+              {t("firma.bifa")}
             </label>
             {facturaFirma && (
               <div className="ldv-firma-campuri">
                 <label className="ldv-camp">
-                  <span>Denumire firmă</span>
+                  <span>{t("firma.denumire")}</span>
                   <input value={firma.denumire} maxLength={200}
                     onChange={(e) => setFirma((f) => ({ ...f, denumire: e.target.value }))} />
                 </label>
                 <div className="ldv-rand-2">
                   <label className="ldv-camp">
-                    <span>CUI</span>
-                    <input value={firma.cui} maxLength={13} placeholder="ex. RO12345678"
+                    <span>{t("firma.cui")}</span>
+                    <input value={firma.cui} maxLength={13} placeholder={t("firma.cuiPlaceholder")}
                       onChange={(e) => setFirma((f) => ({ ...f, cui: e.target.value }))} />
                   </label>
                   <label className="ldv-camp">
-                    <span>Nr. Reg. Com. (opțional)</span>
-                    <input value={firma.regCom} maxLength={50} placeholder="ex. J1/23/2020"
+                    <span>{t("firma.regCom")}</span>
+                    <input value={firma.regCom} maxLength={50} placeholder={t("firma.regComPlaceholder")}
                       onChange={(e) => setFirma((f) => ({ ...f, regCom: e.target.value }))} />
                   </label>
                 </div>
                 <label className="ldv-camp">
-                  <span>Adresă sediu</span>
+                  <span>{t("firma.adresa")}</span>
                   <input value={firma.adresa} maxLength={300}
                     onChange={(e) => setFirma((f) => ({ ...f, adresa: e.target.value }))} />
                 </label>
                 <div className="ldv-rand-2">
                   <label className="ldv-camp">
-                    <span>Oraș</span>
+                    <span>{t("firma.oras")}</span>
                     <input value={firma.oras} maxLength={100}
                       onChange={(e) => setFirma((f) => ({ ...f, oras: e.target.value }))} />
                   </label>
                   <label className="ldv-camp">
-                    <span>Județ</span>
+                    <span>{t("firma.judet")}</span>
                     <select value={firma.judet}
                       onChange={(e) => setFirma((f) => ({ ...f, judet: e.target.value }))}>
                       <option value="">————————</option>
@@ -921,7 +943,7 @@ export default function App({ valoriInitiale }) {
           </div>
 
           {/* Nu apare decât dacă e configurată cheia Cloudflare. */}
-          <Turnstile onJeton={setJeton} />
+          <Turnstile onJeton={setJeton} limba={limba} />
 
           <div className="ldv-metode-plata">
             <label className="ldv-metoda-card">
@@ -938,9 +960,9 @@ export default function App({ valoriInitiale }) {
                   if (dateValide) trimite("card");
                 }} />
               <span>
-                <span className="ldv-metoda-card-titlu">Plătește cu cardul</span>
+                <span className="ldv-metoda-card-titlu">{t("plata.card")}</span>
                 <p className="ldv-mic ldv-metoda-card-desc">
-                  Sigur, prin NETOPIA. Te trimite direct la plată.
+                  {t("plata.cardDescriere")}
                 </p>
               </span>
             </label>
@@ -949,24 +971,24 @@ export default function App({ valoriInitiale }) {
                 <input type="radio" name="metodaPlata" value="cash"
                   checked={metodaPlata === "cash"} disabled={stare === "trimitere"}
                   onChange={() => setMetodaPlata("cash")} />
-                cash la sosire
+                {t("plata.cash")}
               </label>
               <label>
                 <input type="radio" name="metodaPlata" value="transfer" disabled={stare === "trimitere"}
                   checked={metodaPlata === "transfer"}
                   onChange={() => setMetodaPlata("transfer")} />
-                transfer bancar
+                {t("plata.transfer")}
               </label>
             </div>
           </div>
           <div className="ldv-actiuni">
             <button className="ldv-btn ldv-btn-principal ldv-creste"
               onClick={() => trimite()} disabled={!dateValide || stare === "trimitere"}>
-              {stare === "trimitere" ? "Se trimite…" : "Trimite rezervarea"}
+              {stare === "trimitere" ? t("date.seTrimite") : t("date.trimite")}
             </button>
             <button className="ldv-btn ldv-btn-simplu"
               onClick={() => { setEroare(""); setStare("rezultate"); }}
-              disabled={stare === "trimitere"}>Înapoi</button>
+              disabled={stare === "trimitere"}>{t("date.inapoi")}</button>
           </div>
         </div>
       )}
@@ -975,38 +997,36 @@ export default function App({ valoriInitiale }) {
       {stare === "confirmat" && confirmare && (
         <div className="ldv-card">
           <div className="ldv-confirmare">
-            <h2>{confirmare.status === "cancelled" ? "Rezervarea a fost anulată"
-              : confirmare.status === "pending" ? "Mai e un pas"
-              : confirmare.status === "expired" ? "Rezervarea nu a mai fost confirmată"
-              : "Rezervarea e înregistrată"}</h2>
+            <h2>{confirmare.status === "cancelled" ? t("confirmare.titluAnulata")
+              : confirmare.status === "pending" ? t("confirmare.titluMaiEUnPas")
+              : confirmare.status === "expired" ? t("confirmare.titluExpirata")
+              : t("confirmare.titluInregistrata")}</h2>
             <div className="ldv-numar-confirmare">{confirmare.confirmationNumber}</div>
-            <p className="ldv-mic">Notează numărul — îl folosim când ne suni.</p>
+            <p className="ldv-mic">{t("confirmare.noteazaNumarul")}</p>
           </div>
 
           <div className="ldv-sumar ldv-sumar-rezervare">
             {confirmare.guestName && (
-              <div className="ldv-sumar-linie"><span>Pe numele</span><span>{confirmare.guestName}</span></div>
+              <div className="ldv-sumar-linie"><span>{t("confirmare.peNumele")}</span><span>{confirmare.guestName}</span></div>
             )}
             <div className="ldv-sumar-linie">
-              <span>Perioada</span>
-              <span>{fmtData(confirmare.checkIn)} → {fmtData(confirmare.checkOut)}</span>
+              <span>{t("confirmare.perioada")}</span>
+              <span>{fmtData(confirmare.checkIn, limba)} → {fmtData(confirmare.checkOut, limba)}</span>
             </div>
             <div className="ldv-sumar-linie">
-              <span>Camere</span><span>{confirmare.rooms}</span>
+              <span>{t("confirmare.camere")}</span><span>{confirmare.rooms}</span>
             </div>
             <div className="ldv-sumar-linie ldv-sumar-total">
-              <span>Total</span><span>{fmtBani(confirmare.total)}</span>
+              <span>{t("confirmare.total")}</span><span>{fmtBani(confirmare.total, limba)}</span>
             </div>
           </div>
 
           {confirmare.status === "cancelled" ? (
             <div className="ldv-alerta ldv-alerta-info ldv-alerta-confirmare">
-              Camerele au fost eliberate. Dacă a fost o greșeală, sună-ne —
-              putem verifica dacă mai sunt disponibile.
+              {t("confirmare.anulataMesaj")}
               {confirmare.refundSuggerat > 0 && (
                 <p className="ldv-alerta-detalii">
-                  Vei primi înapoi {fmtBani(confirmare.refundSuggerat)} pe
-                  cardul folosit — se face manual, în câteva zile lucrătoare.
+                  {t("confirmare.anulataRambursare", { suma: fmtBani(confirmare.refundSuggerat, limba) })}
                 </p>
               )}
             </div>
@@ -1018,43 +1038,34 @@ export default function App({ valoriInitiale }) {
                deci reîncercarea plătește ACEEAȘI rezervare — vezi
                reiaPlataCard. */
             <div className="ldv-alerta ldv-alerta-eroare ldv-alerta-confirmare">
-              <strong>Plata cu cardul nu a trecut.</strong>
+              <strong>{t("confirmare.cardEsuatTitlu")}</strong>
               <p className="ldv-alerta-detalii">
-                Banca nu a autorizat plata — nu s-a reținut nimic. Ținem
-                camerele {minuteRamase(confirmare.holdExpiresAt)}, deci poți
-                încerca din nou, cu același card sau cu altul.
+                {t("confirmare.cardEsuatDetalii", { minute: minuteRamase(confirmare.holdExpiresAt, t, plural) })}
               </p>
               <div className="ldv-actiuni">
                 <button className="ldv-btn ldv-btn-principal"
                   onClick={reiaPlataCard} disabled={reiaPlata}>
-                  {reiaPlata ? "Se pregătește plata…" : "Încearcă plata din nou"}
+                  {reiaPlata ? t("confirmare.sePregatestePlata") : t("confirmare.incearcaPlataDinNou")}
                 </button>
               </div>
             </div>
           ) : confirmare.status === "pending" && confirmare.metodaPlata === "card" ? (
             <div className="ldv-alerta ldv-alerta-info ldv-alerta-confirmare">
-              <strong>Verificăm plata cu NETOPIA.</strong>
+              <strong>{t("confirmare.verificamPlataTitlu")}</strong>
               <p className="ldv-alerta-detalii">
-                Dacă ai fost adus înapoi de pe pagina de plată, confirmarea
-                poate dura câteva secunde. Reîmprospătează pagina dacă nu se
-                actualizează singură.
+                {t("confirmare.verificamPlataDetalii")}
               </p>
             </div>
           ) : confirmare.status === "pending" ? (
             <div className="ldv-alerta ldv-alerta-info ldv-alerta-confirmare">
-              <strong>Ți-am trimis un email la {oaspete.email || "adresa dată"}.</strong>
+              <strong>{t("confirmare.emailTrimisTitlu", { email: oaspete.email || t("confirmare.adresaData") })}</strong>
               <p className="ldv-alerta-detalii">
-                Apasă butonul din mesaj ca rezervarea să devină fermă. Ținem
-                camerele {minuteRamase(confirmare.holdExpiresAt)}; dacă nu
-                confirmi, se eliberează singure și poți relua căutarea
-                oricând. Verifică și în Spam.
+                {t("confirmare.emailTrimisDetalii", { minute: minuteRamase(confirmare.holdExpiresAt, t, plural) })}
               </p>
             </div>
           ) : confirmare.status === "expired" ? (
             <div className="ldv-alerta ldv-alerta-info ldv-alerta-confirmare">
-              Confirmarea a venit prea târziu și camerele s-au eliberat.
-              Nu s-a reținut nimic — caută din nou perioada dorită sau
-              sună-ne și îți facem rezervarea pe loc.
+              {t("confirmare.expirataMesaj")}
             </div>
           ) : confirmare.metodaPlata === "card" ? (
             /* Singura ramură care ajunge la status "confirmed" cu cardul —
@@ -1062,14 +1073,14 @@ export default function App({ valoriInitiale }) {
                jos, scrisă pentru cash/transfer, și spunea unui oaspete care
                tocmai a plătit că "plata se face la sosire". */
             <div className="ldv-alerta ldv-alerta-info ldv-alerta-confirmare">
-              <strong>Am primit plata — rezervarea e confirmată.</strong>
+              <strong>{t("confirmare.cardConfirmatTitlu")}</strong>
               <p className="ldv-alerta-detalii">
-                Ți-am trimis și un email de confirmare. Te așteptăm!
+                {t("confirmare.cardConfirmatDetalii")}
               </p>
             </div>
           ) : (
             <div className="ldv-alerta ldv-alerta-info ldv-alerta-confirmare">
-              Te contactăm telefonic pentru confirmare. Plata se face la sosire.
+              {t("confirmare.implicitMesaj")}
             </div>
           )}
 
@@ -1077,21 +1088,22 @@ export default function App({ valoriInitiale }) {
               nu direct la anulare — vezi comentariul de la `cereAnulare`. */}
           {cereAnulare && confirmare.status !== "cancelled" && (
             <div className="ldv-alerta ldv-alerta-eroare ldv-alerta-confirmare">
-              <strong>Sigur anulezi rezervarea?</strong>
+              <strong>{t("confirmare.sigurAnulezi")}</strong>
               <p className="ldv-alerta-detalii">
-                Camerele se eliberează imediat și s-ar putea să nu mai fie
-                disponibile dacă te răzgândești. Conform{" "}
-                <a href="/anulare/" target="_blank" rel="noopener noreferrer">politicii de anulare</a>,
-                contravaloarea primei nopți de cazare se încasează integral.
+                {t("confirmare.anulareDetaliiInainte")}
+                <a href={limba === "ro" ? "/anulare/" : `/anulare/${limba}/`} target="_blank" rel="noopener noreferrer">
+                  {t("confirmare.politiciiDeAnulare")}
+                </a>
+                {t("confirmare.anulareDetaliiDupa")}
               </p>
               <div className="ldv-actiuni">
                 <button className="ldv-btn ldv-btn-simplu"
                   onClick={() => setCereAnulare(false)} disabled={anuleazaAcum}>
-                  Nu, păstrez rezervarea
+                  {t("confirmare.pastrezRezervarea")}
                 </button>
                 <button className="ldv-btn ldv-btn-principal"
                   onClick={confirmaAnularea} disabled={anuleazaAcum}>
-                  {anuleazaAcum ? "Se anulează…" : "Da, anulează"}
+                  {anuleazaAcum ? t("confirmare.seAnuleaza") : t("confirmare.daAnuleaza")}
                 </button>
               </div>
             </div>
@@ -1101,16 +1113,16 @@ export default function App({ valoriInitiale }) {
             <div className="ldv-actiuni">
               <button className="ldv-btn ldv-btn-simplu"
                 onClick={() => setCereAnulare(true)}>
-                Anulează rezervarea
+                {t("confirmare.anuleazaRezervarea")}
               </button>
             </div>
           )}
 
           {confirmare.publicToken && confirmare.status === "confirmed" && (
             <p className="ldv-mic">
-              Poți revedea sau anula rezervarea oricând la{" "}
-              <a href={`?token=${confirmare.publicToken}`}>acest link</a> — păstrează-l.
-              Ți l-am trimis și pe email.
+              {t("confirmare.linkRevedereInainte")}
+              <a href={`?token=${confirmare.publicToken}`}>{t("confirmare.acestLink")}</a>
+              {t("confirmare.linkRevedereDupa")}
             </p>
           )}
         </div>

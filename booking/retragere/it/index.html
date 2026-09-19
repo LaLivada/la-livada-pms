@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="it">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/brand/favicon-32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/brand/favicon-16.png" />
+    <link rel="apple-touch-icon" href="/brand/apple-touch-icon.png" />
+    <title>Recesso dal contratto · Cazare La Livada</title>
+    <meta name="description" content="Modulo online con cui esercitare il diritto di recesso per una prenotazione fatta su rezervari.lalivada.ro, ai sensi dell'art. 11¹ dell'OUG 34/2014." />
+    <link rel="canonical" href="https://rezervari.lalivada.ro/retragere/it/" />
+    <meta name="robots" content="index, follow" />
+    <meta property="og:type" content="website" />
+    <meta property="og:locale" content="it_IT" />
+    <meta property="og:site_name" content="Complex La Livada" />
+    <meta property="og:title" content="Recesso dal contratto · Cazare La Livada" />
+    <meta property="og:url" content="https://rezervari.lalivada.ro/retragere/it/" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter+Tight:wght@300&family=Manrope:wght@400;500&display=swap" />
+    <link rel="stylesheet" href="/brand.css" />
+  </head>
+  <body>
+    <!-- @antet film=false -->
+
+    <main>
+      <!-- Calea online de retragere cerută de art. 11^1 din OUG 34/2014.
+           Formularul pleacă spre funcția edge `retragere` (vezi retragere.js
+           de alături), care scrie cererea în bază și trimite emailurile.
+           Câmpul „website” e capcana pentru roboți: ascuns din CSS, un om
+           nu-l vede; dacă vine plin, funcția răspunde OK fără să facă nimic. -->
+      <section class="ldv-legal">
+        <div class="wrap">
+          <div class="ldv-legal-in">
+            <p class="label">Recesso dal contratto</p>
+            <h1>La richiesta di recesso.</h1>
+            <p class="lede">
+              Compili il nome, l'email e il numero della prenotazione, premi "Invia" e ricevi
+              subito una copia. Ti confermiamo la cancellazione via email.
+            </p>
+
+            <p>
+              Il modulo è la modalità online con cui puoi esercitare il diritto di recesso, ai
+              sensi dell'art. 11¹ dell'OUG 34/2014. Il soggiorno prenotato per una data specifica
+              è escluso per legge dal recesso di 14 giorni (art. 16 lett. l), ma noi ti offriamo
+              comunque la cancellazione descritta nella
+              <a href="/anulare/it/">politica di cancellazione</a>: alla cancellazione viene
+              addebitata per intero la prima notte di soggiorno, il resto viene rimborsato.
+            </p>
+
+            <form class="ldv-cerere" id="cerere" novalidate>
+              <div class="ldv-cerere-2">
+                <label>
+                  <span>Nome e cognome</span>
+                  <input name="nume" autocomplete="name" maxlength="120" required />
+                  <small class="ldv-cerere-eroare" data-eroare="nume"></small>
+                </label>
+                <label>
+                  <span>Email</span>
+                  <input name="email" type="email" autocomplete="email" maxlength="200" required />
+                  <small class="ldv-cerere-eroare" data-eroare="email"></small>
+                </label>
+              </div>
+              <div class="ldv-cerere-2">
+                <label>
+                  <span>Numero della prenotazione (dall'email)</span>
+                  <input name="rezervare" maxlength="40" autocomplete="off" />
+                  <small class="ldv-cerere-eroare" data-eroare="rezervare"></small>
+                </label>
+                <label>
+                  <span>Data di arrivo</span>
+                  <input name="sosire" type="date" />
+                  <small class="ldv-cerere-eroare" data-eroare="sosire"></small>
+                </label>
+              </div>
+              <label>
+                <span>Messaggio</span>
+                <textarea name="mesaj" maxlength="2000" required></textarea>
+                <small class="ldv-cerere-eroare" data-eroare="mesaj"></small>
+              </label>
+              <label class="ldv-cerere-hp" aria-hidden="true">
+                <span>Lascia questo campo vuoto</span>
+                <input name="website" tabindex="-1" autocomplete="off" />
+              </label>
+              <p class="ldv-cerere-stare" id="cerere-stare" role="status" aria-live="polite"></p>
+              <button class="ldv-btn" type="submit" id="cerere-trimite">Invia la richiesta</button>
+            </form>
+
+            <h2>Altre modalità</h2>
+            <ul class="ldv-fapte">
+              <li>
+                dall'<b>email di conferma</b>, il pulsante "Cancella la prenotazione" — il modo
+                più rapido, la cancellazione avviene immediatamente;
+              </li>
+              <li>
+                via email, a <a href="mailto:office@lalivada.com">office@lalivada.com</a>,
+                indicando il numero della prenotazione;
+              </li>
+              <li>per telefono, al <a href="tel:+40722899899">+40 722 899 899</a>.</li>
+            </ul>
+
+            <h2>Cosa facciamo con la richiesta</h2>
+            <p>
+              La registriamo nel nostro sistema di prenotazioni e la inviamo via email alla
+              reception e, in copia, a te. Rispondiamo entro un massimo di 14 giorni, di solito
+              nella stessa giornata. I dati del modulo li usiamo solo per gestire la richiesta;
+              come li conserviamo è scritto nella pagina
+              <a href="/confidentialitate/it/">Privacy</a>.
+            </p>
+            <p>
+              La richiesta viene inviata a S.C. OVISER S.R.L., CUI RO33918057, J2014000396379,
+              DN24, nr. 743, Muntenii de Jos, la contea di Vaslui — il fornitore dei servizi di
+              soggiorno.
+            </p>
+
+            <p class="ldv-legal-meta">Ultimo aggiornamento: 16 settembre 2026.</p>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- @subsol -->
+    <script type="module" src="/menu.js"></script>
+    <script type="module" src="/retragere/retragere.js"></script>
+  </body>
+</html>

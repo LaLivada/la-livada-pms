@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="uk">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/brand/favicon-32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/brand/favicon-16.png" />
+    <link rel="apple-touch-icon" href="/brand/apple-touch-icon.png" />
+    <title>Відкликання договору · Проживання La Livada</title>
+    <meta name="description" content="Онлайн-форма, за допомогою якої ви реалізуєте своє право на відкликання щодо бронювання, зробленого на rezervari.lalivada.ro, відповідно до art. 11¹ din OUG 34/2014." />
+    <link rel="canonical" href="https://rezervari.lalivada.ro/retragere/uk/" />
+    <meta name="robots" content="index, follow" />
+    <meta property="og:type" content="website" />
+    <meta property="og:locale" content="uk_UA" />
+    <meta property="og:site_name" content="Complex La Livada" />
+    <meta property="og:title" content="Відкликання договору · Проживання La Livada" />
+    <meta property="og:url" content="https://rezervari.lalivada.ro/retragere/uk/" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter+Tight:wght@300&family=Manrope:wght@400;500&display=swap" />
+    <link rel="stylesheet" href="/brand.css" />
+  </head>
+  <body>
+    <!-- @antet film=false -->
+
+    <main>
+      <!-- Calea online de retragere cerută de art. 11^1 din OUG 34/2014.
+           Formularul pleacă spre funcția edge `retragere` (vezi retragere.js
+           de alături), care scrie cererea în bază și trimite emailurile.
+           Câmpul „website” e capcana pentru roboți: ascuns din CSS, un om
+           nu-l vede; dacă vine plin, funcția răspunde OK fără să facă nimic. -->
+      <section class="ldv-legal">
+        <div class="wrap">
+          <div class="ldv-legal-in">
+            <p class="label">Відкликання договору</p>
+            <h1>Запит на відкликання.</h1>
+            <p class="lede">
+              Заповніть ім'я, email і номер бронювання, натисніть «Надіслати» і одразу
+              отримаєте копію. Ми підтвердимо скасування на email.
+            </p>
+
+            <p>
+              Ця форма — онлайн-спосіб реалізувати ваше право на відкликання, відповідно до
+              art. 11¹ din OUG 34/2014. Проживання, заброньоване на конкретну дату, законом
+              виключене з 14-денного права на відкликання (art. 16 lit. l), але ми все одно
+              пропонуємо скасування, описане в <a href="/anulare/uk/">політиці скасування</a>:
+              при скасуванні утримується повна вартість першої ночі проживання, решта
+              повертається.
+            </p>
+
+            <form class="ldv-cerere" id="cerere" novalidate>
+              <div class="ldv-cerere-2">
+                <label>
+                  <span>Ім'я та прізвище</span>
+                  <input name="nume" autocomplete="name" maxlength="120" required />
+                  <small class="ldv-cerere-eroare" data-eroare="nume"></small>
+                </label>
+                <label>
+                  <span>Email</span>
+                  <input name="email" type="email" autocomplete="email" maxlength="200" required />
+                  <small class="ldv-cerere-eroare" data-eroare="email"></small>
+                </label>
+              </div>
+              <div class="ldv-cerere-2">
+                <label>
+                  <span>Номер бронювання (з листа)</span>
+                  <input name="rezervare" maxlength="40" autocomplete="off" />
+                  <small class="ldv-cerere-eroare" data-eroare="rezervare"></small>
+                </label>
+                <label>
+                  <span>Дата заїзду</span>
+                  <input name="sosire" type="date" />
+                  <small class="ldv-cerere-eroare" data-eroare="sosire"></small>
+                </label>
+              </div>
+              <label>
+                <span>Повідомлення</span>
+                <textarea name="mesaj" maxlength="2000" required></textarea>
+                <small class="ldv-cerere-eroare" data-eroare="mesaj"></small>
+              </label>
+              <label class="ldv-cerere-hp" aria-hidden="true">
+                <span>Залиште це поле порожнім</span>
+                <input name="website" tabindex="-1" autocomplete="off" />
+              </label>
+              <p class="ldv-cerere-stare" id="cerere-stare" role="status" aria-live="polite"></p>
+              <button class="ldv-btn" type="submit" id="cerere-trimite">Надіслати запит</button>
+            </form>
+
+            <h2>Інші способи</h2>
+            <ul class="ldv-fapte">
+              <li>
+                з <b>листа підтвердження</b>, кнопка «Скасувати бронювання» — найшвидший
+                спосіб, скасування відбувається одразу;
+              </li>
+              <li>
+                на email, <a href="mailto:office@lalivada.com">office@lalivada.com</a>,
+                із номером бронювання;
+              </li>
+              <li>телефоном, за номером <a href="tel:+40722899899">+40 722 899 899</a>.</li>
+            </ul>
+
+            <h2>Що ми робимо із запитом</h2>
+            <p>
+              Ми реєструємо його в нашій системі бронювання і надсилаємо на email рецепції
+              та, у копії, вам. Відповідаємо протягом щонайбільше 14 днів, зазвичай того
+              самого дня. Дані з форми ми використовуємо лише для опрацювання запиту; як ми
+              їх зберігаємо — написано на сторінці <a href="/confidentialitate/uk/">Конфіденційність</a>.
+            </p>
+            <p>
+              Запит надсилає S.C. OVISER S.R.L., CUI RO33918057, J2014000396379, DN24,
+              № 743, Muntenii de Jos, повіт Vaslui — постачальник послуг проживання.
+            </p>
+
+            <p class="ldv-legal-meta">Останнє оновлення: 16 вересня 2026 р.</p>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- @subsol -->
+    <script type="module" src="/menu.js"></script>
+    <script type="module" src="/retragere/retragere.js"></script>
+  </body>
+</html>

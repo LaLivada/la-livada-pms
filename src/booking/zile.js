@@ -63,20 +63,41 @@ export function adunaLuni(zi, n) {
   return `${anNou}-${String(lunaNoua).padStart(2, "0")}-01`;
 }
 
-const FMT_LUNA = new Intl.DateTimeFormat("ro-RO", { month: "long", year: "numeric" });
-export const numeLuna = (zi) => FMT_LUNA.format(new Date(`${zi}T12:00:00Z`));
+/* Formatoarele Intl se construiesc o dată per limbă, nu la fiecare apel —
+   calendarul cheamă `numeLuna`/`numeZiLunga` de zeci de ori la o randare. */
+const cacheFmtLuna = new Map();
+export const numeLuna = (zi, limba = "ro") => {
+  let f = cacheFmtLuna.get(limba);
+  if (!f) {
+    f = new Intl.DateTimeFormat(limba, { month: "long", year: "numeric" });
+    cacheFmtLuna.set(limba, f);
+  }
+  return f.format(new Date(`${zi}T12:00:00Z`));
+};
 
-const FMT_ZI_LUNGA = new Intl.DateTimeFormat("ro-RO",
-  { weekday: "long", day: "numeric", month: "long" });
-export const numeZiLunga = (zi) => FMT_ZI_LUNGA.format(new Date(`${zi}T12:00:00Z`));
+const cacheFmtZiLunga = new Map();
+export const numeZiLunga = (zi, limba = "ro") => {
+  let f = cacheFmtZiLunga.get(limba);
+  if (!f) {
+    f = new Intl.DateTimeFormat(limba, { weekday: "long", day: "numeric", month: "long" });
+    cacheFmtZiLunga.set(limba, f);
+  }
+  return f.format(new Date(`${zi}T12:00:00Z`));
+};
 
 /* Inițialele zilelor, luni-duminică. Luate din Intl, nu scrise de mână:
    „duminică" e ultima în calendarul românesc, dar prima în `getUTCDay`. */
-export const CAPETE_ZILE = Array.from({ length: 7 }, (_, i) => {
-  // 5 ianuarie 2026 e o luni; adunăm i zile ca să acoperim săptămâna.
-  const d = new Date(Date.UTC(2026, 0, 5 + i, 12));
-  return new Intl.DateTimeFormat("ro-RO", { weekday: "narrow" }).format(d);
-});
+const cacheCapeteZile = new Map();
+export function capeteZile(limba = "ro") {
+  let c = cacheCapeteZile.get(limba);
+  if (!c) {
+    const fmt = new Intl.DateTimeFormat(limba, { weekday: "narrow" });
+    // 5 ianuarie 2026 e o luni; adunăm i zile ca să acoperim săptămâna.
+    c = Array.from({ length: 7 }, (_, i) => fmt.format(new Date(Date.UTC(2026, 0, 5 + i, 12))));
+    cacheCapeteZile.set(limba, c);
+  }
+  return c;
+}
 
 /* Zilele unei luni, aranjate pe săptămâni care încep luni.
    Întoarce doar câte rânduri sunt necesare — o a șasea săptămână goală ar

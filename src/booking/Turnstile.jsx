@@ -38,7 +38,7 @@ function incarcaScript() {
   return incarcare;
 }
 
-export function Turnstile({ onJeton }) {
+export function Turnstile({ onJeton, limba = "ro" }) {
   const gazda = useRef(null);
   const idWidget = useRef(null);
   /* Callback-ul stă într-un ref: altfel ar fi în lista de dependențe, iar
@@ -56,7 +56,7 @@ export function Turnstile({ onJeton }) {
         if (anulat || !gazda.current || idWidget.current !== null) return;
         idWidget.current = window.turnstile.render(gazda.current, {
           sitekey: CHEIE_SITE,
-          language: "ro",
+          language: limba,
           callback: (j) => trimiteJeton.current(j),
           // Jetonul e valabil câteva minute. Dacă expiră cât timp omul
           // completează formularul, îl aruncăm și widgetul îl reface.
@@ -73,7 +73,8 @@ export function Turnstile({ onJeton }) {
         idWidget.current = null;
       }
     };
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [limba]);
 
   if (!CHEIE_SITE) return null;
   return <div ref={gazda} className="ldv-turnstile" />;
