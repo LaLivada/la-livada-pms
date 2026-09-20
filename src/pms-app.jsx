@@ -88,6 +88,7 @@ import { uid } from "./lib/uid.js";
 import { mesajEroare } from "./lib/errors.js";
 import { esteConflict, pregatesteConflict, aplicaAlegerea } from "./lib/conflict.js";
 import { rezervariDePeServer, ultimeleModificari } from "./data/conflict.js";
+import { useCoadaConflicte, ConflictHost } from "./features/conflict-coada.jsx";
 import { marcheazaPrezenta } from "./data/prezenta.js";
 import { idNoi, pornestePrezenta } from "./lib/noutati.js";
 import { eDubluTap, FARA_TAP } from "./lib/gest.js";
@@ -107,18 +108,6 @@ const ClientsView = lazy(() => import("./features/clienti.jsx").then((m) => ({ d
 const RoomsView = lazy(() => import("./features/camere.jsx").then((m) => ({ default: m.RoomsView })));
 const FinancialView = lazy(() => import("./features/facturare.jsx").then((m) => ({ default: m.FinancialView })));
 const CautareGlobala = lazy(() => import("./features/cautare.jsx").then((m) => ({ default: m.CautareGlobala })));
-const ConflictDialog = lazy(() => import("./features/conflict.jsx").then((m) => ({ default: m.ConflictDialog })));
-
-/* Dialogul conflictului de concurenta (faza 3, C5), cat timp o salvare
-   asteapta alegerea omului. */
-function ConflictHost({ conflict, core, groups }) {
-  if (!conflict) return null;
-  return (
-    <Suspense fallback={null}>
-      <ConflictDialog randuri={conflict.randuri} core={core} groups={groups} onAlege={conflict.alege} />
-    </Suspense>
-  );
-}
 const ReportsView = lazy(() => import("./features/setari.jsx").then((m) => ({ default: m.ReportsView })));
 const UsersView = lazy(() => import("./features/setari.jsx").then((m) => ({ default: m.UsersView })));
 const LogView = lazy(() => import("./features/setari.jsx").then((m) => ({ default: m.LogView })));
@@ -412,7 +401,7 @@ function PMSApp() {
   const [blocks, setBlocks] = useState([]);
   const [initError, setInitError] = useState(null);
   const [reloadKey, setReloadKey] = useState(0);
-  const [conflict, setConflict] = useState(null); // { randuri, alege } — dialogul C5, cat asteapta alegerea
+  const [conflict, intreabaConflict] = useCoadaConflicte(); // dialogul C5, cat asteapta alegerea
   /* „Nou de la ultima deschidere" (faza 3, C7): reperul vine de la
      marcheaza_prezenta(); ce a creat chiar acest browser nu e „nou"
      (lib/noutati.js). Multimea e aceeasi, mutata pe loc — randarea vine
@@ -836,8 +825,7 @@ function PMSApp() {
     const [dePeServer, cine] = await Promise.all([rezervariDePeServer(ids), ultimeleModificari(ids)]);
     const randuri = pregatesteConflict(before, trimise, dePeServer, cine);
     if (!randuri) throw eroare;
-    const alegere = await new Promise((alege) => setConflict({ randuri, alege }));
-    setConflict(null);
+    const alegere = await intreabaConflict(randuri);
     const { scrie, final } = aplicaAlegerea(alegere, before, combinat, randuri);
     if (scrie) return final;
     resRef.current = final; setReservations(final);
@@ -845,7 +833,7 @@ function PMSApp() {
       ? "Am luat versiunea lor. Ce ai modificat tu nu s-a salvat."
       : "Nimic salvat — pe ecran e versiunea lor.", { tone: "danger" });
     return null;
-  }, []);
+  }, [intreabaConflict]);
 
   const updateReservations = useCallback(async (next) => {
     const before = resRef.current;

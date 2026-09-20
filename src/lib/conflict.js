@@ -15,7 +15,8 @@
  * schimbate de mine raman ale mele, restul iau valorile lor, stampila e a
  * lor ca baza sa accepte) sau „ia pe a lor" (nimic nu se scrie, ecranul
  * ia versiunea lor). Regulile sunt pure; cererile sunt in data/conflict.js,
- * dialogul in features/conflict.jsx, legarea in pms-app.jsx.
+ * dialogul in features/conflict.jsx, coada conflictelor care asteapta un
+ * raspuns in features/conflict-coada.jsx, legarea in pms-app.jsx.
  */
 import { STATUS_LABEL, sourceLabel } from "./constante.js";
 import { fmtDateTime, fmtMoney } from "./format.js";

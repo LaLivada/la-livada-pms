@@ -182,6 +182,15 @@ pierdea din ecran.
   tu nu s-a salvat. Apelantul primește `false`, ca la orice salvare
   nereușită: fereastra rămâne deschisă cu ce ai scris, poți salva din nou
   (acum pe baza versiunii lor) sau închide.
+- **Coada** (`src/features/conflict-coada.jsx`, din 20 septembrie 2026):
+  conflictele așteaptă la rând, primul venit e pe ecran până i se răspunde.
+  Înainte dialogul ținea un singur conflict: două salvări respinse aproape
+  deodată (două check-in-uri la rând) se călcau, iar prima rămânea agățată
+  pentru totdeauna, fără nicio eroare. Fiecare conflict e o fereastră nouă
+  (focus, intrarea din istoricul browserului), iar un „Păstrează a mea" /
+  „Ia pe a lor" venit la mai puțin de 400ms după cel dinainte e ignorat —
+  dialogul următor apare exact în locul primului, deci a doua jumătate a
+  unui dublu-click ar răspunde la el necitit. Închiderea nu trece prin gardă.
 
 ### 3.3 Verificare
 
@@ -193,6 +202,10 @@ recalculează); rândurile în conflict după stampilă; „lor" readuce ecranul
 la ce era, inclusiv pentru celelalte rânduri nescrise din aceeași salvare.
 `src/conflict-ecran.test.js`: dialogul arată nume, nu id-uri; marcajele;
 butoanele; închiderea = null.
+`src/conflict-coada.test.js`: două salvări respinse deodată își primesc
+fiecare dialogul și răspunsul (niciuna nu rămâne agățată); dublu-click-ul;
+„înapoi" pe telefon, câte un dialog; același dialog închis de două ori nu
+aruncă din coadă conflictul următor.
 
 ### 3.4 Ce NU s-a schimbat
 
