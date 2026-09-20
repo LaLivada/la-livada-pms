@@ -181,7 +181,9 @@ pierdea din ecran.
   modificării, cu versiunea lor pe cele în conflict; un mesaj spune că ce ai
   modificat tu nu s-a salvat. Apelantul primește `null` (nu `false`, ca la o
   eroare obișnuită): fereastra din care s-a salvat se închide, fiindcă a
-  rămas la stampila veche și orice reîncercare ar fi respinsă la fel.
+  rămas la stampila veche și orice reîncercare ar fi respinsă la fel. Tot
+  `null` vine când refuzul nu s-a putut explica sau când și a doua scriere,
+  de după „Păstrează a mea", a fost respinsă.
 - **Ecranul după alegere** (`ecranDupaAlegere`, din 21 septembrie 2026):
   alegerea se aplică peste ce e pe ecran ACUM, doar pe rândurile salvării
   respinse. Dialogul poate sta deschis minute întregi, iar în spatele lui
@@ -226,6 +228,8 @@ cele noi dispar, rândurile neatinse rămân cum sunt ACUM, un rând înlocuit
 și peste ecoul Realtime al salvării lor.
 `src/conflict-ecran.test.js`: dialogul arată nume, nu id-uri; marcajele;
 butoanele; închiderea = null.
+`src/rezervare-conflict-inchide.test.js`: fereastra de rezervare se închide
+la `null`, rămâne deschisă la `false`.
 `src/conflict-coada.test.js`: două salvări respinse deodată își primesc
 fiecare dialogul și răspunsul (niciuna nu rămâne agățată); dublu-click-ul;
 „înapoi" pe telefon, câte un dialog; același dialog închis de două ori nu
