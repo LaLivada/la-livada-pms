@@ -12,9 +12,14 @@
  *
  * Gazda de mai jos reface drumul din pms-app.jsx (`updateReservations` +
  * `rezolvaConflictul`) cu functiile ADEVARATE — `uneste`, `randuriSchimbate`,
- * `pregatesteConflict`, `aplicaAlegerea` — peste o „baza" care refuza
- * stampila veche ca triggerul. Partea care avea bug-ul e cea reala: coada
- * (`useCoadaConflicte`), gazda ei si dialogul.
+ * `pregatesteConflict`, `aplicaAlegerea`, `ecranDupaAlegere` — peste o „baza"
+ * care refuza stampila veche ca triggerul. Partea care avea bug-ul e cea
+ * reala: coada (`useCoadaConflicte`), gazda ei si dialogul.
+ *
+ * Al doilea bug aparat aici (20 septembrie 2026): dupa alegere, ecranul se
+ * refacea din instantaneul dinaintea salvarii si stergea ce se schimbase
+ * intre timp. Regula e in lib/conflict.js (`ecranDupaAlegere`); gazda o
+ * leaga la fel ca pms-app.jsx, deci cele doua trebuie schimbate impreuna.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import React, { useState, useRef, useCallback, useEffect } from "react";
@@ -29,7 +34,9 @@ window.HTMLElement.prototype.scrollIntoView = () => {};
 await import("./features/conflict.jsx");
 const { useCoadaConflicte, ConflictHost } = await import("./features/conflict-coada.jsx");
 const { uneste, randuriSchimbate } = await import("./data/nucleu.js");
-const { esteConflict, pregatesteConflict, aplicaAlegerea } = await import("./lib/conflict.js");
+const { esteConflict, pregatesteConflict, aplicaAlegerea, ecranDupaAlegere } = await import("./lib/conflict.js");
+const { aplicaSchimbareRezervare } = await import("./lib/schimbari-live.js");
+const { snakeRes } = await import("./data/mapari.js");
 const { PRAG_DUBLU_TAP } = await import("./lib/gest.js");
 
 const SCRIERE_MS = 90;
@@ -101,10 +108,10 @@ function Gazda() {
     const randuri = pregatesteConflict(before, trimise, dePeServer, new Map());
     if (!randuri) throw eroare;
     const alegere = await intreabaConflict(randuri);
-    const { scrie, final } = aplicaAlegerea(alegere, before, combinat, randuri);
-    if (scrie) return final;
-    resRef.current = final; setReservations(final);
-    return null;
+    const ecran = ecranDupaAlegere(alegere, resRef.current, before, trimise, randuri);
+    resRef.current = ecran; setReservations(ecran);
+    const { scrie, final } = aplicaAlegerea(alegere, combinat, randuri);
+    return scrie ? final : null;
   }, [intreabaConflict]);
 
   const updateReservations = useCallback(async (next) => {
@@ -120,14 +127,21 @@ function Gazda() {
       try {
         const final = await rezolvaConflictul(e, before, combinat);
         if (!final) return null;
-        resRef.current = final; setReservations(final);
         aplicaStampile(await scrieInBaza(before, final));
         return true;
       } catch { return null; }
     }
   }, [rezolvaConflictul, aplicaStampile]);
 
-  useEffect(() => { aplicatie = { updateReservations, reservations }; });
+  /* Un eveniment Realtime, aplicat ca in pms-app.jsx (`aplica`). */
+  const primesteLive = useCallback((ev) => {
+    const inainte = { reservations: resRef.current, blocks: [] };
+    const dupa = aplicaSchimbareRezervare(inainte, ev);
+    if (dupa === inainte) return;
+    resRef.current = dupa.reservations; setReservations(dupa.reservations);
+  }, []);
+
+  useEffect(() => { aplicatie = { updateReservations, primesteLive, reservations }; });
   return React.createElement(ConflictHost, { conflict, core: CORE, groups: [] });
 }
 
@@ -148,6 +162,7 @@ const cazeaza = (id) => {
   const next = aplicatie.reservations.map((r) => (r.id === id ? { ...r, status: "checkedin" } : r));
   aplicatie.updateReservations(next).then((v) => { rezultate[id] = v; });
 };
+const peEcran = (id) => aplicatie.reservations.find((r) => r.id === id);
 
 beforeEach(async () => {
   globalThis.IS_REACT_ACT_ENVIRONMENT = true;
@@ -271,5 +286,46 @@ describe("doua salvari respinse deodata ca modificare concurenta", () => {
     await apasa("Ia pe a lor");
     await trece(1000);
     expect(rezultate).toEqual({ r1: null, r2: null });
+  });
+});
+
+/* Gasit pe 20 septembrie 2026: dupa alegere, ecranul se refacea dintr-un
+   instantaneu luat INAINTE de salvare (`before` / `combinat`) si inlocuia
+   lista INTREAGA — tot ce se schimbase intre timp pe celelalte randuri
+   disparea de pe ecran. Baza ramanea corecta (scrierile sunt pe rand si
+   pazite de stampila), dar ecranul mintea pana la urmatorul eveniment
+   Realtime al randului, iar orice editare a lui era respinsa intre timp ca
+   „modificata de altcineva" — de mine insumi. */
+describe("dupa alegere, ecranul pastreaza ce s-a schimbat intre timp", () => {
+  /* Al doilea conflict si-a luat instantaneul cand r1 era doar check-in-ul
+     meu optimist, cu stampila veche; raspunsul lui nu are voie sa stearga de
+     pe ecran nota colegului si stampila abia scrisa la r1. */
+  it("un conflict rezolvat nu e dat inapoi de raspunsul la urmatorul", async () => {
+    await douaSalvariRespinse();
+    await apasa("Păstrează a mea");
+    await trece(PRAG_DUBLU_TAP);
+    await apasa("Ia pe a lor");
+    await trece(1000);
+
+    expect(baza.get("r1")).toMatchObject({ status: "checkedin", notes: "sosesc după 22", updatedAt: "2026-09-18T10:06:00.000Z" });
+    expect(peEcran("r1")).toEqual(baza.get("r1"));
+    expect(peEcran("r2")).toEqual(baza.get("r2"));
+  });
+
+  /* Dialogul poate sta deschis minute intregi. Salvarea colegului la r2
+     ajunge prin Realtime abia cat omul citeste conflictul de la r1. */
+  it.each(["Păstrează a mea", "Ia pe a lor"])("ce aduce Realtime cat dialogul e deschis ramane pe ecran dupa „%s”", async (raspuns) => {
+    await act(async () => { cazeaza("r1"); });
+    await trece(1000);
+    expect(titlu()).toBe(POPESCU);
+
+    await act(async () => { aplicatie.primesteLive({ tip: "UPDATE", nou: snakeRes(baza.get("r2")) }); });
+    expect(peEcran("r2")).toMatchObject({ children: 1, updatedAt: S_LOR });
+
+    await apasa(raspuns);
+    await trece(1000);
+    expect(dialog()).toBeNull();
+    expect(peEcran("r2")).toMatchObject({ children: 1, updatedAt: S_LOR });
+    expect(peEcran("r1")).toEqual(baza.get("r1"));
   });
 });

@@ -8,7 +8,7 @@
 import { describe, it, expect } from "vitest";
 import {
   esteConflict, canonic, laFel, diferente, imbina, arataValoare, randuriInConflict,
-  pregatesteConflict, aplicaAlegerea,
+  pregatesteConflict, aplicaAlegerea, ecranDupaAlegere,
 } from "./lib/conflict.js";
 
 const BAZA = {
@@ -164,23 +164,86 @@ describe("aplicaAlegerea", () => {
   const randuri = pregatesteConflict(before, combinat, [A_LOR]);
 
   it("„mea”: se scrie lista imbinata, cu celelalte modificari ale mele intacte", () => {
-    const { scrie, final } = aplicaAlegerea("mea", before, combinat, randuri);
+    const { scrie, final } = aplicaAlegerea("mea", combinat, randuri);
     expect(scrie).toBe(true);
     expect(final.find((r) => r.id === "r1").status).toBe("checkedin");
     expect(final.find((r) => r.id === "r1").notes).toBe("vine târziu");
     expect(final.find((r) => r.id === "r2")).toBe(ALT);
   });
 
-  /* Scrierea respinsa era una singura, atomica: nici r2 n-a ajuns in baza,
-     deci nici pe ecran nu ramane „modificat". */
-  it("„lor”: nu se scrie nimic, ecranul revine la ce era, cu versiunea lor", () => {
-    const { scrie, final } = aplicaAlegerea("lor", before, combinat, randuri);
-    expect(scrie).toBe(false);
-    expect(final.find((r) => r.id === "r1")).toBe(A_LOR);
-    expect(final.find((r) => r.id === "r2").notes).toBe("");
+  /* Ce se vede dupa „lor" hotaraste ecranDupaAlegere, peste ecranul de
+     ACUM; o lista refacuta aici din instantaneu ar fi o invitatie sa fie
+     pusa pe ecran, cum se intampla pana pe 21 septembrie 2026. */
+  it("„lor” sau dialog inchis: nu se scrie nimic, deci nu exista lista", () => {
+    expect(aplicaAlegerea("lor", combinat, randuri)).toEqual({ scrie: false, final: null });
+    expect(aplicaAlegerea(null, combinat, randuri)).toEqual({ scrie: false, final: null });
+  });
+});
+
+/* Ce se vede dupa alegere. Dialogul poate sta deschis minute intregi, iar
+   in spatele lui ecranul merge mai departe (Realtime, alte salvari, alt
+   conflict rezolvat): alegerea se aplica peste ce e pe ecran ACUM, doar pe
+   randurile salvarii respinse. */
+describe("ecranDupaAlegere", () => {
+  /* O salvare cu trei randuri: r1 (in conflict), r2 (modificat, fara
+     conflict) si r9 (nou). r3 nu e al ei. */
+  const R2 = { ...BAZA, id: "r2" };
+  const R2_MEA = { ...R2, notes: "alta rezervare, tot a mea" };
+  const R3 = { ...BAZA, id: "r3" };
+  const NOU = { ...BAZA, id: "r9", guestCode: "", updatedAt: null };
+  const before = [BAZA, R2, R3];
+  const trimise = [A_MEA, R2_MEA, NOU];
+  const dupaSalvare = [A_MEA, R2_MEA, R3, NOU]; // ce a pus salvarea pe ecran
+  const randuri = pregatesteConflict(before, trimise, [A_LOR, R2]);
+  const MAI_TARZIU = "2026-09-14T10:09:00+00:00";
+
+  it("„mea”: randul in conflict ia versiunea imbinata, cea care se scrie; restul ramane cum e", () => {
+    expect(ecranDupaAlegere("mea", dupaSalvare, before, trimise, randuri))
+      .toEqual([imbina(BAZA, A_MEA, A_LOR), R2_MEA, R3, NOU]);
+  });
+
+  /* Scrierea respinsa era una singura, atomica: nici r2, nici r9 n-au ajuns
+     in baza, deci nici pe ecran nu raman „modificat", respectiv „creat". */
+  it("„lor”: versiunea lor pe randul in conflict; celelalte randuri ale salvarii revin la ce era, cele noi dispar", () => {
+    expect(ecranDupaAlegere("lor", dupaSalvare, before, trimise, randuri)).toEqual([A_LOR, R2, R3]);
   });
 
   it("dialog inchis = ca „lor”", () => {
-    expect(aplicaAlegerea(null, before, combinat, randuri)).toEqual(aplicaAlegerea("lor", before, combinat, randuri));
+    expect(ecranDupaAlegere(null, dupaSalvare, before, trimise, randuri))
+      .toEqual(ecranDupaAlegere("lor", dupaSalvare, before, trimise, randuri));
+  });
+
+  it.each(["mea", "lor"])("„%s”: randurile neatinse de salvare raman cum sunt ACUM, nu cum erau in instantaneu", (alegere) => {
+    const R3_LIVE = { ...R3, children: 1, updatedAt: MAI_TARZIU };
+    const SOSIT = { ...BAZA, id: "r7" };
+    const ecran = ecranDupaAlegere(alegere, [A_MEA, R2_MEA, R3_LIVE, NOU, SOSIT], before, trimise, randuri);
+    expect(ecran.find((r) => r.id === "r3")).toBe(R3_LIVE);
+    expect(ecran.find((r) => r.id === "r7")).toBe(SOSIT);
+  });
+
+  /* Realtime inlocuieste randul dupa id, iar o salvare de mai tarziu il
+     rescrie: ce e acum pe ecran e mai nou decat instantaneul, deci ramane. */
+  it("„lor”: un rand al salvarii inlocuit intre timp pe ecran nu e dat inapoi", () => {
+    const R2_LIVE = { ...R2, children: 1, updatedAt: MAI_TARZIU };
+    const NOU_SCRIS = { ...NOU, notes: "completat si salvat apoi", updatedAt: MAI_TARZIU };
+    const ecran = ecranDupaAlegere("lor", [A_MEA, R2_LIVE, R3, NOU_SCRIS], before, trimise, randuri);
+    expect(ecran).toEqual([A_LOR, R2_LIVE, R3, NOU_SCRIS]);
+  });
+
+  it("„lor”: daca intre timp a sosit ceva si pe randul in conflict, ramane ce e pe ecran", () => {
+    const A_LOR_APOI = { ...A_LOR, notes: "au mai scris o data", updatedAt: MAI_TARZIU };
+    const ecran = ecranDupaAlegere("lor", [A_LOR_APOI, R2_MEA, R3, NOU], before, trimise, randuri);
+    expect(ecran.find((r) => r.id === "r1")).toBe(A_LOR_APOI);
+  });
+
+  /* Salvarea lor ajunge de obicei si prin Realtime cat dialogul e deschis si
+     ia locul versiunii mele pe ecran; ce se scrie tot imbinarea e. */
+  it("„mea”: imbinarea se pune si peste ecoul Realtime al salvarii lor", () => {
+    const ecran = ecranDupaAlegere("mea", [A_LOR, R2_MEA, R3, NOU], before, trimise, randuri);
+    expect(ecran.find((r) => r.id === "r1")).toEqual(imbina(BAZA, A_MEA, A_LOR));
+  });
+
+  it.each(["mea", "lor"])("„%s”: un rand disparut intre timp de pe ecran nu reapare", (alegere) => {
+    expect(ecranDupaAlegere(alegere, [R3], before, trimise, randuri)).toEqual([R3]);
   });
 });

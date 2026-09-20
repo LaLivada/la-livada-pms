@@ -86,7 +86,7 @@ import * as datePersonal from "./data/personal.js";
 import * as dateAcces from "./data/acces.js";
 import { uid } from "./lib/uid.js";
 import { mesajEroare } from "./lib/errors.js";
-import { esteConflict, pregatesteConflict, aplicaAlegerea } from "./lib/conflict.js";
+import { esteConflict, pregatesteConflict, aplicaAlegerea, ecranDupaAlegere } from "./lib/conflict.js";
 import { rezervariDePeServer, ultimeleModificari } from "./data/conflict.js";
 import { useCoadaConflicte, ConflictHost } from "./features/conflict-coada.jsx";
 import { marcheazaPrezenta } from "./data/prezenta.js";
@@ -826,9 +826,13 @@ function PMSApp() {
     const randuri = pregatesteConflict(before, trimise, dePeServer, cine);
     if (!randuri) throw eroare;
     const alegere = await intreabaConflict(randuri);
-    const { scrie, final } = aplicaAlegerea(alegere, before, combinat, randuri);
+    /* Ecranul: alegerea peste ce e pe el ACUM, nu peste instantaneul
+       dinaintea salvarii — cat a stat dialogul deschis, Realtime, alte
+       salvari si alte conflicte au mers mai departe (ecranDupaAlegere). */
+    const ecran = ecranDupaAlegere(alegere, resRef.current, before, trimise, randuri);
+    resRef.current = ecran; setReservations(ecran);
+    const { scrie, final } = aplicaAlegerea(alegere, combinat, randuri);
     if (scrie) return final;
-    resRef.current = final; setReservations(final);
     toaster.show(alegere === "lor"
       ? "Am luat versiunea lor. Ce ai modificat tu nu s-a salvat."
       : "Nimic salvat — pe ecran e versiunea lor.", { tone: "danger" });
@@ -867,7 +871,10 @@ function PMSApp() {
       try {
         const final = await rezolvaConflictul(e, before, combinat);
         if (!final) return null;
-        resRef.current = final; setReservations(final);
+        /* Lista de scris ramane cea din instantaneu, nu ecranul de acum:
+           diferenta fata de `before` cuprinde doar randurile salvarii ASTEIA.
+           Fata de ecran ar pleca si randurile altor salvari in curs, cu
+           stampilele lor vechi, iar baza ar respinge iar totul. */
         aplicaStampile(await syncTable("reservations", before, final, snakeRes));
         return true;
       } catch (e2) { raporteazaEroare(e2); return null; }

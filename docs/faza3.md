@@ -177,11 +177,31 @@ pierdea din ecran.
   toată lista (și celelalte modificări ale mele din aceeași salvare).
 - **„Ia pe a lor"** sau închiderea dialogului (Esc, X): nimic nu se scrie —
   scrierea respinsă era una singură, atomică, deci niciun rând din ea n-a
-  ajuns în bază — iar ecranul revine la ce era înaintea modificării, cu
-  versiunea lor pe rândurile în conflict; un mesaj spune că ce ai modificat
-  tu nu s-a salvat. Apelantul primește `false`, ca la orice salvare
-  nereușită: fereastra rămâne deschisă cu ce ai scris, poți salva din nou
-  (acum pe baza versiunii lor) sau închide.
+  ajuns în bază — iar pe ecran rândurile ei revin la ce era înaintea
+  modificării, cu versiunea lor pe cele în conflict; un mesaj spune că ce ai
+  modificat tu nu s-a salvat. Apelantul primește `null` (nu `false`, ca la o
+  eroare obișnuită): fereastra din care s-a salvat se închide, fiindcă a
+  rămas la stampila veche și orice reîncercare ar fi respinsă la fel.
+- **Ecranul după alegere** (`ecranDupaAlegere`, din 21 septembrie 2026):
+  alegerea se aplică peste ce e pe ecran ACUM, doar pe rândurile salvării
+  respinse. Dialogul poate sta deschis minute întregi, iar în spatele lui
+  ecranul merge mai departe — Realtime aduce rânduri, alte salvări își pun
+  modificările și stampilele, alt conflict din coadă se rezolvă. Înainte,
+  ecranul se refăcea cu totul din instantaneul luat ÎNAINTE de salvare
+  (`before` / `combinat`), așa că tot ce se schimbase între timp dispărea:
+  baza rămânea corectă, dar ecranul mințea până la următorul eveniment
+  Realtime al rândului, iar orice editare a lui era respinsă ca „modificată
+  de altcineva" — de tine însuți. Regulile: la „mea" rândul în conflict ia
+  îmbinarea (exact ce se scrie); la „lor" ia versiunea lor, celelalte
+  rânduri ale salvării revin la cea dinainte, iar cele noi dispar — dar
+  numai cât pe ecran mai e ce a pus salvarea asta; un rând înlocuit între
+  timp (Realtime, o salvare de mai târziu) e mai nou decât orice instantaneu
+  și rămâne. Orice alt rând rămâne exact cum e.
+- **Lista de scris nu e ecranul**: după „Păstrează a mea" se scrie tot
+  lista din instantaneu (`aplicaAlegerea`), ca diferență față de `before` —
+  adică doar rândurile salvării ASTEIA. Refăcută din ecranul de acum, ar lua
+  cu ea și rândurile altor salvări în curs, cu stampilele lor vechi, iar
+  baza ar respinge iar totul.
 - **Coada** (`src/features/conflict-coada.jsx`, din 20 septembrie 2026):
   conflictele așteaptă la rând, primul venit e pe ecran până i se răspunde.
   Înainte dialogul ținea un singur conflict: două salvări respinse aproape
@@ -198,14 +218,21 @@ pierdea din ecran.
 (momente, lipsă, numere din formular, liste); diferențele (ale mele, ale
 lor, „amândoi", nu și câmpurile de sistem); îmbinarea (ale mele rămân,
 restul iau valorile lor, stampila e a lor, numele ocupantului se
-recalculează); rândurile în conflict după stampilă; „lor" readuce ecranul
-la ce era, inclusiv pentru celelalte rânduri nescrise din aceeași salvare.
+recalculează); rândurile în conflict după stampilă; la „lor" nu există
+listă de scris; ecranul după alegere (`ecranDupaAlegere`): „lor" readuce
+rândurile salvării la ce era, inclusiv pe cele nescrise din aceeași salvare,
+cele noi dispar, rândurile neatinse rămân cum sunt ACUM, un rând înlocuit
+între timp nu e dat înapoi, unul dispărut nu reapare, iar îmbinarea se pune
+și peste ecoul Realtime al salvării lor.
 `src/conflict-ecran.test.js`: dialogul arată nume, nu id-uri; marcajele;
 butoanele; închiderea = null.
 `src/conflict-coada.test.js`: două salvări respinse deodată își primesc
 fiecare dialogul și răspunsul (niciuna nu rămâne agățată); dublu-click-ul;
 „înapoi" pe telefon, câte un dialog; același dialog închis de două ori nu
-aruncă din coadă conflictul următor.
+aruncă din coadă conflictul următor; după cele două răspunsuri ecranul
+arată ce e în bază (un conflict rezolvat nu e dat înapoi de răspunsul la
+următorul); ce aduce Realtime cât dialogul e deschis rămâne pe ecran, după
+oricare răspuns.
 
 ### 3.4 Ce NU s-a schimbat
 

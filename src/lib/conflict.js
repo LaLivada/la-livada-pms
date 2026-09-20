@@ -140,21 +140,55 @@ export function pregatesteConflict(before, trimise, dePeServer, cine = new Map()
   }));
 }
 
-/* Ce se intampla cu starea dupa alegere. „mea": lista de scris — `combinat`
-   cu randurile in conflict imbinate; se scrie. „lor" sau dialog inchis:
-   nimic nu se scrie — scrierea respinsa a fost una singura, atomica, deci
-   NICIUN rand din ea n-a ajuns in baza — iar ecranul revine la `before`,
-   cu versiunea lor pe randurile in conflict. */
-export function aplicaAlegerea(alegere, before, combinat, randuri) {
+/* Ce se SCRIE dupa alegere. „mea": `combinat` cu randurile in conflict
+   imbinate. Lista ramane cea din instantaneul salvarii, deliberat: scrisa
+   ca diferenta fata de `before`, cuprinde doar randurile salvarii ASTEIA;
+   refacuta din ecranul de acum, ar lua cu ea si randurile altor salvari in
+   curs, cu stampilele lor vechi, si baza ar respinge iar totul. „lor" sau
+   dialog inchis: nimic nu se scrie, deci nu exista lista. Ce se VEDE e alta
+   socoteala — ecranDupaAlegere, mai jos. */
+export function aplicaAlegerea(alegere, combinat, randuri) {
+  if (alegere !== "mea") return { scrie: false, final: null };
   const dupaId = new Map(randuri.map((r) => [r.aMea.id, r]));
-  if (alegere === "mea") {
-    return {
-      scrie: true,
-      final: combinat.map((r) => { const c = dupaId.get(r.id); return c ? imbina(c.baza, c.aMea, c.aLor) : r; }),
-    };
-  }
   return {
-    scrie: false,
-    final: (before || []).map((r) => { const c = dupaId.get(r.id); return c ? c.aLor : r; }),
+    scrie: true,
+    final: combinat.map((r) => { const c = dupaId.get(r.id); return c ? imbina(c.baza, c.aMea, c.aLor) : r; }),
   };
+}
+
+/* Ce se VEDE dupa alegere — altceva decat lista de scris. Dialogul poate sta
+   deschis minute intregi, iar in spatele lui ecranul merge mai departe:
+   Realtime aduce randuri, alte salvari isi pun modificarile si stampilele,
+   un alt conflict se rezolva. `before` si `combinat` sunt instantanee de
+   DINAINTEA salvarii; pana pe 21 septembrie 2026 ecranul se refacea din ele,
+   cu lista intreaga, si tot ce se schimbase intre timp disparea — baza
+   ramanea corecta, dar ecranul mintea, iar urmatoarea editare a randului era
+   respinsa ca „modificata de altcineva", de mine insumi.
+
+   Acum alegerea se aplica peste ce e pe ecran ACUM (`acum`), doar pe
+   randurile salvarii respinse (`trimise`):
+     „mea" — randul in conflict ia imbinarea, adica exact ce se scrie;
+     „lor" sau dialog inchis — randul in conflict ia versiunea lor, celelalte
+       randuri ale salvarii revin la cea din `before` (scrierea respinsa a
+       fost una singura, atomica: niciunul n-a ajuns in baza), iar cele noi
+       dispar. Dar numai cat pe ecran mai e ce a pus salvarea asta: un rand
+       inlocuit intre timp (Realtime, o salvare de mai tarziu) e mai nou
+       decat orice instantaneu si ramane.
+   Orice alt rand ramane exact cum e; unul disparut intre timp nu reapare. */
+export function ecranDupaAlegere(alegere, acum, before, trimise, randuri) {
+  const inConflict = new Map(randuri.map((c) => [c.aMea.id, c]));
+  if (alegere === "mea") {
+    return (acum || []).map((r) => { const c = inConflict.get(r.id); return c ? imbina(c.baza, c.aMea, c.aLor) : r; });
+  }
+  const inainte = new Map((before || []).map((r) => [r.id, r]));
+  const puse = new Map((trimise || []).map((r) => [r.id, r]));
+  const rezultat = [];
+  for (const r of acum || []) {
+    const pus = puse.get(r.id);
+    if (!pus || JSON.stringify(r) !== JSON.stringify(pus)) { rezultat.push(r); continue; }
+    const c = inConflict.get(r.id);
+    if (c) rezultat.push(c.aLor);
+    else if (inainte.has(r.id)) rezultat.push(inainte.get(r.id));
+  }
+  return rezultat;
 }
