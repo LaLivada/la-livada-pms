@@ -576,11 +576,12 @@
   color:var(--text-muted); font-weight:600; text-transform:capitalize;
 }
 .cal-daycell.today{
-  /* Gri NEUTRU (R=G=B), nu albastrul de accent și nu o nuanță caldă care
-     bate în maro — încercarea anterioară (#4A4842) o făcea (cerut 20
-     septembrie 2026). */
-  color:#fff; background:#585858; font-weight:700;
-  box-shadow:inset 0 -3px 0 #3D3D3D;
+  /* Gri neutru mult mai deschis (rgb(211,211,211), cerut 20 septembrie 2026
+     dupa ce varianta anterioara, #585858, tot parea prea inchisa). Fundalul
+     s-a inversat fata de intunecat->deschis, deci textul trece de la alb la
+     --text (nu mai are contrast pe un fundal aproape alb). */
+  color:var(--text); background:#D3D3D3; font-weight:700;
+  box-shadow:inset 0 -3px 0 #B8B8B8;
 }
 .cal-daycell.weekend{ background:var(--surface-2); }
 .cal-cell{
