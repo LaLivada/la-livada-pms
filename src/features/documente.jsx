@@ -1,10 +1,15 @@
 /* DOCUMENTE TIPARIBILE — fisa de anuntare a sosirii si plecarii.
  *
+ * Descarcare ca PDF (lib/pdf.js), nu window.print(): pe telefon, window.print()
+ * nu deschide nimic cand aplicatia e pornita de pe ecranul de start (gasit 20
+ * septembrie 2026 — acelasi motiv pentru care factura si lista de cazare a
+ * grupului au trecut deja pe aceeasi cale). Regulile @media print din
+ * styles/pms.css raman ca plasa pentru un Ctrl+P nativ, dar nu mai sunt calea
+ * aratata utilizatorului.
+ *
  * Coala e fixata la 794x1123px (exact A4 la 96dpi) si scalata vizual pe
- * ecran. La print, regulile din styles/pms.css reseteaza scalarea; Safari
- * isi adauga propriul antet si subsol peste care CSS-ul n-are control, de
- * unde rezerva de 25% (zoom, nu transform — WebKit ignora transform la
- * tiparire).
+ * ecran — aceeasi latime fixa (.fisa-duo, in pms.css) face ca exportul cu
+ * generatePdfBlob({ singlePage:true }) sa iasa la proportia corecta.
  */
 
 import React, { useState, useEffect, useRef } from "react";
@@ -12,7 +17,9 @@ import { createPortal } from "react-dom";
 import { X, Printer } from "lucide-react";
 import { occupantName } from "../lib/nume.js";
 import { FMT_DATE_FULL } from "../lib/format.js";
-import { Dialog, useModalLock } from "../ui/primitive.jsx";
+import { Dialog, useModalLock, PdfPreview, toaster } from "../ui/primitive.jsx";
+import { generatePdfBlob, pregatesteFila, arataInFila, inchideFila } from "../lib/pdf.js";
+import { mesajEroare } from "../lib/errors.js";
 import { LATIME_PANZA, INALTIME_PANZA } from "../lib/semnatura.js";
 import * as dateFise from "../data/fise.js";
 
@@ -126,6 +133,25 @@ export function ArrivalSheet({ res, core, groups, fisa }) {
 export function ArrivalForm({ res, core, groups, onClose }) {
   useModalLock();
   const scaleWrapRef = useRef(null);
+  const sheetRef = useRef(null);
+  const [downloading, setDownloading] = useState(false);
+  const [pdf, setPdf] = useState(null);
+  const download = async () => {
+    if (downloading) return;
+    setDownloading(true);
+    /* Fila se cere in gestul de click, nu dupa generare — vezi comentariul
+       de la `pregatesteFila` (lib/pdf.js): altfel browserul o blocheaza. */
+    const fila = pregatesteFila();
+    try {
+      const blob = await generatePdfBlob(sheetRef.current, { singlePage: true });
+      if (!arataInFila(fila, blob)) setPdf({ blob, filename: `Fisa-anuntare-${res.id}.pdf` });
+    } catch (e) {
+      inchideFila(fila);
+      toaster.show(mesajEroare(e, "PDF-ul nu a putut fi generat"), { tone: "danger" });
+    } finally {
+      setDownloading(false);
+    }
+  };
 
   /* Fisa se aduce AICI, nu se primeste ca prop, ca sa nu fie nevoie s-o
      caute fiecare din cele trei locuri de unde se deschide coala. Cand
@@ -169,17 +195,23 @@ export function ArrivalForm({ res, core, groups, onClose }) {
         <div className="modal-head no-print">
           <h3 id="arrival-title">Fișă de anunțare</h3>
           <div className="docum-modal-actions">
-            <button className="btn btn-primary btn-lat" onClick={() => window.print()}>
-              <Printer size={15} /> Printează
+            <button className="btn btn-primary btn-lat" onClick={download} disabled={downloading}>
+              <Printer size={15} /> {downloading ? "Se generează…" : "Vezi PDF"}
             </button>
             <button className="icon-btn" onClick={onClose} aria-label="Închide fereastra"><X size={16} /></button>
           </div>
         </div>
 
+        {pdf && (
+          <div onClick={(e) => e.stopPropagation()}>
+            <PdfPreview blob={pdf.blob} filename={pdf.filename} onClose={() => setPdf(null)} />
+          </div>
+        )}
+
         <div className="arrival-sheet-wrap" ref={scaleWrapRef} style={{ height: 1123 * scale }}>
           <div className="arrival-scaler docum-scaler"
             style={{ transform: `scale(${scale})` }}>
-            <div className="arrival-sheet fisa-duo">
+            <div className="arrival-sheet fisa-duo" ref={sheetRef}>
               <ArrivalSheet res={res} core={core} groups={groups} fisa={fisa} />
               <div className="fisa-sep" />
               <ArrivalSheet res={res} core={core} groups={groups} fisa={fisa} />
