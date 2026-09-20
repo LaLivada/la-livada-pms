@@ -181,7 +181,7 @@ export function useAduInVizor(vizibil) {
   useEffect(() => {
     if (!vizibil) return;
     const t = setTimeout(() => {
-      ref.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+      ref.current?.scrollIntoView?.({ block: "nearest", behavior: "smooth" });
     }, 80);
     return () => clearTimeout(t);
   }, [vizibil]);
