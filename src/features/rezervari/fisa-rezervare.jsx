@@ -34,7 +34,7 @@ import { SectiuneFisa } from "../fise.jsx";
 import { FolioPanel, BillingCustomerModal, billingCustomerLabel } from "../facturare.jsx";
 import { GuestModal, ContactQuickActions, emptyGuest } from "../clienti.jsx";
 import { ArrivalForm } from "../documente.jsx";
-import { GroupEditor } from "../grupuri.jsx";
+import { GroupEditor, GroupPrint } from "../grupuri.jsx";
 
 /* Ora locala dintr-o valoare de <input type="datetime-local"> ("2026-09-04T14:00"). */
 const oraDin = (v) => Number(String(v).slice(11, 13));
@@ -140,7 +140,9 @@ export function ReservationModal({ data, core, updateCore, reservations, updateR
     save();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [checkin, checkout]);
-  const [grupModal, setGrupModal] = useState(false);
+  /* "edit" deschide grupul, "print" lista de cazare — acelasi tipar ca in
+     GroupsView si in „Vezi rezervarea". */
+  const [grupModal, setGrupModal] = useState(null);
   const [status, setStatus] = useState(editing?.status || "confirmed");
   /* La creare: doar Cerere/Confirmata/Protocol. La editare: starile
      operationale clasice — plus statusul curent, daca a ramas pe
@@ -653,7 +655,7 @@ export function ReservationModal({ data, core, updateCore, reservations, updateR
             sa treci la grup. Deschide editorul de grup peste formular. */}
         {editingGroup && (
           <button type="button" className="group-banner group-banner-link"
-            onClick={() => setGrupModal(true)}>
+            onClick={() => setGrupModal("edit")}>
             <UsersRound size={15} />
             <span>Face parte din grupul <strong>{editingGroup.name}</strong></span>
           </button>
@@ -932,12 +934,21 @@ export function ReservationModal({ data, core, updateCore, reservations, updateR
         )}
         </SectiunePliabila>}
 
-        {grupModal && editingGroup && (
+        {grupModal === "edit" && editingGroup && (
           <GroupEditor
-            group={editingGroup} core={core} groups={groups} updateGroups={updateGroups}
+            group={editingGroup} core={core} updateCore={updateCore}
+            groups={groups} updateGroups={updateGroups}
             reservations={reservations} updateReservations={updateReservations} blocks={blocks}
             stergeRezervari={stergeRezervari} stergeGrupuri={stergeGrupuri}
-            onClose={() => setGrupModal(false)}
+            onClose={() => setGrupModal(null)}
+            onPrint={() => setGrupModal("print")}
+          />
+        )}
+
+        {grupModal === "print" && editingGroup && (
+          <GroupPrint
+            group={editingGroup} core={core} reservations={reservations}
+            onClose={() => setGrupModal(null)}
           />
         )}
 
