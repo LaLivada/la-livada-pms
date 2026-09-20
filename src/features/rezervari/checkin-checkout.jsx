@@ -46,7 +46,14 @@ export async function doCheckIn(res, reservations, updateReservations, core, { f
      il pastram pe obiectul din memorie (Azi si rapoartele intreaba
      esteProtocol, nu starea). */
   const next = reservations.map((r) => (r.id === res.id ? { ...r, status: "checkedin", protocol: esteProtocol(r) } : r));
-  await updateReservations(next);
+  /* Doar `true` înseamnă că rezervarea e scrisă (sau pusă în coada offline).
+     `false` e o eroare obișnuită de bază, `null` un conflict de concurență
+     după care nu s-a scris nimic — în ambele cazuri rezervarea NU e cazată
+     în bază, deci ne oprim aici: fără jurnal, fără toast verde, fără cod de
+     acces pe yală, fără „Bun venit" pe televizor. Nici toast de eroare nu
+     punem: omul a fost deja anunțat de `updateReservations` (raportul de
+     eroare, respectiv toastul de conflict). */
+  if ((await updateReservations(next)) !== true) return false;
   const room = core.rooms.find((x) => x.id === res.roomId);
   await audit.push("Check-in", `${room?.name || res.roomId} · ${guestFullName(core.guests.find((g) => g.id === res.guestId))}`, { roomId: res.roomId, reservationId: res.id });
   toaster.show(`Check-in făcut · ${room?.name || ""}`, { tone: "ok" });
@@ -89,7 +96,10 @@ export async function doCheckIn(res, reservations, updateReservations, core, { f
 export async function doCheckOut(res, reservations, updateReservations, core, housekeeping, updateHousekeeping) {
   if (!canCheckOut(res)) return false;
   const next = reservations.map((r) => (r.id === res.id ? { ...r, status: "checkedout" } : r));
-  await updateReservations(next);
+  /* Aceeași regulă ca la check-in: un check-out nesalvat nu lasă urme. Aici
+     ar costa și mai mult — camera ar trece pe „murdară", iar codul de acces
+     ar fi șters de pe yală cu oaspetele încă înăuntru. */
+  if ((await updateReservations(next)) !== true) return false;
   await updateHousekeeping(res.roomId, "dirty");
   const room = core.rooms.find((x) => x.id === res.roomId);
   await audit.push("Check-out", `${room?.name || res.roomId} · camera trecută pe „murdară”`, { roomId: res.roomId, reservationId: res.id });
