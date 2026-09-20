@@ -15,7 +15,7 @@ import { describe, it, expect, vi, afterEach } from "vitest";
 import React from "react";
 import { createRoot } from "react-dom/client";
 import { act } from "react";
-import { useAduInVizor } from "./ui/primitive.jsx";
+import { useAduInVizor, Dialog } from "./ui/primitive.jsx";
 
 const montate = [];
 async function deschide(element) {
@@ -64,6 +64,37 @@ describe("useAduInVizor", () => {
     const deruleaza = vi.fn();
     host.querySelector(".tinta").scrollIntoView = deruleaza;
     expect(await inainteaza(79)).toBeNull();
+    expect(deruleaza).not.toHaveBeenCalled();
+    expect(await inainteaza(1)).toBeNull();
+    expect(deruleaza).toHaveBeenCalledTimes(1);
+    expect(deruleaza).toHaveBeenCalledWith(expect.objectContaining({ block: "nearest" }));
+  });
+});
+
+/* Aceeasi capcana, in Dialog: campul care primeste focus e adus in vizor
+   dupa 250 ms, iar cronometrul acela nu se opreste la demontare. Pana acum
+   testele il ocoleau cu un stub pe prototip, fisier cu fisier. */
+describe("Dialog: campul care primeste focus", () => {
+  const cuCamp = () => React.createElement(Dialog, { title: "Proba", onClose: () => {} },
+    React.createElement("input", { className: "camp" }));
+
+  it("nu arunca din cronometru cand campul n-are scrollIntoView", async () => {
+    vi.useFakeTimers();
+    const { host } = await deschide(cuCamp());
+    const camp = host.querySelector(".camp");
+    camp.scrollIntoView = undefined;
+    await act(async () => { camp.focus(); });
+    expect(await inainteaza(250)).toBeNull();
+  });
+
+  it("acolo unde metoda exista, campul e adus in vizor dupa 250 ms", async () => {
+    vi.useFakeTimers();
+    const { host } = await deschide(cuCamp());
+    const camp = host.querySelector(".camp");
+    const deruleaza = vi.fn();
+    camp.scrollIntoView = deruleaza;
+    await act(async () => { camp.focus(); });
+    expect(await inainteaza(249)).toBeNull();
     expect(deruleaza).not.toHaveBeenCalled();
     expect(await inainteaza(1)).toBeNull();
     expect(deruleaza).toHaveBeenCalledTimes(1);
