@@ -172,8 +172,11 @@ exact ca feedul de ieșire deja existent.
   `occupant_phone` (coloane deja existente pe `reservations`, gândite pentru
   „ocupantul real, diferit de titularul grupului") după ce verifică
   extranetul OTA.
-- **`insigna-sursa.jsx`** — literele „B"/„A" pentru `booking`/`airbnb` există
-  deja în componenta de subsol a rezervării.
+- **Sursa pe bara din calendar** — insigna cu literele „B"/„A"
+  (`insigna-sursa.jsx`) a fost scoasă din calendar pe 20 septembrie 2026, la
+  cererea lui Ovidiu. Sursa unei rezervări importate se vede în fișa ei; dacă
+  recepția o vrea iar dintr-o privire, componenta e în istoric (commit
+  `21ff619`).
 
 ## Riscuri și limitări
 

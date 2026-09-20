@@ -591,19 +591,41 @@
   white-space:nowrap; z-index:4;
   box-shadow:var(--shadow-sm); transition:transform .1s;
 }
-/* Bara nu-si mai taie continutul (overflow): insigna sursei iese pe coltul
-   ei. Numele isi are taierea proprie, cu „…"; restul (pictograme, VIP) e
-   fix si incape in umplutura. */
+/* Bara nu-si taie continutul (overflow): colturile capetelor oblice ies din
+   cutia ei. Numele isi are taierea proprie, cu „…"; restul (pictograme, VIP)
+   e fix si incape in umplutura. */
 .cal-bar .bar-name{ overflow:hidden; text-overflow:ellipsis; min-width:0; }
 .cal-bar .bar-nights{
   margin-left:auto; font-size:var(--fs-2xs); font-weight:700; opacity:.7;
   font-family:'IBM Plex Mono',monospace; flex-shrink:0;
 }
-.cal-bar.clip-start{ border-top-left-radius:2px; border-bottom-left-radius:2px; }
-.cal-bar.clip-end{ border-top-right-radius:2px; border-bottom-right-radius:2px; }
+/* Capetele oblice ale rezervarilor (cerut pe 20 septembrie 2026, dupa un
+   model de calendar cu bare-paralelogram): in ziua de schimb, iesirea si
+   intrarea se citesc ca doua muchii paralele, nu ca doua capete rotunde fata
+   in fata. Forma nu mai e a barei, ci a lui ::before, inclinat cu skewX: asa
+   raman si colturile rotunjite, si umbra adevarata — un clip-path le-ar fi
+   taiat pe amandoua. Inclinarea e in jurul mijlocului barei, deci `left` si
+   `width` din calendar.jsx raman cele de la jumatatea celulei. Culoarea vine
+   tot din clasele de stare (--bar-bg, --bar-lumina), mostenite de ::before.
+   Blocajele tin zile intregi, n-au intrare si iesire: raman drepte. */
+.cal-bar:not(.block-bar){ background:none; box-shadow:none; }
+.cal-bar:not(.block-bar)::before{
+  content:""; position:absolute; inset:0; z-index:-1; border-radius:inherit;
+  background:var(--bar-lumina) var(--bar-bg); box-shadow:var(--shadow-sm);
+  transform:skewX(-24deg);
+}
+/* Capatul taiat de marginea ferestrei ramane drept: rezervarea continua
+   dincolo de el, nu incepe si nu se termina acolo. ::before se intinde peste
+   margine, iar bara il taie vertical; celelalte laturi raman libere, pentru
+   umbra si pentru coltul care iese din cutie. */
+.cal-bar.clip-start::before{ left:-24px; }
+.cal-bar.clip-end::before{ right:-24px; }
+.cal-bar.clip-start{ clip-path:inset(-8px -24px -8px 0); }
+.cal-bar.clip-end{ clip-path:inset(-8px 0 -8px -24px); }
+.cal-bar.clip-start.clip-end{ clip-path:inset(-8px 0); }
 .cal-bar:hover{ transform:translateY(-1px); }
 .cal-bar{ cursor:pointer; }
-.cal-bar.moving{ box-shadow:0 0 0 2px var(--accent); }
+.cal-bar.moving::before{ box-shadow:0 0 0 2px var(--accent); }
 /* Calendarul cameristei. Fara afordanta de clic: cursorul de mana si
    ridicarea la hover promit un detaliu care nu se deschide. */
 .cal-cell-static, .cal-cell-static:hover{ cursor:default; background:inherit; }
@@ -1853,20 +1875,9 @@ label.field input, label.field select, label.field textarea{ cursor:auto; }
 /* Anulatele si no-show-urile (calendar.jsx, `moarta`): se vad, dar nu tin
    loc — sub barele vii si mai subtiri, ca o rezervare noua peste ele sa se
    citeasca intreaga; fara umbra, ca sa nu para „deasupra". */
-.cal-bar.bar-moarta{ z-index:3; top:11px; bottom:11px; box-shadow:none; }
+.cal-bar.bar-moarta{ z-index:3; top:11px; bottom:11px; }
+.cal-bar.bar-moarta::before{ box-shadow:none; }
 .cal-scroll.dense .cal-bar.bar-moarta{ top:7px; bottom:7px; }
-/* Insigna sursei (features/rezervari/insigna-sursa.jsx): disc alb pe coltul
-   din stanga-sus al barei, cu pictograma sau litera sursei. Alb si pe tema
-   intunecata — e o insigna, nu o suprafata. */
-.bar-sursa{
-  position:absolute; top:-6px; left:-1px; width:16px; height:16px; border-radius:50%;
-  background:#fff; color:#2A2E35; box-shadow:0 1px 2px rgba(0,0,0,.3);
-  display:flex; align-items:center; justify-content:center;
-  font-size:9px; font-weight:800; line-height:1; z-index:1; pointer-events:none;
-}
-.bar-sursa-booking{ color:#1F3E63; }
-.bar-sursa-airbnb{ color:#E0475C; }
-.cal-scroll.dense .bar-sursa{ top:-5px; width:14px; height:14px; font-size:8px; }
 .room-chips{ display:flex; flex-wrap:wrap; gap:6px; }
 .room-chip{
   padding:7px 11px; border-radius:8px; border:1px solid var(--border); background:var(--surface);

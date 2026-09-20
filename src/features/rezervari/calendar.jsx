@@ -23,7 +23,6 @@ import {
 import { isToday } from "../../lib/tranzitii.js";
 import { fmtDate, fmtDateTime, toDateInput, FMT_WEEKDAY, FMT_WEEKDAY_LONG } from "../../lib/format.js";
 import { ROOM_TYPE, STATUS_LABEL, STATUS_GLYPH, STATUS_CLASS } from "../../lib/constante.js";
-import { InsignaSursa } from "./insigna-sursa.jsx";
 import { Dialog, toaster } from "../../ui/primitive.jsx";
 import { EtichetaNou } from "./eticheta-nou.jsx";
 import { ReservationViewModal } from "./vizualizare.jsx";
@@ -519,6 +518,9 @@ export function CalendarView({ core, updateCore, reservations, updateReservation
                         // pushed the bar a whole extra cell too far, overlapping the next stay.
                         // Clipped ends (stay continues outside the visible date range) stay
                         // flush with the cell edge instead of stopping at a midpoint.
+                        // The slanted ends are drawn in CSS (`.cal-bar::before` in pms.css,
+                        // skewed around the bar's own centre), so the midpoints computed here
+                        // are still where each slanted edge crosses the middle of the bar.
                         const ciIdx = zileIntre(rangeStart, span.res.checkin);
                         const coIdx = zileIntre(rangeStart, span.res.checkout);
                         const leftAbs = span.clipStart ? span.startIdx : ciIdx + 0.5;
@@ -546,7 +548,6 @@ export function CalendarView({ core, updateCore, reservations, updateReservation
                               ? `${fmtDateTime(span.res.checkin)} → ${fmtDateTime(span.res.checkout)} · ${STATUS_LABEL[span.res.status]}`
                               : `${occupantName(span.res, core, groups) || "Fără nume"} · ${fmtDateTime(span.res.checkin)} → ${fmtDateTime(span.res.checkout)} · ${STATUS_LABEL[span.res.status]}`}
                           >
-                            {!doarCitire && <InsignaSursa sursa={span.res.source} />}
                             <span className="bar-glyph" aria-hidden="true">{STATUS_GLYPH[span.res.status]}</span>
                             {!doarCitire && <EtichetaNou res={span.res} noutati={noutati} />}
                             {!doarCitire && span.res.groupId && <UsersRound size={11} className="cal-bar-icon-grup" />}
