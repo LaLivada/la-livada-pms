@@ -109,7 +109,7 @@
 :root.tema-intunecata .topbar{ background:rgba(27,30,36,0.86) !important; }
 :root.tema-intunecata .btn-primary{ color:#0F1216; }
 :root.tema-intunecata .cal-daycell.today{
-  color:#fff; background:#4B4F58; box-shadow:inset 0 -3px 0 #6B6F79;
+  color:#fff; background:#585858; box-shadow:inset 0 -3px 0 #7A7A7A;
 }
 :root.tema-intunecata .room-chip.on, :root.tema-intunecata .tag-chip.on, :root.tema-intunecata .guest-chip-av,
 :root.tema-intunecata .big-avatar, :root.tema-intunecata .rail .mark, :root.tema-intunecata .brand-mark,
@@ -576,10 +576,11 @@
   color:var(--text-muted); font-weight:600; text-transform:capitalize;
 }
 .cal-daycell.today{
-  /* Gri închis, nu albastrul de accent: ziua activă nu trebuie să pară un
-     buton sau un link (cerut 20 septembrie 2026). */
-  color:#fff; background:#4A4842; font-weight:700;
-  box-shadow:inset 0 -3px 0 #33312C;
+  /* Gri NEUTRU (R=G=B), nu albastrul de accent și nu o nuanță caldă care
+     bate în maro — încercarea anterioară (#4A4842) o făcea (cerut 20
+     septembrie 2026). */
+  color:#fff; background:#585858; font-weight:700;
+  box-shadow:inset 0 -3px 0 #3D3D3D;
 }
 .cal-daycell.weekend{ background:var(--surface-2); }
 .cal-cell{
