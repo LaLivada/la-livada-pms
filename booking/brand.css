@@ -601,25 +601,14 @@ body {
      mai are ce decupa. */
   object-position: center center;
 }
-.ldv-phead::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  /* Mai slab decât pe lalivada.ro: acolo voalul e calibrat pentru o
-     fotografie luminoasă, iar filmul de aici e deja filmat în amurg —
-     aceleaşi valori îl înecau. Textul rămâne lizibil din umbra proprie
-     (vezi `text-shadow` la .ldv-h1). */
-  background:
-    linear-gradient(to bottom, rgba(24, 24, 22, 0.4) 0, rgba(24, 24, 22, 0.34) 76px, rgba(24, 24, 22, 0) 22%),
-    linear-gradient(
-      to top,
-      rgba(24, 24, 22, 0.6) 0,
-      rgba(24, 24, 22, 0.42) 28rem,
-      rgba(24, 24, 22, 0.06) 40rem,
-      rgba(24, 24, 22, 0.06) 100%
-    );
-}
+/* FĂRĂ VOAL PESTE FILM (cerut 21 septembrie 2026: „pare destul de
+   înegrit"). Aici stăteau două degradeuri negre — unul de sus pentru bară,
+   unul de jos pentru text — iar cel de jos nu ajungea niciodată la zero: îşi
+   ţinea ultimele două opriri la 0.06, adică o pâclă de 6% peste TOT cadrul.
+   Filmul fiind deja turnat în amurg, întunecimea se aduna de două ori.
+   Contrastul stă acum numai pe litere (`text-shadow` la .ldv-h1 şi
+   .ldv-lede) şi pe elementele barei, care îşi au umbrele lor de când bara e
+   transparentă peste film — aşa se întunecă doar textul, nu imaginea. */
 .ldv-phead-in {
   padding-block: var(--hdr-h) clamp(4rem, 10vh, 7rem);
   display: grid;
@@ -642,6 +631,10 @@ body {
   font-size: clamp(1.1rem, 1.03rem + 0.32vw, 1.28rem);
   line-height: 1.5;
   color: var(--ivory);
+  /* Singurul text de peste film care n-avea umbră proprie: se bizuia pe
+     voalul scos mai sus. Mai strânsă decât cea de la .ldv-h1 — literele
+     fiind mici, un halou lat le-ar îngroşa în loc să le desprindă. */
+  text-shadow: 0 1px 10px rgba(24, 24, 22, 0.75);
 }
 .ldv-form-wrap {
   padding-block: clamp(3rem, 8vh, 5rem);
