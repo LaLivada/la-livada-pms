@@ -162,8 +162,27 @@ Ovidiu, niciodată în cod:
    certificatul, cheia privată veche rămâne: plata trece, dar confirmarea
    (IPN-ul) nu se mai poate descifra, iar rezervarea rămâne „așteaptă" deși
    clientul a fost debitat.
-5. Testare întâi în sandbox, cu cardurile de test din documentația lor,
-   înainte de a trece pe live.
+5. **Punctul de vânzare trebuie înrolat ȘI aprobat tehnic de NETOPIA**,
+   altceva decât secretele. Cât timp nu e, pagina lor răspunde la orice
+   plată live cu *„Comerciantul nu are permisiunea sa incaseze prin
+   aceasta metoda de plata, pentru acest cont!"* — un mesaj care pare al
+   certificatelor, dar nu e: e al contului. Din
+   `https://admin.netopia-payments.com/`, secțiunea **Puncte de vânzare →
+   Vezi lista punctelor de vânzare**, sunt două acțiuni distincte:
+   - **Înrolare** — completat, încărcat documentul, trimis spre validare;
+   - **Aprobare** — formularul de testare, trimis DUPĂ ce integrarea merge
+     în sandbox. NETOPIA testează ei înșiși implementarea și abia apoi
+     activează punctul de vânzare pe live.
+
+   Sursa e articolul lor de suport: [COMERCIANTUL NU ARE PERMISIUNEA SA
+   INCASEZE PENTRU ACEST CONT! (live
+   mode)](https://netopia-support.kayako.com/en-us/article/46-comerciantul-nu-are-permisiunea-sa-incaseze-pentru-acest-cont-live-mode).
+   *(Pasul ăsta lipsea din plan până pe 21 septembrie 2026 — s-au pus
+   secretele, s-a trecut pe live și eroarea a fost căutată o zi în
+   certificate, unde nu era.)*
+6. Testare întâi în sandbox, cu cardurile de test din documentația lor,
+   înainte de a trece pe live. Sandbox-ul are propriul punct de vânzare,
+   deci propriul set de trei secrete — vezi pasul 4.
 
 ## Task-uri
 
