@@ -87,6 +87,10 @@ export function TodayView({ core, updateCore, reservations, updateReservations, 
   /* Rezervarea pe care ruleaza chiar acum un check-in/check-out. Fara ea,
      un dublu-click trimitea doua scrieri pe acelasi rand. */
   const [busyId, setBusyId] = useState(null);
+  /* Un singur lacat pe tot ecranul, deci toate butoanele trebuie sa arate
+     ocupat — vezi night-audit.jsx, unde aceeasi nepotrivire intre garda si
+     `disabled` a inghitit clicuri pe alte randuri. */
+  const ocupat = busyId !== null;
 
   /* One pass over the reservation list instead of six, and O(1) room lookups. */
   const roomById = useMemo(
@@ -244,7 +248,7 @@ export function TodayView({ core, updateCore, reservations, updateReservations, 
                   <span className={"role-tag " + (noua ? "st-checkedout" : "role-receptionist")}>Plecat</span>
                 ) : canCheckIn(r) ? (
                   <button className="btn btn-primary btn-lat btn-mic"
-                    disabled={busyId === r.id}
+                    disabled={ocupat}
                     onClick={async () => {
                       if (busyId) return;
                       setBusyId(r.id);
@@ -283,7 +287,7 @@ export function TodayView({ core, updateCore, reservations, updateReservations, 
                   <span className={"role-tag " + (noua ? "st-checkedout" : "role-receptionist")}>Plecat</span>
                 ) : canCheckOut(r) ? (
                   <button className="btn btn-ghost btn-mic"
-                    disabled={busyId === r.id}
+                    disabled={ocupat}
                     onClick={async () => {
                       if (busyId) return;
                       setBusyId(r.id);

@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   canCheckIn, canCheckOut, canCancel, canNoShow, cazatAcum,
   checkouturiRestante, zileIntarziere, ORE_CHECKIN_DEVREME, ZILE_CHECKIN_DEVREME,
-  sosiriRestante, zileIntarziereSosire,
+  sosiriRestante, zileIntarziereSosire, ziDeAudit, ORA_NIGHT_AUDIT,
 } from "./lib/tranzitii.js";
 import { momentLocal } from "./lib/timp.js";
 
@@ -207,5 +207,70 @@ describe("protocol", () => {
   it("se anuleaza si trece pe no-show ca o rezervare confirmata — altfel ar ramane agatat", () => {
     expect(canCancel(rez({ status: "protocol" }))).toBe(true);
     expect(canNoShow(rez({ status: "protocol", checkin: peste(-48).toISOString() }), ACUM)).toBe(true);
+  });
+});
+
+/* Poarta de night audit nu se deschide la miezul noptii, ci la ora 8: pana
+   atunci, tura de noapte inca lucreaza ziua de ieri si n-are ce rezolva
+   dintr-o plecare care tocmai s-a incheiat pe hartie. */
+describe("ziDeAudit — ziua de lucru a night audit-ului", () => {
+  it("inainte de ora 8 e inca ziua de ieri", () => {
+    for (const ora of ["00:00", "03:30", "07:59"]) {
+      expect(ziDeAudit(momentLocal(`2026-08-20T${ora}:00`)), ora)
+        .toEqual(momentLocal("2026-08-19T00:00:00"));
+    }
+  });
+
+  it("de la ora 8 e ziua de azi", () => {
+    for (const ora of ["08:00", "11:00", "23:59"]) {
+      expect(ziDeAudit(momentLocal(`2026-08-20T${ora}:00`)), ora)
+        .toEqual(momentLocal("2026-08-20T00:00:00"));
+    }
+  });
+
+  it("pragul e cel exportat, nu unul scris de mana in test", () => {
+    expect(ORA_NIGHT_AUDIT).toBe(8);
+  });
+});
+
+describe("night audit — nu se deschide inainte de ora 8", () => {
+  const plecareIeri = rez({ status: "checkedin", checkout: "2026-08-19T11:00:00" });
+  const plecareAcumTreiZile = rez({ id: "vechi", status: "checkedin", checkout: "2026-08-17T11:00:00" });
+  const sosireIeri = rez({ status: "confirmed", checkin: "2026-08-19T14:00:00" });
+  const sosireAcumTreiZile = rez({ id: "vechi", status: "confirmed", checkin: "2026-08-17T14:00:00" });
+
+  it("la 3 noaptea nu semnaleaza plecarea de ieri", () => {
+    expect(checkouturiRestante([plecareIeri], momentLocal("2026-08-20T03:00:00"))).toEqual([]);
+  });
+
+  it("la 8 fix o semnaleaza", () => {
+    expect(checkouturiRestante([plecareIeri], momentLocal("2026-08-20T08:00:00"))).toEqual([plecareIeri]);
+  });
+
+  it("la 3 noaptea nu semnaleaza nici sosirea de ieri", () => {
+    expect(sosiriRestante([sosireIeri], momentLocal("2026-08-20T03:00:00"))).toEqual([]);
+  });
+
+  it("la 8 fix o semnaleaza", () => {
+    expect(sosiriRestante([sosireIeri], momentLocal("2026-08-20T08:00:00"))).toEqual([sosireIeri]);
+  });
+
+  /* Amanarea e doar pentru restanta abia aparuta. Una de acum trei zile a
+     fost deja pe ecran o zi intreaga, deci intarzierea nu mai e a turei care
+     se schimba — si nici nu e ceva ce se poate lasa peste noapte. */
+  it("o restanta mai veche de o zi ramane semnalata si la 3 noaptea", () => {
+    const noaptea = momentLocal("2026-08-20T03:00:00");
+    expect(checkouturiRestante([plecareAcumTreiZile], noaptea)).toEqual([plecareAcumTreiZile]);
+    expect(sosiriRestante([sosireAcumTreiZile], noaptea)).toEqual([sosireAcumTreiZile]);
+  });
+
+  it("fiecare rand ramas peste noapte are tot o iesire", () => {
+    const noaptea = momentLocal("2026-08-20T03:00:00");
+    for (const r of checkouturiRestante([plecareAcumTreiZile], noaptea)) {
+      expect(canCheckOut(r)).toBe(true);
+    }
+    for (const r of sosiriRestante([sosireAcumTreiZile], noaptea)) {
+      expect(canNoShow(r, noaptea) || canCancel(r)).toBe(true);
+    }
   });
 });

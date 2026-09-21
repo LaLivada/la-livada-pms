@@ -20,6 +20,20 @@ export function NightAuditGate({ restante, sosiri, core, updateCore, groups, upd
   const [busyId, setBusyId] = useState(null);
   const [modal, setModal] = useState(null); // { reservation } — deschis din Editează, mai jos
 
+  /* Lacatul e UNUL SINGUR pe tot ecranul, deci si butoanele trebuie sa arate
+     asta. Pana pe 22 septembrie 2026, garda `if (busyId) return` inghitea
+     clicul pe ORICE alt rand cat timp unul era in lucru, dar `disabled` era
+     pus doar pe randul ocupat: celelalte butoane aratau vii si nu faceau
+     nimic. Nu e o fereastra teoretica — un check-out asteapta pe rand
+     salvarea, camera, jurnalul, revocarea codului de pe yala si stergerea
+     mesajului de pe televizor, adica 3-5 secunde in care receptia apasa
+     linistita pe urmatoarea camera. Exact asa au ramas patru camere
+     nerezolvate din poarta in noaptea de 21 spre 22 septembrie (jurnal:
+     doua „Check-out", apoi patru „Rezervare modificata" facute de mana).
+     Serializarea ramane — doua salvari deodata ar porni amandoua de la
+     acelasi instantaneu al listei si s-ar suprascrie. */
+  const ocupat = busyId !== null;
+
   const marcheazaNoShow = async (r) => {
     const camera = core.rooms.find((x) => x.id === r.roomId);
     await updateReservations(reservations.map((x) => (x.id === r.id ? { ...x, status: "noshow" } : x)));
@@ -74,11 +88,12 @@ export function NightAuditGate({ restante, sosiri, core, updateCore, groups, upd
                       un sejur prelungit — daca plecarea se muta in viitor,
                       rezervarea iese singura din lista asta la urmatorul tick. */}
                   <div className="quick-actions acces-actions">
-                    <button className="btn btn-ghost" onClick={() => setModal({ reservation: r })}>
+                    <button className="btn btn-ghost" disabled={ocupat}
+                      onClick={() => setModal({ reservation: r })}>
                       <Pencil size={14} /> Editează
                     </button>
                     <button className="btn btn-primary"
-                      disabled={busyId === r.id}
+                      disabled={ocupat}
                       onClick={async () => {
                         if (busyId) return;
                         setBusyId(r.id);
@@ -116,7 +131,7 @@ export function NightAuditGate({ restante, sosiri, core, updateCore, groups, upd
                       ca sa nu se rupa pe doua randuri pe mobil. */}
                   <div className="quick-actions acces-actions">
                     <button className="btn btn-ghost"
-                      disabled={busyId === r.id}
+                      disabled={ocupat}
                       onClick={async () => {
                         if (busyId) return;
                         setBusyId(r.id);
@@ -128,7 +143,7 @@ export function NightAuditGate({ restante, sosiri, core, updateCore, groups, upd
                       {busyId === r.id ? "…" : <><LogIn size={14} /> Check-in</>}
                     </button>
                     <button className="btn btn-ghost"
-                      disabled={busyId === r.id}
+                      disabled={ocupat}
                       onClick={async () => {
                         if (busyId) return;
                         setBusyId(r.id);
@@ -137,7 +152,7 @@ export function NightAuditGate({ restante, sosiri, core, updateCore, groups, upd
                       {busyId === r.id ? "…" : <><UserCheck size={14} /> No-show</>}
                     </button>
                     <button className="btn btn-danger"
-                      disabled={busyId === r.id}
+                      disabled={ocupat}
                       onClick={async () => {
                         if (busyId) return;
                         setBusyId(r.id);

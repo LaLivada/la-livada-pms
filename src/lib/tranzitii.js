@@ -10,7 +10,7 @@
  * pms-app.jsx o importa.
  */
 
-import { ziLocala, zileIntre, esteAceeasiZi } from "./timp.js";
+import { ziLocala, zileIntre, esteAceeasiZi, partiLocale, adaugaZile } from "./timp.js";
 
 /* Aceeasi zi LA VASLUI, nu in fusul browserului — vezi lib/timp.js. */
 export function isSameDay(a, b) { return esteAceeasiZi(a, b); }
@@ -83,17 +83,37 @@ export const canCancel = (r) => STATUSURI_NEREZOLVATE.includes(r.status);
 export const canNoShow = (r, now = new Date()) =>
   STATUSURI_NEREZOLVATE.includes(r.status) && ziLocala(r.checkin) < ziLocala(now);
 
+/* Ora de la care se semnaleaza restantele zilei tocmai incheiate. */
+export const ORA_NIGHT_AUDIT = 8;
+
+/* Ziua de lucru a night audit-ului, care NU e mereu ziua calendaristica.
+ *
+ * Pana la ora 8 dimineata e inca ziua de ieri: cine e la receptie la 3
+ * noaptea tine tura de ieri, iar o plecare de ieri de la 11:00 nu e o
+ * restanta pe care sa o rezolve el — e treaba turei care vine. Pana acum,
+ * poarta se inchidea peste el fix la miezul noptii.
+ *
+ * Restantele mai vechi de o zi raman semnalate la orice ora: pe acelea
+ * le-a vazut deja o zi intreaga toata lumea, deci intarzierea nu mai e a
+ * schimbului de tura. */
+export function ziDeAudit(now = new Date()) {
+  const azi = ziLocala(now);
+  const p = partiLocale(now);
+  return p && p.ore < ORA_NIGHT_AUDIT ? adaugaZile(azi, -1) : azi;
+}
+
 /* Night audit: rezervari inca "checked-in" a caror zi de plecare a trecut.
  *
  * Pragul e ZIUA, nu ora: un oaspete care pleaca azi la 11:00 nu e restant
- * azi, oricat de tarziu ar fi — abia maine. Altfel o intarziere obisnuita
- * la plecare ar bloca receptia in mijlocul zilei.
+ * azi, oricat de tarziu ar fi — abia maine, de la ora 8 (vezi ziDeAudit).
+ * Altfel o intarziere obisnuita la plecare ar bloca receptia in mijlocul
+ * zilei.
  *
  * canCheckOut cere doar `status === "checkedin"`, deci fiecare rezervare
  * intoarsa de aici poate fi inchisa pe loc — lista nu poate contine ceva
  * ce nu se poate rezolva. */
 export function checkouturiRestante(reservations, now = new Date()) {
-  const azi = ziLocala(now);
+  const azi = ziDeAudit(now);
   return (reservations || []).filter(
     (r) => r.status === "checkedin" && ziLocala(r.checkout) < azi);
 }
@@ -115,9 +135,15 @@ export function zileIntarziere(r, now = new Date()) {
  * plus anularea, mereu posibila pentru pending/confirmed. Check-in-ul de
  * pe ziua exacta ramane blocat de canCheckIn (sosire trecuta, vezi mai
  * sus) — corect: o sosire de acum cateva zile nu se mai cazeaza direct,
- * intai se corecteaza data. */
+ * intai se corecteaza data.
+ *
+ * Ora 8 se aplica si aici, prin ziDeAudit: poarta e una singura, deci n-are
+ * sens sa se deschida noaptea pentru sosiri si nu si pentru plecari.
+ * `canNoShow` ramane in filtru, nu e inlocuit: el e garantia ca fiecare rand
+ * din lista are cel putin o iesire. */
 export function sosiriRestante(reservations, now = new Date()) {
-  return (reservations || []).filter((r) => canNoShow(r, now));
+  const azi = ziDeAudit(now);
+  return (reservations || []).filter((r) => canNoShow(r, now) && ziLocala(r.checkin) < azi);
 }
 
 /* Cate zile a trecut peste sosirea programata — pentru afisaj. */
