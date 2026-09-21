@@ -149,9 +149,21 @@ Ovidiu, niciodată în cod:
    XXXX-XXXX-XXXX-XXXX), `NETOPIA_PUBLIC_CERT` (certificatul public NETOPIA,
    pentru criptarea cererii de plată), `NETOPIA_PRIVATE_KEY` (cheia privată a
    comerciantului, pentru decriptarea IPN-ului).
-3. Testare întâi în sandbox (`sandboxsecure.mobilpay.ro`,
-   `NETOPIA_SANDBOX=true`), cu cardurile de test din documentația lor, înainte
-   de a trece pe live.
+3. Comutatorul de mediu e `NETOPIA_LIVE`, și **numai** valoarea exactă
+   `true` (litere mici) trimite plata la `secure.mobilpay.ro`; orice
+   altceva — nesetat, `True`, `1`, `TRUE` — o lasă la
+   `sandboxsecure.mobilpay.ro`. Vezi `netopia-start/index.ts`.
+   *(Până pe 21 septembrie 2026 scria aici `NETOPIA_SANDBOX=true`, o
+   variabilă pe care codul n-a citit-o niciodată. Cine a urmat pasul ăsta a
+   rămas pe sandbox fără să vadă de ce.)*
+4. Cele trei secrete formează un SET: `NETOPIA_SIGNATURE`,
+   `NETOPIA_PUBLIC_CERT` și `NETOPIA_PRIVATE_KEY` trebuie să vină de la
+   ACELAȘI punct de vânzare și din ACELAȘI mediu. Schimbat doar
+   certificatul, cheia privată veche rămâne: plata trece, dar confirmarea
+   (IPN-ul) nu se mai poate descifra, iar rezervarea rămâne „așteaptă" deși
+   clientul a fost debitat.
+5. Testare întâi în sandbox, cu cardurile de test din documentația lor,
+   înainte de a trece pe live.
 
 ## Task-uri
 
