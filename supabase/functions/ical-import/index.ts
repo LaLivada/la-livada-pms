@@ -20,7 +20,7 @@
 //
 // deno-lint-ignore-file no-explicit-any
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { evenimenteDin } from "./feed.ts";
+import { evenimenteDin, adresaDeFeed } from "./feed.ts";
 import { decideActiuni, sursaDinOta, MOTIVE, TAG_OTA_INCOMPLET } from "../../../src/lib/ical-ota.js";
 import { partiLocale } from "../../../src/lib/timp.js";
 
@@ -55,22 +55,45 @@ function rolDinJwt(jwt: string): string {
   }
 }
 
-async function descarca(url: string): Promise<string> {
-  /* A doua bariera dupa constrangerea din migratie: adresa ajunge intr-un
-     fetch facut cu drepturi de service role, deci nu se accepta nimic in
-     afara de http(s) — nici file:, nici data:. */
-  const u = new URL(url);
-  if (u.protocol !== "https:" && u.protocol !== "http:") throw new Error("Adresa nu e http(s).");
+/* Cate redirectari urmam. OTA-urile chiar redirecteaza (booking.com →
+   ical.booking.com, http → https), deci zero n-ar merge; peste trei, fie e o
+   bucla, fie cineva se joaca. */
+const MAX_REDIRECTARI = 3;
 
-  const stop = AbortSignal.timeout(TIMEOUT_FEED_MS);
-  const r = await fetch(url, { signal: stop, redirect: "follow", headers: { Accept: "text/calendar, text/plain" } });
-  if (!r.ok) throw new Error(`Feedul a raspuns ${r.status}.`);
-  const text = await r.text();
-  /* Un raspuns 200 care nu e un calendar (pagina de login, mesaj de eroare
-     HTML) NU trebuie tratat ca „niciun eveniment": ar anula tot ce am
-     importat pentru camera aia. */
-  if (!/BEGIN:VCALENDAR/i.test(text)) throw new Error("Raspunsul nu e un calendar iCal.");
-  return text;
+async function descarca(url: string): Promise<string> {
+  /* REDIRECTARILE SE URMEAZA DE MANA. Cu `redirect: "follow"`, garda de
+     adresa s-ar aplica doar primului pas: o adresa externa perfect valida
+     care raspunde `302 Location: http://169.254.169.254/…` ar duce cererea
+     inauntru, iar noi n-am sti. Fiecare salt trece prin `adresaDeFeed`. */
+  let tinta = adresaDeFeed(url);
+  for (let salt = 0; ; salt++) {
+    const r = await fetch(tinta, {
+      signal: AbortSignal.timeout(TIMEOUT_FEED_MS),
+      redirect: "manual",
+      headers: { Accept: "text/calendar, text/plain" },
+    });
+
+    if (r.status >= 300 && r.status < 400 && r.headers.get("location")) {
+      /* Corpul unui redirect nu ne trebuie, dar trebuie inchis: altfel
+         conexiunea ramane deschisa pana la colectorul de gunoaie. */
+      await r.body?.cancel();
+      if (salt >= MAX_REDIRECTARI) throw new Error("Prea multe redirectari.");
+      tinta = adresaDeFeed(new URL(r.headers.get("location")!, tinta));
+      continue;
+    }
+
+    /* In mesaj intra DOAR codul, niciodata corpul raspunsului: `ultima_eroare`
+       se vede in ecranul Camere, iar un corp venit de la o adresa straina
+       n-are ce cauta acolo. */
+    if (!r.ok) { await r.body?.cancel(); throw new Error(`Feedul a raspuns ${r.status}.`); }
+
+    const text = await r.text();
+    /* Un raspuns 200 care nu e un calendar (pagina de login, mesaj de eroare
+       HTML) NU trebuie tratat ca „niciun eveniment": ar anula tot ce am
+       importat pentru camera aia. */
+    if (!/BEGIN:VCALENDAR/i.test(text)) throw new Error("Raspunsul nu e un calendar iCal.");
+    return text;
+  }
 }
 
 async function jurnal(admin: any, actiune: string, detaliu: string, camera?: string, rezervare?: string) {
