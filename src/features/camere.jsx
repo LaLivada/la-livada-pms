@@ -15,6 +15,8 @@ import { mesajEroare } from "../lib/errors.js";
 import { audit, isAdmin } from "../lib/audit.js";
 import { fmtMoney, fmtDate, fmtDateTime, validatePrice } from "../lib/format.js";
 import { ROOM_TYPE, DEFAULT_TAGS, HK_STATUSES, DEFAULT_ONLINE_TIERS } from "../lib/constante.js";
+import { OTA_CUNOSCUTE, slugOta } from "../lib/ical-ota.js";
+import { calendareleCamerei, salveazaCalendarOta, stergeCalendarOta } from "../data/calendare-ota.js";
 import { Dialog, toaster, useModalLock } from "../ui/primitive.jsx";
 import { cheamaAcces } from "./acces.jsx";
 
@@ -446,6 +448,12 @@ export function RoomModal({ room, onSave, onClose }) {
           <button className={tab === "acces" ? "on" : ""} onClick={() => setTab("acces")}>
             <KeyRound size={14} /> Yală
           </button>
+          {/* „Calendare OTA", nu „Sincronizare calendare": pe telefon
+              `.sub-tabs` derulează pe orizontală ce nu încape, iar eticheta
+              lungă ieșea din ecran — al treilea tab se putea rata cu totul. */}
+          <button className={tab === "sync" ? "on" : ""} onClick={() => setTab("sync")}>
+            <RefreshCw size={14} /> Calendare OTA
+          </button>
         </div>
 
         {tab === "info" ? (
@@ -460,7 +468,19 @@ export function RoomModal({ room, onSave, onClose }) {
               </label>
             </div>
             <label className="field">
-              <span className="fl">Link iCal</span>
+              <span className="fl">Număr maxim de persoane</span>
+              <input type="number" min="1" max="20" value={capacity} onChange={(e) => setCapacity(e.target.value)} />
+            </label>
+          </>
+        ) : tab === "sync" ? (
+          <>
+            {/* AMBELE SENSURI, IN ACELASI LOC. Linkul de iesire a stat pana
+                pe 21 septembrie 2026 in „Informații cameră", langa capacitate
+                — adica exact departe de singurul lucru cu care are treaba.
+                Cine conecteaza o camera la un OTA are nevoie de amandoua
+                adresele deodata: una se duce la ei, cealalta vine de la ei. */}
+            <label className="field">
+              <span className="fl">Link de ieșire — PMS → OTA</span>
               <div className="camere-ical-rand">
                 <input className={"mono" + (icalUrl ? "" : " camere-ical-gol")} readOnly
                   value={icalUrl || "Disponibil după prima salvare"} />
@@ -470,10 +490,15 @@ export function RoomModal({ room, onSave, onClose }) {
                 </button>
               </div>
             </label>
-            <label className="field">
-              <span className="fl">Număr maxim de persoane</span>
-              <input type="number" min="1" max="20" value={capacity} onChange={(e) => setCapacity(e.target.value)} />
-            </label>
+            <div className="note mb-14">
+              Același link se pune la oricâte platforme — Booking.com, Airbnb, orice altă
+              agenție care acceptă un calendar extern. El le spune lor ce zile sunt ocupate
+              în PMS. Ca să meargă și invers, adaugă mai jos adresa de export pe care ți-o
+              dă fiecare dintre ele.
+            </div>
+            {room?.id
+              ? <CalendareOta room={room} />
+              : <div className="section-empty">Salvează camera întâi — adresele de import se leagă de ea.</div>}
           </>
         ) : tab === "acces" ? (
           <>
@@ -602,6 +627,141 @@ export function RoomModal({ room, onSave, onClose }) {
           <button className="btn btn-primary btn-lat" onClick={submit}><Check size={15} /> Salvează</button>
         </div>
     </Dialog>
+  );
+}
+
+/* Adresele .ics de IMPORT ale unei camere — sensul OTA → PMS.
+ *
+ * Nu declanșează nimic: ciclul `ical-import` (pg_cron, la un sfert de oră)
+ * citește adresele astea singur. De-aia ecranul nu are buton de „sincronizează
+ * acum" — ar promite o acțiune pe care browserul n-o poate face, fiindcă
+ * feedurile se citesc cu drepturi de server.
+ *
+ * Booking.com și Airbnb au chei proprii, fiindcă `reservations.source` le
+ * cunoaște; orice altă agenție intră pe „Altă agenție" și își păstrează
+ * numele ca slug, ca două agenții diferite să nu-și amestece UID-urile.
+ */
+export function CalendareOta({ room }) {
+  const [randuri, setRanduri] = useState(null);     // null = încă se încarcă
+  const [eroare, setEroare] = useState("");
+  const [ota, setOta] = useState("booking");
+  const [numeAgentie, setNumeAgentie] = useState("");
+  const [url, setUrl] = useState("");
+  const [salvez, setSalvez] = useState(false);
+
+  const incarca = useCallback(async () => {
+    try {
+      setRanduri(await calendareleCamerei(room.id));
+      setEroare("");
+    } catch (e) {
+      setRanduri([]);
+      setEroare(mesajEroare(e, "Nu am putut citi calendarele configurate"));
+    }
+  }, [room.id]);
+  useEffect(() => { incarca(); }, [incarca]);
+
+  const adauga = async () => {
+    const adresa = url.trim();
+    const altul = ota === "altul";
+    const eticheta = altul ? numeAgentie.trim() : OTA_CUNOSCUTE.find((o) => o.ota === ota)?.eticheta;
+    const cheie = altul ? slugOta(numeAgentie) : ota;
+    if (!eticheta) { setEroare("Scrie numele agenției."); return; }
+    if (!cheie) { setEroare("Numele agenției trebuie să conțină litere sau cifre."); return; }
+    if (!/^https?:\/\//i.test(adresa)) { setEroare("Adresa trebuie să înceapă cu http:// sau https://."); return; }
+
+    setSalvez(true);
+    try {
+      await salveazaCalendarOta({ roomId: room.id, ota: cheie, eticheta, url: adresa });
+      await audit.push("Calendar OTA configurat", `${eticheta} · ${room.name}`, { roomId: room.id });
+      setUrl("");
+      setNumeAgentie("");
+      await incarca();
+    } catch (e) {
+      setEroare(mesajEroare(e, "Adresa nu a putut fi salvată"));
+    } finally {
+      setSalvez(false);
+    }
+  };
+
+  const sterge = async (rand) => {
+    try {
+      await stergeCalendarOta(rand.id);
+      await audit.push("Calendar OTA șters", `${rand.eticheta} · ${room.name}`, { roomId: room.id });
+      await incarca();
+    } catch (e) {
+      setEroare(mesajEroare(e, "Adresa nu a putut fi ștearsă"));
+    }
+  };
+
+  return (
+    <div>
+      <div className="section-head">Adrese de import — OTA → PMS</div>
+      <div className="panel mb-12">
+        {randuri === null ? (
+          <div className="section-empty">Se încarcă…</div>
+        ) : randuri.length === 0 ? (
+          <div className="section-empty">
+            Nicio adresă de import. Rezervările făcute pe platforme nu ajung în PMS.
+          </div>
+        ) : randuri.map((c) => (
+          <div className="list-row" key={c.id}>
+            {/* Fără clasă proprie: `.list-row > *:first-child` îi dă deja
+                flex:1 și min-width:0, adică exact trunchierea de care are
+                nevoie o adresă lungă. */}
+            <div>
+              <div className="primary">{c.eticheta}</div>
+              <div className="secondary mono">{c.url}</div>
+              {c.eroare
+                ? <div className="error-text mt-4">Eroare la ultima citire ({c.erori} la rând): {c.eroare}</div>
+                : (
+                  <div className="secondary mt-4">
+                    {c.sincronizatLa
+                      ? `Ultima citire: ${fmtDateTime(c.sincronizatLa)}`
+                      : "Încă necitită — prima rulare vine în cel mult 15 minute."}
+                  </div>
+                )}
+            </div>
+            <div className="row-actions">
+              <button className="icon-btn" onClick={() => sterge(c)}
+                aria-label={`Șterge adresa de import de la ${c.eticheta}`}>
+                <Trash2 size={14} />
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="field-row">
+        <label className="field">
+          <span className="fl">Platformă</span>
+          <select value={ota} onChange={(e) => { setOta(e.target.value); setEroare(""); }}>
+            {OTA_CUNOSCUTE.map((o) => <option key={o.ota} value={o.ota}>{o.eticheta}</option>)}
+            <option value="altul">Altă agenție…</option>
+          </select>
+        </label>
+        {ota === "altul" && (
+          <label className="field">
+            <span className="fl">Numele agenției</span>
+            <input value={numeAgentie} onChange={(e) => { setNumeAgentie(e.target.value); setEroare(""); }}
+              placeholder="ex. Travelminit" />
+          </label>
+        )}
+      </div>
+      <label className="field">
+        <span className="fl">Adresa .ics primită de la ei</span>
+        <input className="mono" value={url} onChange={(e) => { setUrl(e.target.value); setEroare(""); }}
+          placeholder="https://…/calendar.ics" />
+      </label>
+      {eroare && <div className="error-text mb-10" role="alert">{eroare}</div>}
+      <button className="btn btn-primary btn-lat" onClick={adauga} disabled={salvez || !url.trim()}>
+        <Plus size={15} /> {salvez ? "Se salvează…" : "Adaugă adresa"}
+      </button>
+      <div className="note mt-14">
+        Feedurile OTA dau doar intervalul ocupat — fără nume, telefon sau preț. Rezervările
+        importate primesc eticheta „Detalii lipsă (OTA)" și un semn în fișa lor, ca să știi
+        ce mai ai de completat din extranet înainte de sosire.
+      </div>
+    </div>
   );
 }
 

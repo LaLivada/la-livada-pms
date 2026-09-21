@@ -6,13 +6,14 @@
  */
 
 import { useState } from "react";
-import { Pencil, UsersRound, Printer } from "lucide-react";
+import { Pencil, UsersRound, Printer, AlertTriangle } from "lucide-react";
 import { audit } from "../../lib/audit.js";
 import { guestFullName, occupantName } from "../../lib/nume.js";
 import { nightsBetween, esteProtocol } from "../../lib/availability.js";
 import { reservationTotal } from "../../lib/pricing.js";
 import { fmtMoney, fmtDate, fmtDateTime, initials } from "../../lib/format.js";
 import { STATUS_LABEL, STATUS_GLYPH, STATUS_CLASS, sourceLabel } from "../../lib/constante.js";
+import { TAG_OTA_INCOMPLET } from "../../lib/ical-ota.js";
 import { Dialog, useModalLock } from "../../ui/primitive.jsx";
 import { SectiuneAcces } from "../acces.jsx";
 import { SectiuneFisa } from "../fise.jsx";
@@ -103,6 +104,23 @@ export function ReservationViewModal({ reservation, core, updateCore, groups, up
           <UsersRound size={15} />
           <span>Face parte din grupul <strong>{editingGroup.name}</strong></span>
         </button>
+      )}
+
+      {/* Rezervare adusa de importul iCal. Feedurile OTA dau doar intervalul
+          ocupat, deci fisa e incompleta prin constructie, nu dintr-o scapare
+          a cuiva — iar singurul loc de unde se pot lua datele lipsa e
+          extranetul lor. Bannerul sta AICI, nu si in formularul de editare:
+          acolo eticheta se vede oricum in lista de tag-uri, iar cine a ajuns
+          sa editeze a trecut deja pe langa avertismentul asta. */}
+      {reservation.tags?.includes(TAG_OTA_INCOMPLET) && (
+        <div className="group-banner ota-banner">
+          <AlertTriangle size={15} className="no-shrink" />
+          <span>
+            Venită automat din <strong>{sourceLabel(reservation.source)}</strong>. Numele,
+            telefonul și prețul nu trec prin calendarul lor — completează-le din extranet
+            înainte de sosire, apoi scoate eticheta „{TAG_OTA_INCOMPLET}".
+          </span>
+        </div>
       )}
 
       {guest && (

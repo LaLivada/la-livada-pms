@@ -1802,6 +1802,13 @@ label.field input, label.field select, label.field textarea{ cursor:auto; }
   transition:background .12s;
 }
 .group-banner-link:hover{ filter:brightness(0.96); }
+/* Acelasi bloc ca bannerul de grup, in tonul de avertisment: rezervarea
+   importata dintr-un calendar OTA e incompleta prin constructie (feedul .ics
+   nu contine nume, telefon sau pret), iar textul e de doua-trei randuri —
+   de-aia pictograma se aliniaza sus, nu pe mijloc ca la grup. */
+.ota-banner{
+  background:var(--warning-soft); color:var(--warning); align-items:flex-start; line-height:1.45;
+}
 .room-picker{
   background:var(--surface-2); border-radius:12px; padding:12px;
   max-height:260px; overflow-y:auto; -webkit-overflow-scrolling:touch; overscroll-behavior:contain;

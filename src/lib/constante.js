@@ -94,6 +94,10 @@ export const DEFAULT_TAGS = [
   "Pat suplimentar", "Animal de companie", "Necesită factură",
 ];
 
+/* Eticheta pusa automat de importul iCal sta in src/lib/ical-ota.js, nu
+   aici: o importa si functia edge, iar fisierul asta ar trage in deployul
+   ei toate judetele, tarile si prefixele telefonice degeaba. */
+
 export const ROLE_LABEL = { admin: "Admin", receptionist: "Recepționer", housekeeping: "Cameristă" };
 
 /* Intl formatters are expensive to construct (far more than to use), and

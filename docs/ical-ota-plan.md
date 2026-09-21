@@ -1,5 +1,12 @@
 # Sincronizare iCal cu Airbnb și Booking.com — plan de implementare
 
+> **Livrat pe 21 septembrie 2026.** Importul (OTA → PMS) există: tabelul
+> `camere_calendare_ota`, funcția edge `ical-import`, jobul `pg_cron`
+> `ical-import-ota` la 15 minute, fila „Calendare OTA" din fereastra
+> camerei. Vezi **[Configurarea](#configurarea)** la final pentru pașii
+> manuali rămași. Planul de mai jos e păstrat ca argument al deciziilor;
+> unde implementarea a ieșit altfel, secțiunea de configurare spune de ce.
+
 > **Actualizare (16 septembrie 2026):** a apărut o a șasea variantă,
 > Aiosell, cu API documentat și webhook real, posibil sub buget (10 $/lună,
 > de confirmat) — vezi [`aiosell-plan.md`](aiosell-plan.md). Dacă prețul se
@@ -317,3 +324,97 @@ direcții, pentru fiecare cameră listată.
 - Dacă Airbnb/Booking.com pun vreo limită de rată la cererile GET pe adresa
   lor de export — improbabil la un interval de 10 minute pe 16 adrese, dar
   neconfirmat.
+
+---
+
+## Configurarea
+
+*(Scrisă după implementare, 21 septembrie 2026. Task 8 din lista de mai sus.)*
+
+### Cele două sensuri, pe scurt
+
+Fiecare cameră are DOUĂ adrese, una pentru fiecare direcție, și amândouă
+stau în PMS la **Camere → (creion) → Calendare OTA**:
+
+| Sens | Adresa | Unde se pune |
+|---|---|---|
+| PMS → OTA | „Link de ieșire", generată de PMS | în extranetul fiecărui OTA, la import calendar |
+| OTA → PMS | adresa de export a OTA-ului | în PMS, la „Adrese de import" |
+
+Linkul de ieșire e **unul singur per cameră** și merge la oricâte platforme:
+nu-ți trebuie unul pentru Booking și altul pentru Airbnb. Adresa de import e
+însă **diferită la fiecare platformă**, pentru fiecare cameră.
+
+La 16 camere și 2 platforme asta înseamnă 16 adrese de dat și 32 de luat.
+Nu există scurtătură — legătura e per cameră, la amândouă capetele.
+
+### Booking.com
+
+1. Extranet → **Tarife și disponibilitate → Sincronizare calendare**.
+2. Alegi camera. „Exportă calendar" îți dă adresa `.ics` a camerei →
+   o pui în PMS, la „Adrese de import", cu platforma **Booking.com**.
+3. Tot acolo, „Importă calendar" / „Conectează un calendar nou" → lipești
+   linkul de ieșire al ACELEIAȘI camere din PMS.
+4. Se repetă pentru fiecare cameră listată.
+
+### Airbnb
+
+1. Anunț → **Calendar → Disponibilitate → Sincronizare calendare**.
+2. „Exportă calendar" → adresa `.ics` → în PMS, platforma **Airbnb**.
+3. „Importă calendar" → linkul de ieșire al camerei din PMS. Airbnb cere și
+   un nume pentru calendarul importat; „La Livada PMS" e de-ajuns.
+
+### Alte agenții
+
+În PMS, la „Platformă", alegi **Altă agenție…** și scrii numele
+(Travelminit, Expedia, ce e). Numele devine și cheia sursei, deci două
+agenții diferite nu-și amestecă rezervările. În rapoarte apar sub „Altă
+agenție", fiindcă `reservations.source` are lista lui fixă — numele real
+rămâne vizibil în fișa rezervării și în Jurnal.
+
+### Ce se întâmplă după
+
+Ciclul citește toate adresele la fiecare 15 minute, singur. Nu există buton
+de „sincronizează acum": feedurile se citesc cu drepturi de server, nu din
+browser. Sub fiecare adresă scrie când a fost citită ultima oară, sau ce
+eroare a dat.
+
+O rezervare venită din feed intră ca **Confirmată**, cu eticheta
+**„Detalii lipsă (OTA)"** și o notă. Feedurile `.ics` nu conțin numele,
+telefonul sau prețul — recepția le completează din extranet. Fișa
+rezervării arată un avertisment cât timp eticheta e pe ea.
+
+Dacă un feed cade (URL revocat, 404, pagină de login în loc de calendar),
+rândul NU e tratat ca „feed gol": se sare peste el, fără să se atingă
+rezervările camerei. După 5 eșecuri la rând (~o oră și un sfert) pleacă un
+email de alertă și o intrare în Jurnal.
+
+Dacă aceeași cameră a fost vândută pe două canale în fereastra de
+întârziere, baza respinge a doua rezervare (`fara_suprapunere`), pleacă o
+alertă pe email și rămâne de rezolvat la telefon. Nu există mutare automată.
+
+### Ce a ieșit altfel decât în plan
+
+- **15 minute, nu 10.** Nu se câștigă nimic citind mai des decât își
+  reîmprospătează ei feedul (Airbnb ~o oră, Booking.com neregulat), iar
+  limitele lor de rată pe adresele de export nu sunt documentate.
+- **RLS clasic, nu RPC-uri `security definer`.** Tabelul e configurare de
+  cameră, exact ca `devices` — același tipar, trei funcții mai puțin.
+- **Orice agenție, nu doar cele două.** `ota` e un slug liber, nu un
+  `check (ota in ('airbnb','booking'))`, tocmai ca „ceilalți OTA" să încapă.
+- **Alerta merge la `ALERTA_EMAIL`** (implicit `office@lalivada.com`), un
+  secret al funcției — nu o cheie în `app_state`, care ar fi cerut un ecran
+  de setări pentru o valoare schimbată o dată la câțiva ani.
+- **`evenimenteDin` stă separat**, în `ical-import/feed.ts`, ca să fie
+  testabilă din vitest (`src/ical-import-feed.test.js`) — la fel ca
+  `reguli-automate.ts`. Acolo se verifică ce nu poate prinde niciun test al
+  părților: din ce zi se citește un `DTSTART` și ce oră primește.
+
+### Ce NU e încă verificat pe viu
+
+Drumul de eroare e probat pe producție (o adresă care întoarce HTML și una
+care dă 404: ambele au fost marcate ca eșuate, zero rezervări atinse).
+Drumul fericit — un feed OTA real, cu evenimente reale — nu poate fi probat
+fără o adresă reală de la Booking sau Airbnb. Primul test adevărat e când
+Ovidiu conectează o cameră. Merită începută cu **o singură cameră**, urmărită
+o zi în Jurnal, și abia apoi restul.

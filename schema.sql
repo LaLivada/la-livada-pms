@@ -3849,12 +3849,24 @@ create index activity_log_rezervare on activity_log (reservation_id); -- cheie s
 -- `action` și `detail`; restul coloanelor sunt rescrise, orice ar fi
 -- trimis. `security definer` fiindcă citește `staff`, pe care camerista
 -- oricum n-o poate citi singură.
+--
+-- Excepția: acțiunile fără om în spate (pg_cron → funcție edge → service
+-- role) n-au `auth.uid()`, deci apăreau în Jurnal ca „?" — exact acolo unde
+-- trebuie să se vadă că a lucrat automatizarea, nu un coleg. Pe ramura aia
+-- numele trimis rămâne. E sigură: politica de insert pentru `authenticated`
+-- cere `staff_role() is not null`, care cere un `auth.uid()` real, deci un
+-- browser nu poate ajunge niciodată pe ea.
 create or replace function activity_log_semneaza()
 returns trigger language plpgsql security definer
 set search_path = public as $$
 begin
   new.at      := now();
   new.user_id := auth.uid();
+  if new.user_id is null then
+    new.user_name := coalesce(nullif(btrim(new.user_name), ''), '?');
+    new.user_role := 'sistem';
+    return new;
+  end if;
   select s.name, s.role into new.user_name, new.user_role
     from staff s where s.user_id = auth.uid();
   new.user_name := coalesce(new.user_name, '?');
@@ -6671,3 +6683,59 @@ comment on table tv_devices is
   'Televizoarele din camere, așa cum le vede contul Samsung LYNK Cloud. room_id nul = aparat descoperit la sincronizare, dar încă nemapat pe o cameră.';
 comment on table tv_messages is
   'Jurnal append-only al mesajelor trimise pe televizoare. Numele televizorului și al camerei sunt înghețate ca text.';
+
+
+-- ---------------------------------------------------------------------
+-- CALENDARE OTA — sensul de IMPORT (21 septembrie 2026)
+--
+-- Ieșirea exista de mult: `ical-feed` publică per cameră un .ics cu zilele
+-- ocupate, pe care Booking.com și Airbnb îl citesc. Intrarea lipsea, deci o
+-- rezervare făcută PE Booking nu ajungea niciodată în PMS și camera putea
+-- fi vândută a doua oară. Tabelul ăsta ține adresa .ics de import, per
+-- cameră și per OTA; funcția edge `ical-import` (pg_cron, la 15 minute) le
+-- citește și scrie în `reservations`. Vezi docs/ical-ota-plan.md.
+--
+-- Feedurile nu conțin nume, telefon sau preț — asta e limita platformelor,
+-- nu a codului. Rezervările importate primesc eticheta „Detalii lipsă
+-- (OTA)" (TAG_OTA_INCOMPLET din src/lib/constante.js) și un banner în fișă.
+-- ---------------------------------------------------------------------
+create table camere_calendare_ota (
+  id                  bigint generated always as identity primary key,
+  room_id             text not null references rooms(id) on delete cascade,
+  -- Cheia sursei, așa cum ajunge în `reservations.external_source`.
+  -- 'booking' și 'airbnb' au corespondent direct în SOURCES; orice alt slug
+  -- (travelminit, hotelbeds…) intră pe `source = 'other'`, dar își păstrează
+  -- aici identitatea, ca indexul res_extern_unic să nu confunde două
+  -- agenții între ele. 'eveniment' e rezervat blocajelor din calendarul
+  -- sălilor, deci e exclus explicit.
+  ota                 text not null
+                        check (ota ~ '^[a-z0-9][a-z0-9._-]{0,31}$' and ota <> 'eveniment'),
+  eticheta            text not null check (length(eticheta) between 1 and 40),
+  -- Doar http(s): adresa ajunge într-un `fetch()` făcut de funcția edge, cu
+  -- drepturi de service role.
+  url_ics             text not null
+                        check (url_ics ~ '^https?://' and length(url_ics) between 12 and 500),
+  activ               boolean not null default true,
+  ultima_sincronizare timestamptz,
+  ultima_eroare       text check (length(ultima_eroare) <= 500),
+  erori_consecutive   int not null default 0,
+  creat_la            timestamptz not null default now(),
+  unique (room_id, ota)
+);
+
+alter table camere_calendare_ota enable row level security;
+
+-- Aceleași drepturi ca la `devices`: camerista nu configurează canale de
+-- vânzare, recepția le vede (are nevoie să știe dacă un feed e picat),
+-- adminul le schimbă. Funcția edge scrie cu service role, care ocolește RLS.
+create policy "citeste calendare ota" on camere_calendare_ota
+  for select to authenticated using ((select is_admin()) or (select staff_role()) = 'receptionist');
+create policy "admin adauga calendare ota" on camere_calendare_ota
+  for insert to authenticated with check ((select is_admin()));
+create policy "admin modifica calendare ota" on camere_calendare_ota
+  for update to authenticated using ((select is_admin())) with check ((select is_admin()));
+create policy "admin sterge calendare ota" on camere_calendare_ota
+  for delete to authenticated using ((select is_admin()));
+
+comment on table camere_calendare_ota is
+  'Adresele .ics de import, una per cameră per OTA. Citite de funcția edge ical-import, chemată de pg_cron la 15 minute. ultima_eroare/erori_consecutive: un feed picat NU e un feed gol — se sare peste rând, nu se anulează rezervările camerei.';
