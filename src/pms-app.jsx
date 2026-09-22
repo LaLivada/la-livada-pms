@@ -20,6 +20,7 @@ import { decideActiuneAcces } from "./lib/acces.js";
 import {
   isSameDay, isToday, canCheckIn, canCheckOut, canCancel, canNoShow,
   checkouturiRestante, zileIntarziere, sosiriRestante, ORE_CHECKIN_DEVREME,
+  NIGHT_AUDIT_ACTIV,
 } from "./lib/tranzitii.js";
 /* Pragul de la care revenirea pe tab reincarca datele — vezi
    src/reincarcare.test.js. */
@@ -1093,6 +1094,9 @@ function PMSApp() {
      ziua, nu ora. */
   const [tickAudit, setTickAudit] = useState(() => Date.now());
   useEffect(() => {
+    /* Cu poarta oprita, ceasul ar rerandat aplicatia in fiecare minut
+       degeaba — singurul lucru care depinde de el e blocajul. */
+    if (!NIGHT_AUDIT_ACTIV) return undefined;
     const t = setInterval(() => setTickAudit(Date.now()), 60_000);
     return () => clearInterval(t);
   }, []);
@@ -1156,9 +1160,12 @@ function PMSApp() {
     );
   }
 
-  /* NIGHT AUDIT — blocaj pana se inchide ziua.
+  /* NIGHT AUDIT — blocaj pana se inchide ziua. OPRIT din 22 septembrie 2026
+   * (NIGHT_AUDIT_ACTIV, lib/tranzitii.js): steagul e pe `false`, deci ce
+   * urmeaza nu se mai executa niciodata. Ramane intreg, cu comentariile lui,
+   * ca reaprinderea sa fie o singura linie.
    *
-   * Nu are buton de ocolire: decizia e ca disciplina de inchidere sa fie
+   * Nu are buton de ocolire: decizia era ca disciplina de inchidere sa fie
    * obligatorie. Doua liste independente, aceeasi poarta:
    *   · restanteAudit — plecari ramase "checked-in" dupa data plecarii;
    *   · sosiriAudit   — sosiri ramase "cerere"/"confirmata" dupa data
@@ -1171,7 +1178,9 @@ function PMSApp() {
    * Housekeeping nu e blocat: nu poate face check-out si nici nu decide
    * soarta unei rezervari, deci blocarea lui ar opri curatenia fara sa
    * deblocheze nimic. */
-  if ((restanteAudit.length > 0 || sosiriAudit.length > 0) && ["admin", "receptionist"].includes(currentUser.role)) {
+  if (NIGHT_AUDIT_ACTIV
+      && (restanteAudit.length > 0 || sosiriAudit.length > 0)
+      && ["admin", "receptionist"].includes(currentUser.role)) {
     return (
       <div className="pms">
         <ToastHost />

@@ -15,9 +15,11 @@
  * modificată").
  */
 import { describe, it, expect, vi, afterEach } from "vitest";
+import { readFileSync } from "node:fs";
 import React from "react";
 import { createRoot } from "react-dom/client";
 import { act } from "react";
+import { NIGHT_AUDIT_ACTIV } from "./lib/tranzitii.js";
 
 vi.mock("./supabase.js", () => ({ supabase: {} }));
 vi.mock("./features/acces.jsx", () => ({
@@ -138,5 +140,24 @@ describe("NightAuditGate — lacătul de pe butoane", () => {
 
     expect(updateReservations).toHaveBeenCalledTimes(1);
     await act(async () => { elibereaza(true); });
+  });
+});
+
+/* Poarta e oprita din 22 septembrie 2026, la cererea lui Ovidiu. Componenta
+   de mai sus ramane testata intreaga, ca reaprinderea sa fie o singura
+   linie — dar cele doua teste de aici apara oprirea propriu-zisa. */
+describe("poarta de night audit e oprita", () => {
+  it("steagul e false", () => {
+    expect(
+      NIGHT_AUDIT_ACTIV,
+      "Daca reaprinzi poarta, schimba si testul asta — oprirea a fost o cerere explicita, nu o scapare.",
+    ).toBe(false);
+  });
+
+  it("pms-app chiar consulta steagul inainte de blocaj", () => {
+    /* Fara verificarea asta, steagul ar putea ramane `false` si poarta sa
+       blocheze mai departe: oprirea ar fi doar pe hartie. */
+    const sursa = readFileSync("src/pms-app.jsx", "utf8");
+    expect(sursa).toMatch(/if \(NIGHT_AUDIT_ACTIV[\s\S]{0,200}?restanteAudit\.length/);
   });
 });

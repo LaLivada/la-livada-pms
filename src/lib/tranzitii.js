@@ -83,6 +83,20 @@ export const canCancel = (r) => STATUSURI_NEREZOLVATE.includes(r.status);
 export const canNoShow = (r, now = new Date()) =>
   STATUSURI_NEREZOLVATE.includes(r.status) && ziLocala(r.checkin) < ziLocala(now);
 
+/* POARTA DE NIGHT AUDIT E OPRITA — cerut de Ovidiu pe 22 septembrie 2026.
+ *
+ * Nu s-a sters nimic: regulile de mai jos, componenta NightAuditGate
+ * (features/rezervari/night-audit.jsx) si testele lor raman intregi, iar
+ * reaprinderea e `true` aici si atat. Cat timp e `false`, nimeni nu mai e
+ * oprit la pornirea aplicatiei de plecarile sau sosirile ramase
+ * nerezolvate — ele se vad si se rezolva ca orice alta rezervare, din
+ * calendar sau din ecranul Azi.
+ *
+ * Singurul loc care citeste steagul e pms-app.jsx, la poarta; functiile de
+ * mai jos raspund la fel ca inainte, ca sa poata fi folosite si de
+ * altcineva (un raport, o alerta) fara sa depinda de blocaj. */
+export const NIGHT_AUDIT_ACTIV = false;
+
 /* Ora de la care se semnaleaza restantele zilei tocmai incheiate. */
 export const ORA_NIGHT_AUDIT = 8;
 
