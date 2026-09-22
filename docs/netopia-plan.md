@@ -180,6 +180,12 @@ Ovidiu, niciodată în cod:
    certificatului (de comparat cu `NETOPIA_SIGNATURE`), valabilitatea, și
    dacă fișierele sunt o pereche adevărată. Nu afișează niciodată material
    de cheie.
+
+   Cheia privată se lipește **așa cum vine**, fie că e `BEGIN RSA PRIVATE
+   KEY` (PKCS#1, ce dau ei de obicei), fie `BEGIN PRIVATE KEY` (PKCS#8).
+   Conversia o face `cheiePrivataPkcs8` din `src/lib/netopia.js` — Deno
+   citește doar PKCS#8, iar pe 22 septembrie 2026 lipsa ei a lăsat o plată
+   reală neînregistrată (vezi comentariul de acolo).
 5. **Punctul de vânzare trebuie înrolat ȘI aprobat tehnic de NETOPIA**,
    altceva decât secretele. Cât timp nu e, pagina lor răspunde la orice
    plată live cu *„Comerciantul nu are permisiunea sa incaseze prin

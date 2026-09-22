@@ -1,10 +1,12 @@
 // @ts-check
 // src/netopia.test.js
 import { describe, it, expect } from "vitest";
-import { generateKeyPairSync } from "node:crypto";
+import {
+  generateKeyPairSync, randomBytes, createCipheriv, publicEncrypt, constants,
+} from "node:crypto";
 import {
   escXml, construiesteXmlPlata, cripteazaPentruNetopia, decripteazaDeLaNetopia,
-  interpreteazaRaspunsIpn, raspunsAckXml,
+  interpreteazaRaspunsIpn, raspunsAckXml, cheiePrivataPkcs8,
 } from "./lib/netopia.js";
 
 const { publicKey, privateKey } = generateKeyPairSync("rsa", {
@@ -101,5 +103,59 @@ describe("raspunsAckXml", () => {
   it("cu eroare, include atributele", () => {
     expect(raspunsAckXml("nu am gasit rezervarea", { tip: 2, cod: 404 }))
       .toBe('<?xml version="1.0" encoding="utf-8" ?>\n<crc error_type="2" error_code="404">nu am gasit rezervarea</crc>');
+  });
+});
+
+/* Cheia privată a punctului de vânzare vine de la NETOPIA în PKCS#1
+   („BEGIN RSA PRIVATE KEY"). Node o citește așa; Deno, unde rulează de
+   fapt funcția edge, cere PKCS#8 — vezi comentariul din lib/netopia.js.
+   Testele de aici rulează sub Node, deci NU pot reproduce refuzul lui
+   Deno; ce pot dovedi, și dovedesc, e că plicul pe care îl construim e
+   byte-identic cu PKCS#8-ul pe care l-ar scrie chiar Node. */
+describe("cheiePrivataPkcs8 — PKCS#1 → PKCS#8", () => {
+  const pereche = generateKeyPairSync("rsa", { modulusLength: 2048 });
+  const pkcs1 = pereche.privateKey.export({ type: "pkcs1", format: "pem" });
+  const pkcs8 = pereche.privateKey.export({ type: "pkcs8", format: "pem" });
+
+  const octeti = (pem) =>
+    Buffer.from(String(pem).replace(/-----[^-]*-----/g, "").replace(/\s+/g, ""), "base64");
+
+  it("scoate exact DER-ul pe care îl scrie Node pentru aceeași cheie", () => {
+    expect(octeti(cheiePrivataPkcs8(pkcs1)).equals(octeti(pkcs8))).toBe(true);
+  });
+
+  it("pune eticheta pe care o cere Deno", () => {
+    expect(cheiePrivataPkcs8(pkcs1)).toMatch(/^-----BEGIN PRIVATE KEY-----\n/);
+    expect(cheiePrivataPkcs8(pkcs1)).toMatch(/-----END PRIVATE KEY-----\n$/);
+  });
+
+  it("nu atinge o cheie deja în PKCS#8", () => {
+    expect(cheiePrivataPkcs8(pkcs8)).toBe(pkcs8);
+  });
+
+  it("nu atinge o cheie protejată cu parolă — acolo n-avem ce desface", () => {
+    const cuParola = pereche.privateKey.export({
+      type: "pkcs1", format: "pem", cipher: "aes-256-cbc", passphrase: "x",
+    });
+    expect(cheiePrivataPkcs8(cuParola)).toBe(cuParola);
+  });
+
+  it("plicul chiar se deschide cu cheia convertită — drumul întreg", () => {
+    /* Exact schimbul cu NETOPIA: ei criptează cu certificatul, noi
+       descifrăm cu cheia privată. */
+    const cheiePublica = pereche.publicKey.export({ type: "spki", format: "pem" });
+    const cheieAes = randomBytes(32);
+    const iv = randomBytes(16);
+    const xml = "<order id=\"proba\"><action>confirmed</action></order>";
+    const cifru = createCipheriv("aes-256-cbc", cheieAes, iv);
+    const data = Buffer.concat([cifru.update(xml, "utf8"), cifru.final()]);
+    const envKey = publicEncrypt(
+      { key: cheiePublica, padding: constants.RSA_PKCS1_PADDING }, cheieAes);
+
+    const iesit = decripteazaDeLaNetopia({
+      envKey: envKey.toString("base64"), data: data.toString("base64"),
+      cipher: "aes-256-cbc", iv: iv.toString("base64"),
+    }, pkcs1);            // ← cheia NECONVERTITĂ, așa cum vine de la ei
+    expect(iesit).toBe(xml);
   });
 });

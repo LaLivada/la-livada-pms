@@ -102,12 +102,65 @@ export function cripteazaPentruNetopia(xml, certificatPem) {
   };
 }
 
+/* ---------- cheia privată, în forma pe care o acceptă și Deno ---------- */
+
+/* NETOPIA dă cheia privată a punctului de vânzare în PKCS#1 — antetul
+   „BEGIN RSA PRIVATE KEY". Node o primește așa, direct; Deno NU: acolo
+   `privateDecrypt` citește doar PKCS#8 și răspunde
+   `PKCS#8 ASN.1 error: PEM error: unexpected PEM type label: expecting
+   "PRIVATE KEY"`. E exact aceeași asimetrie ca la certificat (vezi
+   `cripteazaPentruNetopia` mai sus), doar pe celălalt capăt al plicului.
+
+   A costat o plată reală: 22 septembrie 2026, punct de vânzare nou, cheia
+   nouă lipită în PKCS#1 — clientul a plătit, IPN-ul a ajuns, dar n-a putut
+   fi descifrat, iar rezervarea a rămas „așteaptă" (netopia_ipn_log id 6).
+   Cheia dinainte era din întâmplare PKCS#8, de-aia mersese până atunci.
+
+   Conversia se face pe octeți, nu prin `createPrivateKey`: acela ar cere
+   ca runtime-ul să știe deja să citească PKCS#1 — fix ce nu știe Deno.
+   PKCS#8 e doar un plic în jurul aceluiași RSAPrivateKey:
+     SEQUENCE { INTEGER 0, AlgorithmIdentifier(rsaEncryption), OCTET STRING } */
+const ALGORITM_RSA = Buffer.from("300d06092a864886f70d0101010500", "hex");
+const VERSIUNE_PKCS8 = Buffer.from([0x02, 0x01, 0x00]);
+
+/* Lungime DER: sub 128 pe un octet, peste — un octet de număr, apoi cifrele. */
+function lungimeDer(n) {
+  if (n < 0x80) return Buffer.from([n]);
+  const octeti = [];
+  for (let x = n; x > 0; x >>>= 8) octeti.unshift(x & 0xff);
+  return Buffer.from([0x80 | octeti.length, ...octeti]);
+}
+
+const derDinPem = (pem) =>
+  Buffer.from(String(pem).replace(/-----[^-]*-----/g, "").replace(/\s+/g, ""), "base64");
+
+const pemDinDer = (der, eticheta) =>
+  `-----BEGIN ${eticheta}-----\n${
+    (der.toString("base64").match(/.{1,64}/g) || []).join("\n")
+  }\n-----END ${eticheta}-----\n`;
+
+export function cheiePrivataPkcs8(pem) {
+  const text = String(pem ?? "");
+  /* Deja PKCS#8, sau criptată cu parolă (antetele `Proc-Type`/`DEK-Info` nu
+     se pot desface aici) — o lăsăm neatinsă, să vorbească runtime-ul. */
+  if (!/BEGIN RSA PRIVATE KEY/.test(text) || /ENCRYPTED|DEK-Info/.test(text)) return text;
+  const interior = derDinPem(text);
+  const octetString = Buffer.concat([
+    Buffer.from([0x04]), lungimeDer(interior.length), interior,
+  ]);
+  const corp = Buffer.concat([VERSIUNE_PKCS8, ALGORITM_RSA, octetString]);
+  return pemDinDer(
+    Buffer.concat([Buffer.from([0x30]), lungimeDer(corp.length), corp]),
+    "PRIVATE KEY",
+  );
+}
+
 export function decripteazaDeLaNetopia({ envKey, data, cipher, iv }, cheiePrivataPem) {
   if (cipher !== "aes-256-cbc") {
     throw new Error(`Cifru neasteptat de la NETOPIA: ${cipher}`);
   }
   const cheieAes = privateDecrypt(
-    { key: cheiePrivataPem, padding: constants.RSA_PKCS1_PADDING },
+    { key: cheiePrivataPkcs8(cheiePrivataPem), padding: constants.RSA_PKCS1_PADDING },
     Buffer.from(envKey, "base64"),
   );
   const decifru = createDecipheriv("aes-256-cbc", cheieAes, Buffer.from(iv, "base64"));
