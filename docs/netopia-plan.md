@@ -162,6 +162,24 @@ Ovidiu, niciodată în cod:
    certificatul, cheia privată veche rămâne: plata trece, dar confirmarea
    (IPN-ul) nu se mai poate descifra, iar rezervarea rămâne „așteaptă" deși
    clientul a fost debitat.
+
+   **Un punct de vânzare nou înseamnă toate trei schimbate.** Semnul că
+   s-a schimbat doar o parte e mesajul *„Decriptarea datelor a eșuat!"* pe
+   pagina lor: plicul a ajuns, dar nu l-au putut deschide — adică
+   certificatul cu care criptăm nu e al punctului către care trimitem.
+   Se deosebește de *„Comerciantul nu are permisiunea…"* (pasul 5), care
+   vine DUPĂ ce plicul s-a deschis.
+
+   Înainte de a reposta secretele, perechea se verifică local, fără să
+   plece nimic nicăieri:
+   ```
+   node scripts/netopia-chei.mjs <public.cer> <private.key>
+   ```
+   Face exact ce face `cripteazaPentruNetopia` și apoi descifrează cu cheia
+   privată — adică joacă și rolul lui NETOPIA. Arată subiectul
+   certificatului (de comparat cu `NETOPIA_SIGNATURE`), valabilitatea, și
+   dacă fișierele sunt o pereche adevărată. Nu afișează niciodată material
+   de cheie.
 5. **Punctul de vânzare trebuie înrolat ȘI aprobat tehnic de NETOPIA**,
    altceva decât secretele. Cât timp nu e, pagina lor răspunde la orice
    plată live cu *„Comerciantul nu are permisiunea sa incaseze prin
