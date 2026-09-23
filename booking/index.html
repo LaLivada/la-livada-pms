@@ -7,8 +7,8 @@
     <link rel="icon" type="image/png" sizes="16x16" href="/brand/favicon-16.png" />
     <link rel="icon" type="image/png" sizes="512x512" href="/brand/favicon.png" />
     <link rel="apple-touch-icon" href="/brand/apple-touch-icon.png" />
-    <title>Rezervă online — La Livada, Vaslui</title>
-    <meta name="description" content="Cazare la Complex La Livada, Vaslui — 2 loft-uri și 14 Tiny houses, la câțiva metri de sălile de evenimente. Rezervă direct, fără comision de intermediar." />
+    <title>Cazare Vaslui | Tiny Houses &amp; Lofturi – La Livada</title>
+    <meta name="description" content="Cazare în Vaslui la Complex La Livada: 14 tiny houses și 2 lofturi cu baie proprie, aer condiționat și terasă. Parcare gratuită. Rezervă direct, fără comision." />
     <!-- Spre deosebire de PMS (pms.lalivada.ro, cu noindex), pagina asta
          chiar trebuie indexată — canonical spre ea însăși, nu spre
          lalivada.ro. robots.txt e separat de-al PMS-ului (vezi
@@ -19,11 +19,127 @@
     <meta property="og:type" content="website" />
     <meta property="og:locale" content="ro_RO" />
     <meta property="og:site_name" content="Complex La Livada" />
-    <meta property="og:title" content="Rezervă online — La Livada, Vaslui" />
-    <meta property="og:description" content="Cazare la Complex La Livada, Vaslui — 2 loft-uri și 14 Tiny houses, la câțiva metri de sălile de evenimente. Rezervă direct, fără comision de intermediar." />
+    <meta property="og:title" content="Cazare Vaslui | Tiny Houses &amp; Lofturi – La Livada" />
+    <meta property="og:description" content="Cazare în Vaslui la Complex La Livada: 14 tiny houses și 2 lofturi cu baie proprie, aer condiționat și terasă. Parcare gratuită. Rezervă direct, fără comision." />
     <meta property="og:url" content="https://rezervari.lalivada.ro/" />
     <meta property="og:image" content="https://rezervari.lalivada.ro/film/poster.jpg" />
+    <meta property="og:image:width" content="1600" />
+    <meta property="og:image:height" content="900" />
+    <meta property="og:image:alt" content="Casele de cazare de la Complex La Livada, la Muntenii de Jos, lângă Vaslui" />
     <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Cazare Vaslui | Tiny Houses &amp; Lofturi – La Livada" />
+    <meta name="twitter:description" content="Cazare în Vaslui la Complex La Livada: 14 tiny houses și 2 lofturi cu baie proprie, aer condiționat și terasă. Parcare gratuită. Rezervă direct, fără comision." />
+    <meta name="twitter:image" content="https://rezervari.lalivada.ro/film/poster.jpg" />
+    <!-- Datele structurate: pensiunea, așa cum e — 16 unități (tabela rooms),
+         adresa, telefonul și orele din pagină. Fără rating, recenzii, stele
+         sau interval de preț: Google penalizează schema cu date pe care
+         pagina nu le arată, iar noi nu le avem. Se verifică în
+         src/booking-seo.test.js. -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "LodgingBusiness",
+        "@id": "https://rezervari.lalivada.ro/#cazare",
+        "name": "Cazare La Livada",
+        "legalName": "S.C. OVISER S.R.L.",
+        "url": "https://rezervari.lalivada.ro/",
+        "description": "Cazare în Vaslui la Complex La Livada: 14 tiny houses și 2 lofturi cu baie proprie, aer condiționat și terasă. Parcare gratuită. Rezervă direct, fără comision.",
+        "image": [
+          "https://rezervari.lalivada.ro/foto/cazare-tiny-houses-panorama-la-livada-vaslui.webp",
+          "https://rezervari.lalivada.ro/foto/cazare-tiny-houses-alee-seara-la-livada-vaslui.webp",
+          "https://rezervari.lalivada.ro/foto/cazare-interior-la-livada-vaslui.webp"
+        ],
+        "telephone": "+40722899899",
+        "email": "office@lalivada.com",
+        "address": {
+          "@type": "PostalAddress",
+          "streetAddress": "DN24, nr. 743",
+          "addressLocality": "Muntenii de Jos",
+          "addressRegion": "Vaslui",
+          "addressCountry": "RO"
+        },
+        "geo": {
+          "@type": "GeoCoordinates",
+          "latitude": 46.6225253,
+          "longitude": 27.755175
+        },
+        "numberOfRooms": 16,
+        "checkinTime": "14:00",
+        "checkoutTime": "11:00",
+        "amenityFeature": [
+          {
+            "@type": "LocationFeatureSpecification",
+            "name": "Baie proprie",
+            "value": true
+          },
+          {
+            "@type": "LocationFeatureSpecification",
+            "name": "Aer condiționat",
+            "value": true
+          },
+          {
+            "@type": "LocationFeatureSpecification",
+            "name": "Terasă",
+            "value": true
+          },
+          {
+            "@type": "LocationFeatureSpecification",
+            "name": "Parcare gratuită",
+            "value": true
+          }
+        ],
+        "containsPlace": [
+          {
+            "@type": "Accommodation",
+            "name": "Tiny house pentru două persoane",
+            "description": "8 case, cu pat dublu, baie proprie, aer condiționat și terasă.",
+            "occupancy": {
+              "@type": "QuantitativeValue",
+              "minValue": 1,
+              "maxValue": 2
+            }
+          },
+          {
+            "@type": "Accommodation",
+            "name": "Tiny house cu pat etajat pentru copii",
+            "description": "6 case, cu pat dublu și pat etajat: doi adulți și un copil.",
+            "occupancy": {
+              "@type": "QuantitativeValue",
+              "minValue": 1,
+              "maxValue": 3
+            }
+          },
+          {
+            "@type": "Accommodation",
+            "name": "Loft",
+            "description": "2 lofturi pentru două persoane, cu patul la mezanin.",
+            "occupancy": {
+              "@type": "QuantitativeValue",
+              "minValue": 1,
+              "maxValue": 2
+            }
+          }
+        ],
+        "sameAs": [
+          "https://lalivada.ro/cazare/",
+          "https://www.instagram.com/la.livada/",
+          "https://www.facebook.com/LaLivada/"
+        ],
+        "parentOrganization": {
+          "@type": "Organization",
+          "name": "Complex La Livada",
+          "url": "https://lalivada.ro/"
+        },
+        "potentialAction": {
+          "@type": "ReserveAction",
+          "target": {
+            "@type": "EntryPoint",
+            "urlTemplate": "https://rezervari.lalivada.ro/#rezervari",
+            "inLanguage": "ro"
+          }
+        }
+      }
+    </script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <!-- Aceleași trei fonturi ca pe lalivada.ro: Instrument Serif pentru
@@ -83,8 +199,8 @@
         </script>
         <div class="ldv-cue" aria-hidden="true"></div>
         <div class="wrap ldv-phead-in">
-          <h1 class="ldv-h1" data-i18n="landing.titlu">Cazare Tiny houses</h1>
-          <p class="ldv-lede" data-i18n="landing.lede">Complex LA LIVADA - Vaslui</p>
+          <h1 class="ldv-h1" data-i18n="landing.titlu">Cazare în Vaslui – Tiny Houses &amp; Lofturi La Livada</h1>
+          <p class="ldv-lede" data-i18n="landing.lede">14 tiny houses și 2 lofturi în curtea Complexului La Livada, la Muntenii de Jos. Vezi ce e liber și rezervă direct, fără intermediari.</p>
         </div>
       </section>
       <div class="wrap ldv-form-wrap">
@@ -188,6 +304,105 @@
           </li>
         </ul>
       </section>
+
+      <!-- Capitolele de sub galerie: cine suntem, unde, pentru cine — textul
+           pe care îl citește și Google, și omul ajuns aici direct dintr-o
+           căutare. Scris în română, tradus la încărcare prin data-i18n
+           (booking/limba-selector.js) din src/booking/i18n/dictionare/.
+           Legăturile stau în elemente proprii, nu în mijlocul paragrafelor:
+           traducerea înlocuiește textul întreg al elementului și ar pierde
+           un link dintr-o frază. Faptele — 14 + 2 unități, 8 case de 2 locuri
+           și 6 de 3, orele, parcarea gratuită — sunt din baza de date și de
+           la Ovidiu (23 septembrie 2026); testul src/booking-seo.test.js
+           ține textul de aici identic cu ro.js. -->
+      <div class="wrap ldv-seo">
+        <section aria-labelledby="ldv-seo-aproape">
+          <h2 id="ldv-seo-aproape" data-i18n="landing.seo.aproape.titlu">Cazare aproape de Vaslui, cu rezervare directă</h2>
+          <p data-i18n="landing.seo.aproape.p1">Suntem pe DN24, la Muntenii de Jos, la marginea Vasluiului dinspre Bârlad. Cazarea face parte din Complexul La Livada, în aceeași curte cu sălile de evenimente și cu grădina, dar se rezervă și separat: pentru o noapte în trecere, un weekend sau o deplasare de lucru în județul Vaslui.</p>
+          <p data-i18n="landing.seo.aproape.p2">Pagina asta e locul în care se face rezervarea. Disponibilitatea de mai sus e cea reală, din sistemul nostru de recepție, iar rezervarea intră direct în calendarul pensiunii — fără platforme intermediare și fără comision adăugat la preț. Primești confirmarea pe email, cu numărul rezervării și un link din care o poți revedea sau anula.</p>
+          <p class="ldv-seo-link"><a href="https://lalivada.ro/" data-i18n="landing.seo.aproape.link">Descoperă Complex La Livada</a></p>
+        </section>
+        <div class="ldv-seo-2">
+          <section aria-labelledby="ldv-seo-tiny">
+            <h2 id="ldv-seo-tiny" data-i18n="landing.seo.tiny.titlu">Tiny houses La Livada</h2>
+            <p data-i18n="landing.seo.tiny.p1">Cele 14 tiny houses sunt case mici, de sine stătătoare, așezate printre pomii din livadă. Opt sunt pentru două persoane; șase au, pe lângă patul dublu, un pat etajat pentru copii, deci încap doi adulți și un copil.</p>
+            <p data-i18n="landing.seo.tiny.p2">Fiecare casă are baie proprie, aer condiționat și terasa ei. Seara, aleea dintre case e luminată — o vezi în galeria de mai sus.</p>
+            <p class="ldv-seo-link"><a href="https://lalivada.ro/cazare/" data-i18n="landing.seo.tiny.link">Mai multe despre cazarea La Livada</a></p>
+          </section>
+          <section aria-labelledby="ldv-seo-loft">
+            <h2 id="ldv-seo-loft" data-i18n="landing.seo.loft.titlu">Lofturile La Livada</h2>
+            <p data-i18n="landing.seo.loft.p1">Cele două lofturi sunt pentru două persoane, cu patul la mezanin. Interioarele din galerie sunt ale lor. Le alegi de obicei în cuplu, sau când stai mai multe nopți și preferi o cameră în locul unei căsuțe.</p>
+          </section>
+        </div>
+        <div class="ldv-seo-2">
+          <section aria-labelledby="ldv-seo-facilitati">
+            <h2 id="ldv-seo-facilitati" data-i18n="landing.seo.facilitati.titlu">Facilități</h2>
+            <p data-i18n="landing.seo.facilitati.p1">În fiecare unitate, fără excepție: baie proprie, aer condiționat și terasă. În cameră intri cu un cod primit la sosire, deci nu depinzi de o recepție cu program.</p>
+            <p data-i18n="landing.seo.facilitati.p2">În curte: parcare gratuită, grădina cu cele trei lacuri cu pești koi, aleile dintre case și sălile de evenimente ale complexului.</p>
+          </section>
+          <section aria-labelledby="ldv-seo-weekend">
+            <h2 id="ldv-seo-weekend" data-i18n="landing.seo.weekend.titlu">Cazare pentru weekend, tranzit sau deplasări de serviciu</h2>
+            <p data-i18n="landing.seo.weekend.p1">DN24 e drumul dintre Vaslui și Bârlad; dacă ești în trecere, poți rezerva o singură noapte, cu sosire de la ora 14 și plecare până la 11. Mașina o lași în curte, parcarea e gratuită.</p>
+            <p data-i18n="landing.seo.weekend.p2">Pentru deplasări de serviciu, factura se emite pe firmă: completezi datele de facturare direct în formular, la pasul cu datele tale. Pentru weekend, alegi datele și vezi pe loc ce e liber; dacă veniți cu un copil, caută pentru trei persoane — casele cu pat etajat sunt cele în care încap trei.</p>
+            <p data-i18n="landing.seo.weekend.p3">Dacă ești invitat la un eveniment organizat la La Livada, camera e la câțiva metri de sală — rezervi la fel, de aici, sau întrebi organizatorii dacă au reținut deja camere pentru invitați.</p>
+          </section>
+        </div>
+        <div class="ldv-seo-2">
+          <section aria-labelledby="ldv-seo-inainte">
+            <h2 id="ldv-seo-inainte" data-i18n="landing.seo.inainte.titlu">Înainte să rezervi</h2>
+            <p data-i18n="landing.seo.inainte.p1">Sosirea e de la ora 14, plecarea până la ora 11. După ce trimiți rezervarea, vezi pe ecran numărul de confirmare și primești imediat un email cu datele sejurului, prețul și linkul de revedere.</p>
+            <p data-i18n="landing.seo.inainte.p2">Plata se face cu cardul, online, prin NETOPIA, ori la sosire sau prin transfer bancar, cum alegi în formular. La anulare se încasează contravaloarea primei nopți; restul se restituie. Pentru alte date sau altă cameră, sună-ne sau scrie-ne înainte să anulezi.</p>
+            <p class="ldv-seo-link"><a href="/anulare/" data-i18n="landing.seo.inainte.link">Politica de anulare</a></p>
+          </section>
+          <section aria-labelledby="ldv-seo-unde">
+            <h2 id="ldv-seo-unde" data-i18n="landing.seo.unde.titlu">Unde ne găsești</h2>
+            <p data-i18n="landing.seo.unde.p1">DN24, nr. 743, Muntenii de Jos, județul Vaslui — la marginea Vasluiului, pe drumul dinspre Bârlad.</p>
+            <p data-i18n="landing.seo.unde.p2">Harta și indicațiile de drum sunt pe pagina de contact a complexului.</p>
+            <p class="ldv-seo-link"><a href="https://lalivada.ro/contact/" data-i18n="landing.seo.unde.link">Pagina de contact</a></p>
+          </section>
+        </div>
+        <section class="ldv-faq" aria-labelledby="ldv-faq-titlu">
+          <p class="label" data-i18n="landing.faq.eticheta">Pe scurt</p>
+          <h2 id="ldv-faq-titlu" data-i18n="landing.faq.titlu">Întrebări frecvente</h2>
+          <details>
+            <summary data-i18n="landing.faq.q1">Unde este situată cazarea La Livada?</summary>
+            <p data-i18n="landing.faq.a1">În Complexul La Livada, pe DN24, nr. 743, la Muntenii de Jos — la marginea Vasluiului, pe drumul dinspre Bârlad.</p>
+          </details>
+          <details>
+            <summary data-i18n="landing.faq.q2">Câte unități de cazare sunt disponibile?</summary>
+            <p data-i18n="landing.faq.a2">16, toate în aceeași curte: 14 tiny houses și 2 lofturi. Fiecare are baie proprie, aer condiționat și terasă.</p>
+          </details>
+          <details>
+            <summary data-i18n="landing.faq.q3">Pot rezerva direct online?</summary>
+            <p data-i18n="landing.faq.a3">Da, de pe pagina asta. Alegi datele și numărul de persoane, vezi ce e liber și trimiți rezervarea; confirmarea vine pe email, cu un link din care o poți revedea sau anula.</p>
+          </details>
+          <details>
+            <summary data-i18n="landing.faq.q4">La Livada oferă tiny houses?</summary>
+            <p data-i18n="landing.faq.a4">Da: 14 case mici, de sine stătătoare, printre pomii din livadă — 8 pentru două persoane și 6 pentru două persoane cu pat etajat pentru un copil.</p>
+          </details>
+          <details>
+            <summary data-i18n="landing.faq.q5">Există cazare pentru deplasări de serviciu?</summary>
+            <p data-i18n="landing.faq.a5">Da. Poți rezerva o noapte sau mai multe, iar factura se emite pe firmă — datele de facturare se completează în formular, la pasul cu datele tale.</p>
+          </details>
+          <details>
+            <summary data-i18n="landing.faq.q6">Cât de departe este cazarea de Vaslui?</summary>
+            <p data-i18n="landing.faq.a6">Suntem la marginea orașului, la Muntenii de Jos, pe DN24 — la câțiva metri de intrarea în Vaslui, pe partea dinspre Bârlad.</p>
+          </details>
+          <details>
+            <summary data-i18n="landing.faq.q7">Care sunt orele de sosire și de plecare?</summary>
+            <p data-i18n="landing.faq.a7">Sosirea e de la ora 14, plecarea până la ora 11.</p>
+          </details>
+          <details>
+            <summary data-i18n="landing.faq.q8">Există parcare?</summary>
+            <p data-i18n="landing.faq.a8">Da, parcarea e gratuită, în curtea complexului.</p>
+          </details>
+          <details>
+            <summary data-i18n="landing.faq.q9">Ce se întâmplă dacă anulez?</summary>
+            <p data-i18n="landing.faq.a9">Poți anula oricând din linkul din email. Se încasează contravaloarea primei nopți; restul se restituie.</p>
+            <p class="ldv-seo-link"><a href="/anulare/" data-i18n="landing.faq.a9link">Politica de anulare</a></p>
+          </details>
+        </section>
+      </div>
     </main>
 
     <!-- @subsol -->

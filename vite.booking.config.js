@@ -9,16 +9,17 @@
  */
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
-import { resolve } from "path";
-import { readFileSync } from "fs";
+import { resolve, relative } from "path";
+import { readFileSync, writeFileSync, mkdirSync } from "fs";
 import { CODURI_LIMBA, LIMBA_IMPLICITA } from "./src/booking/i18n/limbi.js";
+import { PAGINI, sitemapXml, hreflangHtml } from "./src/booking/seo.js";
 
 const RADACINA = resolve(process.cwd(), "booking");
 
-/* Paginile de text, pe lângă prima pagină. Fiecare e HTML propriu, cu
-   adresa lui — un procesator de plăți sau ANPC trebuie să le poată
-   deschide direct, nu ca stare a aplicației React. */
-export const PAGINI = ["termeni", "livrare", "anulare", "retragere", "confidentialitate", "cookies"];
+/* Paginile de text, pe lângă prima pagină — lista stă în src/booking/seo.js,
+   de unde o citesc și sitemap-ul, și hreflang-ul (vezi plugin-ul seo() de
+   mai jos): o pagină nouă intră peste tot în clipa în care intră acolo. */
+export { PAGINI };
 
 /* Fiecare pagină de text are și câte un fișier tradus per limbă
    nerromânească, la booking/<pagina>/<limba>/index.html (vezi
@@ -48,8 +49,44 @@ function partiale() {
   };
 }
 
+/* Ce ține de motoarele de căutare și n-ar putea sta în HTML-ul scris de
+   mână fără să se desincronizeze: legăturile hreflang dintre cele 7 variante
+   de limbă ale fiecărei pagini legale (42 de fișiere care s-ar fi despărțit
+   la prima corectură) și sitemap-ul, scris la build din aceeași listă de
+   pagini și limbi ca intrările din rollupOptions. În dev, /sitemap.xml se
+   servește din memorie, ca să poată fi verificat înainte de deploy. */
+function seo() {
+  let iesire = "";
+  return {
+    name: "ldv-seo",
+    configResolved(config) {
+      iesire = resolve(config.root, config.build.outDir);
+    },
+    transformIndexHtml: {
+      order: "pre",
+      handler(html, ctx) {
+        const [pagina] = relative(RADACINA, ctx.filename).split(/[\\/]/);
+        if (!PAGINI.includes(pagina)) return html;
+        return html.replace(/(<link rel="canonical"[^>]*>)/,
+          "$1\n    " + hreflangHtml(pagina, CODURI_LIMBA, LIMBA_IMPLICITA));
+      },
+    },
+    configureServer(server) {
+      server.middlewares.use((req, res, next) => {
+        if (req.url !== "/sitemap.xml") return next();
+        res.setHeader("Content-Type", "application/xml");
+        res.end(sitemapXml(PAGINI, CODURI_LIMBA, LIMBA_IMPLICITA));
+      });
+    },
+    closeBundle() {
+      mkdirSync(iesire, { recursive: true });
+      writeFileSync(resolve(iesire, "sitemap.xml"), sitemapXml(PAGINI, CODURI_LIMBA, LIMBA_IMPLICITA));
+    },
+  };
+}
+
 export default defineConfig({
-  plugins: [react(), partiale()],
+  plugins: [react(), partiale(), seo()],
   root: RADACINA,
   // .env stă în rădăcina proiectului, nu în booking/ — fără asta,
   // VITE_SUPABASE_* nu ajung în bundle și aplicația pornește fără backend.

@@ -153,10 +153,117 @@ export default {
   },
 
   landing: {
-    titlu: "Hébergement Tiny Houses",
-    lede: "Complexe LA LIVADA - Vaslui",
+    titlu: "Hébergement à Vaslui – Tiny Houses & Lofts La Livada",
+    lede: "14 tiny houses et 2 lofts dans l'enceinte du Complexe La Livada, à Muntenii de "
+      + "Jos. Voyez ce qui est libre et réservez directement, sans intermédiaires.",
     galerieLabel: "Galerie",
     galerieTitlu: "Les maisons, l'allée et les chambres",
+    seo: {
+      aproape: {
+        titlu: "Hébergement près de Vaslui, en réservation directe",
+        p1: "Nous sommes sur la route DN24, à Muntenii de Jos, à la lisière de Vaslui du côté "
+          + "de Bârlad. L'hébergement fait partie du Complexe La Livada, dans la même "
+          + "enceinte que les salles de réception et le jardin, mais il se réserve aussi "
+          + "séparément : pour une nuit de passage, un week-end ou un déplacement "
+          + "professionnel dans le département de Vaslui.",
+        p2: "C'est sur cette page que se fait la réservation. Les disponibilités ci-dessus "
+          + "sont les vraies, issues de notre système de réception, et la réservation entre "
+          + "directement dans le calendrier de la pension — sans plateformes intermédiaires "
+          + "et sans commission ajoutée au prix. Vous recevez la confirmation par e-mail, "
+          + "avec le numéro de réservation et un lien pour la consulter ou l'annuler.",
+        link: "Découvrir le Complexe La Livada",
+      },
+      tiny: {
+        titlu: "Les tiny houses La Livada",
+        p1: "Les 14 tiny houses sont de petites maisons indépendantes, posées entre les "
+          + "arbres du verger. Huit sont pour deux personnes ; six ont, en plus du lit "
+          + "double, un lit superposé pour les enfants, donc deux adultes et un enfant y "
+          + "logent.",
+        p2: "Chaque maison a sa salle de bain, la climatisation et sa propre terrasse. Le "
+          + "soir, l'allée entre les maisons est éclairée — vous la voyez dans la galerie "
+          + "ci-dessus.",
+        link: "En savoir plus sur l'hébergement La Livada",
+      },
+      loft: {
+        titlu: "Les lofts La Livada",
+        p1: "Les deux lofts sont pour deux personnes, avec le lit en mezzanine. Les "
+          + "intérieurs de la galerie sont les leurs. On les choisit d'habitude en couple, ou "
+          + "quand on reste plusieurs nuits et qu'on préfère une chambre à une petite maison.",
+      },
+      facilitati: {
+        titlu: "Équipements",
+        p1: "Dans chaque unité, sans exception : salle de bain privée, climatisation et "
+          + "terrasse. On entre dans la chambre avec un code reçu à l'arrivée, donc sans "
+          + "dépendre d'une réception à horaires.",
+        p2: "Dans l'enceinte : parking gratuit, le jardin avec ses trois bassins à carpes "
+          + "koï, les allées entre les maisons et les salles de réception du complexe.",
+      },
+      weekend: {
+        titlu: "Hébergement pour un week-end, un passage ou un déplacement professionnel",
+        p1: "La DN24 est la route entre Vaslui et Bârlad ; si vous êtes de passage, vous "
+          + "pouvez réserver une seule nuit, avec arrivée à partir de 14 h et départ avant 11 "
+          + "h. La voiture reste dans l'enceinte, le parking est gratuit.",
+        p2: "Pour les déplacements professionnels, la facture est établie au nom de "
+          + "l'entreprise : vous remplissez les données de facturation directement dans le "
+          + "formulaire, à l'étape de vos coordonnées. Pour un week-end, choisissez les dates "
+          + "et voyez sur-le-champ ce qui est libre ; si vous venez avec un enfant, cherchez "
+          + "pour trois personnes — les maisons avec lit superposé sont celles qui logent "
+          + "trois.",
+        p3: "Si vous êtes invité à un événement organisé à La Livada, la chambre est à "
+          + "quelques mètres de la salle — vous réservez de la même façon, ici, ou vous "
+          + "demandez aux organisateurs s'ils ont déjà retenu des chambres pour les invités.",
+      },
+      inainte: {
+        titlu: "Avant de réserver",
+        p1: "L'arrivée se fait à partir de 14 h, le départ avant 11 h. Après l'envoi de la "
+          + "réservation, vous voyez à l'écran le numéro de confirmation et recevez aussitôt "
+          + "un e-mail avec les détails du séjour, le prix et le lien pour la consulter.",
+        p2: "Le paiement se fait par carte, en ligne, via NETOPIA, ou à l'arrivée ou par "
+          + "virement bancaire, selon votre choix dans le formulaire. En cas d'annulation, la "
+          + "première nuit est facturée ; le reste est remboursé. Pour d'autres dates ou une "
+          + "autre chambre, appelez-nous ou écrivez-nous avant d'annuler.",
+        link: "Politique d'annulation",
+      },
+      unde: {
+        titlu: "Où nous trouver",
+        p1: "DN24, n° 743, Muntenii de Jos, département de Vaslui — à la lisière de Vaslui, "
+          + "sur la route venant de Bârlad.",
+        p2: "Le plan et l'itinéraire sont sur la page de contact du complexe.",
+        link: "Page de contact",
+      },
+    },
+    faq: {
+      eticheta: "En bref",
+      titlu: "Questions fréquentes",
+      q1: "Où se trouve l'hébergement La Livada ?",
+      a1: "Dans le Complexe La Livada, sur la DN24, n° 743, à Muntenii de Jos — à la "
+        + "lisière de Vaslui, sur la route venant de Bârlad.",
+      q2: "Combien d'unités d'hébergement y a-t-il ?",
+      a2: "16, toutes dans la même enceinte : 14 tiny houses et 2 lofts. Chacune a une "
+        + "salle de bain privée, la climatisation et une terrasse.",
+      q3: "Puis-je réserver directement en ligne ?",
+      a3: "Oui, depuis cette page. Choisissez les dates et le nombre de personnes, voyez ce "
+        + "qui est libre et envoyez la réservation ; la confirmation arrive par e-mail, "
+        + "avec un lien pour la consulter ou l'annuler.",
+      q4: "La Livada propose-t-elle des tiny houses ?",
+      a4: "Oui : 14 petites maisons indépendantes entre les arbres du verger — 8 pour deux "
+        + "personnes et 6 pour deux personnes avec lit superposé pour un enfant.",
+      q5: "Y a-t-il un hébergement pour les déplacements professionnels ?",
+      a5: "Oui. Vous pouvez réserver une nuit ou plus, et la facture est établie au nom de "
+        + "l'entreprise — les données de facturation se remplissent dans le formulaire, à "
+        + "l'étape de vos coordonnées.",
+      q6: "À quelle distance de Vaslui se trouve l'hébergement ?",
+      a6: "Nous sommes à la lisière de la ville, à Muntenii de Jos, sur la DN24 — à "
+        + "quelques mètres de l'entrée de Vaslui, du côté de Bârlad.",
+      q7: "Quels sont les horaires d'arrivée et de départ ?",
+      a7: "L'arrivée à partir de 14 h, le départ avant 11 h.",
+      q8: "Y a-t-il un parking ?",
+      a8: "Oui, le parking est gratuit, dans l'enceinte du complexe.",
+      q9: "Que se passe-t-il si j'annule ?",
+      a9: "Vous pouvez annuler à tout moment depuis le lien de l'e-mail. La première nuit "
+        + "est facturée ; le reste est remboursé.",
+      a9link: "Politique d'annulation",
+    },
   },
 
   antet: {

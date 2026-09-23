@@ -616,7 +616,10 @@ body {
 }
 .ldv-h1 {
   margin: 0;
-  max-width: 16ch;
+  /* 22ch, nu 16: titlul numește Vasluiul și cele două tipuri de cazare
+     („Cazare în Vaslui – Tiny Houses & Lofturi La Livada"), deci încape pe
+     trei rânduri la birou, nu pe patru. Pe telefon îl rupe oricum coloana. */
+  max-width: 22ch;
   font-family: var(--role-photographic, "Inter Tight", sans-serif);
   font-weight: 300;
   font-size: clamp(2.3rem, 1.55rem + 3.4vw, 4.5rem);
@@ -1151,4 +1154,119 @@ body {
 }
 .ldv-cerere .ldv-btn {
   justify-self: start;
+}
+
+/* ── Capitolele de sub galerie (cazare, facilități, întrebări) ─────────
+   Textul care spune cine suntem și unde, pentru cine ajunge aici din
+   Google, nu doar din lalivada.ro. Aceeași coloană de ~66 de semne și
+   aceeași scară ca paginile de text (.ldv-legal), dar pe două coloane la
+   lățime de birou: sunt capitole scurte, nu un contract de citit cap-coadă.
+   Titlurile în serif-ul editorial, ca titlul galeriei de deasupra — niciun
+   font nou de încărcat. Stă SUB motorul de rezervare și sub galerie: cine
+   vine să rezerve nu derulează prin text ca să ajungă la formular. */
+.ldv-seo {
+  display: grid;
+  gap: clamp(2.25rem, 5vw, 3.5rem);
+  padding-block: clamp(1rem, 3vh, 2rem) clamp(4rem, 9vw, 7rem);
+}
+.ldv-seo section {
+  display: grid;
+  gap: 0.9rem;
+  align-content: start;
+}
+.ldv-seo h2 {
+  margin: 0;
+  font-family: var(--role-editorial);
+  font-weight: 400;
+  font-size: clamp(1.5rem, 1.2rem + 1.4vw, 2.1rem);
+  line-height: 1.1;
+  letter-spacing: -0.014em;
+  text-wrap: balance;
+}
+.ldv-seo p {
+  margin: 0;
+  max-width: 66ch;
+  line-height: 1.65;
+  color: rgba(34, 34, 31, 0.78);
+}
+.ldv-seo .label {
+  margin: 0;
+  font-size: 0.7rem;
+  font-weight: 500;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--olive);
+}
+.ldv-seo a {
+  color: var(--olive);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.18em;
+}
+.ldv-seo-link {
+  font-weight: 500;
+}
+.ldv-seo-2 {
+  display: grid;
+  gap: clamp(2.25rem, 5vw, 3.5rem);
+}
+@media (min-width: 900px) {
+  .ldv-seo-2 {
+    grid-template-columns: 1fr 1fr;
+    column-gap: clamp(2.5rem, 6vw, 5rem);
+  }
+}
+
+/* Întrebările frecvente: <details> nativ, fără niciun script — se deschid
+   și de la tastatură, iar răspunsurile sunt în pagină de la început, nu
+   injectate la clic (Google le citește la fel ca restul textului). */
+.ldv-faq {
+  gap: 0;
+  max-width: 68ch;
+}
+.ldv-faq .label {
+  margin-bottom: 0.5rem;
+}
+.ldv-faq h2 {
+  margin-bottom: 1rem;
+}
+.ldv-faq details {
+  border-top: 1px solid var(--beige);
+}
+.ldv-faq details:last-of-type {
+  border-bottom: 1px solid var(--beige);
+}
+.ldv-faq summary {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 1rem;
+  padding: 0.95rem 0;
+  cursor: pointer;
+  list-style: none;
+  font-weight: 500;
+  line-height: 1.4;
+}
+.ldv-faq summary::-webkit-details-marker {
+  display: none;
+}
+.ldv-faq summary::after {
+  content: "+";
+  flex: 0 0 auto;
+  font-family: var(--role-editorial);
+  font-size: 1.4em;
+  line-height: 1;
+  color: var(--olive);
+}
+.ldv-faq details[open] summary::after {
+  content: "–";
+}
+.ldv-faq summary:focus-visible {
+  outline: 2px solid var(--olive);
+  outline-offset: 2px;
+}
+.ldv-faq details > p {
+  padding-bottom: 0.6rem;
+}
+.ldv-faq details > p:last-child {
+  padding-bottom: 1.1rem;
 }

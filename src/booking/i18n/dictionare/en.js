@@ -153,10 +153,113 @@ export default {
   },
 
   landing: {
-    titlu: "Tiny House Accommodation",
-    lede: "LA LIVADA Complex - Vaslui",
+    titlu: "Accommodation in Vaslui – Tiny Houses & Lofts at La Livada",
+    lede: "14 tiny houses and 2 lofts in the grounds of Complex La Livada, at Muntenii de "
+      + "Jos. See what is free and book directly, with no middlemen.",
     galerieLabel: "Gallery",
     galerieTitlu: "The houses, the pathway and the rooms",
+    seo: {
+      aproape: {
+        titlu: "Accommodation near Vaslui, booked directly",
+        p1: "We are on the DN24 road at Muntenii de Jos, on the edge of Vaslui on the Bârlad "
+          + "side. The accommodation is part of Complex La Livada, in the same grounds as the "
+          + "event halls and the garden, but it can be booked on its own: for a night in "
+          + "transit, a weekend or a work trip to Vaslui county.",
+        p2: "This page is where the booking happens. The availability above is the real one, "
+          + "from our front-desk system, and the booking goes straight into the guesthouse "
+          + "calendar — no intermediary platforms and no commission added to the price. You "
+          + "receive the confirmation by email, with the booking number and a link to review "
+          + "or cancel it.",
+        link: "Discover Complex La Livada",
+      },
+      tiny: {
+        titlu: "Tiny houses at La Livada",
+        p1: "The 14 tiny houses are small, free-standing houses set among the orchard trees. "
+          + "Eight are for two people; six have, next to the double bed, a bunk bed for "
+          + "children, so they sleep two adults and a child.",
+        p2: "Every house has its own bathroom, air conditioning and its own terrace. In the "
+          + "evening the path between the houses is lit — you can see it in the gallery "
+          + "above.",
+        link: "More about staying at La Livada",
+      },
+      loft: {
+        titlu: "The lofts at La Livada",
+        p1: "The two lofts are for two people, with the bed on a mezzanine. The interiors in "
+          + "the gallery are theirs. People usually choose them as a couple, or when staying "
+          + "several nights and preferring a room to a small house.",
+      },
+      facilitati: {
+        titlu: "Facilities",
+        p1: "In every unit, without exception: private bathroom, air conditioning and a "
+          + "terrace. You enter the room with a code received on arrival, so you do not "
+          + "depend on a reception desk with opening hours.",
+        p2: "In the grounds: free parking, the garden with its three koi ponds, the paths "
+          + "between the houses and the event halls of the complex.",
+      },
+      weekend: {
+        titlu: "Accommodation for weekends, transit or business trips",
+        p1: "The DN24 is the road between Vaslui and Bârlad; if you are passing through, you "
+          + "can book a single night, with check-in from 2 pm and check-out by 11 am. Leave "
+          + "the car in the grounds — parking is free.",
+        p2: "For business trips, the invoice is issued to your company: you fill in the "
+          + "billing details directly in the form, at the step with your details. For a "
+          + "weekend, pick the dates and see on the spot what is free; if you are coming with "
+          + "a child, search for three people — the houses with a bunk bed are the ones that "
+          + "sleep three.",
+        p3: "If you are a guest at an event held at La Livada, the room is a few metres from "
+          + "the hall — you book the same way, here, or ask the organisers whether they have "
+          + "already reserved rooms for guests.",
+      },
+      inainte: {
+        titlu: "Before you book",
+        p1: "Check-in is from 2 pm, check-out by 11 am. After you send the booking, you see "
+          + "the confirmation number on screen and immediately receive an email with the stay "
+          + "details, the price and the link to review it.",
+        p2: "Payment is by card, online, through NETOPIA, or on arrival or by bank transfer, "
+          + "as you choose in the form. On cancellation the first night is charged; the rest "
+          + "is refunded. For other dates or another room, call or write to us before "
+          + "cancelling.",
+        link: "Cancellation policy",
+      },
+      unde: {
+        titlu: "Where to find us",
+        p1: "DN24, no. 743, Muntenii de Jos, Vaslui county — on the edge of Vaslui, on the "
+          + "road from Bârlad.",
+        p2: "The map and directions are on the contact page of the complex.",
+        link: "Contact page",
+      },
+    },
+    faq: {
+      eticheta: "In short",
+      titlu: "Frequently asked questions",
+      q1: "Where is the La Livada accommodation located?",
+      a1: "In Complex La Livada, on the DN24 road, no. 743, at Muntenii de Jos — on the "
+        + "edge of Vaslui, on the road from Bârlad.",
+      q2: "How many accommodation units are there?",
+      a2: "16, all in the same grounds: 14 tiny houses and 2 lofts. Each has a private "
+        + "bathroom, air conditioning and a terrace.",
+      q3: "Can I book directly online?",
+      a3: "Yes, from this page. Choose the dates and the number of people, see what is free "
+        + "and send the booking; the confirmation arrives by email, with a link to review "
+        + "or cancel it.",
+      q4: "Does La Livada offer tiny houses?",
+      a4: "Yes: 14 small, free-standing houses among the orchard trees — 8 for two people "
+        + "and 6 for two people with a bunk bed for a child.",
+      q5: "Is there accommodation for business trips?",
+      a5: "Yes. You can book one night or more, and the invoice is issued to your company — "
+        + "the billing details are filled in on the form, at the step with your details.",
+      q6: "How far is the accommodation from Vaslui?",
+      a6: "We are on the edge of the city, at Muntenii de Jos, on the DN24 — a few metres "
+        + "from the entrance to Vaslui, on the Bârlad side.",
+      q7: "What are the check-in and check-out times?",
+      a7: "Check-in is from 2 pm, check-out by 11 am.",
+      q8: "Is there parking?",
+      a8: "Yes, parking is free, in the grounds of the complex.",
+      q9: "What happens if I cancel?",
+      a9: "You can cancel at any time from the link in the email. The first night is "
+        + "charged; the rest is refunded.",
+      a9link: "Cancellation policy",
+    },
   },
 
   antet: {
