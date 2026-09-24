@@ -67,7 +67,7 @@ function traduceStatic(cod) {
 const PAGINI_LEGALE = ["termeni", "livrare", "anulare", "retragere", "confidentialitate", "cookies"];
 
 /* Limba antetului/subsolului comun. Pagina principală (motorul React)
-   urmează preferința salvată/browserul, ca înainte. O pagină legală însă
+   urmează preferința salvată, altfel româna (detecteazaLimba). O pagină legală însă
    e deja tradusă static într-un fișier separat per limbă — antetul și
    subsolul ei trebuie să se potrivească cu ACEA limbă, nu cu preferința
    memorată (care poate fi alta, dacă vizitatorul a ajuns direct dintr-un

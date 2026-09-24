@@ -1,7 +1,37 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "redirects": [
-    { "source": "/.well-known/caldav", "destination": "https://suoowrginsliyrbxqeap.supabase.co/functions/v1/caldav/", "permanent": true }
+    { "source": "/.well-known/caldav", "destination": "https://suoowrginsliyrbxqeap.supabase.co/functions/v1/caldav/", "permanent": true },
+    {
+      "source": "/index.html",
+      "destination": "/",
+      "permanent": true,
+      "has": [{ "type": "host", "value": "rezervari.lalivada.ro" }]
+    },
+    {
+      "source": "/:pagina(termeni|livrare|anulare|retragere|confidentialitate|cookies)",
+      "destination": "/:pagina/",
+      "permanent": true,
+      "has": [{ "type": "host", "value": "rezervari.lalivada.ro" }]
+    },
+    {
+      "source": "/:pagina(termeni|livrare|anulare|retragere|confidentialitate|cookies)/index.html",
+      "destination": "/:pagina/",
+      "permanent": true,
+      "has": [{ "type": "host", "value": "rezervari.lalivada.ro" }]
+    },
+    {
+      "source": "/:pagina(termeni|livrare|anulare|retragere|confidentialitate|cookies)/:limba(en|fr|it|de|ru|uk)",
+      "destination": "/:pagina/:limba/",
+      "permanent": true,
+      "has": [{ "type": "host", "value": "rezervari.lalivada.ro" }]
+    },
+    {
+      "source": "/:pagina(termeni|livrare|anulare|retragere|confidentialitate|cookies)/:limba(en|fr|it|de|ru|uk)/index.html",
+      "destination": "/:pagina/:limba/",
+      "permanent": true,
+      "has": [{ "type": "host", "value": "rezervari.lalivada.ro" }]
+    }
   ],
   "headers": [
     {

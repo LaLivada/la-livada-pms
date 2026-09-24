@@ -41,23 +41,16 @@ export function salveazaLimba(cod) {
   } catch { /* mod privat sau spațiu plin — alegerea ține doar pentru sesiunea asta */ }
 }
 
-/* Limba telefonului/calculatorului: `navigator.languages` e o listă în
-   ORDINEA preferinței omului (setată din sistemul de operare sau
-   browser), deci prima potrivire cu ce oferim noi câștigă — nu neapărat
-   prima din listă a lui, dacă aceea nu e una din cele 7. */
-export function limbaDispozitivului() {
-  const surse = (typeof navigator !== "undefined"
-    && (navigator.languages || (navigator.language ? [navigator.language] : []))) || [];
-  for (const s of surse) {
-    const cod = String(s || "").slice(0, 2).toLowerCase();
-    if (CODURI_LIMBA.includes(cod)) return cod;
-  }
-  return LIMBA_IMPLICITA;
-}
-
-/* Limba efectivă: cea aleasă explicit, altfel cea a dispozitivului. */
+/* Limba efectivă: cea aleasă explicit de vizitator, altfel ROMÂNA — nu
+   limba browserului. Până pe 24 septembrie 2026 prima pagină urma
+   `navigator.languages`: Googlebot randează cu en-US, deci vedea H1-ul și
+   capitolele în engleză, iar pagina concura la „cazare Vaslui" cu un text
+   englezesc. Un vizitator cu browserul în altă limbă vede acum româna până
+   apasă steagul din antet — alegerea lui se salvează și rămâne respectată.
+   Paginile legale traduse nu trec pe aici: au limba în adresă
+   (/anulare/en/), vezi limbaPaginii din booking/limba-selector.js. */
 export function detecteazaLimba() {
-  return limbaSalvata() || limbaDispozitivului();
+  return limbaSalvata() || LIMBA_IMPLICITA;
 }
 
 /* BCP-47 pentru Intl.* — fiecare cod de-al nostru e deja o etichetă de

@@ -160,7 +160,7 @@ export default {
   landing: {
     titlu: "Cazare în Vaslui – Tiny Houses & Lofturi La Livada",
     lede: "14 tiny houses și 2 lofturi în curtea Complexului La Livada, la Muntenii de Jos. "
-      + "Vezi ce e liber și rezervă direct, fără intermediari.",
+      + "Vezi disponibilitatea și rezervă direct, fără intermediari.",
     galerieLabel: "Galerie",
     galerieTitlu: "Casele, aleea și camerele",
     /* Capitolele de sub galerie și întrebările frecvente de pe prima pagină
@@ -175,7 +175,7 @@ export default {
           + "Cazarea face parte din Complexul La Livada, în aceeași curte cu sălile de "
           + "evenimente și cu grădina, dar se rezervă și separat: pentru o noapte în trecere, "
           + "un weekend sau o deplasare de lucru în județul Vaslui.",
-        p2: "Pagina asta e locul în care se face rezervarea. Disponibilitatea de mai sus e "
+        p2: "Pagina asta e locul în care rezervi cazarea, direct la noi. Disponibilitatea de mai sus e "
           + "cea reală, din sistemul nostru de recepție, iar rezervarea intră direct în "
           + "calendarul pensiunii — fără platforme intermediare și fără comision adăugat la "
           + "preț. Primești confirmarea pe email, cu numărul rezervării și un link din care o "
@@ -183,7 +183,7 @@ export default {
         link: "Descoperă Complex La Livada",
       },
       tiny: {
-        titlu: "Tiny houses La Livada",
+        titlu: "Tiny houses La Livada, lângă Vaslui",
         p1: "Cele 14 tiny houses sunt case mici, de sine stătătoare, așezate printre pomii "
           + "din livadă. Opt sunt pentru două persoane; șase au, pe lângă patul dublu, un pat "
           + "etajat pentru copii, deci încap doi adulți și un copil.",
@@ -212,7 +212,7 @@ export default {
           + "curte, parcarea e gratuită.",
         p2: "Pentru deplasări de serviciu, factura se emite pe firmă: completezi datele de "
           + "facturare direct în formular, la pasul cu datele tale. Pentru weekend, alegi "
-          + "datele și vezi pe loc ce e liber; dacă veniți cu un copil, caută pentru trei "
+          + "datele și vezi pe loc disponibilitatea; dacă veniți cu un copil, caută pentru trei "
           + "persoane — casele cu pat etajat sunt cele în care încap trei.",
         p3: "Dacă ești invitat la un eveniment organizat la La Livada, camera e la câțiva "
           + "metri de sală — rezervi la fel, de aici, sau întrebi organizatorii dacă au "
@@ -246,7 +246,7 @@ export default {
       q2: "Câte unități de cazare sunt disponibile?",
       a2: "16, toate în aceeași curte: 14 tiny houses și 2 lofturi. Fiecare are baie "
         + "proprie, aer condiționat și terasă.",
-      q3: "Pot rezerva direct online?",
+      q3: "Pot rezerva cazarea la Vaslui direct online?",
       a3: "Da, de pe pagina asta. Alegi datele și numărul de persoane, vezi ce e liber și "
         + "trimiți rezervarea; confirmarea vine pe email, cu un link din care o poți "
         + "revedea sau anula.",
