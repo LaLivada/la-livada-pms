@@ -33,14 +33,22 @@ describe("PMS ca aplicație pe ecranul de start", () => {
     }
   });
 
-  it("bara de jos plutește deasupra barei de acasă și lasă loc conținutului", () => {
+  it("bara de jos coboară sub bara de acasă doar puțin și lasă loc conținutului", () => {
     // „DESKTOP LAT" e pomenit și în capul fișierului — se caută de la bară încolo.
-    const start = css.indexOf(".ui-noua .nav-jos{");
+    const start = css.indexOf("--nav-jos-sub:");
     const bloc = css.slice(start, css.indexOf("DESKTOP LAT", start));
-    expect(bloc).toMatch(/bottom:calc\(\d+px \+ env\(safe-area-inset-bottom\)\)/);
+    /* Pe iPhone (zona sigură de jos: 34px) bara adaugă sub butoane câțiva
+       pixeli, nu toată zona: cu toată, sub etichete rămâneau 51px goi
+       („spațiul de dedesubt e prea mare", 25 septembrie 2026). */
+    const m = bloc.match(/^--nav-jos-sub:max\(0px, calc\(env\(safe-area-inset-bottom\) - (\d+)px\)\);/);
+    expect(m, "formula lui --nav-jos-sub").toBeTruthy();
+    const adaosPeIphone = 34 - Number(m[1]);
+    expect(adaosPeIphone).toBeGreaterThan(0);
+    expect(adaosPeIphone).toBeLessThanOrEqual(10);
+    expect(bloc).toMatch(/\.ui-noua \.nav-jos\{[^}]*padding:0 [^;]* var\(--nav-jos-sub\) /);
     expect(bloc).toContain(".nav-jos.cu-plus::before");
     expect(bloc).toContain("-webkit-mask-image");
-    expect(bloc).toMatch(/\.ui-noua \.content\{ padding-bottom:calc\(\d+px \+ env\(safe-area-inset-bottom\)\)/);
-    expect(bloc).toMatch(/\.ui-noua \.toast-host\{ bottom:calc\(\d+px \+ env\(safe-area-inset-bottom\)\)/);
+    expect(bloc).toMatch(/\.ui-noua \.content\{ padding-bottom:calc\(\d+px \+ var\(--nav-jos-sub\)\)/);
+    expect(bloc).toMatch(/\.ui-noua \.toast-host\{ bottom:calc\(\d+px \+ var\(--nav-jos-sub\)\)/);
   });
 });

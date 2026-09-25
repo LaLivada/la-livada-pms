@@ -2274,11 +2274,11 @@ label.field input, label.field select, label.field textarea{ cursor:auto; }
    doar sus, „+"-ul pe mijloc si o scobitura in bara in jurul lui.
    Proportiile sunt cele masurate pe poza lui (bara = 1): „+" 0,75 din
    inaltimea barei, centrul lui la 0,25 sub muchia de sus (iese doar putin
-   deasupra), scobitura 0,47, iconite 0,23, etichete 0,17. Sub bara de acasa
-   a iPhone-ului fundalul se prelungeste (padding-bottom =
-   env(safe-area-inset-bottom): 34px cand aplicatia ruleaza de pe ecranul de
-   start — viewport-fit=cover + manifestul, in index.html — si 0 in Safari,
-   unde bara browserului e oricum sub pagina), ca la aplicatiile native.
+   deasupra), scobitura 0,47, iconite 0,23, etichete 0,17, spatiul de sub
+   etichete 0,29. Fundalul merge pana la muchia de jos a ecranului, peste
+   zona barei de acasa a iPhone-ului (viewport-fit=cover + manifestul, in
+   index.html), ca la aplicatiile native; cat coboara bara in zona aceea
+   hotaraste --nav-jos-sub, mai jos.
 
    Fundalul si umbra stau pe un ::before, nu pe <nav>: scobitura e o masca
    radiala, iar o masca pe <nav> ar fi taiat si „+"-ul, care e copilul lui.
@@ -2293,9 +2293,17 @@ label.field input, label.field select, label.field textarea{ cursor:auto; }
     margin:18px -16px calc(-18px - env(safe-area-inset-bottom));
     padding:10px 16px calc(10px + env(safe-area-inset-bottom));
   }
+  /* Cat adauga bara sub butoane pe iPhone-ul cu bara de acasa: nu toata
+     zona sigura (34px), ci 6px. Cu toata zona, sub etichete ramaneau 51px
+     goi (17 din buton + 34), de trei ori cat deasupra iconitelor — „spatiul
+     de dedesubt e prea mare", Ovidiu, 25 septembrie 2026. Asa etichetele se
+     opresc la 23px deasupra muchiei ecranului, cam la 10px deasupra barei de
+     acasa (care ocupa ~13px de jos), iar spatiul de sub ele iese 0,29 din
+     bara, ca in poza. In Safari zona sigura e 0, deci si adaosul. */
+  .ui-noua{ --nav-jos-sub:max(0px, calc(env(safe-area-inset-bottom) - 28px)); }
   .ui-noua .nav-jos{
     display:flex; align-items:center; position:fixed; z-index:20; left:0; right:0; bottom:0;
-    padding:0 max(4px, env(safe-area-inset-right)) env(safe-area-inset-bottom) max(4px, env(safe-area-inset-left));
+    padding:0 max(4px, env(safe-area-inset-right)) var(--nav-jos-sub) max(4px, env(safe-area-inset-left));
     border-radius:26px 26px 0 0;
   }
   .ui-noua .nav-jos::before{
@@ -2333,10 +2341,10 @@ label.field input, label.field select, label.field textarea{ cursor:auto; }
   .nav-jos-plus svg{ width:20px; height:20px; }
   .nav-jos-plus:active{ transform:scale(.94); }
   .ui-noua .topbar-actions .icon-btn, .ui-noua .topbar-actions .top-btn{ display:none; }
-  /* Sub bara (72) si sub „+"-ul care iese deasupra ei (9), plus o rasuflare:
-     fara asta ultimul rand din liste ramanea ascuns sub ele. */
-  .ui-noua .content{ padding-bottom:calc(92px + env(safe-area-inset-bottom)); }
-  .ui-noua .toast-host{ bottom:calc(92px + env(safe-area-inset-bottom)); }
+  /* Sub bara (72 + adaosul de jos) si sub „+"-ul care iese deasupra ei (9),
+     plus o rasuflare: fara asta ultimul rand din liste ramanea ascuns sub ele. */
+  .ui-noua .content{ padding-bottom:calc(92px + var(--nav-jos-sub)); }
+  .ui-noua .toast-host{ bottom:calc(92px + var(--nav-jos-sub)); }
 }
 
 /* ============================================================================
