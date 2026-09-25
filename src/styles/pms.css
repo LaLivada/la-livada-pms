@@ -2267,7 +2267,25 @@ label.field input, label.field select, label.field textarea{ cursor:auto; }
   .ui-noua .tag-chip, .ui-noua .room-chip{ min-height:44px; }
 }
 /* Navigarea jos pe telefon: patru tinte in zona degetului mare; butoanele
-   din antet se ascund acolo, antetul ramane cu titlul. */
+   din antet se ascund acolo, antetul ramane cu titlul.
+
+   Refacuta pe 25 septembrie 2026 dupa modelul „center FAB" cerut de Ovidiu:
+   bara alba din margine in margine, lipita de jos, cu colturile rotunjite
+   doar sus, „+"-ul pe mijloc si o scobitura in bara in jurul lui.
+   Proportiile sunt cele masurate pe poza lui (bara = 1): „+" 0,75 din
+   inaltimea barei, centrul lui la 0,25 sub muchia de sus (iese doar putin
+   deasupra), scobitura 0,47, iconite 0,23, etichete 0,17. Sub bara de acasa
+   a iPhone-ului fundalul se prelungeste (padding-bottom =
+   env(safe-area-inset-bottom): 34px cand aplicatia ruleaza de pe ecranul de
+   start — viewport-fit=cover + manifestul, in index.html — si 0 in Safari,
+   unde bara browserului e oricum sub pagina), ca la aplicatiile native.
+
+   Fundalul si umbra stau pe un ::before, nu pe <nav>: scobitura e o masca
+   radiala, iar o masca pe <nav> ar fi taiat si „+"-ul, care e copilul lui.
+   Pseudo-ul are z-index:-1 in contextul de stivuire al barei (position:fixed
+   + z-index), deci ramane sub butoane. Fara scobitura cand „+" lipseste
+   (housekeeping, sau fara drept la calendar) — clasa .cu-plus vine din
+   pms-app.jsx. */
 .nav-jos{ display:none; }
 @media (max-width:600px){
   .ui-noua .modal .modal-actions{
@@ -2276,28 +2294,49 @@ label.field input, label.field select, label.field textarea{ cursor:auto; }
     padding:10px 16px calc(10px + env(safe-area-inset-bottom));
   }
   .ui-noua .nav-jos{
-    display:flex; position:fixed; left:0; right:0; bottom:0; z-index:20;
-    background:rgba(255,255,255,0.92); backdrop-filter:saturate(180%) blur(12px);
-    border-top:1px solid var(--border);
-    padding:6px max(6px, env(safe-area-inset-right)) calc(6px + env(safe-area-inset-bottom)) max(6px, env(safe-area-inset-left));
+    display:flex; align-items:center; position:fixed; z-index:20; left:0; right:0; bottom:0;
+    padding:0 max(4px, env(safe-area-inset-right)) env(safe-area-inset-bottom) max(4px, env(safe-area-inset-left));
+    border-radius:26px 26px 0 0;
   }
-  :root.tema-intunecata .ui-noua .nav-jos{ background:rgba(27,30,36,0.9); }
+  .ui-noua .nav-jos::before{
+    content:""; position:absolute; inset:0; z-index:-1; border-radius:inherit;
+    background:var(--surface);
+    box-shadow:0 -8px 28px rgba(25,25,23,.12), 0 -1px 0 rgba(25,25,23,.05);
+  }
+  .ui-noua .nav-jos.cu-plus::before{
+    -webkit-mask-image:radial-gradient(circle at 50% 18px, transparent 35px, #000 36px);
+    mask-image:radial-gradient(circle at 50% 18px, transparent 35px, #000 36px);
+  }
+  :root.tema-intunecata .ui-noua .nav-jos::before{
+    box-shadow:0 -8px 28px rgba(0,0,0,.5), 0 -1px 0 var(--border);
+  }
   .nav-jos-btn{
-    flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px;
-    min-height:48px; border:none; background:none; color:var(--text-muted);
-    font-size:var(--fs-2xs); font-weight:600; border-radius:var(--r-sm);
+    flex:1; min-width:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:7px;
+    height:72px; padding:0 2px; border:none; background:none; color:var(--text-muted);
+    font-size:var(--fs-sm); font-weight:500; letter-spacing:.01em; border-radius:var(--r-md);
+    -webkit-tap-highlight-color:transparent;
   }
-  .nav-jos-btn.on{ color:var(--accent-strong); background:var(--accent-soft); }
+  .nav-jos-btn svg{ width:17px; height:17px; }
+  .nav-jos-btn span{ max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .nav-jos-btn.on{ color:var(--text); font-weight:600; }
+  .nav-jos-btn.on svg{ stroke-width:2.4; }
+  /* „+"-ul: 54px, cu centrul la 18px sub muchia de sus a barei (-9px margine
+     + 27px raza), ca in poza: iese doar cu 9px deasupra. align-self:
+     flex-start ca marginea negativa sa-l ridice, nu sa-l lateasca. */
   .nav-jos-plus{
-    flex:0 0 auto; align-self:center; width:50px; height:50px; margin:0 6px; border-radius:50%; border:none;
-    background:var(--accent); background-image:var(--lumina); color:#fff;
+    flex:0 0 auto; align-self:flex-start; width:54px; height:54px; margin:-9px 10px 0;
+    border-radius:50%; border:none; background:var(--accent); background-image:var(--lumina); color:#fff;
     display:flex; align-items:center; justify-content:center;
-    box-shadow:0 4px 12px rgba(0,0,0,.22);
+    box-shadow:0 8px 20px rgba(43,92,138,.38), 0 2px 4px rgba(0,0,0,.12);
+    transition:transform .15s ease;
   }
-  .nav-jos-plus:active{ transform:scale(.95); }
+  .nav-jos-plus svg{ width:20px; height:20px; }
+  .nav-jos-plus:active{ transform:scale(.94); }
   .ui-noua .topbar-actions .icon-btn, .ui-noua .topbar-actions .top-btn{ display:none; }
-  .ui-noua .content{ padding-bottom:calc(84px + env(safe-area-inset-bottom)); }
-  .ui-noua .toast-host{ bottom:calc(84px + env(safe-area-inset-bottom)); }
+  /* Sub bara (72) si sub „+"-ul care iese deasupra ei (9), plus o rasuflare:
+     fara asta ultimul rand din liste ramanea ascuns sub ele. */
+  .ui-noua .content{ padding-bottom:calc(92px + env(safe-area-inset-bottom)); }
+  .ui-noua .toast-host{ bottom:calc(92px + env(safe-area-inset-bottom)); }
 }
 
 /* ============================================================================

@@ -1636,7 +1636,9 @@ function Shell({ user, view, setView, onLogout, noutati, core, updateCore, reser
         </div>
       </div>
       {noua && (
-        <nav className="nav-jos" aria-label="Navigare">
+        /* .cu-plus: bara primeste scobitura din jurul „+"-ului doar cand
+           „+"-ul chiar e acolo (aceeasi conditie ca butonul de mai jos). */
+        <nav className={"nav-jos" + (canCalendar && user.role !== "housekeeping" ? " cu-plus" : "")} aria-label="Navigare">
           <button className={"nav-jos-btn" + (safeView === homeView ? " on" : "")} onClick={() => setView(homeView)}>
             {homeView === "housekeeping" ? <BedDouble size={20} /> : <CalendarCheck size={20} />}
             <span>{homeView === "housekeeping" ? "Camere" : "Azi"}</span>

@@ -25,7 +25,21 @@
     <link rel="icon" type="image/png" sizes="16x16" href="/brand/favicon-16.png" />
     <link rel="icon" type="image/png" sizes="512x512" href="/brand/favicon.png" />
     <link rel="apple-touch-icon" href="/brand/apple-touch-icon.png" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <!-- Aplicatie pe ecranul de start (25 septembrie 2026): fara aceste
+         meta-uri si fara manifest, pictograma pusa din Safari deschidea tot
+         Safari, cu bara lui peste meniul de jos al aplicatiei. Cu ele, iOS si
+         Android o deschid singura (display: standalone), iar viewport-fit=cover
+         face ca env(safe-area-inset-bottom) sa fie inaltimea barei de acasa a
+         iPhone-ului — bara de navigare din src/styles/pms.css (.nav-jos) sta
+         deasupra ei. Sesiunea din aplicatia de pe ecranul de start e separata
+         de cea din Safari: prima deschidere cere autentificarea inca o data. -->
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="La Livada PMS" />
+    <meta name="theme-color" content="#F7F7F5" />
     <!-- Unealtă internă de recepție, nu conținut public — nu trebuie să
          apară în căutări. public/robots.txt (Disallow: /) completează asta
          pentru crawlere care ignoră meta tag-ul. -->
