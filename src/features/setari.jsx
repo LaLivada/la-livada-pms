@@ -21,8 +21,8 @@ import { FUS_HOTEL, partiLocale, adaugaZile, dinPartiLocale } from "../lib/timp.
 import { descarcaText } from "../lib/descarcare.js";
 import * as dateRapoarte from "../data/rapoarte.js";
 import { Dialog, toaster, useModalLock, Stat, PdfPreview } from "../ui/primitive.jsx";
-import { useInterfata } from "../ui/interfata.jsx";
-import { INTERFETE, ETICHETA_INTERFATA, TEME, ETICHETA_TEMA } from "../lib/interfata.js";
+import { useTema } from "../ui/tema.jsx";
+import { TEME, ETICHETA_TEMA } from "../lib/tema.js";
 import { ContCaldav } from "./caldav.jsx";
 import { cameraDinDetaliu, filtreazaJurnal, ziiDistincte, grupeazaPeZi, etichetaZi, INTARZIERE_RECERERE_JURNAL_MS } from "../lib/jurnal.js";
 import { ACTIUNE_EROARE } from "../lib/erori-productie.js";
@@ -227,7 +227,7 @@ export function ContulMeu({ user, onLogout }) {
   const [msg, setMsg] = useState(null);
   const [busy, setBusy] = useState(false);
   const [schimbaParola, setSchimbaParola] = useState(false);
-  const { interfata, seteazaInterfata, tema, seteazaTema } = useInterfata();
+  const { tema, seteazaTema } = useTema();
   const mine = PERMISSIONS[user.role] || [];
 
   const changePassword = async () => {
@@ -269,23 +269,9 @@ export function ContulMeu({ user, onLogout }) {
         </div>
       </div>
 
-      {/* Comutatorul si tema stau aici, nu in Setari: sunt ale dispozitivului
-          (localStorage), nu ale pensiunii — vezi lib/interfata.js. */}
+      {/* Tema sta aici, nu in Setari: e a dispozitivului (localStorage), nu a
+          pensiunii — vezi lib/tema.js. */}
       <div className="cont-optiuni">
-        <div className="cont-optiune">
-          <span className="cont-optiune-eticheta">Interfața</span>
-          <div className="mode-switch" role="group" aria-label="Interfața">
-            {INTERFETE.map((k) => (
-              <button key={k} type="button" className={interfata === k ? "on" : ""} aria-pressed={interfata === k}
-                onClick={() => seteazaInterfata(k)}>{ETICHETA_INTERFATA[k]}</button>
-            ))}
-          </div>
-          <span className="cont-optiune-nota">
-            Nouă: navigare jos pe telefon, „înapoi” închide fereastra, erorile lângă câmp,
-            bara de acțiuni lipită jos, culorile stărilor în Azi. O apăsare pe „Actuală”
-            readuce forma de dinainte, pe acest dispozitiv.
-          </span>
-        </div>
         <div className="cont-optiune">
           <span className="cont-optiune-eticheta">Aspect</span>
           <div className="mode-switch" role="group" aria-label="Aspect">

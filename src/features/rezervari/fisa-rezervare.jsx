@@ -24,7 +24,6 @@ import { canCheckIn, canCheckOut, ZILE_CHECKIN_DEVREME, STATUSURI_CAZABILE } fro
 import { fmtMoney, fmtDate, fmtDateTime, toLocalInputValue, withNewDate, initials, validatePrice } from "../../lib/format.js";
 import { ROOM_TYPE, STATUS_LABEL, CREATE_STATUSES, EDIT_STATUSES, SOURCES, DEFAULT_TAGS } from "../../lib/constante.js";
 import { Dialog, toaster, useModalLock, useAduInVizor, useIntarziat, OccupantStepper } from "../../ui/primitive.jsx";
-import { useInterfata } from "../../ui/interfata.jsx";
 import { cautaOaspeti, MIN_LITERE_CAUTARE } from "../../data/oaspeti.js";
 import * as dateFise from "../../data/fise.js";
 import { ORA_SOSIRE_IMPLICITA, ORA_PLECARE_IMPLICITA } from "../../lib/acces.js";
@@ -90,11 +89,11 @@ function OreCazareModal({ checkin, checkout, onClose, onSave }) {
   );
 }
 
-/* Eroarea de validare sub campul de care tine (interfata noua): ghidul cere
+/* Eroarea de validare sub campul de care tine: ghidul cere
    eroarea langa camp, nu doar un rand sus in fereastra. Un singur mesaj o
    data, deci un singur ref, adus in vizor de ReservationModal. */
-function EroareCamp({ eroare, camp, noua, refEroare }) {
-  if (!noua || !eroare || eroare.camp !== camp) return null;
+function EroareCamp({ eroare, camp, refEroare }) {
+  if (!eroare || eroare.camp !== camp) return null;
   return <div ref={refEroare} className="error-text eroare-camp" role="alert">{eroare.text}</div>;
 }
 
@@ -170,17 +169,15 @@ export function ReservationModal({ data, core, updateCore, reservations, updateR
   const [occupantLastName, setOccupantLastName] = useState(editing?.occupantLastName || "");
   const [occupantFirstName, setOccupantFirstName] = useState(editing?.occupantFirstName || "");
   const [occupantPhone, setOccupantPhone] = useState(editing?.occupantPhone || "");
-  /* Eroarea de validare: textul si campul de care tine. Interfata noua o
-     arata sub camp (EroareCamp) si il aduce in vizor; cea actuala, sus in
-     fereastra, ca pana acum. */
+  /* Eroarea de validare: textul si campul de care tine. Cu un camp, apare
+     sub el (EroareCamp) si il aduce in vizor; fara, sus in fereastra. */
   const [eroare, setEroare] = useState(null);
   const setError = (text, camp = null) => setEroare(text ? { text, camp } : null);
   const error = eroare?.text || "";
-  const { noua } = useInterfata();
   const refEroare = useRef(null);
   useEffect(() => {
-    if (noua && eroare?.camp) refEroare.current?.scrollIntoView?.({ block: "center", behavior: "smooth" });
-  }, [noua, eroare]);
+    if (eroare?.camp) refEroare.current?.scrollIntoView?.({ block: "center", behavior: "smooth" });
+  }, [eroare]);
   /* Sectiunile pliabile (faza 3, C4, lib/fisa-sectiuni.js): la o rezervare
      noua sunt deschise cele de completat (oaspete, sejur, pret); la editare
      toate stau pliate, cu rezumatul in cap — desfaci ce ai de schimbat. O
@@ -673,7 +670,7 @@ export function ReservationModal({ data, core, updateCore, reservations, updateR
               <input value={groupName} onChange={(e) => { setGroupName(e.target.value); setError(""); }}
                 placeholder="ex. Familia Popescu · Nuntă Ionescu" />
             </label>}
-            <EroareCamp eroare={eroare} camp="numeGrup" noua={noua} refEroare={refEroare} />
+            <EroareCamp eroare={eroare} camp="numeGrup" refEroare={refEroare} />
 
             {isBlock && <label className="field">
               <span className="fl">Motiv</span>
@@ -741,7 +738,7 @@ export function ReservationModal({ data, core, updateCore, reservations, updateR
           </label>
         )}
 
-        <EroareCamp eroare={eroare} camp="camere" noua={noua} refEroare={refEroare} />
+        <EroareCamp eroare={eroare} camp="camere" refEroare={refEroare} />
         <div className="field-row field-row-dates">
           <label className="field">
             <span className="fl">{isBlock ? "De la" : "Check-in"}</span>
@@ -765,7 +762,7 @@ export function ReservationModal({ data, core, updateCore, reservations, updateR
           </label>
         </div>
 
-        <EroareCamp eroare={eroare} camp="date" noua={noua} refEroare={refEroare} />
+        <EroareCamp eroare={eroare} camp="date" refEroare={refEroare} />
 
         {/* Orele stau langa date, in sectiunea Sejur (pana in faza 3, C4,
             stateau deasupra sectiunii de acces, langa butoanele pe care le
@@ -796,7 +793,7 @@ export function ReservationModal({ data, core, updateCore, reservations, updateR
           </label>
         )}
 
-        <EroareCamp eroare={eroare} camp="status" noua={noua} refEroare={refEroare} />
+        <EroareCamp eroare={eroare} camp="status" refEroare={refEroare} />
         {!isBlock && (
           <label className="field">
             <span className="fl">Sursa rezervării</span>
@@ -838,7 +835,7 @@ export function ReservationModal({ data, core, updateCore, reservations, updateR
                   placeholder="Caută după nume, telefon sau oraș"
                 />
               </div>
-              <EroareCamp eroare={eroare} camp="client" noua={noua} refEroare={refEroare} />
+              <EroareCamp eroare={eroare} camp="client" refEroare={refEroare} />
               {guestQuery.trim() && (
                 matchingGuests.length > 0 ? (
                   <div className="guest-results" ref={refRezultateClient}>
@@ -920,7 +917,7 @@ export function ReservationModal({ data, core, updateCore, reservations, updateR
             </div>
           </div>
         )}
-        <EroareCamp eroare={eroare} camp="ocupare" noua={noua} refEroare={refEroare} />
+        <EroareCamp eroare={eroare} camp="ocupare" refEroare={refEroare} />
         {!isBlock && (
           <div className="note mt-neg6">
             Maxim {maxOccupancy} {maxOccupancy === 1 ? "persoană" : "persoane"} pentru {isGroup ? "camerele selectate" : "camera selectată"}.
@@ -971,7 +968,7 @@ export function ReservationModal({ data, core, updateCore, reservations, updateR
           </div>
         </div>
 
-        <EroareCamp eroare={eroare} camp="pret" noua={noua} refEroare={refEroare} />
+        <EroareCamp eroare={eroare} camp="pret" refEroare={refEroare} />
         {!isBlock && editing && (
           <FolioPanel reservation={editing} core={core} updateCore={updateCore}
             billingCustomerId={billingCustomerId} setBillingCustomerId={setBillingCustomerId}
@@ -1061,7 +1058,7 @@ export function ReservationModal({ data, core, updateCore, reservations, updateR
           </SectiunePliabila>
         )}
 
-        {error && (!noua || !eroare?.camp) && <div className="error-text mb-10" role="alert">{error}</div>}
+        {error && !eroare?.camp && <div className="error-text mb-10" role="alert">{error}</div>}
 
         {editing && (
           <div className="quick-actions">

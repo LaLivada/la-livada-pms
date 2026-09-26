@@ -1,35 +1,15 @@
-/* Comutatorul „Interfața: Nouă / Actuală" si tema — regulile pure.
- * Ce s-ar strica tacut: o valoare straina din localStorage sa lase
- * interfata fara forma; „Actuală" sa nu se tina minte; tema „sistem" sa nu
- * mai urmareasca telefonul, sau „deschis" sa ramana intunecata pe un
- * telefon pe intunecat.
+/* Tema — regulile pure. Ce s-ar strica tacut: o valoare straina sau o
+ * stocare blocata sa lase PMS-ul fara tema; tema „sistem" sa nu mai
+ * urmareasca telefonul, sau „deschis" sa ramana intunecata pe un telefon pe
+ * intunecat.
  */
 import { describe, it, expect, vi } from "vitest";
-import {
-  citesteInterfata, scrieInterfata, CHEIE_INTERFATA,
-  citesteTema, scrieTema, CHEIE_TEMA, esteIntunecata, aplicaTema, CLASA_INTUNECAT,
-} from "./lib/interfata.js";
+import { citesteTema, scrieTema, CHEIE_TEMA, esteIntunecata, aplicaTema, CLASA_INTUNECAT } from "./lib/tema.js";
 
 const stocare = (init = {}) => {
   const m = new Map(Object.entries(init));
   return { getItem: (k) => (m.has(k) ? m.get(k) : null), setItem: (k, v) => m.set(k, v) };
 };
-
-describe("interfata", () => {
-  it("implicit e noua; „actuala” se tine minte; o valoare straina nu conteaza", () => {
-    expect(citesteInterfata(stocare())).toBe("noua");
-    const s = stocare();
-    scrieInterfata(s, "actuala");
-    expect(s.getItem(CHEIE_INTERFATA)).toBe("actuala");
-    expect(citesteInterfata(s)).toBe("actuala");
-    expect(citesteInterfata(stocare({ [CHEIE_INTERFATA]: "altceva" }))).toBe("noua");
-  });
-  it("nu se sufoca fara stocare sau cu una care arunca", () => {
-    expect(citesteInterfata(undefined)).toBe("noua");
-    expect(citesteInterfata({ getItem: () => { throw new Error("blocat"); } })).toBe("noua");
-    expect(() => scrieInterfata({ setItem: () => { throw new Error("blocat"); } }, "actuala")).not.toThrow();
-  });
-});
 
 describe("tema", () => {
   it("implicit urmeaza sistemul; deschis/intunecat il ignora", () => {
@@ -42,6 +22,12 @@ describe("tema", () => {
     scrieTema(s, "intunecat");
     expect(s.getItem(CHEIE_TEMA)).toBe("intunecat");
     expect(citesteTema(stocare({ [CHEIE_TEMA]: "roz" }))).toBe("sistem");
+  });
+
+  it("nu se sufoca fara stocare sau cu una care arunca (navigare privata)", () => {
+    expect(citesteTema(undefined)).toBe("sistem");
+    expect(citesteTema({ getItem: () => { throw new Error("blocat"); } })).toBe("sistem");
+    expect(() => scrieTema({ setItem: () => { throw new Error("blocat"); } }, "intunecat")).not.toThrow();
   });
 
   it("pune clasa pe <html> si, pe „sistem”, urmareste schimbarile telefonului", () => {

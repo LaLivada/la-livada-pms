@@ -73,7 +73,7 @@
   --shadow: 0 1px 3px rgba(25,25,23,0.06), 0 8px 24px -8px rgba(25,25,23,0.10);
   --shadow-lg: 0 2px 6px rgba(25,25,23,0.07), 0 24px 48px -16px rgba(25,25,23,0.18);
 }
-/* Tema intunecata: clasa pusa pe <html> de lib/interfata.js — din setarea
+/* Tema intunecata: clasa pusa pe <html> de lib/tema.js — din setarea
    „Aspect" (Contul meu) sau din prefers-color-scheme cand e „Ca sistemul".
    Nu direct media query: asa se poate forta deschis / intunecat indiferent
    de telefon (15 septembrie 2026). */
@@ -244,9 +244,8 @@
 .top-btn.active{ background:var(--accent-soft); color:var(--accent-strong); border-color:var(--accent); }
 /* „Rezervare noua" in antet, langa Calendar (cerut pe 15 septembrie 2026),
    albastru ca butonul principal. Pe telefon nu incape si nici nu e nevoie:
-   acolo e „+" din navigarea jos (interfata noua) sau butonul din bara
-   calendarului (cea actuala). Cu .top-btn in selector, ca regula generala
-   a luminii de pe .top-btn (mai jos in foaie) sa nu o bata. */
+   acolo e „+" din navigarea jos. Cu .top-btn in selector, ca regula
+   generala a luminii de pe .top-btn (mai jos in foaie) sa nu o bata. */
 .top-btn.top-rez{
   background:var(--accent); background-image:var(--lumina); border-color:var(--accent); color:#fff;
   box-shadow:var(--shadow-sm);
@@ -443,19 +442,10 @@
    foaie si ar castiga altfel prin ordine. */
 .cal-view .cal-scroll{ border-bottom-left-radius:0; border-bottom-right-radius:0; }
 .cal-toolbar .week-nav{ min-width:0; }
-.cal-toolbar .btn-primary{ white-space:nowrap; flex-shrink:0; }
-/* Butonul din bara calendarului ramane doar pe telefon, in interfata
-   actuala: pe tableta si desktop e in antet, langa Calendar (.top-rez). */
-@media (min-width:601px){ .cal-toolbar .btn-primary{ display:none; } }
 @media (max-width:720px){
   .cal-toolbar .week-nav button span{ display:none; }
   .cal-toolbar .week-nav button.on span{ display:inline; }
   .cal-toolbar .week-nav button{ padding:9px 11px; }
-  .cal-toolbar .btn-primary{ padding:11px 13px; }
-  .cal-toolbar .btn-primary .lbl-long{ display:none; }
-}
-@media (min-width:721px){
-  .cal-toolbar .btn-primary .lbl-short{ display:none; }
 }
 .week-nav{
   display:flex; align-items:center; background:var(--surface); border:1px solid var(--border);
@@ -1693,7 +1683,6 @@ label.field input, label.field select, label.field textarea{ cursor:auto; }
 .co-titlu{ display:inline-flex; align-items:center; gap:7px; }
 .co-titlu svg{ color:var(--accent); flex-shrink:0; }
 .co-cand{ font-size:var(--fs-sm); color:var(--text-muted); white-space:nowrap; }
-.co-moarta{ background:var(--danger-soft); color:var(--danger); }
 .stat-row{ display:grid; grid-template-columns:repeat(4,1fr); gap:16px; margin-bottom:20px; }
 .stat{ min-width:0; padding-left:14px; border-left:1px solid var(--border); }
 .stat:first-child{ padding-left:0; border-left:none; }
@@ -2107,8 +2096,6 @@ label.field input, label.field select, label.field textarea{ cursor:auto; }
   /* Randul cu Azi si butoanele, mai scund (cerut pe 14 septembrie 2026):
      tintele raman de 36px — cat un deget — in loc de 44. */
   .cal-toolbar{ gap:6px; padding:5px 6px; }
-  /* „+" din navigarea jos tine locul butonului de rezervare. */
-  .ui-noua .cal-toolbar .btn-primary{ display:none; }
   .cal-toolbar .btn, .cal-toolbar .week-nav button{ min-height:36px; padding-top:6px; padding-bottom:6px; }
   .cal-toolbar .icon-btn{ width:36px; height:36px; }
   .field-row{ grid-template-columns:1fr; gap:0; }
@@ -2164,7 +2151,7 @@ label.field input, label.field select, label.field textarea{ cursor:auto; }
    ei; fereastra „Sari la data" se lipeste de marginea stanga, altfel
    centrata pe butonul Azi iesea din ecran. */
 @media (max-width:600px){
-  .ui-noua .cal-toolbar{ bottom:calc(64px + env(safe-area-inset-bottom)); }
+  .pms .cal-toolbar{ bottom:calc(64px + env(safe-area-inset-bottom)); }
   .jump-pop{ left:0; transform:none; }
 }
 
@@ -2180,11 +2167,12 @@ label.field input, label.field select, label.field textarea{ cursor:auto; }
 .week-nav button, .week-nav button:hover, .week-nav button.on{ background-image:var(--lumina-deschis); }
 
 /* ============================================================================
-   INTERFATA NOUA (15 septembrie 2026) — tot ce e doar al ei sta sub .ui-noua,
-   clasa de pe radacina .pms cand comutatorul din Contul meu e pe „Nouă"
-   (ui/interfata.jsx). Cu „Actuală" nimic de aici nu se aplica.
+   INTERFATA NOUA (15 septembrie 2026), singura din 26 septembrie 2026, cand
+   comutatorul „Nouă / Actuală" din Contul meu a fost scos. Regulile care
+   stateau sub clasa comutatorului stau acum sub .pms — aceeasi specificitate,
+   deci aceeasi ordine in cascada ca inainte.
    ============================================================================ */
-/* Comutatoarele din Contul meu. */
+/* Optiunile din Contul meu (tema, calendarul salilor). */
 .cont-optiuni{ padding:14px 20px 4px; border-bottom:1px solid var(--border); display:grid; gap:14px; }
 .cont-optiune{ display:grid; gap:6px; }
 .cont-optiune .mode-switch{ margin-bottom:0; }
@@ -2269,7 +2257,7 @@ label.field input, label.field select, label.field textarea{ cursor:auto; }
 /* Bara de actiuni a ferestrelor (Vezi rezervarea, formularul) ramane lipita
    de marginea de jos cat timp fereastra se deruleaza — Check-in / Salveaza
    in zona degetului, nu sub margine. */
-.ui-noua .modal .modal-actions{
+.pms .modal .modal-actions{
   /* bottom negativ cat padding-ul ferestrei: dreptunghiul in care sta un
      element sticky e scrollport-ul fara padding, altfel bara s-ar opri cu
      22px deasupra marginii si continutul s-ar vedea pe sub ea. */
@@ -2280,8 +2268,8 @@ label.field input, label.field select, label.field textarea{ cursor:auto; }
 /* Tinte de atins: butoanele de contact si cele din randurile listelor
    ajungeau la 34px pe telefon (regula lor batea minimul de 42). */
 @media (pointer: coarse){
-  .ui-noua .contact-quick .icon-btn, .ui-noua .row-actions .icon-btn{ width:42px; height:42px; }
-  .ui-noua .tag-chip, .ui-noua .room-chip{ min-height:44px; }
+  .pms .contact-quick .icon-btn, .pms .row-actions .icon-btn{ width:42px; height:42px; }
+  .pms .tag-chip, .pms .room-chip{ min-height:44px; }
 }
 /* Navigarea jos pe telefon: patru tinte in zona degetului mare; butoanele
    din antet se ascund acolo, antetul ramane cu titlul.
@@ -2305,7 +2293,7 @@ label.field input, label.field select, label.field textarea{ cursor:auto; }
    pms-app.jsx. */
 .nav-jos{ display:none; }
 @media (max-width:600px){
-  .ui-noua .modal .modal-actions{
+  .pms .modal .modal-actions{
     bottom:calc(-18px - env(safe-area-inset-bottom));
     margin:18px -16px calc(-18px - env(safe-area-inset-bottom));
     padding:10px 16px calc(10px + env(safe-area-inset-bottom));
@@ -2317,22 +2305,22 @@ label.field input, label.field select, label.field textarea{ cursor:auto; }
      opresc la 23px deasupra muchiei ecranului, cam la 10px deasupra barei de
      acasa (care ocupa ~13px de jos), iar spatiul de sub ele iese 0,29 din
      bara, ca in poza. In Safari zona sigura e 0, deci si adaosul. */
-  .ui-noua{ --nav-jos-sub:max(0px, calc(env(safe-area-inset-bottom) - 28px)); }
-  .ui-noua .nav-jos{
+  .pms{ --nav-jos-sub:max(0px, calc(env(safe-area-inset-bottom) - 28px)); }
+  .pms .nav-jos{
     display:flex; align-items:center; position:fixed; z-index:20; left:0; right:0; bottom:0;
     padding:0 max(4px, env(safe-area-inset-right)) var(--nav-jos-sub) max(4px, env(safe-area-inset-left));
     border-radius:26px 26px 0 0;
   }
-  .ui-noua .nav-jos::before{
+  .pms .nav-jos::before{
     content:""; position:absolute; inset:0; z-index:-1; border-radius:inherit;
     background:var(--surface);
     box-shadow:0 -8px 28px rgba(25,25,23,.12), 0 -1px 0 rgba(25,25,23,.05);
   }
-  .ui-noua .nav-jos.cu-plus::before{
+  .pms .nav-jos.cu-plus::before{
     -webkit-mask-image:radial-gradient(circle at 50% 18px, transparent 35px, #000 36px);
     mask-image:radial-gradient(circle at 50% 18px, transparent 35px, #000 36px);
   }
-  :root.tema-intunecata .ui-noua .nav-jos::before{
+  :root.tema-intunecata .pms .nav-jos::before{
     box-shadow:0 -8px 28px rgba(0,0,0,.5), 0 -1px 0 var(--border);
   }
   .nav-jos-btn{
@@ -2357,11 +2345,11 @@ label.field input, label.field select, label.field textarea{ cursor:auto; }
   }
   .nav-jos-plus svg{ width:20px; height:20px; }
   .nav-jos-plus:active{ transform:scale(.94); }
-  .ui-noua .topbar-actions .icon-btn, .ui-noua .topbar-actions .top-btn{ display:none; }
+  .pms .topbar-actions .icon-btn, .pms .topbar-actions .top-btn{ display:none; }
   /* Sub bara (72 + adaosul de jos) si sub „+"-ul care iese deasupra ei (9),
      plus o rasuflare: fara asta ultimul rand din liste ramanea ascuns sub ele. */
-  .ui-noua .content{ padding-bottom:calc(92px + var(--nav-jos-sub)); }
-  .ui-noua .toast-host{ bottom:calc(92px + var(--nav-jos-sub)); }
+  .pms .content{ padding-bottom:calc(92px + var(--nav-jos-sub)); }
+  .pms .toast-host{ bottom:calc(92px + var(--nav-jos-sub)); }
 }
 
 /* ============================================================================
@@ -2594,10 +2582,10 @@ label.field input, label.field select, label.field textarea{ cursor:auto; }
 .field input.camere-ical-gol{ color:var(--text-muted); }
 /* Butoanele de sincronizare/testare a yalei stau lipite de câmpul de
    deasupra, nu la distanța obișnuită dintre secțiunile ferestrei. A doua
-   regulă bate bara lipită de jos din interfața nouă (`.ui-noua .modal
+   regulă bate bara lipită de jos a ferestrelor (`.pms .modal
    .modal-actions`), care altfel ar impune margin:18px prin scurtătură. */
 .camere-yale-actiuni{ margin-top:4px; }
-.ui-noua .modal .modal-actions.camere-yale-actiuni{ margin-top:4px; }
+.pms .modal .modal-actions.camere-yale-actiuni{ margin-top:4px; }
 /* Perechea Nu / Da dintr-o confirmare (deschiderea ușii, trecerea liberă). */
 .camere-confirm-btns{ display:flex; gap:8px; }
 
@@ -2613,9 +2601,9 @@ label.field input, label.field select, label.field textarea{ cursor:auto; }
 /* Trei butoane pe rândul unei yale: mai strânse chiar și decât `.btn-mic`,
    altfel rândul nu încape lângă numele yalei. */
 .camere-pasaj-btn{ padding:6px 10px; }
-/* Ca `.camere-yale-actiuni`, cu aceeași grijă la interfața nouă. */
+/* Ca `.camere-yale-actiuni`, cu aceeași grijă la bara lipită de jos. */
 .camere-pasaj-final{ margin-top:14px; }
-.ui-noua .modal .modal-actions.camere-pasaj-final{ margin-top:14px; }
+.pms .modal .modal-actions.camere-pasaj-final{ margin-top:14px; }
 
 /* --- Etichete (TagsView) --- */
 /* Câmpul de etichetă nouă e mai îngust decât căutarea obișnuită: în el se

@@ -31,7 +31,7 @@
   }
 }
 
-/* Tema intunecata vine din clasa pusa pe <html> de lib/interfata.js, nu
+/* Tema intunecata vine din clasa pusa pe <html> de lib/tema.js, nu
    direct din prefers-color-scheme — la fel ca in pms.css (pms.css foloseste
    --shadow de aici). */
 :root.tema-intunecata {

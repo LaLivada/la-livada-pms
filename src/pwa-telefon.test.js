@@ -45,10 +45,10 @@ describe("PMS ca aplicație pe ecranul de start", () => {
     const adaosPeIphone = 34 - Number(m[1]);
     expect(adaosPeIphone).toBeGreaterThan(0);
     expect(adaosPeIphone).toBeLessThanOrEqual(10);
-    expect(bloc).toMatch(/\.ui-noua \.nav-jos\{[^}]*padding:0 [^;]* var\(--nav-jos-sub\) /);
+    expect(bloc).toMatch(/\.pms \.nav-jos\{[^}]*padding:0 [^;]* var\(--nav-jos-sub\) /);
     expect(bloc).toContain(".nav-jos.cu-plus::before");
     expect(bloc).toContain("-webkit-mask-image");
-    expect(bloc).toMatch(/\.ui-noua \.content\{ padding-bottom:calc\(\d+px \+ var\(--nav-jos-sub\)\)/);
-    expect(bloc).toMatch(/\.ui-noua \.toast-host\{ bottom:calc\(\d+px \+ var\(--nav-jos-sub\)\)/);
+    expect(bloc).toMatch(/\.pms \.content\{ padding-bottom:calc\(\d+px \+ var\(--nav-jos-sub\)\)/);
+    expect(bloc).toMatch(/\.pms \.toast-host\{ bottom:calc\(\d+px \+ var\(--nav-jos-sub\)\)/);
   });
 });

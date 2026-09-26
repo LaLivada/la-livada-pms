@@ -215,7 +215,7 @@ mărunte, dar au contat:
   stil inline bate orice clasă; ca înlocuitorul lui să se comporte la fel,
   regula trebuie să fie ultima dintre cele de aceeași specificitate. Unde
   elementul avea deja o regulă mai specifică (`.field input`,
-  `.ui-noua .modal .modal-actions`, `.cal-scroll.dense .cal-roomcell .rname`),
+  `.pms .modal .modal-actions`, `.cal-scroll.dense .cal-roomcell .rname`),
   clasa nouă a primit un selector la fel de specific — sunt opt astfel de
   locuri, fiecare cu comentariul lui.
 - **Ce are un rol a primit un nume** (`.camere-pasaj-activ`,
@@ -349,25 +349,32 @@ răspunde la fel ca înainte.
 
 ---
 
-## 7. Interfața nouă, cu comutator (15 septembrie 2026)
+## 7. Interfața nouă (15 septembrie 2026), singura din 26 septembrie 2026
 
-Cele șapte propuneri de după faza 4, toate în spatele unui singur comutator
+Cele șapte propuneri de după faza 4 au stat întâi în spatele unui comutator
 din Useri și drepturi → Contul tău → **Interfața: Nouă / Actuală**
-(`lib/interfata.js`, `ui/interfata.jsx`; alegerea e a dispozitivului,
-în `localStorage`). „Actuală” readuce, dintr-o apăsare, forma de dinainte.
+(alegerea dispozitivului, în `localStorage`), cu „Actuală” ca drum înapoi
+la forma de dinainte.
+
+**Pe 26 septembrie 2026 comutatorul a fost scos** (Ovidiu: „Interfața
+actuală este definitiva!”). Interfața nouă e singura, oricare ar fi alegerea
+rămasă în browser: regulile care stăteau sub `.ui-noua` stau sub `.pms`
+(aceeași specificitate, aceeași ordine în cascadă), butonul de rezervare
+din bara calendarului — care se vedea doar pe telefon, în forma veche — a
+dispărut, iar tema a rămas singură în `lib/tema.js` și `ui/tema.jsx`.
 
 | # | Ce | Unde |
 |---|---|---|
 | 1 | „Înapoi” al telefonului închide fereastra sau revine la ecranul anterior | `ui/istoric.jsx` (Dialog), `Shell` |
 | 2 | Erorile formularului de rezervare sub câmpul lor, aduse în vizor | `fisa-rezervare.jsx` (`EroareCamp`) |
-| 3 | Bara de acțiuni a ferestrelor lipită jos | `.ui-noua .modal .modal-actions` |
+| 3 | Bara de acțiuni a ferestrelor lipită jos | `.pms .modal .modal-actions` |
 | 4 | Navigare jos pe telefon (Azi/Camere, Calendar, Caută, Setări) | `Shell`, `.nav-jos` |
-| 5 | Ținte de 42–44px și la contact, rânduri, etichete | `@media (pointer: coarse)` sub `.ui-noua` |
+| 5 | Ținte de 42–44px și la contact, rânduri, etichete | `@media (pointer: coarse)` sub `.pms` |
 | 6 | Culorile stărilor din legendă și în Azi și în istoricul clientului | `azi.jsx`, `clienti.jsx` |
-| 7 | Aspect: Ca sistemul / Deschis / Întunecat | `lib/interfata.js` (`aplicaTema`), clasa `tema-intunecata` pe `<html>` |
+| 7 | Aspect: Ca sistemul / Deschis / Întunecat | `lib/tema.js` (`aplicaTema`), clasa `tema-intunecata` pe `<html>` |
 
-Tema nu depinde de comutator: „Ca sistemul” e comportamentul de dinainte.
-Teste: `src/interfata.test.js`, `src/dialog-istoric-ecran.test.js`,
+„Ca sistemul” e comportamentul de dinainte. Teste: `src/tema.test.js`,
+`src/interfata-definitiva.test.js`, `src/dialog-istoric-ecran.test.js`,
 `src/cont-meu-ecran.test.js`.
 
 ### 7.1. Antet, bara calendarului, „+” (15 septembrie 2026, seara)

@@ -55,7 +55,7 @@ import { scrieStatusCamera, mapaStatusCamere } from "./data/curatenie.js";
 import { pornesteCoada, esteOffline } from "./data/coada.js";
 import { esteEroareDeRetea } from "./lib/coada-salvari.js";
 import { IndicatorRetea } from "./features/retea.jsx";
-import { InterfataProvider, RadacinaPms, useInterfata } from "./ui/interfata.jsx";
+import { TemaProvider } from "./ui/tema.jsx";
 import { existaFerestreDeschise } from "./ui/istoric.jsx";
 import { aboneazaLaSchimbari } from "./data/live.js";
 import {
@@ -1221,8 +1221,8 @@ function PMSApp() {
   }
 
   return (
-    <InterfataProvider>
-    <RadacinaPms>
+    <TemaProvider>
+    <div className="pms">
       <ToastHost />
       <ConflictHost conflict={conflict} core={core} groups={groups} />
       <Shell
@@ -1255,8 +1255,8 @@ function PMSApp() {
         asiguraPerioada={asiguraPerioada}
         logEntries={logEntries}
       />
-    </RadacinaPms>
-    </InterfataProvider>
+    </div>
+    </TemaProvider>
   );
 }
 
@@ -1435,23 +1435,19 @@ function Shell({ user, view, setView, onLogout, noutati, core, updateCore, reser
   const safeView = mayView(view, user.role) ? view : homeView;
   const [title] = VIEW_TITLES[safeView] || ["", ""];
 
-  /* Interfata noua (ui/interfata.jsx): navigarea jos pe telefon si butonul
-     „inapoi" al telefonului, care merge prin istoricul browserului — o
+  /* Butonul „inapoi" al telefonului merge prin istoricul browserului: o
      intrare pentru fiecare ecran (aici) si una pentru fiecare fereastra
-     (ui/istoric.jsx, din Dialog). Cu interfata actuala nu se scrie nimic
-     in istoric, exact ca pana acum. */
-  const { noua } = useInterfata();
+     (ui/istoric.jsx, din Dialog). */
   const safeViewRef = useRef(safeView);
   safeViewRef.current = safeView;
   useEffect(() => {
-    if (!noua || typeof history === "undefined") return;
+    if (typeof history === "undefined") return;
     const stare = history.state;
     if (stare?.view === safeView) return;
     if (stare == null) history.replaceState({ view: safeView }, "");
     else history.pushState({ view: safeView }, "");
-  }, [noua, safeView]);
+  }, [safeView]);
   useEffect(() => {
-    if (!noua) return undefined;
     const laInapoi = (e) => {
       if (existaFerestreDeschise()) return;
       const v = e.state?.view;
@@ -1459,7 +1455,7 @@ function Shell({ user, view, setView, onLogout, noutati, core, updateCore, reser
     };
     window.addEventListener("popstate", laInapoi);
     return () => window.removeEventListener("popstate", laInapoi);
-  }, [noua, setView]);
+  }, [setView]);
 
   /* Reincarcarea paginii, ramanand pe ecranul curent. Pe telefon, in
      aplicatia adaugata pe ecranul de start, nu exista bara de adresa, deci
@@ -1639,42 +1635,40 @@ function Shell({ user, view, setView, onLogout, noutati, core, updateCore, reser
           </Suspense>
         </div>
       </div>
-      {noua && (
-        /* .cu-plus: bara primeste scobitura din jurul „+"-ului doar cand
-           „+"-ul chiar e acolo (aceeasi conditie ca butonul de mai jos). */
-        <nav className={"nav-jos" + (canCalendar && user.role !== "housekeeping" ? " cu-plus" : "")} aria-label="Navigare">
-          <button className={"nav-jos-btn" + (safeView === homeView ? " on" : "")} onClick={() => setView(homeView)}>
-            {homeView === "housekeeping" ? <BedDouble size={20} /> : <CalendarCheck size={20} />}
-            <span>{homeView === "housekeeping" ? "Camere" : "Azi"}</span>
+      {/* .cu-plus: bara primeste scobitura din jurul „+"-ului doar cand
+         „+"-ul chiar e acolo (aceeasi conditie ca butonul de mai jos). */}
+      <nav className={"nav-jos" + (canCalendar && user.role !== "housekeeping" ? " cu-plus" : "")} aria-label="Navigare">
+        <button className={"nav-jos-btn" + (safeView === homeView ? " on" : "")} onClick={() => setView(homeView)}>
+          {homeView === "housekeeping" ? <BedDouble size={20} /> : <CalendarCheck size={20} />}
+          <span>{homeView === "housekeeping" ? "Camere" : "Azi"}</span>
+        </button>
+        {canCalendar && (
+          <button className={"nav-jos-btn" + (safeView === "calendar" ? " on" : "")} onClick={() => setView("calendar")}>
+            <CalendarDays size={20} /><span>Calendar</span>
           </button>
-          {canCalendar && (
-            <button className={"nav-jos-btn" + (safeView === "calendar" ? " on" : "")} onClick={() => setView("calendar")}>
-              <CalendarDays size={20} /><span>Calendar</span>
-            </button>
-          )}
-          {/* „+" pe mijloc, albastru (cerut pe 15 septembrie 2026): deschide
-              formularul de rezervare noua in calendar, prin intentia „nou"
-              (lib/scurtaturi.js) — aceeasi cale ca scurtatura de la tastatura. */}
-          {canCalendar && user.role !== "housekeeping" && (
-            <button className="nav-jos-plus" aria-label="Rezervare nouă" title="Rezervare nouă"
-              onClick={() => { setCalendarIntent(intentie("nou")); setView("calendar"); }}>
-              <Plus size={26} strokeWidth={2.5} />
-            </button>
-          )}
-          {poateCauta && (
-            <button className="nav-jos-btn" onClick={() => setCautare(true)}>
-              <Search size={20} /><span>Caută</span>
-            </button>
-          )}
-          {settingsItems.length > 0 && (
-            <button
-              className={"nav-jos-btn" + (["settings", ...settingsItems.map((i) => i.key)].includes(safeView) ? " on" : "")}
-              onClick={() => setView(settingsItems.length === 1 ? settingsItems[0].key : "settings")}>
-              <Settings size={20} /><span>Setări</span>
-            </button>
-          )}
-        </nav>
-      )}
+        )}
+        {/* „+" pe mijloc, albastru (cerut pe 15 septembrie 2026): deschide
+            formularul de rezervare noua in calendar, prin intentia „nou"
+            (lib/scurtaturi.js) — aceeasi cale ca scurtatura de la tastatura. */}
+        {canCalendar && user.role !== "housekeeping" && (
+          <button className="nav-jos-plus" aria-label="Rezervare nouă" title="Rezervare nouă"
+            onClick={() => { setCalendarIntent(intentie("nou")); setView("calendar"); }}>
+            <Plus size={26} strokeWidth={2.5} />
+          </button>
+        )}
+        {poateCauta && (
+          <button className="nav-jos-btn" onClick={() => setCautare(true)}>
+            <Search size={20} /><span>Caută</span>
+          </button>
+        )}
+        {settingsItems.length > 0 && (
+          <button
+            className={"nav-jos-btn" + (["settings", ...settingsItems.map((i) => i.key)].includes(safeView) ? " on" : "")}
+            onClick={() => setView(settingsItems.length === 1 ? settingsItems[0].key : "settings")}>
+            <Settings size={20} /><span>Setări</span>
+          </button>
+        )}
+      </nav>
       {cautare && (
         <Suspense fallback={null}>
           <CautareGlobala onClose={() => setCautare(false)} onAlege={deschideRezultat} />

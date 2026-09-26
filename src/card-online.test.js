@@ -104,8 +104,7 @@ describe("CardOnline", () => {
     ]);
     const [prima, adoua] = randuri(host);
     expect(prima.querySelector(".role-tag").textContent).toMatch(/Anulat/i);
-    /* Interfata noua (implicita fara provider): eticheta poarta culoarea
-       starii din legenda, nu gri-ul generic. */
+    /* Eticheta poarta culoarea starii din legenda, nu gri-ul generic. */
     expect(prima.querySelector(".role-tag.st-cancelled")).toBeTruthy();
     expect(adoua.querySelector(".role-tag")).toBeNull();
   });

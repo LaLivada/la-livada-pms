@@ -50,7 +50,11 @@ describe("Useri și drepturi", () => {
     expect(host.querySelector(".cont-meu .pname").textContent).toBe("Ana Pop");
     expect(host.querySelector(".cont-meu .role-tag").textContent).toBe("Cameristă");
     expect(butoane(host).slice(0, 2)).toEqual(["Schimbă parola", "Ieși din cont"]);
-    expect(butoane(host)).toEqual(expect.arrayContaining(["Nouă", "Actuală", "Ca sistemul", "Deschis", "Întunecat"]));
+    expect(butoane(host)).toEqual(expect.arrayContaining(["Ca sistemul", "Deschis", "Întunecat"]));
+    /* Interfata noua e definitiva (26 septembrie 2026): fara comutator. */
+    expect(butoane(host)).not.toContain("Nouă");
+    expect(butoane(host)).not.toContain("Actuală");
+    expect(host.textContent).not.toContain("Interfața");
     expect(butoane(host)).not.toContain("User nou");
     expect(listeazaPersonal).not.toHaveBeenCalled();
     await apasa(host, "Ieși din cont");

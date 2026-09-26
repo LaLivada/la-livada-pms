@@ -15,13 +15,12 @@ import * as dateFacturare from "../data/facturare.js";
 import * as dateOaspeti from "../data/oaspeti.js";
 import { audit, isAdmin } from "../lib/audit.js";
 import { guestFullName, occupantName } from "../lib/nume.js";
-import { nightsBetween, isLive } from "../lib/availability.js";
+import { nightsBetween } from "../lib/availability.js";
 import { reservationTotal } from "../lib/pricing.js";
 import { validatePhone, validateEmail } from "../lib/validation.js";
 import { fmtMoney, fmtDate, fmtDateFull, initials } from "../lib/format.js";
 import { JUDETE, TARI, PHONE_DIAL, DIAL_LIST, STATUS_LABEL, STATUS_CLASS, ROOM_TYPE, GUEST_HISTORY_PAGE_SIZE, INVOICE_STATUS_LABEL, INVOICE_STATUS_CLASS, sourceLabel } from "../lib/constante.js";
 import { Dialog, toaster, usePaginare, Paginare, useModalLock, useIntarziat, Stat } from "../ui/primitive.jsx";
-import { useInterfata } from "../ui/interfata.jsx";
 import { GroupsView } from "./grupuri.jsx";
 import { FiseView } from "./fise.jsx";
 import { billingCustomerLabel, BillingCustomerModal } from "./facturare.jsx";
@@ -704,7 +703,6 @@ export const GuestFields = React.memo(function GuestFields({ value, onChange, in
 });
 
 export function GuestHistory({ guest, core, onClose }) {
-  const { noua } = useInterfata();
   useModalLock();
   const [pagina, setPagina] = useState(1);
   const [istoric, setIstoric] = useState(null); // { sejururi, total } — pagina curenta
@@ -776,8 +774,7 @@ export function GuestHistory({ guest, core, onClose }) {
                       {fmtDateFull(r.checkin)} → {fmtDateFull(r.checkout)} · {nightsBetween(r.checkin, r.checkout)} nopți · {sourceLabel(r.source)}
                     </div>
                   </div>
-                  <span className={"role-tag " + (noua ? STATUS_CLASS[r.status] : r.status === "checkedout" ? "role-receptionist"
-                    : isLive(r) ? "role-admin" : "role-housekeeping")}>
+                  <span className={"role-tag " + STATUS_CLASS[r.status]}>
                     {STATUS_LABEL[r.status]}
                   </span>
                 </div>

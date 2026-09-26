@@ -12,7 +12,7 @@ import './styles/pms.css'
 import App from './App.jsx'
 import { instaleazaCapturaErori, creeazaColector } from './lib/erori-productie.js'
 import { scrieInJurnalTacut } from './lib/audit.js'
-import { aplicaTema, citesteTema } from './lib/interfata.js'
+import { aplicaTema, citesteTema } from './lib/tema.js'
 import { instaleazaTaburiDerulabile } from './ui/taburi-derulabile.js'
 
 /* Erorile neprinse (script, promisiune fara catch) ajung in jurnalul din
@@ -23,8 +23,8 @@ instaleazaCapturaErori(window, creeazaColector({ scrie: scrieInJurnalTacut }))
 
 /* Tema (deschis / intunecat / ca sistemul) se pune pe <html> inainte de
    prima randare, deci si pe ecranul de login — pms.css se uita la clasa,
-   nu la prefers-color-scheme (lib/interfata.js). Dupa autentificare o preia
-   InterfataProvider (ui/interfata.jsx), cu urmarirea sistemului. */
+   nu la prefers-color-scheme (lib/tema.js). Dupa autentificare o preia
+   TemaProvider (ui/tema.jsx), cu urmarirea sistemului. */
 aplicaTema(document, citesteTema(globalThis.localStorage), (q) => window.matchMedia?.(q))
 
 /* Barele de taburi care nu incap se deruleaza si cu rotita mouse-ului, iar

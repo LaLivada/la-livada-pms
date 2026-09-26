@@ -15,7 +15,6 @@ import { canCheckIn, canCheckOut } from "../../lib/tranzitii.js";
 import { fmtMoney, fmtDate, fmtDateTime, FMT_TIME } from "../../lib/format.js";
 import { ROOM_TYPE, STATUS_LABEL, STATUS_CLASS } from "../../lib/constante.js";
 import { Stat, Section } from "../../ui/primitive.jsx";
-import { useInterfata } from "../../ui/interfata.jsx";
 import { numarOaspeti } from "../../data/oaspeti.js";
 import { ultimeleOnline, candAVenit } from "../../lib/rezervari-online.js";
 import { ArrivalForm } from "../documente.jsx";
@@ -36,7 +35,6 @@ import { doCheckIn, doCheckOut } from "./checkin-checkout.jsx";
  */
 export function CardOnline({ rezervari, numeOaspete, numeCamera, core, onDeschide, noutati }) {
   const acum = new Date();
-  const { noua } = useInterfata();
   const ultimele = useMemo(() => ultimeleOnline(rezervari), [rezervari]);
 
   return (
@@ -63,7 +61,7 @@ export function CardOnline({ rezervari, numeOaspete, numeCamera, core, onDeschid
                 site intra 'confirmed', deci o eticheta pe fiecare rand ar fi
                 fost zgomot in care nu s-ar mai fi vazut o anulare. */}
             {r.status !== "confirmed" && (
-              <span className={"role-tag " + (noua ? STATUS_CLASS[r.status] : isLive(r) ? "role-admin" : "co-moarta")}>
+              <span className={"role-tag " + STATUS_CLASS[r.status]}>
                 {STATUS_LABEL[r.status]}
               </span>
             )}
@@ -79,7 +77,6 @@ export function CardOnline({ rezervari, numeOaspete, numeCamera, core, onDeschid
 
 export function TodayView({ core, updateCore, reservations, updateReservations, housekeeping, updateHousekeeping, setView, groups, updateGroups, blocks, updateBlocks, stergeRezervari, stergeGrupuri, adaugaOaspetiInCache, salveazaOaspete, noutati }) {
   const [arrivalRes, setArrivalRes] = useState(null);
-  const { noua } = useInterfata();
   const [viewRes, setViewRes] = useState(null);
   const [editRes, setEditRes] = useState(null);
   const [checkinError, setCheckinError] = useState("");
@@ -243,9 +240,9 @@ export function TodayView({ core, updateCore, reservations, updateReservations, 
                   <Printer size={14} />
                 </button>
                 {r.status === "checkedin" ? (
-                  <span className={"role-tag " + (noua ? "st-checkedin" : "role-housekeeping")}>Cazat</span>
+                  <span className="role-tag st-checkedin">Cazat</span>
                 ) : r.status === "checkedout" ? (
-                  <span className={"role-tag " + (noua ? "st-checkedout" : "role-receptionist")}>Plecat</span>
+                  <span className="role-tag st-checkedout">Plecat</span>
                 ) : canCheckIn(r) ? (
                   <button className="btn btn-primary btn-lat btn-mic"
                     disabled={ocupat}
@@ -284,7 +281,7 @@ export function TodayView({ core, updateCore, reservations, updateReservations, 
               </div>
               <div className="row-actions">
                 {r.status === "checkedout" ? (
-                  <span className={"role-tag " + (noua ? "st-checkedout" : "role-receptionist")}>Plecat</span>
+                  <span className="role-tag st-checkedout">Plecat</span>
                 ) : canCheckOut(r) ? (
                   <button className="btn btn-ghost btn-mic"
                     disabled={ocupat}

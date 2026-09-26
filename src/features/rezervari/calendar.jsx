@@ -8,7 +8,7 @@
 
 import React, { useState, useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import {
-  CalendarDays, Plus, ChevronLeft, ChevronRight, Trash2, UsersRound, MoveRight, MessageSquare,
+  CalendarDays, ChevronLeft, ChevronRight, Trash2, UsersRound, MoveRight, MessageSquare,
   Wrench, Rows2, Rows3, Columns2, Columns3, CalendarRange, PartyPopper,
 } from "lucide-react";
 import { audit } from "../../lib/audit.js";
@@ -591,9 +591,9 @@ export function CalendarView({ core, updateCore, reservations, updateReservation
       </div>
 
       {/* Bara cu Azi, sub tabel, lipita de randul Ocupare (cerut pe 15
-          septembrie 2026); pe telefon ramane la indemana, lipita jos. Butonul
-          de rezervare ramane doar pe telefon, in interfata actuala: in cea
-          noua e „+” din navigarea jos, iar pe tableta si desktop e in antet. */}
+          septembrie 2026); pe telefon ramane la indemana, lipita jos. Rezervarea
+          noua nu e aici: pe telefon e „+” din navigarea jos, pe tableta si
+          desktop butonul din antet. */}
       <div className="toolbar cal-toolbar cal-bara">
         <div className="week-nav">
           <button onClick={() => setOffset((o) => o - PAS_FEREASTRA)}
@@ -648,13 +648,6 @@ export function CalendarView({ core, updateCore, reservations, updateReservation
         >
           {latime === "ingust" ? <Columns3 size={16} /> : latime === "saptamana" ? <CalendarRange size={16} /> : <Columns2 size={16} />}
         </button>
-        {!doarCitire && (
-          <button className="btn btn-primary btn-lat" onClick={() => setModal({ reservation: null })}>
-            <Plus size={15} />
-            <span className="lbl-long">Rezervare nouă</span>
-            <span className="lbl-short">Rezervare</span>
-          </button>
-        )}
       </div>
 
 
