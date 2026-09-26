@@ -638,6 +638,13 @@ create table folio_items (
   invoiced_status text not null default 'uninvoiced' check (invoiced_status in ('uninvoiced','invoiced'))
 );
 create index folio_items_folio on folio_items(folio_id);
+-- Linia de cazare e una singura pe folio (26 septembrie 2026): doua
+-- incarcari simultane ale panoului folio scriau fiecare cate una, cu id-uri
+-- diferite (2 × 300 lei pe acelasi folio). Aplicatia foloseste acum un id
+-- dat de folio (`cazare-<folio>`); indexul tine regula si in baza. Migratia
+-- 20260926205853_folio_o_linie_cazare a sters intai cele trei dubluri.
+create unique index folio_items_o_cazare_pe_folio
+  on folio_items (folio_id) where category = 'cazare';
 alter table folio_items add constraint folio_items_lungimi_text check (
   length(coalesce(name, ''))  <= 300 and
   length(coalesce(notes, '')) <= 2000
