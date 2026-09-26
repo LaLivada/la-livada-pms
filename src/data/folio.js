@@ -10,11 +10,26 @@ import { uid } from "../lib/uid.js";
 
 /* Folio-ul unei rezervari, creat daca nu exista inca.
 
-   Doua apeluri care se monteaza in acelasi timp (panoul folio si fereastra
-   de facturare a grupului, sau doar dublul efect din dev) pot incerca sa-l
-   creeze amandoua; coloana `folios.reservation_id` e unica, deci al doilea
-   ia 23505 si citeste randul celuilalt in loc sa esueze. */
-export async function folioPentruRezervare(idRezervare) {
+   Doua cereri din aceeasi fila pentru aceeasi rezervare impart aceeasi
+   creare (`inCurs`): pe 26 septembrie 2026, dupa un check-in, panoul folio
+   s-a incarcat de doua ori la 150 ms distanta (a doua oara la reincarcarea
+   lui `core` dupa reconectarea Realtime) si ambele incarcari l-au creat —
+   a doua a primit 409. Intre dispozitive diferite cursa ramane posibila:
+   coloana `folios.reservation_id` e unica, deci al doilea ia 23505 si
+   citeste randul celuilalt in loc sa esueze. */
+const inCurs = new Map();
+
+/** @param {string} idRezervare */
+export function folioPentruRezervare(idRezervare) {
+  const deja = inCurs.get(idRezervare);
+  if (deja) return deja;
+  const cerere = cautaSauCreeazaFolio(idRezervare).finally(() => inCurs.delete(idRezervare));
+  inCurs.set(idRezervare, cerere);
+  return cerere;
+}
+
+/** @param {string} idRezervare */
+async function cautaSauCreeazaFolio(idRezervare) {
   const { data: gasit, error } = await supabase
     .from("folios").select("*").eq("reservation_id", idRezervare).maybeSingle();
   if (error) throw error;

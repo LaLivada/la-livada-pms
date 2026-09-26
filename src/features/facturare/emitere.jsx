@@ -9,7 +9,6 @@ import * as dateFacturare from "../../data/facturare.js";
 import * as dateOblio from "../../data/oblio.js";
 import * as dateFolio from "../../data/folio.js";
 import * as dateFise from "../../data/fise.js";
-import { uid } from "../../lib/uid.js";
 import { mesajEroare } from "../../lib/errors.js";
 import { calcAmounts, round2 } from "../../lib/money.js";
 import { nightsBetween } from "../../lib/availability.js";
@@ -103,7 +102,14 @@ export async function delegatPentruFactura(idRezervare, nume = "") {
   };
 }
 
-export async function ensureCazareLine(folio, items, reservation, core) {
+/* Id-ul liniei de cazare a unui folio NOU e dat de folio, nu tras la
+   intamplare: doua incarcari simultane care n-o gasesc inca (pe 26.09, dupa
+   un check-in, panoul s-a incarcat de doua ori la 150 ms distanta) scriu
+   acelasi rand — upsert pe id — in loc de doua linii de cate 300 lei.
+   Liniile mai vechi isi pastreaza id-ul lor. */
+export const idLinieCazare = (idFolio) => `cazare-${idFolio}`;
+
+export async function ensureCazareLine(folio, items, reservation, core, { reincercare = true } = {}) {
   const existing = items.find((i) => i.category === "cazare");
   if (existing && existing.invoiced_status === "invoiced") return existing;
 
@@ -120,7 +126,7 @@ export async function ensureCazareLine(folio, items, reservation, core) {
   const { totalAmount, netAmount, vatAmount } = calcAmounts(unitPrice, nights, vatRate);
 
   const row = {
-    id: existing?.id || uid(), folio_id: folio.id, product_id: cazareProduct?.id || null,
+    id: existing?.id || idLinieCazare(folio.id), folio_id: folio.id, product_id: cazareProduct?.id || null,
     name: "Cazare", category: "cazare", quantity: nights, unit_price: unitPrice, vat_rate: vatRate,
     net_amount: netAmount, vat_amount: vatAmount, total_amount: totalAmount,
     occurred_at: reservation.checkin,
@@ -132,6 +138,14 @@ export async function ensureCazareLine(folio, items, reservation, core) {
   let data;
   try { data = await dateFolio.salveazaLinieCazare(row); }
   catch (error) {
+    /* 23505: baza are deja linia de cazare a folio-ului (indexul unic
+       folio_items_o_cazare_pe_folio) — scrisa intre timp de alt dispozitiv,
+       cu un id pe care lista noastra nu-l avea. Nu e o eroare pentru om: se
+       reciteste si se lucreaza pe linia aceea, o singura data. */
+    if (error?.code === "23505" && reincercare) {
+      const proaspete = await dateFolio.pozitiiFolio(folio.id);
+      return ensureCazareLine(folio, proaspete, reservation, core, { reincercare: false });
+    }
     /* Inainte, esecul se pierdea intr-un console.error: folio-ul afisa o
        linie de cazare care nu ajunsese niciodata in baza, fara niciun
        semn pentru utilizator. Acum eroarea urca la apelant, care o arata. */
