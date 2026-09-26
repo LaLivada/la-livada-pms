@@ -135,7 +135,7 @@ export const oraPeTv = (iso) => (iso ? FMT_ORA.format(new Date(iso)) : "");
  * variantele cu sedila (ş, ţ), cele din fonturile vechi, nu doar pentru cele
  * cu virgula dedesubt. */
 export function faraDiacritice(text) {
-  return String(text || "").normalize("NFD").replace(/[̀-ͯ]/g, "");
+  return String(text || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 }
 
 /* Un rand din care lipsesc valori: „Camera 1003 · Wi-Fi:" nu are ce cauta pe

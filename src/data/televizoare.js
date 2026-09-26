@@ -12,6 +12,7 @@
  */
 import { supabase } from "../supabase.js";
 import { loadShared, saveShared, K } from "./stare-partajata.js";
+import { esteOffline } from "./coada.js";
 import { normalizeazaSetari } from "../lib/tv.js";
 
 /* Toate televizoarele, in forma de care are nevoie ecranul. Cele nemapate
@@ -113,11 +114,18 @@ export async function cheamaTv(action, payload = {}) {
       let detaliu = null;
       try { detaliu = (await error.context?.json())?.error; } catch { /* ramane null */ }
       if (detaliu) return { ok: false, error: detaliu };
+      /* Cererea n-a plecat deloc. Din browser, o functie edge nepublicata
+         (preflight 404, deci CORS), un server cazut si o retea cazuta arata
+         la fel: `FunctionsFetchError`. Doar `navigator.onLine === false`
+         spune sigur ca e de la noi; altfel NU trimitem receptia sa-si verifice
+         conexiunea. Pe 25-26 septembrie 2026 functia lipsea, iar „Verifică
+         conexiunea" l-a facut pe receptioner sa creada ca nici rezervarile nu
+         se salvasera. */
       const retea = /failed to send|fetch/i.test(error.message || "");
       return {
         ok: false,
         error: retea
-          ? "Nu am putut contacta serviciul de televizoare. Verifică conexiunea și încearcă din nou."
+          ? (esteOffline() ? "Nu există conexiune la internet." : "Serviciul de televizoare nu a răspuns.")
           : (error.message || "Serviciul de televizoare a răspuns cu eroare."),
       };
     }

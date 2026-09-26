@@ -6585,7 +6585,7 @@ grant  execute on function create_public_booking(uuid, timestamptz, timestamptz,
 
 -- =====================================================================
 -- MESAJE DE BUN VENIT PE TELEVIZOARE (18 septembrie 2026)
--- Migrația: supabase/migrations/20260918211500_lynk_mesaje_tv.sql
+-- Migrația: supabase/migrations/20260926192412_lynk_mesaje_tv.sql
 -- =====================================================================
 
 -- MESAJE DE BUN VENIT PE TELEVIZOARELE DIN CAMERE (Samsung LYNK Cloud).

@@ -19,6 +19,14 @@ import { decideActiuneTv } from "../lib/tv.js";
 const numeCamerei = (core, roomId) =>
   (core?.rooms || []).find((r) => r.id === roomId)?.name || roomId;
 
+/* Un televizor rămas în urmă vine mereu DUPĂ o operațiune salvată. Textul
+ * spune întâi ce s-a salvat, apoi ce a rămas nefăcut, și e galben, nu roșu.
+ * Pe 25-26 septembrie 2026, un toast roșu după fiecare check-in („Mesajul de
+ * bun venit n-a ajuns pe televizor · 1003. … Verifică conexiunea") l-a făcut
+ * pe recepționer să creadă că rezervările nu se salvaseră — erau toate în
+ * bază; lipsea doar funcția edge a televizoarelor. */
+const avertizeaza = (text, motiv) => toaster.show(`${text} ${motiv || ""}`.trim(), { tone: "warn" });
+
 /* Ce se spune recepției după un apel.
  *
  * Trei tăceri deliberate, ca ecranul să nu latre degeaba:
@@ -31,17 +39,13 @@ const numeCamerei = (core, roomId) =>
  *
  * Eșecul se spune întotdeauna, dar ca avertisment, nu ca eroare de
  * operațiune: cazarea s-a făcut oricum. */
-function spune(r, camera, { verbTrimis, verbEsuat }) {
+function spune(r, { trimis, esuat }) {
   if (!r || r.inactiv || r.fara) return;
   if (r.ok && r.trimise > 0) {
-    toaster.show(
-      `${verbTrimis} · ${camera}${r.simulat ? " (simulare — niciun televizor real)" : ""}`,
-      { tone: "ok" });
+    toaster.show(`${trimis}${r.simulat ? " (simulare — niciun televizor real)" : ""}`, { tone: "ok" });
     return;
   }
-  if (!r.ok) {
-    toaster.show(`${verbEsuat} · ${camera}. ${r.error || ""}`.trim(), { tone: "danger" });
-  }
+  if (!r.ok) avertizeaza(esuat, r.error);
 }
 
 /* Mesajul de bun venit, după check-in.
@@ -57,9 +61,9 @@ export async function bunVenitLaCheckin(res, core) {
     await audit.push("Mesaj TV eșuat", `${camera} · ${r.error || ""}`.slice(0, 200),
       { roomId: res.roomId, reservationId: res.id });
   }
-  spune(r, camera, {
-    verbTrimis: "Mesaj de bun venit pe televizor",
-    verbEsuat: "Mesajul de bun venit n-a ajuns pe televizor",
+  spune(r, {
+    trimis: `Mesaj de bun venit pe televizor · ${camera}`,
+    esuat: `Check-in-ul e salvat. Doar mesajul de bun venit n-a ajuns pe televizorul din ${camera}.`,
   });
   return r;
 }
@@ -75,9 +79,7 @@ export async function stergeMesajLaCheckout(res, core) {
   if (r && !r.ok) {
     await audit.push("Ștergere mesaj TV eșuată", `${camera} · ${r.error || ""}`.slice(0, 200),
       { roomId: res.roomId, reservationId: res.id });
-    toaster.show(
-      `Mesajul de bun venit a rămas pe televizorul din ${camera}. Îl poți șterge din ecranul „Televizoare".`,
-      { tone: "danger" });
+    avertizeaza(`Check-out-ul e salvat. Doar mesajul de bun venit a rămas pe televizorul din ${camera} — îl poți șterge din ecranul „Televizoare".`);
   }
   return r;
 }
@@ -103,8 +105,7 @@ export async function reconciliazaTv(inainte, dupa, core) {
   if (actiune === "clear") {
     const r = await cheamaTv("clear", { reservationId: dupa.id });
     if (r && !r.ok) {
-      toaster.show(`Mesajul de bun venit a rămas pe televizorul din ${camera}. ${r.error || ""}`.trim(),
-        { tone: "danger" });
+      avertizeaza(`Rezervarea e salvată. Doar mesajul de bun venit a rămas pe televizorul din ${camera}.`, r.error);
     }
     return;
   }
@@ -113,8 +114,7 @@ export async function reconciliazaTv(inainte, dupa, core) {
     const veche = numeCamerei(core, inainte.roomId);
     const rSters = await cheamaTv("clear", { reservationId: dupa.id, roomId: inainte.roomId });
     if (rSters && !rSters.ok) {
-      toaster.show(`Mesajul vechi a rămas pe televizorul din ${veche}. ${rSters.error || ""}`.trim(),
-        { tone: "danger" });
+      avertizeaza(`Rezervarea e salvată. Doar mesajul vechi a rămas pe televizorul din ${veche}.`, rSters.error);
     }
   }
 
@@ -122,8 +122,8 @@ export async function reconciliazaTv(inainte, dupa, core) {
   await audit.push(r?.ok && r.trimise > 0 ? "Mesaj TV actualizat" : "Actualizare mesaj TV eșuată",
     `${camera}${inainte.roomId !== dupa.roomId ? " · cameră schimbată" : ""}`,
     { roomId: dupa.roomId, reservationId: dupa.id });
-  spune(r, camera, {
-    verbTrimis: "Mesajul de pe televizor a fost actualizat",
-    verbEsuat: "Mesajul de pe televizor n-a putut fi actualizat",
+  spune(r, {
+    trimis: `Mesajul de pe televizor a fost actualizat · ${camera}`,
+    esuat: `Rezervarea e salvată. Doar mesajul de pe televizorul din ${camera} n-a putut fi actualizat.`,
   });
 }

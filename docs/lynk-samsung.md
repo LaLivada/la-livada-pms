@@ -51,7 +51,7 @@ nu răspunde n-are voie să se transforme tăcut în „mesaje trimise cu succes
 | Date | `src/data/televizoare.js` | Citirea stării, maparea pe camere, jurnalul, apelul funcției edge. |
 | Acțiuni pe rezervare | `src/features/tv-mesaje.js` | Check-in, check-out, reconciliere după editare. |
 | Ecran | `src/features/televizoare.jsx` | Camere · Aparate · Mesaj · Istoric. Testat în `src/televizoare-ecran.test.js`. |
-| Schemă | `tv_devices`, `tv_messages` | Migrația `20260918211500_lynk_mesaje_tv.sql`. |
+| Schemă | `tv_devices`, `tv_messages` | Migrația `20260926192412_lynk_mesaje_tv.sql`. |
 
 ### De ce o funcție edge, și nu apeluri directe din browser
 

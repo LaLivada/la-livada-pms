@@ -1039,10 +1039,16 @@ function PMSApp() {
   /* Coada de salvari (faza 3, C8): ce a picat de retea se trimite cand
      revine conexiunea. Stampilele rezervarilor si randurile de room_status
      scrise atunci intra in stare ca la o salvare obisnuita; un verdict al
-     bazei pentru un lot amanat ajunge la om ca orice eroare de salvare. */
+     bazei pentru un lot amanat ajunge la om ca orice eroare de salvare.
+     Coada e a utilizatorului logat si supravietuieste repornirii (vezi
+     data/coada.js): ce a ramas netrimis de data trecuta pleaca acum. */
   useEffect(() => {
     if (!currentUser) return;
     return pornesteCoada({
+      utilizator: currentUser.id,
+      laRestaurare: (n) => toaster.show(
+        `Am recuperat ${n === 1 ? "o salvare netrimisă" : `${n}${n >= 20 ? " de" : ""} salvări netrimise`} de data trecută; pleacă spre server imediat ce e conexiune.`,
+        { tone: "warn" }),
       laScris: (lot, data) => {
         if (lot[0].tabel === "reservations") aplicaStampile(data);
         if (lot[0].tabel === "room_status") {

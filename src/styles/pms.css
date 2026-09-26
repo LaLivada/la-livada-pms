@@ -737,6 +737,10 @@
 .toast-msg{ flex:1; min-width:0; }
 .toast-ok{ background:var(--success); color:#fff; }
 .toast-danger{ background:var(--danger); color:#fff; }
+/* Avertisment: operatiunea s-a salvat, ceva secundar a ramas in urma (ex.
+   televizorul camerei). Fond deschis cu text inchis — in ambele teme, din
+   tokenuri — ca sa nu se confunde cu eroarea rosie. */
+.toast-warn{ background:var(--warning-soft); color:var(--text); box-shadow:inset 0 0 0 1px var(--warning), var(--shadow-lg); }
 .toast-undo{
   display:flex; align-items:center; gap:5px; background:rgba(255,255,255,0.18); color:inherit;
   border:none; border-radius:var(--r-sm); padding:7px 11px; font-size:var(--fs-sm); font-weight:700;
