@@ -449,11 +449,11 @@ export function RoomModal({ room, onSave, onClose }) {
           <button className={tab === "acces" ? "on" : ""} onClick={() => setTab("acces")}>
             <KeyRound size={14} /> Yală
           </button>
-          {/* „Calendare OTA", nu „Sincronizare calendare": pe telefon
-              `.sub-tabs` derulează pe orizontală ce nu încape, iar eticheta
-              lungă ieșea din ecran — al treilea tab se putea rata cu totul. */}
+          {/* „OTA", nu „Calendare OTA" și nici „Sincronizare calendare": cu
+              etichete lungi, taburile nu mai încăpeau unul lângă altul
+              (scurtat pe 26 septembrie 2026, la al patrulea tab). */}
           <button className={tab === "sync" ? "on" : ""} onClick={() => setTab("sync")}>
-            <RefreshCw size={14} /> Calendare OTA
+            <RefreshCw size={14} /> OTA
           </button>
           {/* Ca yala: televizoarele camerei se pun din camera ei (cerut pe
               26 septembrie 2026). Setările generale sunt în Automatizare. */}

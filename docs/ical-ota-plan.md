@@ -2,8 +2,8 @@
 
 > **Livrat pe 21 septembrie 2026.** Importul (OTA → PMS) există: tabelul
 > `camere_calendare_ota`, funcția edge `ical-import`, jobul `pg_cron`
-> `ical-import-ota` la 15 minute, fila „Calendare OTA" din fereastra
-> camerei. Vezi **[Configurarea](#configurarea)** la final pentru pașii
+> `ical-import-ota` la 15 minute, fila „OTA" din fereastra camerei (până
+> pe 26 septembrie 2026, „Calendare OTA"). Vezi **[Configurarea](#configurarea)** la final pentru pașii
 > manuali rămași. Planul de mai jos e păstrat ca argument al deciziilor;
 > unde implementarea a ieșit altfel, secțiunea de configurare spune de ce.
 
@@ -334,7 +334,7 @@ direcții, pentru fiecare cameră listată.
 ### Cele două sensuri, pe scurt
 
 Fiecare cameră are DOUĂ adrese, una pentru fiecare direcție, și amândouă
-stau în PMS la **Camere → (creion) → Calendare OTA**:
+stau în PMS la **Camere → (creion) → OTA**:
 
 | Sens | Adresa | Unde se pune |
 |---|---|---|

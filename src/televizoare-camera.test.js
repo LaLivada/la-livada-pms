@@ -94,6 +94,14 @@ describe("fișa camerei — tabul Televizor", () => {
     expect(taburi).toContain("Televizor");
   });
 
+  /* „OTA", nu „Calendare OTA" (cerut pe 26 septembrie 2026): cu eticheta
+     lunga, al patrulea tab nu mai incapea langa celelalte. */
+  it("taburile sunt scurte: Informații cameră, Yală, OTA, Televizor", async () => {
+    const g = await deschide();
+    const taburi = [...g.querySelectorAll(".sub-tabs button")].map((b) => b.textContent.trim());
+    expect(taburi).toEqual(["Informații cameră", "Yală", "OTA", "Televizor"]);
+  });
+
   it("arată televizorul camerei și ce scrie acum pe el, cu rândurile lui", async () => {
     const g = await tabulTelevizor();
     expect(g.textContent).toContain("SIMULARE TV 1003");
