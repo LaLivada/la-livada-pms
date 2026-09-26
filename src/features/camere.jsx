@@ -6,7 +6,7 @@
  */
 
 import React, { useState, useEffect, useMemo, useCallback } from "react";
-import { Plus, X, Check, Trash2, Pencil, DoorOpen, Sparkles, Wrench, KeyRound, Banknote, RefreshCw, AlertTriangle, ArrowRight, Info, TrendingUp, Tag as TagIcon, Copy, Unlock } from "lucide-react";
+import { Plus, X, Check, Trash2, Pencil, DoorOpen, Sparkles, Wrench, KeyRound, Banknote, RefreshCw, AlertTriangle, ArrowRight, Info, TrendingUp, Tag as TagIcon, Copy, Unlock, Tv } from "lucide-react";
 import { uid } from "../lib/uid.js";
 import { isLive } from "../lib/availability.js";
 import { ziLocala, adaugaZile } from "../lib/timp.js";
@@ -19,6 +19,7 @@ import { OTA_CUNOSCUTE, slugOta } from "../lib/ical-ota.js";
 import { calendareleCamerei, salveazaCalendarOta, stergeCalendarOta } from "../data/calendare-ota.js";
 import { Dialog, toaster, useModalLock } from "../ui/primitive.jsx";
 import { cheamaAcces } from "./acces.jsx";
+import { TelevizoareCamera } from "./televizoare-camera.jsx";
 
 /* Glisor de deschidere a ușii.
  *
@@ -454,6 +455,11 @@ export function RoomModal({ room, onSave, onClose }) {
           <button className={tab === "sync" ? "on" : ""} onClick={() => setTab("sync")}>
             <RefreshCw size={14} /> Calendare OTA
           </button>
+          {/* Ca yala: televizoarele camerei se pun din camera ei (cerut pe
+              26 septembrie 2026). Setările generale sunt în Automatizare. */}
+          <button className={tab === "tv" ? "on" : ""} onClick={() => setTab("tv")}>
+            <Tv size={14} /> Televizor
+          </button>
         </div>
 
         {tab === "info" ? (
@@ -500,6 +506,10 @@ export function RoomModal({ room, onSave, onClose }) {
               ? <CalendareOta room={room} />
               : <div className="section-empty">Salvează camera întâi — adresele de import se leagă de ea.</div>}
           </>
+        ) : tab === "tv" ? (
+          room?.id
+            ? <TelevizoareCamera room={room} />
+            : <div className="section-empty">Salvează camera întâi — televizoarele se leagă de ea.</div>
         ) : tab === "acces" ? (
           <>
             {/* Yala electronica. Id-ul se poate scrie de mana (din TTHOTEL)

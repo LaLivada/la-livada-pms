@@ -11,9 +11,15 @@
  *
  * Comenzile trec prin Edge Function-ul `device-provider`; cheia contului
  * Shelly nu ajunge niciodata in browser.
+ *
+ * Tabul „Televizoare" (din 26 septembrie 2026) e ecranul televizoarelor din
+ * camere — mesajul de bun venit, furnizorul, aparatele, istoricul — mutat
+ * aici din meniul principal. Televizorul fiecarei camere se leaga din fisa
+ * camerei (features/televizoare-camera.jsx).
  */
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
-import { Zap, ShowerHead, Spotlight, PlugZap, Gauge, RefreshCw, Plus, Trash2, Clock, ShieldCheck, AlertTriangle, CheckCircle2 } from "lucide-react";
+import { Zap, ShowerHead, Spotlight, PlugZap, Gauge, RefreshCw, Plus, Trash2, Clock, ShieldCheck, AlertTriangle, CheckCircle2, Tv } from "lucide-react";
+import { TelevizoareView } from "./televizoare.jsx";
 import { audit, isAdmin } from "../lib/audit.js";
 import { mesajEroare } from "../lib/errors.js";
 import { fmtDateTime } from "../lib/format.js";
@@ -57,7 +63,7 @@ const LIVE_MAX_MS = 30 * 60 * 1000;
    aia e cifra de consum, nu apasarea pe buton. */
 const PAUZA_DUPA_COMANDA_MS = 4000;
 
-export function AutomatizareView({ core }) {
+export function AutomatizareView({ core, reservations }) {
   const [dispozitive, setDispozitive] = useState([]);
   const [reguli, setReguli] = useState([]);
   const [istoric, setIstoric] = useState(null);
@@ -283,9 +289,18 @@ export function AutomatizareView({ core }) {
         >
           <Clock size={14} /> Automatizări
         </button>
+        <button
+          role="tab" aria-selected={sectiune === "televizoare"}
+          className={sectiune === "televizoare" ? "on" : ""}
+          onClick={() => setSectiune("televizoare")}
+        >
+          <Tv size={14} /> Televizoare
+        </button>
       </div>
 
-      {sectiune === "automatizari" ? (
+      {sectiune === "televizoare" ? (
+        <TelevizoareView core={core} reservations={reservations} />
+      ) : sectiune === "automatizari" ? (
         <Automatizari
           dispozitive={dispozitive} reguli={reguli} rulare={rulare} ocupat={ocupat}
           onComanda={comandaGrup} onComutaRegula={comutaRegulaAutomata}

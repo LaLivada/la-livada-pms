@@ -70,7 +70,9 @@ describe("cheamaOblio", () => {
     invoke.mockResolvedValue({ data: null, error: { message: "Failed to send a request to the Edge Function" } });
     const r = await cheamaOblio("verifica", {});
     expect(r.ok).toBe(false);
-    expect(r.error).toMatch(/conexiunea/);
+    /* Online, o cerere care nu pleaca nu e dovada ca reteaua omului e de
+       vina (functie nepublicata, server cazut) — vezi src/functii-edge.test.js. */
+    expect(r.error).toBe("Serviciul de facturare nu a răspuns.");
     invoke.mockRejectedValue(new Error("boom"));
     expect(await cheamaOblio("verifica", {})).toEqual({ ok: false, error: "boom" });
     invoke.mockResolvedValue({ data: null, error: null });

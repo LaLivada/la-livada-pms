@@ -1,10 +1,11 @@
 /* MESAJELE DE BUN VENIT DE PE TELEVIZOARE — partea legată de rezervări.
  *
- * Stă separat de ecranul „Televizoare" (features/televizoare.jsx) dintr-un
- * motiv practic: de aici importă check-in-ul, check-out-ul și fișa
- * rezervării, iar ecranul de configurare e încărcat lene (`lazy`). Într-un
- * singur fișier, ecranul ar fi intrat în pachetul principal la fiecare
- * pornire, pentru trei funcții.
+ * Stă separat de ecranul televizoarelor (features/televizoare.jsx, tabul
+ * „Televizoare" din Automatizare) dintr-un motiv practic: de aici importă
+ * check-in-ul, check-out-ul și fișa rezervării, iar ecranul de configurare e
+ * încărcat lene (`lazy`, odată cu Automatizarea). Într-un singur fișier,
+ * ecranul ar fi intrat în pachetul principal la fiecare pornire, pentru trei
+ * funcții.
  *
  * NIMIC DE AICI NU ARUNCĂ ȘI NIMIC NU BLOCHEAZĂ. Un mesaj pe un televizor e
  * ultimul lucru din pensiune care are voie să răstoarne o operațiune
@@ -79,7 +80,7 @@ export async function stergeMesajLaCheckout(res, core) {
   if (r && !r.ok) {
     await audit.push("Ștergere mesaj TV eșuată", `${camera} · ${r.error || ""}`.slice(0, 200),
       { roomId: res.roomId, reservationId: res.id });
-    avertizeaza(`Check-out-ul e salvat. Doar mesajul de bun venit a rămas pe televizorul din ${camera} — îl poți șterge din ecranul „Televizoare".`);
+    avertizeaza(`Check-out-ul e salvat. Doar mesajul de bun venit a rămas pe televizorul din ${camera} — îl poți șterge din Automatizare → Televizoare.`);
   }
   return r;
 }

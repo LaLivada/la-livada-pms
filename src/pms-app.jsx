@@ -117,7 +117,6 @@ const HousekeepingView = lazy(() => import("./features/camere.jsx").then((m) => 
 const EvenimenteView = lazy(() => import("./features/caldav.jsx").then((m) => ({ default: m.EvenimenteView })));
 const NightAuditGate = lazy(() => import("./features/rezervari.jsx").then((m) => ({ default: m.NightAuditGate })));
 const AutomatizareView = lazy(() => import("./features/automatizare.jsx").then((m) => ({ default: m.AutomatizareView })));
-const TelevizoareView = lazy(() => import("./features/televizoare.jsx").then((m) => ({ default: m.TelevizoareView })));
 import {
   CalendarDays, Users, DoorOpen, Zap, UserCog, LogOut,
   Plus, X, Search, ChevronLeft, ChevronRight,
@@ -125,7 +124,7 @@ import {
   BarChart3, History, LogIn, Printer, Banknote, ArrowRight,
   Settings, Eye, XCircle, MoveRight, Tag as TagIcon, Rows2, Rows3, MessageSquare, Wrench, UserCheck,
   AlertTriangle, RefreshCw, Undo2, Copy, Info, Cpu, TrendingUp, Phone, MessageCircle,
-  Package, Receipt, CreditCard, FileDown, Mail, KeyRound, CalendarCheck, BedDouble, CalendarRange, Tv
+  Package, Receipt, CreditCard, FileDown, Mail, KeyRound, CalendarCheck, BedDouble, CalendarRange
 } from "lucide-react";
 
 /* ---------------------------------------------------------------
@@ -1334,8 +1333,10 @@ function Login({ onLogin }) {
    fourth button. */
 const SETTINGS_ITEMS = [
   { key: "clients", label: "Clienți", icon: Users, desc: "Oaspeți și grupuri", roles: ["admin", "receptionist"] },
-  { key: "automation", label: "Automatizare", icon: Zap, desc: "Boiler, iluminat exterior și prize, pe camere tehnice", roles: ["admin", "receptionist"] },
-  { key: "televizoare", label: "Televizoare", icon: Tv, desc: "Mesajele de bun venit de pe ecranele din camere", roles: ["admin", "receptionist"] },
+  /* Televizoarele nu mai au intrare proprie (26 septembrie 2026): setarile
+     lor generale sunt un tab al Automatizarii, iar televizorul fiecarei
+     camere se pune din fisa ei, ca yala. */
+  { key: "automation", label: "Automatizare", icon: Zap, desc: "Boiler, iluminat exterior, prize și televizoare", roles: ["admin", "receptionist"] },
   { key: "rooms", label: "Camere și tarife", icon: DoorOpen, desc: "Numere, tip, dispozitive Shelly/Sensibo și prețuri", roles: ["admin"] },
   { key: "sali", label: "Evenimente", icon: CalendarRange, desc: "Calendarul sălilor pe ani; serverul CalDAV și sălile", roles: ["admin"] },
   { key: "financial", label: "Financiar", icon: Receipt, desc: "Facturi, încasări, produse și TVA", roles: ["admin"] },
@@ -1353,7 +1354,6 @@ const VIEW_TITLES = {
   clients: ["Clienți", "Oaspeți și grupuri"],
   housekeeping: ["Status camere", "Curățenie și pregătire pentru sosiri"],
   automation: ["Automatizare", "Relee Shelly pe camere tehnice"],
-  televizoare: ["Televizoare", "Mesajele de bun venit de pe ecranele din camere"],
   rooms: ["Configurare camere", "Mapare dispozitive Shelly / Sensibo"],
   sali: ["Evenimente", "Calendarul sălilor pe ani și serverul CalDAV"],
   financial: ["Financiar", "Facturi, încasări, produse și TVA"],
@@ -1370,10 +1370,9 @@ const VIEW_ROLES = {
   housekeeping: ["admin", "receptionist", "housekeeping"],
   clients: ["admin", "receptionist"],
   sali: ["admin"],
+  /* Si televizoarele, care sunt un tab al ei: camerista n-are ecranul asta,
+     iar `tv_devices` ii e inchis prin RLS. */
   automation: ["admin", "receptionist"],
-  /* Aceleasi roluri ca la relee, si din acelasi motiv: camerista n-are ecranul
-     asta, iar `tv_devices` ii e inchis prin RLS. */
-  televizoare: ["admin", "receptionist"],
   settings: ["admin", "receptionist"],
   rooms: ["admin"],
   financial: ["admin"],
@@ -1627,8 +1626,7 @@ function Shell({ user, view, setView, onLogout, noutati, core, updateCore, reser
           {safeView === "housekeeping" && (
             <HousekeepingView core={core} reservations={reservations} housekeeping={housekeeping} updateHousekeeping={updateHousekeeping} />
           )}
-          {safeView === "automation" && <AutomatizareView core={core} />}
-          {safeView === "televizoare" && <TelevizoareView core={core} reservations={reservations} />}
+          {safeView === "automation" && <AutomatizareView core={core} reservations={reservations} />}
           {safeView === "sali" && <EvenimenteView />}
           {safeView === "rooms" && (
             <RoomsView core={core} updateCore={updateCore}

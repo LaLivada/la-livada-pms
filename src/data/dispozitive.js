@@ -7,6 +7,7 @@
  * Shelly controleaza toate releele si n-are ce cauta intr-un bundle de browser.
  */
 import { supabase } from "../supabase.js";
+import { cheamaFunctie } from "./functii-edge.js";
 
 /* MONTAJUL FIZIC.
  *
@@ -299,25 +300,5 @@ export async function comenziRecente(limita = 100) {
 
 /* Comanda propriu-zisa. Ca `cheamaAcces`, nu arunca niciodata: un buton de
    priza n-are voie sa darame ecranul. */
-export async function cheamaDispozitiv(action, payload = {}) {
-  try {
-    const { data, error } = await supabase.functions.invoke("device-provider", {
-      body: { action, ...payload },
-    });
-    if (error) {
-      let detaliu = null;
-      try { detaliu = (await error.context?.json())?.error; } catch { /* ramane null */ }
-      if (detaliu) return { ok: false, error: detaliu };
-      const retea = /failed to send|fetch/i.test(error.message || "");
-      return {
-        ok: false,
-        error: retea
-          ? "Nu am putut contacta serviciul de dispozitive. Verifică conexiunea și încearcă din nou."
-          : (error.message || "Serviciul de dispozitive a răspuns cu eroare."),
-      };
-    }
-    return data || { ok: false, error: "Răspuns gol de la serviciul de dispozitive." };
-  } catch (e) {
-    return { ok: false, error: e?.message || "Serviciul de dispozitive nu a răspuns." };
-  }
-}
+export const cheamaDispozitiv = (action, payload = {}) =>
+  cheamaFunctie("device-provider", "dispozitive", { action, ...payload });

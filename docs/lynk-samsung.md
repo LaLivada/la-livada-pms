@@ -50,7 +50,8 @@ nu răspunde n-are voie să se transforme tăcut în „mesaje trimise cu succes
 | Furnizori | `…/providers/lynk.ts`, `…/providers/simulare.ts` | Cel real și cel simulat, cu aceeași interfață. |
 | Date | `src/data/televizoare.js` | Citirea stării, maparea pe camere, jurnalul, apelul funcției edge. |
 | Acțiuni pe rezervare | `src/features/tv-mesaje.js` | Check-in, check-out, reconciliere după editare. |
-| Ecran | `src/features/televizoare.jsx` | Camere · Aparate · Mesaj · Istoric. Testat în `src/televizoare-ecran.test.js`. |
+| Ecran | `src/features/televizoare.jsx` | Tabul „Televizoare" din Automatizare (din 26 septembrie 2026; înainte, intrare proprie în meniu): Camere · Aparate · Mesaj · Istoric. Testat în `src/televizoare-ecran.test.js`. |
+| Fișa camerei | `src/features/televizoare-camera.jsx` | Tabul „Televizor" din Camere și tarife → camera: televizoarele camerei, ce scrie pe ecran, legarea și scoaterea lor. Testat în `src/televizoare-camera.test.js`. |
 | Schemă | `tv_devices`, `tv_messages` | Migrația `20260926192412_lynk_mesaje_tv.sql`. |
 
 ### De ce o funcție edge, și nu apeluri directe din browser
@@ -178,5 +179,6 @@ Ce e de făcut, în ordine:
    (e scris acolo, lângă funcție).
 3. Verifică forma răspunsului la listarea aparatelor și, dacă e nevoie,
    ajustează `listaDin`/`idDin`/`onlineDin`. Restul codului nu se atinge.
-4. Sincronizează, mapează o singură cameră, comută pe `lynk` și fă un
-   check-in de probă pe ea. Jurnalul din „Istoric" spune exact ce a plecat.
+4. Sincronizează, leagă televizorul unei singure camere (din fișa ei, tabul
+   „Televizor"), comută pe `lynk` și fă un check-in de probă pe ea. Jurnalul
+   din Automatizare → Televizoare → „Istoric" spune exact ce a plecat.

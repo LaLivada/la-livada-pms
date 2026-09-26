@@ -11,7 +11,7 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 import { Mail, MessageCircle, RefreshCw } from "lucide-react";
-import { supabase } from "../supabase.js";
+import { cheamaFunctie } from "../data/functii-edge.js";
 import * as dateAcces from "../data/acces.js";
 import { audit } from "../lib/audit.js";
 import { mesajEroare } from "../lib/errors.js";
@@ -23,35 +23,8 @@ import {
 } from "../lib/acces.js";
 import { toaster } from "../ui/primitive.jsx";
 
-export async function cheamaAcces(action, payload = {}) {
-  try {
-    const { data, error } = await supabase.functions.invoke("access-provider", {
-      body: { action, ...payload },
-    });
-    if (error) {
-      /* invoke() marcheaza ca eroare orice status non-2xx, dar corpul are
-         mesajul nostru — il preferam celui generic al bibliotecii. */
-      let detaliu = null;
-      try { detaliu = (await error.context?.json())?.error; } catch { /* ramane null */ }
-      if (detaliu) return { ok: false, error: detaliu };
-
-      /* Fara corp de raspuns inseamna ca cererea nu a ajuns deloc: retea
-         cazuta, extensie de browser care blocheaza, sau functia in curs de
-         redeploy. Mesajul bibliotecii ("Failed to send a request to the Edge
-         Function") nu spune nimanui ce sa faca, asa ca il traducem. */
-      const retea = /failed to send|fetch/i.test(error.message || "");
-      return {
-        ok: false,
-        error: retea
-          ? "Nu am putut contacta serviciul de acces. Verifică conexiunea și încearcă din nou; dacă persistă, reîncarcă pagina."
-          : (error.message || "Serviciul de acces a răspuns cu eroare."),
-      };
-    }
-    return data || { ok: false, error: "Raspuns gol de la serviciul de acces." };
-  } catch (e) {
-    return { ok: false, error: e?.message || "Serviciul de acces nu a raspuns." };
-  }
-}
+export const cheamaAcces = (action, payload = {}) =>
+  cheamaFunctie("access-provider", "acces", { action, ...payload });
 
 /* Aduce codul de acces la zi după ce o rezervare s-a modificat.
  *

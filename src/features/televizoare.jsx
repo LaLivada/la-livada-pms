@@ -1,5 +1,9 @@
 /* TELEVIZOARE — mesajele de bun venit din camere (Samsung LYNK Cloud).
  *
+ * Din 26 septembrie 2026 e tabul „Televizoare" din Automatizare, nu o
+ * intrare proprie în meniu; televizorul fiecărei camere se leagă și din fișa
+ * camerei (features/televizoare-camera.jsx).
+ *
  * Ecranul e organizat pe trei întrebări, în ordinea în care le pune cineva
  * care stă la recepție:
  *   · „ce scrie acum pe ecranul din camera X?"  → Camere
@@ -80,7 +84,7 @@ export function TelevizoareView({ core, reservations }) {
 
   return (
     <div>
-      <div className="sub-tabs" role="tablist" aria-label="Secțiuni">
+      <div className="sub-tabs" role="tablist" aria-label="Secțiuni televizoare">
         <button role="tab" aria-selected={sectiune === "camere"}
           className={sectiune === "camere" ? "on" : ""} onClick={() => setSectiune("camere")}>
           <Tv size={14} /> Camere
@@ -168,7 +172,8 @@ function Camere({ core, reservations, televizoare, ocupat, onCheama }) {
     return (
       <div className="empty-state">
         Niciun televizor nu e legat de vreo cameră. Adu aparatele din contul LYNK
-        și leagă-le de camere în „Aparate".
+        și leagă-le de camere în „Aparate" sau din fișa fiecărei camere (Camere și
+        tarife → camera → Televizor).
       </div>
     );
   }

@@ -12,7 +12,7 @@
  */
 import { supabase } from "../supabase.js";
 import { loadShared, saveShared, K } from "./stare-partajata.js";
-import { esteOffline } from "./coada.js";
+import { cheamaFunctie } from "./functii-edge.js";
 import { normalizeazaSetari } from "../lib/tv.js";
 
 /* Toate televizoarele, in forma de care are nevoie ecranul. Cele nemapate
@@ -103,34 +103,5 @@ export async function salveazaSetariTv(setari) {
 
 /* Apelul catre functia edge. Ca `cheamaDispozitiv` si `cheamaAcces`, nu
    arunca NICIODATA: un mesaj de bun venit n-are voie sa darame un check-in. */
-export async function cheamaTv(action, payload = {}) {
-  try {
-    const { data, error } = await supabase.functions.invoke("tv-provider", {
-      body: { action, ...payload },
-    });
-    if (error) {
-      /* invoke() marcheaza ca eroare orice status non-2xx, dar corpul are
-         mesajul nostru — il preferam celui generic al bibliotecii. */
-      let detaliu = null;
-      try { detaliu = (await error.context?.json())?.error; } catch { /* ramane null */ }
-      if (detaliu) return { ok: false, error: detaliu };
-      /* Cererea n-a plecat deloc. Din browser, o functie edge nepublicata
-         (preflight 404, deci CORS), un server cazut si o retea cazuta arata
-         la fel: `FunctionsFetchError`. Doar `navigator.onLine === false`
-         spune sigur ca e de la noi; altfel NU trimitem receptia sa-si verifice
-         conexiunea. Pe 25-26 septembrie 2026 functia lipsea, iar „Verifică
-         conexiunea" l-a facut pe receptioner sa creada ca nici rezervarile nu
-         se salvasera. */
-      const retea = /failed to send|fetch/i.test(error.message || "");
-      return {
-        ok: false,
-        error: retea
-          ? (esteOffline() ? "Nu există conexiune la internet." : "Serviciul de televizoare nu a răspuns.")
-          : (error.message || "Serviciul de televizoare a răspuns cu eroare."),
-      };
-    }
-    return data || { ok: false, error: "Răspuns gol de la serviciul de televizoare." };
-  } catch (e) {
-    return { ok: false, error: e?.message || "Serviciul de televizoare nu a răspuns." };
-  }
-}
+export const cheamaTv = (action, payload = {}) =>
+  cheamaFunctie("tv-provider", "televizoare", { action, ...payload });

@@ -317,10 +317,12 @@ describe("AutomatizareView — consumul se reciteste singur", () => {
 });
 
 describe("AutomatizareView — cele doua sectiuni", () => {
+  /* „Televizoare" e a treia din 26 septembrie 2026, mutata din meniul
+     principal — vezi automatizare-televizoare.test.js. */
   it("porneste pe „Camere tehnice”, cu „Automatizări” ca a doua sectiune", async () => {
     const g = await randeaza();
     const sectiuni = [...g.querySelectorAll('.sub-tabs:not(.dv-tabs) [role="tab"]')];
-    expect(sectiuni.map((t) => t.textContent.trim())).toEqual(["Camere tehnice", "Automatizări"]);
+    expect(sectiuni.map((t) => t.textContent.trim())).toEqual(["Camere tehnice", "Automatizări", "Televizoare"]);
     expect(sectiuni[0].getAttribute("aria-selected")).toBe("true");
   });
 

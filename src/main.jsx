@@ -13,6 +13,7 @@ import App from './App.jsx'
 import { instaleazaCapturaErori, creeazaColector } from './lib/erori-productie.js'
 import { scrieInJurnalTacut } from './lib/audit.js'
 import { aplicaTema, citesteTema } from './lib/interfata.js'
+import { instaleazaTaburiDerulabile } from './ui/taburi-derulabile.js'
 
 /* Erorile neprinse (script, promisiune fara catch) ajung in jurnalul din
    activity_log — faza 2, D7. Instalat INAINTE de prima randare, ca sa prinda
@@ -25,6 +26,10 @@ instaleazaCapturaErori(window, creeazaColector({ scrie: scrieInJurnalTacut }))
    nu la prefers-color-scheme (lib/interfata.js). Dupa autentificare o preia
    InterfataProvider (ui/interfata.jsx), cu urmarirea sistemului. */
 aplicaTema(document, citesteTema(globalThis.localStorage), (q) => window.matchMedia?.(q))
+
+/* Barele de taburi care nu incap se deruleaza si cu rotita mouse-ului, iar
+   tabul apasat vine intreg in vedere (ui/taburi-derulabile.js). */
+instaleazaTaburiDerulabile(document)
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>

@@ -1767,9 +1767,22 @@ label.field input, label.field select, label.field textarea{ cursor:auto; }
 }
 .tabs-bar .sub-tabs{ margin-bottom:0; }
 .tabs-actions{ display:flex; gap:8px; flex-wrap:wrap; }
+/* Cand taburile nu incap, bara se deruleaza (cu degetul, cu trackpad-ul si,
+   din ui/taburi-derulabile.js, cu rotita mouse-ului). Umbrele de la margini
+   arata ca mai e ceva intr-o parte: cele doua straturi „scroll" stau pe loc,
+   iar cele „local", de culoarea barei, se misca odata cu taburile si acopera
+   umbra cand esti chiar la capatul acela. Fara JavaScript, si pe toate barele
+   deodata. */
 .sub-tabs{
-  display:flex; gap:4px; background:var(--surface-2); border-radius:11px; padding:4px;
+  display:flex; gap:4px; border-radius:11px; padding:4px;
   margin-bottom:18px; flex-shrink:0; overflow-x:auto; -webkit-overflow-scrolling:touch;
+  overscroll-behavior-x:contain;
+  background:
+    linear-gradient(to right, var(--surface-2) 40%, transparent) left center / 28px 100% no-repeat local,
+    linear-gradient(to left, var(--surface-2) 40%, transparent) right center / 28px 100% no-repeat local,
+    radial-gradient(farthest-side at 0 50%, color-mix(in srgb, var(--text) 22%, transparent), transparent) left center / 12px 100% no-repeat scroll,
+    radial-gradient(farthest-side at 100% 50%, color-mix(in srgb, var(--text) 22%, transparent), transparent) right center / 12px 100% no-repeat scroll,
+    var(--surface-2);
 }
 .sub-tabs button{ flex-shrink:0; }
 .sub-tabs button{
@@ -2999,6 +3012,15 @@ label.field input, label.field select, label.field textarea{ cursor:auto; }
   white-space:pre-wrap; word-break:break-word;
 }
 .tv-gol{ margin-top:8px; font-size:var(--fs-sm); color:var(--text-muted); font-style:italic; }
+/* Fișa camerei, tabul „Televizor": un televizor pe rând — numele și butonul
+   sus, ecranul pe toată lățimea dedesubt. */
+.tv-camera-rand{ padding:12px 14px; border-bottom:1px solid var(--border-soft); }
+.tv-camera-rand:last-child{ border-bottom:none; }
+.tv-camera-cap{ display:flex; align-items:flex-start; justify-content:space-between; gap:8px 12px; flex-wrap:wrap; }
+.tv-camera-cap .primary{ font-weight:600; font-size:var(--fs-md); }
+.tv-camera-cap .secondary{ margin-top:2px; font-size:var(--fs-sm); color:var(--text-muted); }
+.tv-camera-scris{ margin-top:6px; font-size:var(--fs-sm); color:var(--text-muted); }
+.tv-camera-actiuni{ display:flex; flex-wrap:wrap; gap:8px; margin-top:4px; }
 /* Șablonul se editează ca text, cu rândurile vizibile: un `input` de o linie
    ar fi ascuns tocmai împărțirea pe rânduri, care e jumătate din mesaj. */
 .tv-sablon{
