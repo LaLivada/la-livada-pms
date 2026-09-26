@@ -119,7 +119,7 @@ export function Dialog({ title, onClose, children, className = "", overlayClassN
     const camp = e.target;
     if (!camp?.matches?.("input, textarea, select")) return;
     setTimeout(() => {
-      camp.scrollIntoView({ block: "nearest", behavior: "smooth" });
+      camp.scrollIntoView?.({ block: "nearest", behavior: "smooth" });
     }, 250);
   };
 
@@ -181,7 +181,7 @@ export function useAduInVizor(vizibil) {
   useEffect(() => {
     if (!vizibil) return;
     const t = setTimeout(() => {
-      ref.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+      ref.current?.scrollIntoView?.({ block: "nearest", behavior: "smooth" });
     }, 80);
     return () => clearTimeout(t);
   }, [vizibil]);
